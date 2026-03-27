@@ -48,9 +48,9 @@ export default async function Home() {
   const user = data?.claims;
 
   // If logged in, redirect to dashboard
-  // if (user) {
-  //   redirect("/dashboard");
-  // }
+  if (user) {
+    redirect("/dashboard");
+  }
 
   return (
     <main className="min-h-screen flex flex-col items-center">
