@@ -33,13 +33,37 @@ export function LoginForm({
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
+
+      const userId = data?.user?.id;
+      if (!userId) {
+        throw new Error("Could not get logged in user id");
+      }
+
+      const profileResult = await supabase
+        .from("profiles")
+        .select("status,role")
+        .eq("user_id", userId)
+        .single();
+
+      if (profileResult.error || !profileResult.data) {
+        await supabase.auth.signOut();
+        throw new Error("User profile not found or unauthorized");
+      }
+
+      if (profileResult.data.status !== "active") {
+        await supabase.auth.signOut();
+        throw new Error(
+          "Account is pending approval or disabled. Contact an admin.",
+        );
+      }
+
       // Update this route to redirect to an authenticated route. The user already has an active session.
-      router.push("/protected");
+      router.push("/dashboard");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
