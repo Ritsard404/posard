@@ -118,19 +118,14 @@ export function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900">
-                  <span className="text-lg font-bold">B</span>
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Baisard</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    POS System
-                  </span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
+            <Link className="flex items-center space-x-1" href="/">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900">
+                <span className="text-md font-bold">P</span>
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">POSard</span>
+              </div>
+            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -188,7 +183,7 @@ export function AppSidebar() {
               <AlertDialogTrigger asChild>
                 <SidebarMenuButton tooltip="Sign Out">
                   <LogOut />
-                  <span>Sign out</span>
+                  <span>Log out</span>
                 </SidebarMenuButton>
               </AlertDialogTrigger>
               <AlertDialogContent>

@@ -1,34 +1,15 @@
 import {
-  Box,
-  Calculator,
   LayoutDashboard,
-  Receipt,
   Users,
   ShoppingCart,
-  BarChart,
   Settings,
-  UserCircle,
+  BaggageClaimIcon,
+  Package,
+  BarChart3,
 } from "lucide-react";
 
 // lib/navigation.ts
 export type UserRole = "admin" | "manager" | "cashier";
-
-// lib/navigation.ts
-export const roleRouteMap: Record<UserRole, string[]> = {
-  admin: [
-    "/dashboard",
-    "/profile",
-    "/users",
-    "/reports",
-    "/settings",
-    "/orders",
-    "/inventory",
-    "/pos",
-    "/transactions",
-  ],
-  manager: ["/dashboard", "/profile", "/orders", "/inventory"],
-  cashier: ["/dashboard", "/profile", "/pos", "/transactions"],
-};
 
 export const roles: UserRole[] = ["admin", "manager", "cashier"];
 
@@ -43,33 +24,47 @@ export const navItems = [
     icon: LayoutDashboard,
     roles: ["admin", "manager", "cashier"],
   },
-  { label: "POS", href: "/pos", icon: Calculator, roles: ["admin", "cashier"] },
   {
-    label: "Inventory",
+    href: "/pos",
+    roles: ["cashier", "manager"],
+    label: "Point of Sale",
+    icon: ShoppingCart, // Pass the component directly
+  },
+  {
+    href: "/product",
+    roles: ["manager"],
+    label: "Products",
+    icon: BaggageClaimIcon,
+  },
+  {
     href: "/inventory",
-    icon: Box,
-    roles: ["admin", "manager"],
+    roles: ["manager"],
+    label: "Inventory",
+    icon: Package,
   },
   {
-    label: "Orders",
-    href: "/orders",
-    icon: ShoppingCart,
-    roles: ["admin", "manager"],
+    href: "/report",
+    roles: ["manager", "admin"],
+    label: "Reports",
+    icon: BarChart3,
   },
   {
-    label: "Transactions",
-    href: "/transactions",
-    icon: Receipt,
-    roles: ["admin", "cashier"],
+    href: "/accounts",
+    roles: ["admin"],
+    label: "Accounts",
+    icon: Users,
   },
-  { label: "Users", href: "/users", icon: Users, roles: ["admin"] },
-  { label: "Reports", href: "/reports", icon: BarChart, roles: ["admin"] },
-  { label: "Settings", href: "/settings", icon: Settings, roles: ["admin"] },
   {
-    label: "Profile",
-    href: "/profile",
-    icon: UserCircle,
-    roles: ["admin", "manager", "cashier"],
+    href: "/admin",
+    roles: ["manager"],
+    label: "Accounts",
+    icon: Users,
+  },
+  {
+    href: "/settings",
+    roles: ["manager"],
+    label: "Settings",
+    icon: Settings,
   },
 ];
 export function getNavByRole(role: UserRole) {
