@@ -26,7 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState, useEffect } from "react";
-import { getNavByRole, isValidUserRole, UserRole } from "@/lib/navigation";
+import { getNavByRole, isValidUserRole, UserRole } from "@/lib/access-control";
 import { createClient } from "@/lib/supabase/client";
 
 export function AppSidebar() {

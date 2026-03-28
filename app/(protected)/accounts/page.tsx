@@ -1,76 +1,134 @@
 "use client";
 
-import { useState } from "react";
-import AccountTable from "@/components/accounts/AccountTable";
-import { useMembersQuery } from "@/features/member/member.hooks";
-import {
-  useApproveMemberMutation,
-  useActivateMemberMutation,
-  useDeactivateMemberMutation,
-} from "@/features/member/member.hooks";
+import { useState, useEffect, useCallback } from "react";
+import AccountTable from "@/app/(protected)/accounts/_components/AccountTable";
+import { memberService } from "@/app/(protected)/accounts/_services/member.service";
+import { MemberListItem, MemberApprovalStatus } from "@/app/(protected)/accounts/_services/member.dto";
 
 export default function AccountsPage() {
+  // ── Data state ────────────────────────────────────────────────────────────
+  const [allMembers, setAllMembers] = useState<MemberListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // ── Filter / pagination state ─────────────────────────────────────────────
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState("");
-  const [approvalStatus, setApprovalStatus] = useState<
-    "APPROVED" | "PENDING" | "REJECTED" | ""
-  >("");
+  const [approvalStatus, setApprovalStatus] = useState<MemberApprovalStatus | "">("");
 
-  const { data, isLoading } = useMembersQuery({
-    page,
-    size: pageSize,
-    sortBy: "identifier",
-    direction: "asc",
-    keyword: keyword || undefined,
-    approvalStatus: approvalStatus || undefined,
-  });
+  // ── Fetch ─────────────────────────────────────────────────────────────────
+  const fetchMembers = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await memberService.findAll();
+      setAllMembers(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch members");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const approveMutation = useApproveMemberMutation();
-  const activateMutation = useActivateMemberMutation();
-  const deactivateMutation = useDeactivateMemberMutation();
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers]);
 
-  const handleApprove = (memberId: string) => {
-    if (window.confirm("Are you sure you want to approve this member?")) {
-      approveMutation.mutate(memberId);
+  // ── Client-side filter + paginate ─────────────────────────────────────────
+  const filtered = allMembers
+    .filter((m) => {
+      const kw = keyword.toLowerCase();
+      const matchesKeyword =
+        !keyword ||
+        m.identifier.toLowerCase().includes(kw) ||
+        m.company?.name?.toLowerCase().includes(kw) ||
+        m.company?.email?.toLowerCase().includes(kw);
+      const matchesStatus = !approvalStatus || m.approvalStatus === approvalStatus;
+      return matchesKeyword && matchesStatus;
+    })
+    .sort((a, b) => a.identifier.localeCompare(b.identifier));
+
+  const totalCount = filtered.length;
+  const pageContent = filtered.slice(page * pageSize, page * pageSize + pageSize);
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const handleApprove = async (memberId: string) => {
+    if (!window.confirm("Approve this member?")) return;
+    try {
+      await memberService.approve(memberId);
+      await fetchMembers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve member");
     }
   };
 
-  const handleActivate = (memberId: string) => {
-    if (window.confirm("Are you sure you want to activate this member?")) {
-      activateMutation.mutate(memberId);
+  const handleReject = async (memberId: string) => {
+    if (!window.confirm("Reject this member?")) return;
+    try {
+      await memberService.reject(memberId);
+      await fetchMembers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reject member");
     }
   };
 
-  const handleDeactivate = (memberId: string) => {
-    if (window.confirm("Are you sure you want to deactivate this member?")) {
-      deactivateMutation.mutate(memberId);
+  const handleActivate = async (memberId: string) => {
+    if (!window.confirm("Activate this member?")) return;
+    try {
+      await memberService.activate(memberId);
+      await fetchMembers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to activate member");
     }
   };
 
+  const handleDeactivate = async (memberId: string) => {
+    if (!window.confirm("Deactivate this member?")) return;
+    try {
+      await memberService.deactivate(memberId);
+      await fetchMembers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to deactivate member");
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-          Accounts
-        </h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Accounts</h1>
         <p className="text-gray-600 text-sm md:text-base mt-1">
           Manage user accounts and permissions
         </p>
       </div>
 
-      {/* Table with integrated filters */}
+      {/* Error banner */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 font-medium">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Table */}
       <AccountTable
-        members={data?.content || []}
+        members={pageContent}
         isLoading={isLoading}
         onApprove={handleApprove}
+        onReject={handleReject}
         onActivate={handleActivate}
         onDeactivate={handleDeactivate}
         itemsPerPage={pageSize}
-        onPageSizeChange={setPageSize}
-        onSearch={setKeyword}
-        onStatusFilter={setApprovalStatus}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
+        totalCount={totalCount}
+        currentPage={page}
+        onPageChange={setPage}
+        onSearch={(kw) => { setKeyword(kw); setPage(0); }}
+        onStatusFilter={(s) => { setApprovalStatus(s); setPage(0); }}
         currentStatus={approvalStatus}
       />
     </div>
