@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import AccountTable from "@/app/(protected)/accounts/_components/AccountTable";
-import { memberService } from "@/app/(protected)/accounts/_services/member.service";
+import {
+  findAllMembers,
+  approveMember,
+  rejectMember,
+  activateMember,
+  deactivateMember,
+} from "@/app/(protected)/accounts/_actions/member.actions";
 import { MemberListItem, MemberApprovalStatus } from "@/app/(protected)/accounts/_services/member.dto";
 
 export default function AccountsPage() {
@@ -22,8 +28,9 @@ export default function AccountsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await memberService.findAll();
+      const data = await findAllMembers();
       setAllMembers(data);
+      console.log("Fetched members:", data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch members");
     } finally {
@@ -56,7 +63,7 @@ export default function AccountsPage() {
   const handleApprove = async (memberId: string) => {
     if (!window.confirm("Approve this member?")) return;
     try {
-      await memberService.approve(memberId);
+      await approveMember(memberId);
       await fetchMembers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve member");
@@ -66,7 +73,7 @@ export default function AccountsPage() {
   const handleReject = async (memberId: string) => {
     if (!window.confirm("Reject this member?")) return;
     try {
-      await memberService.reject(memberId);
+      await rejectMember(memberId);
       await fetchMembers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reject member");
@@ -76,7 +83,7 @@ export default function AccountsPage() {
   const handleActivate = async (memberId: string) => {
     if (!window.confirm("Activate this member?")) return;
     try {
-      await memberService.activate(memberId);
+      await activateMember(memberId);
       await fetchMembers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to activate member");
@@ -86,7 +93,7 @@ export default function AccountsPage() {
   const handleDeactivate = async (memberId: string) => {
     if (!window.confirm("Deactivate this member?")) return;
     try {
-      await memberService.deactivate(memberId);
+      await deactivateMember(memberId);
       await fetchMembers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deactivate member");
