@@ -1,0 +1,185 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                        PRISMA CHEATSHEET (Supabase)                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Install Prisma
+    npm install prisma @prisma/client
+    npx prisma init
+
+  Set DB URL in .env
+    DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MIGRATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Create + apply migration (development)
+    npx prisma migrate dev --name <migration_name>
+    Example: npx prisma migrate dev --name add_full_name_to_profiles
+
+  Create migration file only (without applying)
+    npx prisma migrate dev --name <migration_name> --create-only
+
+  Apply existing migrations (production / CI)
+    npx prisma migrate deploy
+
+  Reset DB and re-run all migrations (DELETES ALL DATA)
+    npx prisma migrate reset
+
+  Check migration status
+    npx prisma migrate status
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SCHEMA SYNC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Pull DB schema into Prisma (DB → schema.prisma)
+    npx prisma db pull
+
+  Push schema to DB without migration file (quick prototyping only)
+    npx prisma db push
+
+  Generate Prisma Client after schema changes
+    npx prisma generate
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  COMMON WORKFLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Normal dev cycle (edit schema → apply → generate)
+    1. Edit prisma/schema.prisma
+    2. npx prisma migrate dev --name <what_you_changed>
+    3. npx prisma generate          ← usually auto-runs after migrate
+
+  Adding a new column
+    1. Add field to model in schema.prisma
+    2. npx prisma migrate dev --name add_<column>_to_<table>
+
+  Renaming a column
+    1. Use @map("old_db_column_name") on the new Prisma field name
+    2. npx prisma migrate dev --name rename_<column>_in_<table>
+
+  When DB already has tables (existing Supabase setup)
+    1. npx prisma migrate dev --name init --create-only
+    2. Review prisma/migrations/.../migration.sql
+    3. Remove any duplicate CREATE TYPE / CREATE TABLE lines
+    4. npx prisma migrate deploy
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  INSPECT & DEBUG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Open visual DB browser
+    npx prisma studio                ← opens at http://localhost:5555
+
+  Validate schema without applying
+    npx prisma validate
+
+  Format schema file
+    npx prisma format
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SCHEMA FIELD TYPES (PostgreSQL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Prisma Type      @db modifier          Use for
+  ─────────────    ──────────────────    ──────────────────────────────
+  String           @db.Uuid              UUID fields
+  String           @db.VarChar(n)        Limited-length strings
+  String           (none)                TEXT columns
+  DateTime         @db.Timestamptz       Timestamps with timezone
+  DateTime         @db.Date              Date only (no time)
+  Decimal          @db.Decimal(p, s)     Money / precise decimals
+  Int              (none)                Integer
+  Boolean          (none)                true/false
+  Json             (none)                JSONB column
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  COMMON FIELD DECORATORS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  @id                         Primary key
+  @unique                     Unique constraint
+  @default(value)             Default value
+  @default(now())             Auto timestamp on create
+  @default(dbgenerated("..")) Use DB function e.g. gen_random_uuid()
+  @updatedAt                  Auto timestamp on update
+  @map("db_column_name")      Map Prisma field to different DB column
+  @@map("db_table_name")      Map Prisma model to different DB table
+  @db.Uuid                    Mark as UUID type in PostgreSQL
+  ?                           Makes field nullable  e.g. String?
+  []                          Relation array        e.g. Member[]
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RELATIONS QUICK REFERENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  One-to-Many (e.g. Company has many Members)
+    model Company {
+      members Member[]
+    }
+    model Member {
+      companyId String?  @map("uuid_company") @db.Uuid
+      company   Company? @relation(fields: [companyId], references: [id])
+    }
+
+  Self-relation (e.g. Member approved by another Member)
+    model Member {
+      approvedById    String?  @db.Uuid
+      approvedBy      Member?  @relation("ApprovedBy", fields: [approvedById], references: [id])
+      approvedMembers Member[] @relation("ApprovedBy")
+    }
+
+  Multiple FK to same model (e.g. Timestamp has cashier, managerIn, managerOut)
+    → Must use named relations on both sides
+    cashier    Member  @relation("CashierTimestamp",    fields: [cashierId],    references: [id])
+    managerIn  Member? @relation("ManagerInTimestamp",  fields: [managerInId],  references: [id])
+    managerOut Member? @relation("ManagerOutTimestamp", fields: [managerOutId], references: [id])
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SUPABASE-SPECIFIC TIPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Use pooler URL (port 6543) for migrations and client
+    DATABASE_URL="postgresql://...pooler.supabase.com:6543/postgres"
+
+  If enum already exists in Supabase, drop before migrating
+    DROP TYPE IF EXISTS user_role CASCADE;
+    DROP TYPE IF EXISTS user_status CASCADE;
+
+  RLS policies are managed in Supabase SQL editor, NOT via Prisma
+
+  Prisma does not manage auth.users — that is Supabase Auth only
+
+  After any schema change always run:
+    npx prisma generate
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QUICK COMMAND REFERENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  npx prisma migrate dev --name <name>    Create + apply migration
+  npx prisma migrate deploy               Apply migrations (prod)
+  npx prisma migrate reset                Reset DB (dev only)
+  npx prisma migrate status               Show migration history
+  npx prisma db pull                      Sync DB → schema
+  npx prisma db push                      Sync schema → DB (no migration)
+  npx prisma generate                     Rebuild Prisma Client
+  npx prisma validate                     Check schema for errors
+  npx prisma format                       Auto-format schema file
+  npx prisma studio                       Open visual DB browser
+
+══════════════════════════════════════════════════════════════════════════════

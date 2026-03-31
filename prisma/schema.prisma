@@ -1,13 +1,230 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["public"]
+}
+
+// ──────────────────────────────────────────────
+// Enums
+// ──────────────────────────────────────────────
+
+enum UserRole {
+  admin
+  manager
+  cashier
+
+  @@map("user_role")
+  @@schema("public")
+}
+
+enum UserStatus {
+  pending
+  active
+  disabled
+
+  @@map("user_status")
+  @@schema("public")
+}
+
+enum MemberApprovalStatus {
+  PENDING
+  APPROVED
+
+  @@map("member_approval_status")
+  @@schema("public")
+}
+
+enum PermissionType {
+  SUPERADMIN
+  ADMIN
+  CASHIER
+  USER
+
+  @@map("permission_type")
+  @@schema("public")
+}
+
+// ──────────────────────────────────────────────
+// Profile  (your existing — unchanged)
+// ──────────────────────────────────────────────
+
+model Profile {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String     @unique @map("user_id") @db.Uuid
+  email     String     @unique
+  fullName  String?    @map("full_name")
+  role      UserRole   @default(manager)
+  status    UserStatus @default(pending)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  // NO relation to AuthUser here
+
+  @@map("profiles")
+  @@schema("public")
+}
+
+
+// ──────────────────────────────────────────────
+// Company  (Company.java)
+// ──────────────────────────────────────────────
+
+model Company {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_company") @db.Uuid
+  name         String
+  code         String?
+  email        String?
+  phone        String?
+  logoImageUrl String?  @map("logo_img_url") @db.VarChar(500)
+  approved     Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  members      Member[]
+  images       CompanyImage[]
+  posTerminals PosTerminalInfo[]
+
+  @@map("company")
+  @@schema("public")
+}
+
+// ElementCollection — company_images table
+model CompanyImage {
+  id        Int    @id @default(autoincrement())
+  companyId String @map("uuid_company") @db.Uuid
+  imageUrl  String @map("image_url")
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@map("company_images")
+  @@schema("public")
+}
+
+// ──────────────────────────────────────────────
+// Member  (Member.java)
+// ──────────────────────────────────────────────
+
+model Member {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_member") @db.Uuid
+  firstName String? @map("first_name")
+  lastName  String? @map("last_name")
+  username  String? @unique
+
+  // Soft delete
+  memberIsDeleted Boolean   @default(false) @map("member_is_deleted")
+  memberDeletedAt DateTime? @map("member_deleted_at") @db.Timestamptz
+
+  // Approval
+  approvalStatus MemberApprovalStatus @default(PENDING) @map("approval_status")
+  approvedAt     DateTime?            @map("approved_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Self-ref: who approved this member
+  approvedById    String?  @map("approved_by") @db.Uuid
+  approvedBy      Member?  @relation("ApprovedBy", fields: [approvedById], references: [id])
+  approvedMembers Member[] @relation("ApprovedBy")
+
+  // Company
+  companyId String?  @map("uuid_company") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  // Timestamp roles
+  timestampsAsCashier    Timestamp[] @relation("CashierTimestamp")
+  timestampsAsManagerIn  Timestamp[] @relation("ManagerInTimestamp")
+  timestampsAsManagerOut Timestamp[] @relation("ManagerOutTimestamp")
+
+  @@map("member")
+  @@schema("public")
+}
+
+// ──────────────────────────────────────────────
+// PosTerminalInfo  (PosTerminalInfo.java)
+// ──────────────────────────────────────────────
+
+model PosTerminalInfo {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_pos_terminal") @db.Uuid
+
+  // POS Machine Info
+  minNumber           String   @map("min_number")
+  accreditationNumber String   @map("accreditation_number")
+  ptuNumber           String   @map("ptu_number")
+  dateIssued          DateTime @map("date_issued") @db.Date
+  validUntil          DateTime @map("valid_until") @db.Date
+
+  // Business Details
+  posName        String  @map("pos_name")
+  registeredName String  @map("registered_name")
+  operatedBy     String  @map("operated_by")
+  address        String
+  vatTinNumber   String  @map("vat_tin_number")
+  vat            Int
+  discountMax    Decimal @map("discount_max") @db.Decimal(10, 2)
+
+  // API Flags
+  costCenter   String  @map("cost_center")
+  branchCenter String  @map("branch_center")
+  useCenter    String  @map("use_center")
+  dbName       String? @map("db_name")
+  printerName  String  @map("printer_name")
+
+  // Counters
+  resetCounterNo      Int @default(0) @map("reset_counter_no")
+  resetCounterTrainNo Int @default(0) @map("reset_counter_train_no")
+  zCounterNo          Int @default(0) @map("z_counter_no")
+  zCounterTrainNo     Int @default(0) @map("z_counter_train_no")
+
+  // Modes
+  isTrainMode  Boolean @default(false) @map("is_train_mode")
+  isRetailType Boolean @default(false) @map("is_retail_type")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Company
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id])
+
+  timestamps Timestamp[]
+
+  @@map("pos_terminal_info")
+  @@schema("public")
+}
+
+// ──────────────────────────────────────────────
+// Timestamp  (Timestamp.java)
+// ──────────────────────────────────────────────
+
+model Timestamp {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_timestamp") @db.Uuid
+
+  timestampIn           DateTime? @map("timestamp_in") @db.Timestamptz
+  timestampOut          DateTime? @map("timestamp_out") @db.Timestamptz
+  cashInDrawerAmount    Decimal   @default(0) @map("cash_in_drawer_amount") @db.Decimal(15, 2)
+  cashOutDrawerAmount   Decimal   @default(0) @map("cash_out_drawer_amount") @db.Decimal(15, 2)
+  withdrawnDrawerAmount Decimal   @default(0) @map("withdrawn_drawer_amount") @db.Decimal(15, 2)
+  withdrawnDrawerCount  Decimal   @default(0) @map("withdrawn_drawer_count") @db.Decimal(10, 2)
+
+  // POS Terminal
+  posTerminalId String          @map("uuid_pos_terminal") @db.Uuid
+  posTerminal   PosTerminalInfo @relation(fields: [posTerminalId], references: [id])
+
+  // Cashier (required)
+  cashierId String @map("uuid_cashier") @db.Uuid
+  cashier   Member @relation("CashierTimestamp", fields: [cashierId], references: [id])
+
+  // Manager In (optional)
+  managerInId String? @map("uuid_manager_in") @db.Uuid
+  managerIn   Member? @relation("ManagerInTimestamp", fields: [managerInId], references: [id])
+
+  // Manager Out (optional)
+  managerOutId String? @map("uuid_manager_out") @db.Uuid
+  managerOut   Member? @relation("ManagerOutTimestamp", fields: [managerOutId], references: [id])
+
+  @@map("timestamp")
+  @@schema("public")
 }
