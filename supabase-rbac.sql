@@ -61,3 +61,13 @@ create policy "admins_can_update_status" on profiles
 create policy "users_can_insert_self" on profiles
   for insert
   with check (user_id = auth.uid() and role = 'manager' and status = 'pending');
+
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can read own profile"
+ON public.profiles
+FOR SELECT
+USING (auth.uid() = user_id);
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT SELECT ON public.profiles TO authenticated;

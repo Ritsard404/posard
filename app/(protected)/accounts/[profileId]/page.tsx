@@ -168,7 +168,9 @@ export default function ProfileDetailPage({
         onApprove={profile?.status === "pending" ? handleApprove : undefined}
         onReject={profile?.status === "pending" ? handleReject : undefined}
         onActivate={profile?.status === "disabled" ? handleActivate : undefined}
-        onDeactivate={profile?.status === "active" ? handleDeactivate : undefined}
+        onDeactivate={
+          profile?.status === "active" ? handleDeactivate : undefined
+        }
       />
     </div>
   );

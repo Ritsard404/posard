@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, UserRole, UserStatus } from "@prisma/client";
+import { createClient } from "@/lib/supabase/server";
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
@@ -70,12 +71,24 @@ export const profileService = {
   }): Promise<ProfileListItem[]> {
     if (USE_MOCK) return [];
 
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    const currentUserId = data.user?.id;
+
+    console.log(
+      "Fetching profiles with params:",
+      params,
+      "Current user ID:",
+      currentUserId,
+    );
+
     const orderBy =
       params?.sortBy && SORTABLE_FIELDS[params.sortBy]
         ? { [params.sortBy]: params.direction ?? "desc" }
         : { createdAt: "desc" as const };
 
     const where: Prisma.ProfileWhereInput = {
+      ...(currentUserId && { userId: { not: currentUserId } }),
       ...(params?.status && { status: params.status }),
       ...(params?.keyword && {
         OR: [
@@ -97,8 +110,15 @@ export const profileService = {
   },
 
   async findById(id: string): Promise<ProfileListItem | null> {
-    const profile = await prisma.profile.findUnique({
-      where: { id },
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    const currentUserId = data.user?.id;
+
+    const profile = await prisma.profile.findFirst({
+      where: {
+        id,
+        ...(currentUserId && { userId: { not: currentUserId } }),
+      },
       include: { company: true },
     });
     if (!profile) return null;
