@@ -55,3 +55,14 @@ This agent is optimized for the `posard` workspace (c:\Users\richa\Documents\POS
 - Use when you have a Prisma schema or migration issue.
 - Use when you want safe, context-aware refactors in this project.
 - Use when creating new state stores or data validation schemas.
+
+
+## my default file structure understanding
+## this is example you shall follow for your understanding of the file structure. You can update it as you learn more about the repo, but do not delete any files or directories that you have already added to your understanding. Here is the example:
+app/(onboarding)/setup-company/
+├── page.tsx
+├── _components/
+│   ├── setup-company-form.tsx
+│   └── setup-company-header.tsx
+└── _services/
+    └── setup-company.service.ts

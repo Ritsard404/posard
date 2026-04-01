@@ -75,13 +75,6 @@ export const profileService = {
     const { data } = await supabase.auth.getUser();
     const currentUserId = data.user?.id;
 
-    console.log(
-      "Fetching profiles with params:",
-      params,
-      "Current user ID:",
-      currentUserId,
-    );
-
     const orderBy =
       params?.sortBy && SORTABLE_FIELDS[params.sortBy]
         ? { [params.sortBy]: params.direction ?? "desc" }

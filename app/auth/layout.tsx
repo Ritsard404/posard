@@ -6,7 +6,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 px-3 sm:px-4">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-white/95 backdrop-blur supports-backdrop-filter:bg-white/60 dark:border-zinc-800 dark:bg-black/95">
         <div className="container flex h-14 max-w-screen-2xl items-center justify-between px-3 sm:px-4 mx-auto">
           <Link href="/" className="flex items-center space-x-2">

@@ -23,15 +23,15 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
+            request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, options),
           );
         },
       },
-    }
+    },
   );
 
   const { data } = await supabase.auth.getClaims();
@@ -44,7 +44,7 @@ export async function updateSession(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, status")
+      .select("role, status, company_id")
       .eq("user_id", user.sub)
       .single();
 
@@ -65,16 +65,22 @@ export async function updateSession(request: NextRequest) {
     }
 
     userRole = profile?.role ?? null;
+
+    // Account manager with no company (e.g. just signed up) → force to setup page
+    if (
+      userRole === "manager" &&
+      !profile?.company_id &&
+      !pathname.startsWith("/setup-company")
+    ) {
+      return NextResponse.redirect(new URL("/setup-company", request.url));
+    }
   }
 
   // ── Public routes ──────────────────────────────────────────────────────────
   if (publicRoutes.includes(pathname)) {
     if (user) {
       // Logged-in user hitting "/" or auth pages → redirect to their dashboard
-      if (
-        pathname === "/" ||
-        authRoutes.some((r) => pathname.startsWith(r))
-      ) {
+      if (pathname === "/" || authRoutes.some((r) => pathname.startsWith(r))) {
         const dest = getFirstAccessibleRoute(userRole);
         return NextResponse.redirect(new URL(dest, request.url));
       }
