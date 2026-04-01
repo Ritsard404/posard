@@ -1,28 +1,26 @@
 "use client";
-
 import { use, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  findMemberById,
-  approveMember,
-  rejectMember,
-  activateMember,
-  deactivateMember,
-} from "@/app/(protected)/accounts/_actions/member.actions";
-import { MemberListItem } from "@/app/(protected)/accounts/_services/member.dto";
-import MemberFormModal from "@/app/(protected)/accounts/_components/MemberFormModal";
+  findProfileById,
+  approveProfile,
+  rejectProfile,
+  activateProfile,
+  deactivateProfile,
+} from "@/app/(protected)/accounts/_actions/profile.actions";
+import ProfileFormModal from "@/app/(protected)/accounts/_components/ProfileFormModal";
+import type { ProfileListItem } from "@/app/(protected)/accounts/_services/profile.service";
 
-export default function MemberDetailPage({
+export default function ProfileDetailPage({
   params,
 }: {
-  params: Promise<{ memberId: string }>;
+  params: Promise<{ profileId: string }>;
 }) {
-  const { memberId } = use(params);
+  const { profileId } = use(params);
   const router = useRouter();
-
-  const [member, setMember] = useState<MemberListItem | null>(null);
+  const [profile, setProfile] = useState<ProfileListItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
@@ -32,35 +30,33 @@ export default function MemberDetailPage({
   const [error, setError] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
-
-  const fetchMember = useCallback(async () => {
+  const fetchProfile = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await findMemberById(memberId);
+      const data = await findProfileById(profileId);
       if (!data) {
-        setError("Member not found");
+        setError("Profile not found");
       } else {
-        setMember(data);
+        setProfile(data);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load member");
+      setError(err instanceof Error ? err.message : "Failed to load profile");
     } finally {
       setIsLoading(false);
     }
-  }, [memberId]);
+  }, [profileId]);
 
   useEffect(() => {
-    fetchMember();
-  }, [fetchMember]);
+    fetchProfile();
+  }, [fetchProfile]);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
-
-  const handleSave = async (data: MemberListItem) => {
+  const handleSave = async (data: ProfileListItem) => {
     setIsSaving(true);
     try {
-      // TODO: memberService.update(data)
-      setMember(data);
+      // TODO: profileService.update(data)
+      setProfile(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -69,11 +65,11 @@ export default function MemberDetailPage({
   };
 
   const handleApprove = async () => {
-    if (!member) return;
+    if (!profile) return;
     setIsApproving(true);
     try {
-      await approveMember(member.memberId);
-      await fetchMember();
+      await approveProfile(profile.id);
+      await fetchProfile();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve");
     } finally {
@@ -82,11 +78,11 @@ export default function MemberDetailPage({
   };
 
   const handleReject = async () => {
-    if (!member) return;
+    if (!profile) return;
     setIsRejecting(true);
     try {
-      await rejectMember(member.memberId);
-      await fetchMember();
+      await rejectProfile(profile.id);
+      await fetchProfile();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reject");
     } finally {
@@ -95,11 +91,11 @@ export default function MemberDetailPage({
   };
 
   const handleActivate = async () => {
-    if (!member) return;
+    if (!profile) return;
     setIsActivating(true);
     try {
-      await activateMember(member.memberId);
-      await fetchMember();
+      await activateProfile(profile.id);
+      await fetchProfile();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to activate");
     } finally {
@@ -108,11 +104,11 @@ export default function MemberDetailPage({
   };
 
   const handleDeactivate = async () => {
-    if (!member) return;
+    if (!profile) return;
     setIsDeactivating(true);
     try {
-      await deactivateMember(member.memberId);
-      await fetchMember();
+      await deactivateProfile(profile.id);
+      await fetchProfile();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deactivate");
     } finally {
@@ -120,12 +116,7 @@ export default function MemberDetailPage({
     }
   };
 
-  // ── Derived action visibility (mirrors Java service logic) ─────────────────
-  const isPending = member?.approvalStatus === "PENDING";
-  const isApproved = member?.approvalStatus === "APPROVED";
-
   // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -140,11 +131,11 @@ export default function MemberDetailPage({
         </Button>
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-            {member ? member.identifier : "Member Details"}
+            {profile ? (profile.fullName ?? profile.email) : "Profile Details"}
           </h1>
-          {member && (
+          {profile && (
             <p className="text-gray-500 text-sm mt-0.5 capitalize">
-              {member.permission}
+              {profile.role}
             </p>
           )}
         </div>
@@ -164,8 +155,8 @@ export default function MemberDetailPage({
       )}
 
       {/* Form */}
-      <MemberFormModal
-        member={member ?? undefined}
+      <ProfileFormModal
+        profile={profile ?? undefined}
         isLoading={isLoading}
         isSaving={isSaving}
         isApprovingPending={isApproving}
@@ -174,14 +165,10 @@ export default function MemberDetailPage({
         isDeactivatingPending={isDeactivating}
         onSubmit={handleSave}
         onCancel={() => router.push("/accounts")}
-        onApprove={isPending ? handleApprove : undefined}
-        onReject={isPending ? handleReject : undefined}
-        onActivate={
-          isApproved && !member?.isActive ? handleActivate : undefined
-        }
-        onDeactivate={
-          isApproved && member?.isActive ? handleDeactivate : undefined
-        }
+        onApprove={profile?.status === "pending" ? handleApprove : undefined}
+        onReject={profile?.status === "pending" ? handleReject : undefined}
+        onActivate={profile?.status === "disabled" ? handleActivate : undefined}
+        onDeactivate={profile?.status === "active" ? handleDeactivate : undefined}
       />
     </div>
   );

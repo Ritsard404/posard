@@ -15,45 +15,46 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { MemberListItem, MemberApprovalStatus } from "@/app/(protected)/accounts/_services/member.dto";
+import type { UserStatus } from "@prisma/client";
+import type { ProfileListItem } from "@/app/(protected)/accounts/_services/profile.service";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AccountTableProps {
-  members: MemberListItem[];        // already paginated — pass pageContent, not allMembers
+  profiles: ProfileListItem[];
   isLoading?: boolean;
-  totalCount?: number;              // total across all pages (for pagination display)
-  currentPage?: number;             // controlled by parent
+  totalCount?: number;
+  currentPage?: number;
   onPageChange?: (page: number) => void;
   itemsPerPage?: number;
   onPageSizeChange?: (size: number) => void;
   onSearch?: (keyword: string) => void;
-  onStatusFilter?: (status: MemberApprovalStatus | "") => void;
-  currentStatus?: MemberApprovalStatus | "";
-  onApprove?: (memberId: string) => void;
-  onReject?: (memberId: string) => void;
-  onActivate?: (memberId: string) => void;
-  onDeactivate?: (memberId: string) => void;
+  onStatusFilter?: (status: UserStatus | "") => void;
+  currentStatus?: UserStatus | "";
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
+  onActivate?: (id: string) => void;
+  onDeactivate?: (id: string) => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const STATUS_STYLES: Record<MemberApprovalStatus, string> = {
-  APPROVED: "text-green-700 bg-green-100 border border-green-200",
-  PENDING:  "text-amber-700 bg-amber-100 border border-amber-200",
-  REJECTED: "text-red-700   bg-red-100   border border-red-200",
+const STATUS_STYLES: Record<UserStatus, string> = {
+  active:   "text-green-700 bg-green-100 border border-green-200",
+  pending:  "text-amber-700 bg-amber-100 border border-amber-200",
+  disabled: "text-red-700   bg-red-100   border border-red-200",
 };
 
-const STATUS_ICONS: Record<MemberApprovalStatus, React.ReactNode> = {
-  APPROVED: <CheckCircle2 className="w-4 h-4" />,
-  PENDING:  <Power        className="w-4 h-4" />,
-  REJECTED: <XCircle      className="w-4 h-4" />,
+const STATUS_ICONS: Record<UserStatus, React.ReactNode> = {
+  active:   <CheckCircle2 className="w-4 h-4" />,
+  pending:  <Power        className="w-4 h-4" />,
+  disabled: <XCircle      className="w-4 h-4" />,
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function AccountTable({
-  members,
+  profiles,
   isLoading = false,
   totalCount = 0,
   currentPage = 0,
@@ -77,9 +78,7 @@ export default function AccountTable({
 
   // ── Search handlers ───────────────────────────────────────────────────────
 
-  const handleSearch = () => {
-    onSearch?.(tempKeyword);
-  };
+  const handleSearch = () => onSearch?.(tempKeyword);
 
   const handleReset = () => {
     setTempKeyword("");
@@ -91,17 +90,17 @@ export default function AccountTable({
     if (e.key === "Enter") handleSearch();
   };
 
-  // ── Action buttons (shared between desktop + mobile) ──────────────────────
+  // ── Action buttons ────────────────────────────────────────────────────────
 
-  const renderActions = (member: MemberListItem) => (
+  const renderActions = (profile: ProfileListItem) => (
     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-      {member.approvalStatus === "PENDING" && (
+      {profile.status === "pending" && (
         <>
           {onApprove && (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onApprove(member.memberId)}
+              onClick={() => onApprove(profile.id)}
               className="text-xs text-green-600 border-green-200 hover:bg-green-50"
             >
               Approve
@@ -111,7 +110,7 @@ export default function AccountTable({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onReject(member.memberId)}
+              onClick={() => onReject(profile.id)}
               className="text-xs text-red-600 border-red-200 hover:bg-red-50"
             >
               Reject
@@ -120,13 +119,13 @@ export default function AccountTable({
         </>
       )}
 
-      {member.approvalStatus !== "PENDING" && (
-        member.isActive
+      {profile.status !== "pending" && (
+        profile.isActive
           ? onDeactivate && (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onDeactivate(member.memberId)}
+                onClick={() => onDeactivate(profile.id)}
                 className="text-xs text-red-600 border-red-200 hover:bg-red-50"
               >
                 Deactivate
@@ -136,7 +135,7 @@ export default function AccountTable({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onActivate(member.memberId)}
+                onClick={() => onActivate(profile.id)}
                 className="text-xs text-green-600 border-green-200 hover:bg-green-50"
               >
                 Activate
@@ -167,7 +166,7 @@ export default function AccountTable({
           <div className="md:col-span-6 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
-              placeholder="Search by identifier, name, or company email..."
+              placeholder="Search by name or email..."
               value={tempKeyword}
               onChange={(e) => setTempKeyword(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -179,13 +178,13 @@ export default function AccountTable({
           <div className="md:col-span-3">
             <select
               value={currentStatus}
-              onChange={(e) => onStatusFilter?.(e.target.value as MemberApprovalStatus | "")}
+              onChange={(e) => onStatusFilter?.(e.target.value as UserStatus | "")}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-gray-400 transition-colors"
             >
               <option value="">All Status</option>
-              <option value="PENDING">Pending</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
+              <option value="pending">Pending</option>
+              <option value="active">Active</option>
+              <option value="disabled">Disabled</option>
             </select>
           </div>
 
@@ -208,7 +207,7 @@ export default function AccountTable({
       </div>
 
       {/* Empty state */}
-      {members.length === 0 ? (
+      {profiles.length === 0 ? (
         <div className="p-12 text-center">
           <Search className="w-12 h-12 mx-auto text-gray-300 mb-2" />
           <p className="text-gray-500 font-medium">No accounts found</p>
@@ -221,7 +220,7 @@ export default function AccountTable({
             <table className="w-full">
               <thead>
                 <tr className="border-b bg-gray-50">
-                  {["User", "Company", "Permission", "Status", "Actions"].map((h) => (
+                  {["User", "Company", "Role", "Status", "Actions"].map((h) => (
                     <th
                       key={h}
                       className={`px-4 py-3 text-sm font-semibold text-gray-700 ${h === "Actions" ? "text-right" : "text-left"}`}
@@ -232,34 +231,37 @@ export default function AccountTable({
                 </tr>
               </thead>
               <tbody>
-                {members.map((member) => (
+                {profiles.map((profile) => (
                   <tr
-                    key={member.memberId}
+                    key={profile.id}
                     className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => router.push(`/accounts/${member.memberId}`)}
+                    onClick={() => router.push(`/accounts/${profile.id}`)}
                   >
                     <td className="px-4 py-3 text-sm">
-                      <div className="font-medium text-gray-900">{member.identifier}</div>
-                      <div className="text-xs text-gray-500">{member.company?.email}</div>
+                      <div className="font-medium text-gray-900">
+                        {profile.fullName ?? profile.email}
+                      </div>
+                      <div className="text-xs text-gray-500">{profile.email}</div>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <div className="font-medium text-gray-900">{member.company?.name ?? "N/A"}</div>
-                      <div className="text-xs text-gray-500">{member.company?.phone}</div>
+                      <div className="font-medium text-gray-900">
+                        {profile.company?.name ?? "N/A"}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold border border-blue-200 capitalize">
-                        {member.permission}
+                        {profile.role}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[member.approvalStatus]}`}>
-                        {STATUS_ICONS[member.approvalStatus]}
-                        {member.approvalStatus}
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[profile.status]}`}>
+                        {STATUS_ICONS[profile.status]}
+                        {profile.status}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end">
-                        {renderActions(member)}
+                        {renderActions(profile)}
                       </div>
                     </td>
                   </tr>
@@ -270,35 +272,37 @@ export default function AccountTable({
 
           {/* Mobile Cards */}
           <div className="md:hidden p-4 space-y-3">
-            {members.map((member) => (
+            {profiles.map((profile) => (
               <Card
-                key={member.memberId}
+                key={profile.id}
                 className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => router.push(`/accounts/${member.memberId}`)}
+                onClick={() => router.push(`/accounts/${profile.id}`)}
               >
                 <div className="space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="font-medium text-gray-900">{member.identifier}</div>
-                      <div className="text-xs text-gray-500">{member.company?.name}</div>
+                      <div className="font-medium text-gray-900">
+                        {profile.fullName ?? profile.email}
+                      </div>
+                      <div className="text-xs text-gray-500">{profile.company?.name}</div>
                     </div>
-                    <span className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${STATUS_STYLES[member.approvalStatus]}`}>
-                      {STATUS_ICONS[member.approvalStatus]}
-                      {member.approvalStatus}
+                    <span className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${STATUS_STYLES[profile.status]}`}>
+                      {STATUS_ICONS[profile.status]}
+                      {profile.status}
                     </span>
                   </div>
 
                   <div className="flex gap-2 text-xs">
                     <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded capitalize">
-                      {member.permission}
+                      {profile.role}
                     </span>
-                    <span className={`px-2 py-1 rounded ${member.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                      {member.isActive ? "Active" : "Inactive"}
+                    <span className={`px-2 py-1 rounded ${profile.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                      {profile.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
 
                   <div className="pt-1">
-                    {renderActions(member)}
+                    {renderActions(profile)}
                   </div>
                 </div>
               </Card>

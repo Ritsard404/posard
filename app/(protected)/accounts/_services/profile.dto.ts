@@ -1,24 +1,14 @@
-// ── Shared ────────────────────────────────────────────────────────────────────
+import type { UserStatus } from "@prisma/client";
 
-export interface MemberCompanyDto {
+// ── Shared ─────────────────────────────────────────────────────────────────────
+
+export interface ProfileCompanyDto {
+  id: string | null;
+  name: string | null;
   code: string | null;
   email: string | null;
-  logoImageUrl: string | null;
-  name: string | null;
   phone: string | null;
-  uuid: string | null;
-}
-
-export type MemberApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
-export type PermissionType = "manager" | "admin" | "cashier";
-
-export interface MemberListItem {
-  memberId: string;
-  identifier: string;
-  approvalStatus: MemberApprovalStatus;
-  isActive: boolean;
-  permission: PermissionType;
-  company: MemberCompanyDto;
+  logoImageUrl: string | null;
 }
 
 export interface PageResult<T> {
@@ -32,38 +22,36 @@ export interface PageResult<T> {
 // ── Admin DTOs ────────────────────────────────────────────────────────────────
 
 export interface AdminInfoDto {
-  memberId: string;
-  firstName: string | null;
-  lastName: string | null;
-  username: string | null;
-  company: MemberCompanyDto;
+  profileId: string;
+  fullName: string | null;
+  email: string;
+  company: ProfileCompanyDto;
 }
 
 export interface MyCashiersDto {
-  memberId: string;
-  identifier: string;
-  approvalStatus: MemberApprovalStatus;
+  profileId: string;
+  email: string;
+  status: UserStatus;
   isActive: boolean;
 }
 
 export interface CashierInfoDto {
-  memberId: string;
-  firstName: string | null;
-  lastName: string | null;
-  username: string | null;
-  approvalStatus: MemberApprovalStatus;
+  profileId: string;
+  fullName: string | null;
+  email: string;
+  status: UserStatus;
   isActive: boolean;
-  company: MemberCompanyDto;
+  company: ProfileCompanyDto;
 }
 
 export interface CompanyDto {
-  uuid: string;
+  id: string;
   name: string;
   code: string | null;
   email: string | null;
   phone: string | null;
   logoImageUrl: string | null;
-  approved: boolean;
+  isApproved: boolean;
 }
 
 export interface UpdateCompanyDto {
@@ -75,9 +63,8 @@ export interface UpdateCompanyDto {
 }
 
 export interface RegisterCashierDto {
-  username: string;
-  firstName?: string | null;
-  lastName?: string | null;
+  email: string;
+  fullName?: string | null;
   companyId: string;
 }
 
@@ -98,8 +85,8 @@ export interface PosTerminalDto {
   minNumber: string;
   accreditationNumber: string;
   ptuNumber: string;
-  dateIssued: string;   // ISO date string YYYY-MM-DD
-  validUntil: string;   // ISO date string YYYY-MM-DD
+  dateIssued: string;
+  validUntil: string;
   posName: string;
   registeredName: string;
   operatedBy: string;
@@ -122,5 +109,4 @@ export interface PosTerminalDto {
   companyName?: string;
 }
 
-// Used for create/update — same shape, id is optional on create
 export type PosTerminalRequestDto = PosTerminalDto;

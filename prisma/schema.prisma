@@ -7,9 +7,9 @@ datasource db {
   schemas  = ["public"]
 }
 
-// ──────────────────────────────────────────────
-// Enums
-// ──────────────────────────────────────────────
+/////////////////////////////////////////////////
+// ENUMS
+/////////////////////////////////////////////////
 
 enum UserRole {
   admin
@@ -29,134 +29,110 @@ enum UserStatus {
   @@schema("public")
 }
 
-enum MemberApprovalStatus {
-  PENDING
-  APPROVED
-
-  @@map("member_approval_status")
-  @@schema("public")
-}
-
-enum PermissionType {
-  SUPERADMIN
-  ADMIN
-  CASHIER
-  USER
-
-  @@map("permission_type")
-  @@schema("public")
-}
-
-// ──────────────────────────────────────────────
-// Profile  (your existing — unchanged)
-// ──────────────────────────────────────────────
+/////////////////////////////////////////////////
+// PROFILE (Single User Source)
+/////////////////////////////////////////////////
 
 model Profile {
-  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String     @unique @map("user_id") @db.Uuid
-  email     String     @unique
-  fullName  String?    @map("full_name")
-  role      UserRole   @default(manager)
-  status    UserStatus @default(pending)
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  email  String @unique
 
-  // NO relation to AuthUser here
+  fullName String? @map("full_name")
 
+  role   UserRole   @default(manager)
+  status UserStatus @default(pending)
+
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  timestampsAsCashier    Timestamp[] @relation("CashierTimestamp")
+  timestampsAsManagerIn  Timestamp[] @relation("ManagerInTimestamp")
+  timestampsAsManagerOut Timestamp[] @relation("ManagerOutTimestamp")
+
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId])
   @@map("profiles")
   @@schema("public")
 }
 
-
-// ──────────────────────────────────────────────
-// Company  (Company.java)
-// ──────────────────────────────────────────────
+/////////////////////////////////////////////////
+// COMPANY
+/////////////////////////////////////////////////
 
 model Company {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_company") @db.Uuid
-  name         String
-  code         String?
-  email        String?
-  phone        String?
-  logoImageUrl String?  @map("logo_img_url") @db.VarChar(500)
-  approved     Boolean  @default(false)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_company") @db.Uuid
 
-  members      Member[]
+  name  String
+  code  String?
+  email String?
+  phone String?
+
+  logoImageUrl String? @map("logo_img_url") @db.VarChar(500)
+  isApproved   Boolean @default(false) @map("is_approved")
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  users        Profile[]
   images       CompanyImage[]
   posTerminals PosTerminalInfo[]
+
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("company")
   @@schema("public")
 }
 
-// ElementCollection — company_images table
+/////////////////////////////////////////////////
+// COMPANY IMAGES
+/////////////////////////////////////////////////
+
 model CompanyImage {
   id        Int    @id @default(autoincrement())
-  companyId String @map("uuid_company") @db.Uuid
+  companyId String @map("company_id") @db.Uuid
   imageUrl  String @map("image_url")
 
-  company Company @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  @@index([companyId])
   @@map("company_images")
   @@schema("public")
 }
 
-// ──────────────────────────────────────────────
-// Member  (Member.java)
-// ──────────────────────────────────────────────
-
-model Member {
-  id        String  @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_member") @db.Uuid
-  firstName String? @map("first_name")
-  lastName  String? @map("last_name")
-  username  String? @unique
-
-  // Soft delete
-  memberIsDeleted Boolean   @default(false) @map("member_is_deleted")
-  memberDeletedAt DateTime? @map("member_deleted_at") @db.Timestamptz
-
-  // Approval
-  approvalStatus MemberApprovalStatus @default(PENDING) @map("approval_status")
-  approvedAt     DateTime?            @map("approved_at") @db.Timestamptz
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Self-ref: who approved this member
-  approvedById    String?  @map("approved_by") @db.Uuid
-  approvedBy      Member?  @relation("ApprovedBy", fields: [approvedById], references: [id])
-  approvedMembers Member[] @relation("ApprovedBy")
-
-  // Company
-  companyId String?  @map("uuid_company") @db.Uuid
-  company   Company? @relation(fields: [companyId], references: [id])
-
-  // Timestamp roles
-  timestampsAsCashier    Timestamp[] @relation("CashierTimestamp")
-  timestampsAsManagerIn  Timestamp[] @relation("ManagerInTimestamp")
-  timestampsAsManagerOut Timestamp[] @relation("ManagerOutTimestamp")
-
-  @@map("member")
-  @@schema("public")
-}
-
-// ──────────────────────────────────────────────
-// PosTerminalInfo  (PosTerminalInfo.java)
-// ──────────────────────────────────────────────
+/////////////////////////////////////////////////
+// POS TERMINAL
+/////////////////////////////////////////////////
 
 model PosTerminalInfo {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_pos_terminal") @db.Uuid
 
-  // POS Machine Info
+  // Regulatory
   minNumber           String   @map("min_number")
   accreditationNumber String   @map("accreditation_number")
   ptuNumber           String   @map("ptu_number")
   dateIssued          DateTime @map("date_issued") @db.Date
   validUntil          DateTime @map("valid_until") @db.Date
 
-  // Business Details
+  // Business
   posName        String  @map("pos_name")
   registeredName String  @map("registered_name")
   operatedBy     String  @map("operated_by")
@@ -165,7 +141,7 @@ model PosTerminalInfo {
   vat            Int
   discountMax    Decimal @map("discount_max") @db.Decimal(10, 2)
 
-  // API Flags
+  // System
   costCenter   String  @map("cost_center")
   branchCenter String  @map("branch_center")
   useCenter    String  @map("use_center")
@@ -182,49 +158,66 @@ model PosTerminalInfo {
   isTrainMode  Boolean @default(false) @map("is_train_mode")
   isRetailType Boolean @default(false) @map("is_retail_type")
 
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
 
-  // Company
   companyId String  @map("company_id") @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   timestamps Timestamp[]
 
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId])
   @@map("pos_terminal_info")
   @@schema("public")
 }
 
-// ──────────────────────────────────────────────
-// Timestamp  (Timestamp.java)
-// ──────────────────────────────────────────────
+/////////////////////////////////////////////////
+// TIMESTAMP (POS ACTIVITY LOG)
+/////////////////////////////////////////////////
 
 model Timestamp {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_timestamp") @db.Uuid
 
-  timestampIn           DateTime? @map("timestamp_in") @db.Timestamptz
-  timestampOut          DateTime? @map("timestamp_out") @db.Timestamptz
-  cashInDrawerAmount    Decimal   @default(0) @map("cash_in_drawer_amount") @db.Decimal(15, 2)
-  cashOutDrawerAmount   Decimal   @default(0) @map("cash_out_drawer_amount") @db.Decimal(15, 2)
-  withdrawnDrawerAmount Decimal   @default(0) @map("withdrawn_drawer_amount") @db.Decimal(15, 2)
-  withdrawnDrawerCount  Decimal   @default(0) @map("withdrawn_drawer_count") @db.Decimal(10, 2)
+  timestampIn  DateTime? @map("timestamp_in") @db.Timestamptz
+  timestampOut DateTime? @map("timestamp_out") @db.Timestamptz
 
-  // POS Terminal
-  posTerminalId String          @map("uuid_pos_terminal") @db.Uuid
+  cashInDrawerAmount    Decimal @default(0) @map("cash_in_drawer_amount") @db.Decimal(15, 2)
+  cashOutDrawerAmount   Decimal @default(0) @map("cash_out_drawer_amount") @db.Decimal(15, 2)
+  withdrawnDrawerAmount Decimal @default(0) @map("withdrawn_drawer_amount") @db.Decimal(15, 2)
+  withdrawnDrawerCount  Decimal @default(0) @map("withdrawn_drawer_count") @db.Decimal(10, 2)
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  posTerminalId String          @map("pos_terminal_id") @db.Uuid
   posTerminal   PosTerminalInfo @relation(fields: [posTerminalId], references: [id])
 
-  // Cashier (required)
-  cashierId String @map("uuid_cashier") @db.Uuid
-  cashier   Member @relation("CashierTimestamp", fields: [cashierId], references: [id])
+  cashierId String  @map("cashier_id") @db.Uuid
+  cashier   Profile @relation("CashierTimestamp", fields: [cashierId], references: [id])
 
-  // Manager In (optional)
-  managerInId String? @map("uuid_manager_in") @db.Uuid
-  managerIn   Member? @relation("ManagerInTimestamp", fields: [managerInId], references: [id])
+  managerInId String?  @map("manager_in_id") @db.Uuid
+  managerIn   Profile? @relation("ManagerInTimestamp", fields: [managerInId], references: [id])
 
-  // Manager Out (optional)
-  managerOutId String? @map("uuid_manager_out") @db.Uuid
-  managerOut   Member? @relation("ManagerOutTimestamp", fields: [managerOutId], references: [id])
+  managerOutId String?  @map("manager_out_id") @db.Uuid
+  managerOut   Profile? @relation("ManagerOutTimestamp", fields: [managerOutId], references: [id])
 
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([posTerminalId])
+  @@index([cashierId])
   @@map("timestamp")
   @@schema("public")
 }

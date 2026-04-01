@@ -52,7 +52,7 @@ export function LoginForm({
 
       if (profileResult.error || !profileResult.data) {
         await supabase.auth.signOut();
-        throw new Error("User profile not found or unauthorized");
+        throw new Error("User profile not found or unauthorized =>"+ (profileResult.error.message || ""));
       }
 
       if (profileResult.data.status !== "active") {

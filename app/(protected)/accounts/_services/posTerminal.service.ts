@@ -2,11 +2,11 @@ import "server-only";
 import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type {
-  MemberListItem,
   PageResult,
   PosTerminalDto,
   PosTerminalRequestDto,
-} from "./member.dto";
+} from "./profile.dto";
+import type { ProfileListItem } from "./profile.service";
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
@@ -162,7 +162,7 @@ export const posTerminalService = {
       };
     }
 
-    const admin = await prisma.member.findUnique({
+    const admin = await prisma.profile.findUnique({
       where: { id: adminId },
       select: { companyId: true },
     });
@@ -272,7 +272,7 @@ export const posTerminalService = {
 
   /** Create a blank terminal for the admin's company. */
   async newPosTerminal(
-    adminMember: Pick<MemberListItem, "memberId" | "company">,
+    adminMember: Pick<ProfileListItem, "id" | "company">,
   ): Promise<void> {
     if (USE_MOCK) {
       await delay();
@@ -290,7 +290,7 @@ export const posTerminalService = {
           validUntil: threeYearsOut.toISOString().split("T")[0],
           posName: "New Terminal",
           registeredName: adminMember.company?.name ?? "",
-          operatedBy: adminMember.memberId,
+          operatedBy: adminMember.id,
           address: "",
           vatTinNumber: "",
           vat: 12,
@@ -306,15 +306,15 @@ export const posTerminalService = {
           zCounterTrainNo: 0,
           isTrainMode: false,
           isRetailType: false,
-          companyId: adminMember.company?.uuid ?? "",
+          companyId: adminMember.company?.id ?? "",
           companyName: adminMember.company?.name ?? "",
         },
       ];
       return;
     }
 
-    const member = await prisma.member.findUnique({
-      where: { id: adminMember.memberId },
+    const member = await prisma.profile.findUnique({
+      where: { id: adminMember.id },
       select: { companyId: true },
     });
     if (!member?.companyId) throw new Error("Admin has no company");
@@ -333,7 +333,7 @@ export const posTerminalService = {
         validUntil: threeYearsOut,
         posName: "New Terminal",
         registeredName: "",
-        operatedBy: adminMember.memberId,
+        operatedBy: adminMember.id,
         address: "",
         vatTinNumber: "",
         vat: 12,

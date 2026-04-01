@@ -3,17 +3,18 @@
 import { useState, useEffect, useCallback } from "react";
 import AccountTable from "@/app/(protected)/accounts/_components/AccountTable";
 import {
-  findAllMembers,
-  approveMember,
-  rejectMember,
-  activateMember,
-  deactivateMember,
-} from "@/app/(protected)/accounts/_actions/member.actions";
-import { MemberListItem, MemberApprovalStatus } from "@/app/(protected)/accounts/_services/member.dto";
+  findAllProfiles,
+  approveProfile,
+  rejectProfile,
+  activateProfile,
+  deactivateProfile,
+} from "@/app/(protected)/accounts/_actions/profile.actions";
+import type { ProfileListItem } from "@/app/(protected)/accounts/_services/profile.service";
+import type { UserStatus } from "@prisma/client";
 
 export default function AccountsPage() {
   // ── Data state ────────────────────────────────────────────────────────────
-  const [allMembers, setAllMembers] = useState<MemberListItem[]>([]);
+  const [allProfiles, setAllProfiles] = useState<ProfileListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,82 +22,81 @@ export default function AccountsPage() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState("");
-  const [approvalStatus, setApprovalStatus] = useState<MemberApprovalStatus | "">("");
+  const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
-  const fetchMembers = useCallback(async () => {
+  const fetchProfiles = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await findAllMembers();
-      setAllMembers(data);
-      console.log("Fetched members:", data);
+      const data = await findAllProfiles();
+      setAllProfiles(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch members");
+      setError(err instanceof Error ? err.message : "Failed to fetch profiles");
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+    fetchProfiles();
+  }, [fetchProfiles]);
 
   // ── Client-side filter + paginate ─────────────────────────────────────────
-  const filtered = allMembers
-    .filter((m) => {
+  const filtered = allProfiles
+    .filter((p) => {
       const kw = keyword.toLowerCase();
+      const name = p.fullName ?? p.email;
       const matchesKeyword =
         !keyword ||
-        m.identifier.toLowerCase().includes(kw) ||
-        m.company?.name?.toLowerCase().includes(kw) ||
-        m.company?.email?.toLowerCase().includes(kw);
-      const matchesStatus = !approvalStatus || m.approvalStatus === approvalStatus;
+        name.toLowerCase().includes(kw) ||
+        p.company?.name?.toLowerCase().includes(kw);
+      const matchesStatus = !statusFilter || p.status === statusFilter;
       return matchesKeyword && matchesStatus;
     })
-    .sort((a, b) => a.identifier.localeCompare(b.identifier));
+    .sort((a, b) => (a.fullName ?? a.email).localeCompare(b.fullName ?? b.email));
 
   const totalCount = filtered.length;
   const pageContent = filtered.slice(page * pageSize, page * pageSize + pageSize);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
-  const handleApprove = async (memberId: string) => {
-    if (!window.confirm("Approve this member?")) return;
+  const handleApprove = async (id: string) => {
+    if (!window.confirm("Approve this profile?")) return;
     try {
-      await approveMember(memberId);
-      await fetchMembers();
+      await approveProfile(id);
+      await fetchProfiles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve member");
+      setError(err instanceof Error ? err.message : "Failed to approve");
     }
   };
 
-  const handleReject = async (memberId: string) => {
-    if (!window.confirm("Reject this member?")) return;
+  const handleReject = async (id: string) => {
+    if (!window.confirm("Reject this profile?")) return;
     try {
-      await rejectMember(memberId);
-      await fetchMembers();
+      await rejectProfile(id);
+      await fetchProfiles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reject member");
+      setError(err instanceof Error ? err.message : "Failed to reject");
     }
   };
 
-  const handleActivate = async (memberId: string) => {
-    if (!window.confirm("Activate this member?")) return;
+  const handleActivate = async (id: string) => {
+    if (!window.confirm("Activate this profile?")) return;
     try {
-      await activateMember(memberId);
-      await fetchMembers();
+      await activateProfile(id);
+      await fetchProfiles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to activate member");
+      setError(err instanceof Error ? err.message : "Failed to activate");
     }
   };
 
-  const handleDeactivate = async (memberId: string) => {
-    if (!window.confirm("Deactivate this member?")) return;
+  const handleDeactivate = async (id: string) => {
+    if (!window.confirm("Deactivate this profile?")) return;
     try {
-      await deactivateMember(memberId);
-      await fetchMembers();
+      await deactivateProfile(id);
+      await fetchProfiles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to deactivate member");
+      setError(err instanceof Error ? err.message : "Failed to deactivate");
     }
   };
 
@@ -123,7 +123,7 @@ export default function AccountsPage() {
 
       {/* Table */}
       <AccountTable
-        members={pageContent}
+        profiles={pageContent}
         isLoading={isLoading}
         onApprove={handleApprove}
         onReject={handleReject}
@@ -135,8 +135,8 @@ export default function AccountsPage() {
         currentPage={page}
         onPageChange={setPage}
         onSearch={(kw) => { setKeyword(kw); setPage(0); }}
-        onStatusFilter={(s) => { setApprovalStatus(s); setPage(0); }}
-        currentStatus={approvalStatus}
+        onStatusFilter={(s) => { setStatusFilter(s); setPage(0); }}
+        currentStatus={statusFilter}
       />
     </div>
   );

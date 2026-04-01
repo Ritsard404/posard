@@ -1,6 +1,6 @@
 import "server-only";
-import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import type {
   AdminInfoDto,
   CashierInfoDto,
@@ -9,8 +9,7 @@ import type {
   PageResult,
   RegisterCashierDto,
   UpdateCompanyDto,
-} from "./member.dto";
-import { MOCK_MEMBERS } from "./member.mock";
+} from "./profile.dto";
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
@@ -19,12 +18,11 @@ const delay = (ms = 300) => new Promise<void>((r) => setTimeout(r, ms));
 // ── Mock stores ───────────────────────────────────────────────────────────────
 
 let mockAdmin: AdminInfoDto = {
-  memberId: "admin-1",
-  firstName: "John",
-  lastName: "Doe",
-  username: "admin_john",
+  profileId: "profile-1",
+  fullName: "John Doe",
+  email: "admin@techcorp.com",
   company: {
-    uuid: "c1",
+    id: "c1",
     name: "Tech Corp",
     code: "COMP01",
     email: "admin@techcorp.com",
@@ -34,34 +32,24 @@ let mockAdmin: AdminInfoDto = {
 };
 
 let mockCompany: CompanyDto = {
-  uuid: "c1",
+  id: "c1",
   name: "Tech Corp",
   code: "COMP01",
   email: "admin@techcorp.com",
   phone: "555-0100",
   logoImageUrl: null,
-  approved: true,
+  isApproved: true,
 };
 
-let mockCashiers: MyCashiersDto[] = MOCK_MEMBERS.filter(
-  (m) => m.permission === "cashier",
-).map((m) => ({
-  memberId: m.memberId,
-  identifier: m.identifier,
-  approvalStatus: m.approvalStatus,
-  isActive: m.isActive,
-}));
+let mockCashiers: MyCashiersDto[] = [];
 
 // ── Prisma sort whitelist ─────────────────────────────────────────────────────
-const SORTABLE_FIELDS: Record<
-  string,
-  keyof Prisma.MemberOrderByWithRelationInput
-> = {
-  firstName: "firstName",
-  lastName: "lastName",
-  username: "username",
+
+const SORTABLE_FIELDS: Record<string, keyof Prisma.ProfileOrderByWithRelationInput> = {
+  email: "email",
+  fullName: "fullName",
+  status: "status",
   createdAt: "createdAt",
-  approvalStatus: "approvalStatus",
 };
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -69,40 +57,32 @@ const SORTABLE_FIELDS: Record<
 export const adminService = {
   // ── Admin Profile ──────────────────────────────────────────────────────────
 
-  async adminProfile(adminId: string): Promise<AdminInfoDto> {
+  async adminProfile(profileId: string): Promise<AdminInfoDto> {
     if (USE_MOCK) {
       await delay();
       return { ...mockAdmin };
     }
 
-    const member = await prisma.member.findUnique({
-      where: { id: adminId },
+    const profile = await prisma.profile.findUnique({
+      where: { id: profileId },
       include: { company: true },
     });
-    if (!member) throw new Error("Admin not found");
+    if (!profile) throw new Error("Admin not found");
 
     return {
-      memberId: member.id,
-      firstName: member.firstName,
-      lastName: member.lastName,
-      username: member.username,
-      company: member.company
+      profileId: profile.id,
+      fullName: profile.fullName,
+      email: profile.email,
+      company: profile.company
         ? {
-            uuid: member.company.id,
-            name: member.company.name,
-            code: member.company.code,
-            email: member.company.email,
-            phone: member.company.phone,
-            logoImageUrl: member.company.logoImageUrl,
+            id: profile.company.id,
+            name: profile.company.name,
+            code: profile.company.code,
+            email: profile.company.email,
+            phone: profile.company.phone,
+            logoImageUrl: profile.company.logoImageUrl,
           }
-        : {
-            uuid: null,
-            name: null,
-            code: null,
-            email: null,
-            phone: null,
-            logoImageUrl: null,
-          },
+        : { id: null, name: null, code: null, email: null, phone: null, logoImageUrl: null },
     };
   },
 
@@ -113,18 +93,13 @@ export const adminService = {
       return;
     }
 
-    await prisma.member.update({
-      where: { id: dto.memberId },
-      data: {
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        username: dto.username ?? undefined,
-      },
+    await prisma.profile.update({
+      where: { id: dto.profileId },
+      data: { fullName: dto.fullName },
     });
   },
 
   // ── My Cashiers ────────────────────────────────────────────────────────────
-  // adminId: the calling admin's Member ID (used to resolve their company)
 
   async myCashiers(
     adminId: string,
@@ -140,7 +115,7 @@ export const adminService = {
       await delay();
       const kw = params?.keyword?.toLowerCase() ?? "";
       const filtered = mockCashiers.filter(
-        (c) => !kw || c.identifier.toLowerCase().includes(kw),
+        (c) => !kw || c.email.toLowerCase().includes(kw),
       );
       const page = params?.page ?? 0;
       const size = params?.size ?? 10;
@@ -153,7 +128,7 @@ export const adminService = {
       };
     }
 
-    const admin = await prisma.member.findUnique({
+    const admin = await prisma.profile.findUnique({
       where: { id: adminId },
       select: { companyId: true },
     });
@@ -162,18 +137,17 @@ export const adminService = {
 
     const orderByKey =
       params?.sortBy && SORTABLE_FIELDS[params.sortBy]
-        ? SORTABLE_FIELDS[params.sortBy]
+        ? params.sortBy
         : "createdAt";
 
-    const where: Prisma.MemberWhereInput = {
+    const where: Prisma.ProfileWhereInput = {
       companyId: admin.companyId,
-      memberIsDeleted: false,
+      role: "cashier",
       ...(params?.keyword
         ? {
             OR: [
-              { username: { contains: params.keyword, mode: "insensitive" } },
-              { firstName: { contains: params.keyword, mode: "insensitive" } },
-              { lastName: { contains: params.keyword, mode: "insensitive" } },
+              { email: { contains: params.keyword, mode: "insensitive" } },
+              { fullName: { contains: params.keyword, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -182,18 +156,11 @@ export const adminService = {
     const page = params?.page ?? 0;
     const size = params?.size ?? 10;
 
-    const [total, members] = await Promise.all([
-      prisma.member.count({ where }),
-      prisma.member.findMany({
+    const [total, profiles] = await Promise.all([
+      prisma.profile.count({ where }),
+      prisma.profile.findMany({
         where,
-        select: {
-          id: true,
-          username: true,
-          firstName: true,
-          lastName: true,
-          approvalStatus: true,
-          memberIsDeleted: true,
-        },
+        select: { id: true, email: true, status: true },
         skip: page * size,
         take: size,
         orderBy: { [orderByKey]: params?.direction ?? "desc" },
@@ -201,15 +168,11 @@ export const adminService = {
     ]);
 
     return {
-      content: members.map((m) => ({
-        memberId: m.id,
-        identifier:
-          m.username ??
-          (`${m.firstName ?? ""} ${m.lastName ?? ""}`.trim() || m.id),
-        approvalStatus: m.memberIsDeleted
-          ? "REJECTED"
-          : (m.approvalStatus as "PENDING" | "APPROVED"),
-        isActive: m.approvalStatus === "APPROVED" && !m.memberIsDeleted,
+      content: profiles.map((p) => ({
+        profileId: p.id,
+        email: p.email,
+        status: p.status,
+        isActive: p.status === "active",
       })),
       total,
       page,
@@ -224,25 +187,18 @@ export const adminService = {
       mockCashiers = [
         ...mockCashiers,
         {
-          memberId: `m${Date.now()}`,
-          identifier: dto.username,
-          approvalStatus: "PENDING",
+          profileId: `p${Date.now()}`,
+          email: dto.email,
+          status: "pending",
           isActive: false,
         },
       ];
       return;
     }
 
-    await prisma.member.create({
-      data: {
-        username: dto.username,
-        firstName: dto.firstName ?? null,
-        lastName: dto.lastName ?? null,
-        companyId: dto.companyId,
-        approvalStatus: "PENDING",
-      },
-    });
-    // TODO: send invite / credential email via Supabase auth or mailer
+    // Profile creation is tied to auth (Supabase). Use the auth invite flow
+    // to create the user; their profile is created on first sign-in.
+    throw new Error("Cashier registration must go through the auth invite flow");
   },
 
   // ── Cashier Info ───────────────────────────────────────────────────────────
@@ -250,51 +206,40 @@ export const adminService = {
   async cashierInfo(cashierId: string): Promise<CashierInfoDto | null> {
     if (USE_MOCK) {
       await delay();
-      const member = MOCK_MEMBERS.find((m) => m.memberId === cashierId);
-      if (!member) return null;
+      const cashier = mockCashiers.find((c) => c.profileId === cashierId);
+      if (!cashier) return null;
       return {
-        memberId: member.memberId,
-        firstName: member.identifier,
-        lastName: null,
-        username: member.identifier,
-        approvalStatus: member.approvalStatus,
-        isActive: member.isActive,
-        company: member.company,
+        profileId: cashier.profileId,
+        fullName: null,
+        email: cashier.email,
+        status: cashier.status,
+        isActive: cashier.isActive,
+        company: { id: null, name: null, code: null, email: null, phone: null, logoImageUrl: null },
       };
     }
 
-    const member = await prisma.member.findUnique({
+    const profile = await prisma.profile.findUnique({
       where: { id: cashierId },
       include: { company: true },
     });
-    if (!member) return null;
+    if (!profile) return null;
 
     return {
-      memberId: member.id,
-      firstName: member.firstName,
-      lastName: member.lastName,
-      username: member.username,
-      approvalStatus: member.memberIsDeleted
-        ? "REJECTED"
-        : (member.approvalStatus as "PENDING" | "APPROVED"),
-      isActive: member.approvalStatus === "APPROVED" && !member.memberIsDeleted,
-      company: member.company
+      profileId: profile.id,
+      fullName: profile.fullName,
+      email: profile.email,
+      status: profile.status,
+      isActive: profile.status === "active",
+      company: profile.company
         ? {
-            uuid: member.company.id,
-            name: member.company.name,
-            code: member.company.code,
-            email: member.company.email,
-            phone: member.company.phone,
-            logoImageUrl: member.company.logoImageUrl,
+            id: profile.company.id,
+            name: profile.company.name,
+            code: profile.company.code,
+            email: profile.company.email,
+            phone: profile.company.phone,
+            logoImageUrl: profile.company.logoImageUrl,
           }
-        : {
-            uuid: null,
-            name: null,
-            code: null,
-            email: null,
-            phone: null,
-            logoImageUrl: null,
-          },
+        : { id: null, name: null, code: null, email: null, phone: null, logoImageUrl: null },
     };
   },
 
@@ -302,25 +247,18 @@ export const adminService = {
     if (USE_MOCK) {
       await delay();
       mockCashiers = mockCashiers.map((c) =>
-        c.memberId === dto.memberId
-          ? { ...c, identifier: dto.username ?? c.identifier }
-          : c,
+        c.profileId === dto.profileId ? { ...c, email: dto.email } : c,
       );
       return;
     }
 
-    await prisma.member.update({
-      where: { id: dto.memberId },
-      data: {
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        username: dto.username ?? undefined,
-      },
+    await prisma.profile.update({
+      where: { id: dto.profileId },
+      data: { fullName: dto.fullName },
     });
   },
 
   // ── Company ────────────────────────────────────────────────────────────────
-  // adminId: the calling admin's Member ID
 
   async companyInfo(adminId: string): Promise<CompanyDto> {
     if (USE_MOCK) {
@@ -328,25 +266,25 @@ export const adminService = {
       return { ...mockCompany };
     }
 
-    const member = await prisma.member.findUnique({
+    const profile = await prisma.profile.findUnique({
       where: { id: adminId },
       select: { companyId: true },
     });
-    if (!member?.companyId) throw new Error("Admin has no company");
+    if (!profile?.companyId) throw new Error("Admin has no company");
 
     const company = await prisma.company.findUnique({
-      where: { id: member.companyId },
+      where: { id: profile.companyId },
     });
     if (!company) throw new Error("Company not found");
 
     return {
-      uuid: company.id,
+      id: company.id,
       name: company.name,
       code: company.code,
       email: company.email,
       phone: company.phone,
       logoImageUrl: company.logoImageUrl,
-      approved: company.approved,
+      isApproved: company.isApproved,
     };
   },
 
@@ -357,14 +295,14 @@ export const adminService = {
       return;
     }
 
-    const member = await prisma.member.findUnique({
+    const profile = await prisma.profile.findUnique({
       where: { id: adminId },
       select: { companyId: true },
     });
-    if (!member?.companyId) throw new Error("Admin has no company");
+    if (!profile?.companyId) throw new Error("Admin has no company");
 
     await prisma.company.update({
-      where: { id: member.companyId },
+      where: { id: profile.companyId },
       data: {
         name: dto.name,
         code: dto.code ?? undefined,

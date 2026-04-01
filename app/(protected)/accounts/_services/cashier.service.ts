@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import type { DrawerStateDto } from "./member.dto";
+import type { DrawerStateDto } from "./profile.dto";
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
@@ -29,10 +29,10 @@ async function findOpenTimestamp(cashierId: string) {
   });
 }
 
-/** Resolve a manager Member by username. */
+/** Resolve a manager Profile by email. */
 async function findManagerByIdentifier(identifier: string) {
-  const manager = await prisma.member.findFirst({
-    where: { username: identifier, memberIsDeleted: false },
+  const manager = await prisma.profile.findFirst({
+    where: { email: identifier, status: { not: "disabled" } },
     select: { id: true },
   });
   if (!manager) throw new Error(`Manager "${identifier}" not found`);
