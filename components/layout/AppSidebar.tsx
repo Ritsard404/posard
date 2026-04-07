@@ -25,30 +25,53 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { getNavByRole, isValidUserRole, UserRole } from "@/lib/access-control";
 import { createClient } from "@/lib/supabase/client";
+
+interface UserProfile {
+  role: UserRole;
+  full_name?: string;
+  avatar_url?: string;
+  email?: string;
+}
+
+function getInitials(name?: string, email?: string): string {
+  if (name) {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  }
+  return email?.[0]?.toUpperCase() ?? "?";
+}
 
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadRole = async () => {
+    const loadProfile = async () => {
       try {
         const supabase = createClient();
         const { data: sessionData, error: sessionError } =
           await supabase.auth.getSession();
 
-        if (sessionError) {
-          throw sessionError;
-        }
+        if (sessionError) throw sessionError;
 
         const sessionUser = sessionData?.session?.user;
 
@@ -82,29 +105,32 @@ export function AppSidebar() {
         }
 
         if (isMounted) {
-          setRole(profileData.role);
+          setProfile({
+            role: profileData.role,
+            full_name:  undefined,
+            avatar_url: undefined,
+            email: sessionUser.email,
+          });
         }
       } catch (error) {
         if (isMounted) {
           setFetchError(
-            error instanceof Error ? error.message : "Failed to load role",
+            error instanceof Error ? error.message : "Failed to load profile",
           );
         }
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
 
-    loadRole();
+    loadProfile();
 
     return () => {
       isMounted = false;
     };
   }, [router]);
 
-  const filteredRoutes = role ? getNavByRole(role) : [];
+  const filteredRoutes = profile ? getNavByRole(profile.role) : [];
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -114,7 +140,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar" className="border-r">
+    <Sidebar collapsible="icon" variant="sidebar" className="border-r ">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -175,6 +201,42 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
+          {/* User info row — acts like a menu item, collapses to avatar */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              className="cursor-default hover:bg-transparent active:bg-transparent"
+              tooltip={profile?.full_name ?? profile?.email ?? "User"}
+            >
+              <Avatar className="size-8 shrink-0">
+                <AvatarImage
+                  src={profile?.avatar_url}
+                  alt={profile?.full_name ?? "User"}
+                />
+                <AvatarFallback className="bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-xs font-semibold">
+                  {getInitials(profile?.full_name, profile?.email)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex min-w-0 flex-1 flex-col text-left">
+                <span className="truncate text-sm font-medium leading-tight">
+                  {profile?.full_name ?? "Unknown User"}
+                </span>
+                <span className="truncate text-xs text-muted-foreground leading-tight">
+                  {profile?.email}
+                </span>
+              </div>
+              {profile?.role && (
+                <Badge
+                  variant="secondary"
+                  className="ml-auto shrink-0 capitalize text-[10px] px-1.5 py-0"
+                >
+                  {profile.role}
+                </Badge>
+              )}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Logout */}
           <SidebarMenuItem>
             <AlertDialog
               open={showLogoutDialog}

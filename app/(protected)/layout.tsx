@@ -12,7 +12,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pageTitle = "Dashboard";
-
+  
   return (
     <SidebarProvider>
       <AppSidebar />

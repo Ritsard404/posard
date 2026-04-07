@@ -105,7 +105,7 @@ export function SetupCompanyForm() {
             {/* Phone */}
             <div className="grid gap-2">
               <Label>Phone</Label>
-              <Input placeholder="+63 900 000 0000" {...register("phone")} />
+              <Input placeholder="09123456789" {...register("phone")} />
               {errors.phone && (
                 <p className="text-sm text-destructive">
                   {errors.phone.message}

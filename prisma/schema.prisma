@@ -95,8 +95,10 @@ model Company {
   // AUDIT
   //////////////////////////////////////////////////
 
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  categories Category[]
+  products   Product[]
 
   @@map("company")
   @@schema("public")
@@ -219,5 +221,160 @@ model Timestamp {
   @@index([posTerminalId])
   @@index([cashierId])
   @@map("timestamp")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// ENUMS
+/////////////////////////////////////////////////
+
+enum ItemType {
+  RESALE
+  WHOLESALE
+
+  @@map("item_type")
+  @@schema("public")
+}
+
+enum VatType {
+  VATABLE
+  EXEMPT
+  ZERO
+
+  @@map("vat_type")
+  @@schema("public")
+}
+
+enum InventoryTransactionType {
+  IN
+  OUT
+  ADJUSTMENT
+
+  @@map("inventory_transaction_type")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// CATEGORY
+/////////////////////////////////////////////////
+
+model Category {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_category") @db.Uuid
+
+  categoryName String? @map("category_name")
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  companyId String?  @map("uuid_company") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  products Product[]
+
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  @@index([companyId])
+  @@map("category")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// PRODUCT
+/////////////////////////////////////////////////
+
+model Product {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_product") @db.Uuid
+
+  name            String
+  productImageUrl String?  @map("product_image_url") @db.VarChar(500)
+  barcode         String?  @db.VarChar(100)
+  baseUnit        String   @default("") @map("base_unit") @db.VarChar(50)
+  quantity        Decimal? @db.Decimal(19, 4)
+  cost            Decimal  @default(0) @db.Decimal(19, 4)
+  price           Decimal  @db.Decimal(19, 4)
+  isAvailable     Boolean  @default(true) @map("is_available")
+  itemType        ItemType @default(RESALE) @map("item_type")
+  vatType         VatType  @default(VATABLE) @map("vat_type")
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  categoryId String   @map("uuid_category") @db.Uuid
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  companyId String?  @map("uuid_company") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  images    ProductImage[]
+  inventory Inventory[]
+
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  @@unique([name, categoryId], name: "uk_product_name_category")
+  @@index([categoryId])
+  @@index([companyId])
+  @@map("product")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// PRODUCT IMAGES
+/////////////////////////////////////////////////
+
+model ProductImage {
+  id       Int    @id @default(autoincrement())
+  imageUrl String @map("image_url")
+
+  productId String  @map("uuid_product") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// INVENTORY
+/////////////////////////////////////////////////
+
+model Inventory {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_inventory") @db.Uuid
+
+  quantity  Decimal                  @db.Decimal(19, 4)
+  type      InventoryTransactionType
+  reference String?
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  productId String  @map("uuid_product") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([productId])
+  @@map("inventory")
   @@schema("public")
 }

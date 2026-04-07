@@ -1,5 +1,4 @@
 import "server-only";
-import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type {
   PageResult,
@@ -7,6 +6,7 @@ import type {
   PosTerminalRequestDto,
 } from "./profile.dto";
 import type { ProfileListItem } from "./profile.service";
+import { Prisma } from "@prisma/client";
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
