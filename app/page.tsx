@@ -14,8 +14,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ShoppingCart, Package, BarChart3, Menu } from "lucide-react";
+import { ShoppingCart, Package, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AuthGate } from "@/components/auth-gate";
 
 const features = [
   {
@@ -39,18 +40,20 @@ const features = [
 ];
 
 export default async function Home() {
-  // Check if user is logged in
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  // const supabase = await createClient();
+  // const { data } = await supabase.auth.getClaims();
+  // const user = data?.claims;
 
-  // If logged in, redirect to dashboard
-  if (user) {
-    redirect("/dashboard");
-  }
+  // if (user) {
+  //   redirect("/dashboard");
+  // }
 
   return (
     <main className="min-h-screen flex flex-col items-center">
+      <Suspense fallback={null}>
+        <AuthGate />
+      </Suspense>
+
       <div className="flex-1 w-full flex flex-col gap-20 items-center">
         <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
           <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
@@ -70,9 +73,7 @@ export default async function Home() {
           </div>
         </nav>
 
-        {/* Main Content */}
         <main className="flex-1">
-          {/* Hero Section */}
           <section className="container px-4 py-12 md:py-20 lg:py-24">
             <div className="mx-auto max-w-3xl text-center">
               <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl">
@@ -101,7 +102,6 @@ export default async function Home() {
             </div>
           </section>
 
-          {/* Features Section */}
           <section className="container px-4 py-12 md:py-16 lg:py-20">
             <div className="mx-auto max-w-screen-xl">
               <h2 className="mb-8 text-center text-3xl font-bold tracking-tighter sm:text-4xl md:mb-12">

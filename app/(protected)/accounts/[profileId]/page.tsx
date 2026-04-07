@@ -1,5 +1,6 @@
 "use client";
-import { use, useState, useEffect, useCallback } from "react";
+
+import { use, useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,11 @@ import {
 import ProfileFormModal from "@/app/(protected)/accounts/_components/ProfileFormModal";
 import type { ProfileListItem } from "@/app/(protected)/accounts/_services/profile.service";
 
-export default function ProfileDetailPage({
+// ─────────────────────────────────────────────────────────────────
+// Inner component — uses use(params), must be inside <Suspense>
+// ─────────────────────────────────────────────────────────────────
+
+function ProfileDetailInner({
   params,
 }: {
   params: Promise<{ profileId: string }>;
@@ -29,7 +34,7 @@ export default function ProfileDetailPage({
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // ── Fetch ────────────────────────────────────────────────────────
   const fetchProfile = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -51,11 +56,10 @@ export default function ProfileDetailPage({
     fetchProfile();
   }, [fetchProfile]);
 
-  // ── Mutations ──────────────────────────────────────────────────────────────
+  // ── Mutations ────────────────────────────────────────────────────
   const handleSave = async (data: ProfileListItem) => {
     setIsSaving(true);
     try {
-      // TODO: profileService.update(data)
       setProfile(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -116,7 +120,7 @@ export default function ProfileDetailPage({
     }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -173,5 +177,31 @@ export default function ProfileDetailPage({
         }
       />
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Public page export — wraps inner component in <Suspense>
+// ─────────────────────────────────────────────────────────────────
+
+export default function ProfileDetailPage({
+  params,
+}: {
+  params: Promise<{ profileId: string }>;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="h-9 w-20 rounded-md bg-muted animate-pulse" />
+            <div className="h-8 w-48 rounded-md bg-muted animate-pulse" />
+          </div>
+          <div className="h-64 rounded-lg bg-muted animate-pulse" />
+        </div>
+      }
+    >
+      <ProfileDetailInner params={params} />
+    </Suspense>
   );
 }

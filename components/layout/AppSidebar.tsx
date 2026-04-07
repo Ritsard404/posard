@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { Suspense, useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -25,13 +26,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
 import { getNavByRole, isValidUserRole, UserRole } from "@/lib/access-control";
 import { createClient } from "@/lib/supabase/client";
 
@@ -54,7 +50,12 @@ function getInitials(name?: string, email?: string): string {
   return email?.[0]?.toUpperCase() ?? "?";
 }
 
-export function AppSidebar() {
+// ─────────────────────────────────────────────────────────────────
+// Inner component — uses usePathname() and useRouter(), so it must
+// live inside a <Suspense> boundary.
+// ─────────────────────────────────────────────────────────────────
+
+function AppSidebarInner() {
   const pathname = usePathname();
   const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -107,7 +108,7 @@ export function AppSidebar() {
         if (isMounted) {
           setProfile({
             role: profileData.role,
-            full_name:  undefined,
+            full_name: undefined,
             avatar_url: undefined,
             email: sessionUser.email,
           });
@@ -140,7 +141,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar" className="border-r ">
+    <Sidebar collapsible="icon" variant="sidebar" className="border-r">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -201,7 +202,6 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
-          {/* User info row — acts like a menu item, collapses to avatar */}
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
@@ -236,7 +236,6 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
 
-          {/* Logout */}
           <SidebarMenuItem>
             <AlertDialog
               open={showLogoutDialog}
@@ -270,5 +269,50 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Public export — wraps the inner component in <Suspense> so
+// Next.js 16 doesn't complain about usePathname() at build time.
+// ─────────────────────────────────────────────────────────────────
+
+export function AppSidebar() {
+  return (
+    <Suspense
+      fallback={
+        <Sidebar collapsible="icon" variant="sidebar" className="border-r">
+          <SidebarHeader>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <div className="flex items-center space-x-1">
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-900 text-white">
+                    <span className="text-md font-bold">P</span>
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">POSard</span>
+                  </div>
+                </div>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <span className="block px-3 py-2 text-sm text-muted-foreground">
+                      Loading...
+                    </span>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+        </Sidebar>
+      }
+    >
+      <AppSidebarInner />
+    </Suspense>
   );
 }
