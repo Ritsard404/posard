@@ -17,7 +17,7 @@ export default function POSPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden bg-muted/10">
-      <div className="flex-1 overflow-hidden h-full">
+      <div className="flex-1 overflow-y-auto h-full">
         <ProductDisplay />
       </div>
       <CartPanel />

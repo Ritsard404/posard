@@ -26,6 +26,7 @@ export interface Category {
 
 export interface CartItem extends Product {
   cartQuantity: number;
+  customSubtotal?: number;
 }
 
 export type DiscountType = 'NONE' | 'PWD' | 'SENIOR';
@@ -51,6 +52,7 @@ interface POSState {
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
+  updateItemSubtotal: (productId: string, subtotal?: number) => void;
   clearCart: () => void;
   
   setDiscount: (discount: DiscountType) => void;
@@ -102,6 +104,14 @@ export const usePOSStore = create<POSState>((set, get) => ({
     set({
       cart: get().cart.map(item => 
         item.id === productId ? { ...item, cartQuantity: quantity } : item
+      )
+    });
+  },
+
+  updateItemSubtotal: (productId, subtotal) => {
+    set({
+      cart: get().cart.map(item =>
+        item.id === productId ? { ...item, customSubtotal: subtotal } : item
       )
     });
   },

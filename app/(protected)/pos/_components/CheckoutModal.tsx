@@ -89,7 +89,7 @@ export function CheckoutModal({ open, onOpenChange, totalAmount }: CheckoutModal
               {cart.map(item => (
                 <div key={item.id} className="flex justify-between text-xs">
                   <span className="w-2/3 truncate">{item.cartQuantity}x {item.name}</span>
-                  <span>{(item.price * item.cartQuantity).toFixed(2)}</span>
+                  <span>{(item.customSubtotal ?? (item.price * item.cartQuantity)).toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -210,13 +210,16 @@ export function CheckoutModal({ open, onOpenChange, totalAmount }: CheckoutModal
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {[100, 500, 1000].map(amt => (
                   <Button key={amt} variant="outline" className="h-12 bg-muted/40" onClick={() => handleQuickCash(amt)}>
                     + {amt}
                   </Button>
                 ))}
-                <Button variant="outline" className="h-12 bg-muted/40 col-span-3 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setAmountTendered(0)}>
+                <Button variant="outline" className="h-12 bg-muted/40 font-semibold text-primary border-primary/50 hover:bg-primary/10" onClick={() => setAmountTendered(totalAmount)}>
+                  Exact
+                </Button>
+                <Button variant="outline" className="h-12 bg-muted/40 col-span-4 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setAmountTendered(0)}>
                   Clear Amount
                 </Button>
               </div>

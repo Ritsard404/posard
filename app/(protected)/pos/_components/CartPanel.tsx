@@ -1,15 +1,16 @@
 import { usePOSStore, CartItem } from '../_store/pos-store';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 
 export function CartPanel() {
-  const { cart, updateCartQuantity, removeFromCart, clearCart, discount } = usePOSStore();
+  const { cart, updateCartQuantity, removeFromCart, clearCart, discount, updateItemSubtotal } = usePOSStore();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
+  const subtotal = cart.reduce((sum, item) => sum + (item.customSubtotal ?? (item.price * item.cartQuantity)), 0);
   
   // Calculate discount logic: 
   // PWD / Senior Citizen generally means VAT exempt (divide by 1.12 to remove 12% VAT)
@@ -17,7 +18,7 @@ export function CartPanel() {
   let discountAmount = 0;
   if (discount === 'PWD' || discount === 'SENIOR') {
     const vatableAmount = cart.filter(item => item.vatType === 'VATABLE')
-                              .reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
+                              .reduce((sum, item) => sum + (item.customSubtotal ?? (item.price * item.cartQuantity)), 0);
     const nonVatableAmount = subtotal - vatableAmount;
     
     // Convert vatable to vatexempt
@@ -45,7 +46,7 @@ export function CartPanel() {
         </Badge>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
+      <div className="flex-1 overflow-y-auto p-4">
         {cart.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 py-20">
             <ShoppingCart className="h-16 w-16 mb-4" />
@@ -61,9 +62,31 @@ export function CartPanel() {
                     <h4 className="font-semibold text-sm line-clamp-2">{item.name}</h4>
                     <p className="text-xs text-muted-foreground font-mono mt-1">₱ {item.price.toFixed(2)}</p>
                   </div>
-                  <p className="font-bold min-w-[70px] text-right">
-                    ₱ {(item.price * item.cartQuantity).toFixed(2)}
-                  </p>
+                  <div className="flex flex-col items-end">
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-semibold text-muted-foreground">₱</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className={`h-8 w-24 text-right font-bold focus-visible:ring-1 ${item.customSubtotal !== undefined ? 'border-primary text-primary bg-primary/5' : ''}`}
+                        value={item.customSubtotal !== undefined ? item.customSubtotal : Number((item.price * item.cartQuantity).toFixed(2))}
+                        onChange={(e) => {
+                          if (e.target.value === '') {
+                             updateItemSubtotal(item.id, undefined);
+                          } else {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val) && val >= 0) {
+                              updateItemSubtotal(item.id, val);
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                    {item.customSubtotal !== undefined && (
+                      <span className="text-[10px] text-primary mt-1 mr-1 uppercase font-bold tracking-wider">Edited</span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center bg-muted rounded-md p-1 border border-border/50">
@@ -100,7 +123,7 @@ export function CartPanel() {
             ))}
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       <div className="p-4 border-t border-border bg-muted/20">
         <div className="space-y-2 mb-4 text-sm">
