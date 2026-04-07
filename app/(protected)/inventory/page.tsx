@@ -1,12 +1,36 @@
-export default function POSPage() {
+import { Suspense } from "react";
+import { findAllProducts } from "@/app/(protected)/inventory/_actions/product.actions";
+import { findAllCategoriesByCompany } from "@/app/(protected)/inventory/_actions/category.actions";
+import { InventoryPageClient } from "./_components/InventoryPageClient";
+import { InventoryPageSkeleton } from "./_components/InventoryPageSkeleton";
+
+// ─────────────────────────────────────────────
+// Página del inventario (Server Component)
+// Envuelve la carga async en Suspense para no bloquear la navegación
+// ─────────────────────────────────────────────
+
+export default function InventoryPage() {
   return (
-    <div>
-      <div className=" rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
-          POS system coming soon. Connect with your Spring Boot backend to start
-          processing transactions.
-        </p>
-      </div>
-    </div>
+    <Suspense fallback={<InventoryPageSkeleton />}>
+      <InventoryContent />
+    </Suspense>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Componente interno que ejecuta la carga async
+// ─────────────────────────────────────────────
+
+async function InventoryContent() {
+  const [initialProducts, initialCategories] = await Promise.all([
+    findAllProducts({ page: 0, size: 10 }),
+    findAllCategoriesByCompany(),
+  ]);
+
+  return (
+    <InventoryPageClient
+      initialProducts={initialProducts}
+      initialCategories={initialCategories}
+    />
   );
 }

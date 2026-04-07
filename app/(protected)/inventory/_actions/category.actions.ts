@@ -7,6 +7,10 @@ export async function findAllCategories(): Promise<CategoryDto[]> {
   return categoryService.findAll();
 }
 
+export async function findAllCategoriesByCompany(): Promise<CategoryDto[]> {
+  return categoryService.findAllByCompany();
+}
+
 export async function findCategoryById(
   id: string,
 ): Promise<CategoryDto | null> {

@@ -85,17 +85,29 @@ export const productService = {
     const sortField = SORTABLE_FIELDS[params?.sortBy ?? ""] ?? "name";
     const direction = params?.direction === "desc" ? "desc" : "asc";
 
-    const where: Prisma.ProductWhereInput = {
-      isDeleted: false,
-      ...(params?.keyword && {
+    // Construir las condiciones AND para evitar colisión de claves OR
+    const andConditions: Prisma.ProductWhereInput[] = [];
+
+    if (params?.keyword) {
+      andConditions.push({
         OR: [
           { name: { contains: params.keyword, mode: "insensitive" } },
           { barcode: { contains: params.keyword, mode: "insensitive" } },
         ],
-      }),
+      });
+    }
+
+    if (companyId) {
+      andConditions.push({
+        OR: [{ companyId }, { companyId: null }],
+      });
+    }
+
+    const where: Prisma.ProductWhereInput = {
+      isDeleted: false,
       ...(params?.barcode && { barcode: params.barcode }),
       ...(params?.categoryId && { categoryId: params.categoryId }),
-      ...(companyId ? { OR: [{ companyId }, { companyId: null }] } : {}),
+      ...(andConditions.length > 0 ? { AND: andConditions } : {}),
     };
 
     const [products, totalElements] = await Promise.all([

@@ -65,6 +65,33 @@ export const categoryService = {
   },
 
   /**
+   * GET /categories/company
+   * Devuelve TODAS las categorías de la empresa del usuario actual,
+   * incluyendo las que aún no tienen productos asignados.
+   * Usado en la gestión de inventario.
+   */
+  async findAllByCompany(): Promise<CategoryDto[]> {
+    const companyId = await getCompanyId();
+
+    const categories = await prisma.category.findMany({
+      where: {
+        isDeleted: false,
+        ...(companyId ? { companyId } : {}),
+      },
+      select: {
+        id: true,
+        categoryName: true,
+      },
+      orderBy: { categoryName: "asc" },
+    });
+
+    return categories.map((c) => ({
+      id: c.id,
+      categoryName: c.categoryName ?? "",
+    }));
+  },
+
+  /**
    * GET /categories/:id
    * Mirrors CategoryServiceImpl.getCategory()
    */
