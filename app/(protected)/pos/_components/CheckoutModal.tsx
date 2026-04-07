@@ -63,7 +63,7 @@ export function CheckoutModal({ open, onOpenChange, totalAmount }: CheckoutModal
   if (step === 'RECEIPT') {
     return (
       <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden border-border/60">
+        <DialogContent className="max-w-[100vw] h-[100dvh] sm:h-auto sm:max-w-[425px] p-0 overflow-hidden border-0 sm:border border-border/60">
           <div className="bg-primary p-6 text-primary-foreground flex flex-col items-center justify-center text-center">
             <CheckCircle2 className="h-16 w-16 mb-4 text-green-400" />
             <h2 className="text-2xl font-bold tracking-tight">Payment Successful</h2>
@@ -133,9 +133,9 @@ export function CheckoutModal({ open, onOpenChange, totalAmount }: CheckoutModal
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] p-0 flex overflow-hidden">
+      <DialogContent className="max-w-[100vw] h-[100dvh] sm:h-auto sm:max-w-[700px] p-0 flex flex-col md:flex-row overflow-hidden border-0 sm:border">
         {/* Left Side: Summary & Settings */}
-        <div className="w-1/2 p-6 bg-muted/20 border-r border-border flex flex-col">
+        <div className="w-full md:w-1/2 p-6 bg-muted/20 border-b md:border-b-0 md:border-r border-border flex flex-col overflow-y-auto">
           <DialogHeader className="mb-6">
             <DialogTitle className="text-2xl flex items-center gap-2">
               <Receipt className="h-6 w-6" />
@@ -172,7 +172,7 @@ export function CheckoutModal({ open, onOpenChange, totalAmount }: CheckoutModal
         </div>
 
         {/* Right Side: Payment Logic */}
-        <div className="w-1/2 flex flex-col p-6 bg-background">
+        <div className="w-full md:w-1/2 flex flex-col p-6 bg-background overflow-y-auto">
           <div className="space-y-3 mb-6">
              <Label className="uppercase text-xs font-semibold text-muted-foreground tracking-wider">Payment Method</Label>
              <div className="grid grid-cols-2 gap-2">

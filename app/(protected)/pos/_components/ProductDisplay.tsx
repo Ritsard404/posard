@@ -32,12 +32,12 @@ export function ProductDisplay() {
       <div className="p-4 border-b border-border space-y-4">
         <div className="flex items-center gap-2">
           <div className="relative flex-grow">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
               placeholder="Search products by name or barcode..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-full bg-muted/50 rounded-full"
+              className="pl-10 w-full bg-muted/50 rounded-full h-12 text-base"
             />
           </div>
           <div className="flex bg-muted/50 rounded-lg p-1">
@@ -65,7 +65,7 @@ export function ProductDisplay() {
           <div className="flex w-max space-x-2">
             <Button
               variant={selectedCategoryId === null ? 'default' : 'outline'}
-              className="rounded-full px-6"
+              className="rounded-full px-6 h-10"
               onClick={() => setSelectedCategoryId(null)}
             >
               All Items
@@ -74,7 +74,7 @@ export function ProductDisplay() {
               <Button
                 key={cat.id}
                 variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                className="rounded-full px-6"
+                className="rounded-full px-6 h-10"
                 onClick={() => setSelectedCategoryId(cat.id)}
               >
                 {cat.categoryName}
@@ -94,7 +94,7 @@ export function ProductDisplay() {
         ) : (
           <div className={
             viewMode === 'grid' 
-              ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4 pb-4" 
+              ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 pb-4" 
               : "flex flex-col gap-3 pb-4"
           }>
             {paginatedProducts.map(product => (
@@ -113,18 +113,18 @@ export function ProductDisplay() {
           <div className="flex gap-2">
             <Button 
               variant="outline" 
-              size="sm" 
+              className="h-10 px-4"
               disabled={currentPage === 1}
               onClick={() => setPage(currentPage - 1)}
             >
               Prev
             </Button>
-            <div className="flex items-center px-4 font-medium">
-              Page {currentPage} of {totalPages}
+            <div className="flex items-center px-2 sm:px-4 font-medium">
+              {currentPage} / {totalPages}
             </div>
             <Button 
               variant="outline" 
-              size="sm" 
+              className="h-10 px-4"
               disabled={currentPage === totalPages}
               onClick={() => setPage(currentPage + 1)}
             >

@@ -35,7 +35,7 @@ export function CartPanel() {
   const total = subtotal - discountAmount;
 
   return (
-    <div className="flex flex-col h-full bg-card w-full lg:w-[400px] xl:w-[450px] border-l border-border shadow-2xl relative z-10 flex-shrink-0">
+    <div className="flex flex-col h-full bg-card w-full relative z-10">
       <div className="p-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ShoppingCart className="h-5 w-5 text-primary" />
@@ -69,7 +69,7 @@ export function CartPanel() {
                         type="number"
                         min="0"
                         step="0.01"
-                        className={`h-8 w-24 text-right font-bold focus-visible:ring-1 ${item.customSubtotal !== undefined ? 'border-primary text-primary bg-primary/5' : ''}`}
+                        className={`h-10 w-24 text-right font-bold text-base focus-visible:ring-1 ${item.customSubtotal !== undefined ? 'border-primary text-primary bg-primary/5' : ''}`}
                         value={item.customSubtotal !== undefined ? item.customSubtotal : Number((item.price * item.cartQuantity).toFixed(2))}
                         onChange={(e) => {
                           if (e.target.value === '') {
@@ -93,30 +93,30 @@ export function CartPanel() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground"
+                      className="h-10 w-10 sm:h-8 sm:w-8 rounded-sm text-muted-foreground hover:text-foreground"
                       onClick={() => updateCartQuantity(item.id, item.cartQuantity - 1)}
                     >
-                      <Minus className="h-4 w-4" />
+                      <Minus className="h-5 w-5 sm:h-4 sm:w-4" />
                     </Button>
-                    <div className="w-10 text-center font-semibold text-sm">
+                    <div className="w-12 text-center font-semibold text-base sm:text-sm">
                       {item.cartQuantity}
                     </div>
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground"
+                      className="h-10 w-10 sm:h-8 sm:w-8 rounded-sm text-muted-foreground hover:text-foreground"
                       onClick={() => updateCartQuantity(item.id, item.cartQuantity + 1)}
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
                     </Button>
                   </div>
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    className="h-10 w-10 sm:h-8 sm:w-8 text-destructive hover:bg-destructive/10"
                     onClick={() => removeFromCart(item.id)}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-5 w-5 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
               </div>
@@ -153,14 +153,14 @@ export function CartPanel() {
         <div className="flex gap-2">
           <Button 
             variant="outline" 
-            className="w-1/3 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            className="w-1/3 h-14 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
             onClick={clearCart}
             disabled={cart.length === 0}
           >
             Clear
           </Button>
           <Button 
-            className="w-2/3 md:text-lg h-12 shadow-lg hover:shadow-xl transition-shadow"
+            className="w-2/3 md:text-lg h-14 shadow-lg hover:shadow-xl transition-shadow font-semibold"
             onClick={() => setCheckoutOpen(true)}
             disabled={cart.length === 0}
           >
