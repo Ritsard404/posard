@@ -1,12 +1,26 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import { ProductDisplay } from './_components/ProductDisplay';
+import { CartPanel } from './_components/CartPanel';
+
 export default function POSPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // Basic hydration strategy for mock state if strictly required. 
+    // Mostly required to prevent hydration mismatch from local state vs server rendering.
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
-    <div>
-      <div className=" rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
-          POS system coming soon. Connect with your Spring Boot backend to start
-          processing transactions.
-        </p>
+    <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden bg-muted/10">
+      <div className="flex-1 overflow-hidden h-full">
+        <ProductDisplay />
       </div>
+      <CartPanel />
     </div>
   );
 }

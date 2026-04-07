@@ -1,0 +1,160 @@
+import { usePOSStore, CartItem } from '../_store/pos-store';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { useState } from 'react';
+
+export function CartPanel() {
+  const { cart, updateCartQuantity, removeFromCart, clearCart, discount } = usePOSStore();
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
+  
+  // Calculate discount logic: 
+  // PWD / Senior Citizen generally means VAT exempt (divide by 1.12 to remove 12% VAT)
+  // And then 20% off from the VAT-exempt amount.
+  let discountAmount = 0;
+  if (discount === 'PWD' || discount === 'SENIOR') {
+    const vatableAmount = cart.filter(item => item.vatType === 'VATABLE')
+                              .reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
+    const nonVatableAmount = subtotal - vatableAmount;
+    
+    // Convert vatable to vatexempt
+    const vatExemptAmount = vatableAmount / 1.12;
+    // 20% discount on both vat exempt and natively non-vatable
+    discountAmount = (vatExemptAmount + nonVatableAmount) * 0.20;
+    // Plus the VAT that was removed
+    discountAmount += (vatableAmount - vatExemptAmount);
+  }
+
+  const taxAmount = (discount === 'PWD' || discount === 'SENIOR') ? 0 : subtotal * 0.12; // Assuming 12% VAT embedded or added? If price is inclusive of VAT, tax is derived. Let's do inclusive.
+  const taxDerived = taxAmount > 0 ? subtotal - (subtotal / 1.12) : 0;
+  
+  const total = subtotal - discountAmount;
+
+  return (
+    <div className="flex flex-col h-full bg-card w-full lg:w-[400px] xl:w-[450px] border-l border-border shadow-2xl relative z-10 flex-shrink-0">
+      <div className="p-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ShoppingCart className="h-5 w-5 text-primary" />
+          <h2 className="font-bold text-lg">Current Order</h2>
+        </div>
+        <Badge variant="secondary" className="font-mono text-sm">
+          {cart.length} {cart.length === 1 ? 'Item' : 'Items'}
+        </Badge>
+      </div>
+
+      <ScrollArea className="flex-1 p-4">
+        {cart.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 py-20">
+            <ShoppingCart className="h-16 w-16 mb-4" />
+            <p className="text-lg font-medium">Cart is Empty</p>
+            <p className="text-sm">Add products to start an order</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {cart.map((item) => (
+              <div key={item.id} className="flex flex-col border-b border-border pb-4 last:border-0 last:pb-0">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="pr-4">
+                    <h4 className="font-semibold text-sm line-clamp-2">{item.name}</h4>
+                    <p className="text-xs text-muted-foreground font-mono mt-1">₱ {item.price.toFixed(2)}</p>
+                  </div>
+                  <p className="font-bold min-w-[70px] text-right">
+                    ₱ {(item.price * item.cartQuantity).toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center bg-muted rounded-md p-1 border border-border/50">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground"
+                      onClick={() => updateCartQuantity(item.id, item.cartQuantity - 1)}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <div className="w-10 text-center font-semibold text-sm">
+                      {item.cartQuantity}
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground"
+                      onClick={() => updateCartQuantity(item.id, item.cartQuantity + 1)}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => removeFromCart(item.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+
+      <div className="p-4 border-t border-border bg-muted/20">
+        <div className="space-y-2 mb-4 text-sm">
+          <div className="flex justify-between text-muted-foreground">
+            <span>Subtotal</span>
+            <span>₱ {subtotal.toFixed(2)}</span>
+          </div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between text-destructive font-medium">
+              <span>Discount ({discount})</span>
+              <span>- ₱ {discountAmount.toFixed(2)}</span>
+            </div>
+          )}
+          {discount === 'NONE' && taxDerived > 0 && (
+             <div className="flex justify-between text-muted-foreground text-xs">
+               <span>VAT (12% Included)</span>
+               <span>₱ {taxDerived.toFixed(2)}</span>
+             </div>
+          )}
+          <Separator className="my-2" />
+          <div className="flex justify-between items-end">
+            <span className="font-semibold text-lg">Total</span>
+            <span className="font-extrabold text-3xl text-primary tracking-tight">₱ {Math.max(0, total).toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="w-1/3 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            onClick={clearCart}
+            disabled={cart.length === 0}
+          >
+            Clear
+          </Button>
+          <Button 
+            className="w-2/3 md:text-lg h-12 shadow-lg hover:shadow-xl transition-shadow"
+            onClick={() => setCheckoutOpen(true)}
+            disabled={cart.length === 0}
+          >
+            Checkout
+          </Button>
+        </div>
+      </div>
+
+      <CheckoutModal 
+        open={checkoutOpen} 
+        onOpenChange={setCheckoutOpen} 
+        totalAmount={total} 
+      />
+    </div>
+  );
+}
+
+// Let's make sure Badge is here.
+import { Badge } from '@/components/ui/badge';import { CheckoutModal } from './CheckoutModal';
+
