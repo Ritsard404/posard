@@ -22,9 +22,9 @@ import {
 import {
   createProduct,
   updateProduct,
-} from "@/app/(protected)/inventory/_actions/product.actions";
-import type { ProductDto } from "@/app/(protected)/inventory/_services/_dto/product.dto";
-import type { CategoryDto } from "@/app/(protected)/inventory/_services/_dto/category.dto";
+} from "@/app/(protected)/product/_actions/product.actions";
+import type { ProductDto } from "@/app/(protected)/product/_services/_dto/product.dto";
+import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
 
 // ─────────────────────────────────────────────
 // Esquema de validación con Zod (strings para campos numéricos,

@@ -56,6 +56,9 @@ model Profile {
   timestampsAsManagerIn  Timestamp[] @relation("ManagerInTimestamp")
   timestampsAsManagerOut Timestamp[] @relation("ManagerOutTimestamp")
 
+  invoicesAsCashier  Invoice[] @relation("CashierInvoice")
+  invoicesAsVoidedBy Invoice[] @relation("VoidedByInvoice")
+
   //////////////////////////////////////////////////
   // AUDIT
   //////////////////////////////////////////////////
@@ -173,8 +176,9 @@ model PosTerminalInfo {
   // AUDIT
   //////////////////////////////////////////////////
 
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  invoices  Invoice[]
 
   @@index([companyId])
   @@map("pos_terminal_info")
@@ -325,6 +329,7 @@ model Product {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
   isDeleted Boolean   @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  items     Item[]
 
   @@unique([name, categoryId], name: "uk_product_name_category")
   @@index([categoryId])
@@ -376,5 +381,231 @@ model Inventory {
 
   @@index([productId])
   @@map("inventory")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// ENUMS For INVOICE
+/////////////////////////////////////////////////
+
+enum DiscountType {
+  PWD
+  SENIOR
+  OTHERS
+
+  @@map("discount_type")
+  @@schema("public")
+}
+
+enum InvoiceDocumentType {
+  INVOICE
+  ZREPORT
+  XREPORT
+
+  @@map("invoice_document_type")
+  @@schema("public")
+}
+
+enum InvoiceStatusType {
+  CANCELLED
+  RETURNED
+  VOID
+  PENDING
+  PAID
+
+  @@map("invoice_status_type")
+  @@schema("public")
+}
+
+enum SaleTypeEnums {
+  CARD
+  EPAYMENT
+
+  @@map("sale_type_enums")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// SALE TYPE
+/////////////////////////////////////////////////
+
+model SaleType {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_sale_type") @db.Uuid
+
+  name    String?
+  account String?
+  type    SaleTypeEnums @default(EPAYMENT)
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  ePayments EPayment[]
+
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("sale_type")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// INVOICE
+/////////////////////////////////////////////////
+
+model Invoice {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_invoice") @db.Uuid
+
+  /**
+   * -------------------------
+   * Invoice Identifiers
+   * -------------------------
+   */
+
+  invoiceNumber Int @unique @map("invoice_number")
+
+  /**
+   * -------------------------
+   * Amounts
+   * -------------------------
+   */
+
+  grossAmount   Decimal  @map("gross_amount") @db.Decimal(15, 2)
+  totalAmount   Decimal  @map("total_amount") @db.Decimal(15, 2)
+  subTotal      Decimal? @map("sub_total") @db.Decimal(15, 2)
+  cashTendered  Decimal? @map("cash_tendered") @db.Decimal(15, 2)
+  dueAmount     Decimal? @map("due_amount") @db.Decimal(15, 2)
+  totalTendered Decimal? @map("total_tendered") @db.Decimal(15, 2)
+  changeAmount  Decimal? @map("change_amount") @db.Decimal(15, 2)
+  vatSales      Decimal? @map("vat_sales") @db.Decimal(15, 2)
+  vatExempt     Decimal? @map("vat_exempt") @db.Decimal(15, 2)
+  vatAmount     Decimal? @map("vat_amount") @db.Decimal(15, 2)
+  vatZero       Decimal? @map("vat_zero") @db.Decimal(15, 2)
+
+  /**
+   * -------------------------
+   * Customer & Discount
+   * -------------------------
+   */
+
+  customerName     String   @default("Walk-in Customer") @map("customer_name")
+  eligibleDiscName String?  @map("eligible_disc_name")
+  oscaIdNum        String?  @map("osca_id_num")
+  discountType     String?  @map("discount_type")
+  discountPercent  Int?     @map("discount_percent")
+  discountAmount   Decimal? @map("discount_amount") @db.Decimal(15, 2)
+
+  /**
+   * -------------------------
+   * Return / Void
+   * -------------------------
+   */
+
+  returnedAmount Decimal? @map("returned_amount") @db.Decimal(15, 2)
+  reason         String?
+
+  /**
+   * -------------------------
+   * Status & Metadata
+   * -------------------------
+   */
+
+  status      InvoiceStatusType
+  isRead      Boolean           @default(false) @map("is_read")
+  isTrainMode Boolean           @default(false) @map("is_train_mode")
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  posTerminalId String          @map("uuid_pos_terminal") @db.Uuid
+  posTerminal   PosTerminalInfo @relation(fields: [posTerminalId], references: [id])
+
+  cashierId String  @map("cashier_id") @db.Uuid
+  cashier   Profile @relation("CashierInvoice", fields: [cashierId], references: [id])
+
+  voidedById String?  @map("voided_by") @db.Uuid
+  voidedBy   Profile? @relation("VoidedByInvoice", fields: [voidedById], references: [id])
+
+  items     Item[]
+  ePayments EPayment[]
+
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([posTerminalId])
+  @@index([cashierId])
+  @@index([voidedById])
+  @@map("invoice")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// ITEM
+/////////////////////////////////////////////////
+
+model Item {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_item") @db.Uuid
+
+  qty      Decimal           @db.Decimal(19, 4)
+  price    Decimal           @db.Decimal(19, 4)
+  subTotal Decimal           @map("subtotal") @db.Decimal(19, 4)
+  status   InvoiceStatusType
+
+  isTrainingMode Boolean @default(false) @map("is_training_mode")
+
+  productId String  @map("uuid_product") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  invoiceId String  @map("uuid_invoice") @db.Uuid
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([productId])
+  @@index([invoiceId])
+  @@map("item")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// E-PAYMENT
+/////////////////////////////////////////////////
+
+model EPayment {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_e_payment") @db.Uuid
+
+  reference String  @unique
+  amount    Decimal @db.Decimal(15, 2)
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  invoiceId String  @map("uuid_invoice") @db.Uuid
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  saleTypeId String   @map("uuid_sale_type") @db.Uuid
+  saleType   SaleType @relation(fields: [saleTypeId], references: [id])
+
+  //////////////////////////////////////////////////
+  // AUDIT
+  //////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([invoiceId])
+  @@index([saleTypeId])
+  @@map("e_payment")
   @@schema("public")
 }

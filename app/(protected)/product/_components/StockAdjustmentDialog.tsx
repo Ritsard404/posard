@@ -16,8 +16,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { recordInventoryTransaction } from "@/app/(protected)/inventory/_actions/inventory.actions";
-import type { ProductDto } from "@/app/(protected)/inventory/_services/_dto/product.dto";
+import { recordInventoryTransaction } from "@/app/(protected)/product/_actions/inventory.actions";
+import type { ProductDto } from "@/app/(protected)/product/_services/_dto/product.dto";
 import type { InventoryTransactionType } from "@prisma/client";
 
 // ─────────────────────────────────────────────

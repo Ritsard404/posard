@@ -28,8 +28,8 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
-} from "@/app/(protected)/inventory/_actions/category.actions";
-import type { CategoryDto } from "@/app/(protected)/inventory/_services/_dto/category.dto";
+} from "@/app/(protected)/product/_actions/category.actions";
+import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
 
 // ─────────────────────────────────────────────
 // Props del gestor de categorías

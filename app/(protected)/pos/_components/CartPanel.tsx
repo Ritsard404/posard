@@ -157,7 +157,7 @@ export function CartPanel() {
             onClick={clearCart}
             disabled={cart.length === 0}
           >
-            Clear
+            Void
           </Button>
           <Button 
             className="w-2/3 md:text-lg h-14 shadow-lg hover:shadow-xl transition-shadow font-semibold"

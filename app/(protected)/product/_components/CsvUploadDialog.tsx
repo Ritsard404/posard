@@ -17,7 +17,7 @@ import {
 import {
   batchUploadProducts,
   getProductCsvTemplate,
-} from "@/app/(protected)/inventory/_actions/product.actions";
+} from "@/app/(protected)/product/_actions/product.actions";
 
 // ─────────────────────────────────────────────
 // Props del diálogo de carga CSV

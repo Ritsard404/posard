@@ -1,10 +1,10 @@
 "use server";
 
-import { inventoryService } from "@/app/(protected)/inventory/_services/inventory.service";
+import { inventoryService } from "@/app/(protected)/product/_services/inventory.service";
 import type {
   InventoryDto,
   InventoryTransactionRequestDto,
-} from "@/app/(protected)/inventory/_services/_dto/inventory.dto";
+} from "@/app/(protected)/product/_services/_dto/inventory.dto";
 
 export async function findAllInventory(): Promise<InventoryDto[]> {
   return inventoryService.findAll();

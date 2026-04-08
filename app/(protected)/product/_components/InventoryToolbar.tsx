@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { CategoryDto } from "@/app/(protected)/inventory/_services/_dto/category.dto";
+import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
 
 // ─────────────────────────────────────────────
 // Props del toolbar de inventario

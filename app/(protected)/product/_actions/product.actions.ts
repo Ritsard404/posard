@@ -4,7 +4,7 @@ import type {
   ProductDto,
   ProductSaveDto,
   PageResponse,
-} from "@/app/(protected)/inventory/_services/_dto/product.dto";
+} from "@/app/(protected)/product/_services/_dto/product.dto";
 import { productService } from "../_services/product.service";
 
 export async function findAllProducts(params?: {

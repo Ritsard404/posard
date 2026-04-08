@@ -2,8 +2,8 @@
 
 import { Package, Layers, AlertTriangle, XCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import type { ProductDto } from "@/app/(protected)/inventory/_services/_dto/product.dto";
-import type { CategoryDto } from "@/app/(protected)/inventory/_services/_dto/category.dto";
+import type { ProductDto } from "@/app/(protected)/product/_services/_dto/product.dto";
+import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
 
 // ─────────────────────────────────────────────
 // Tipos de props para las tarjetas de resumen

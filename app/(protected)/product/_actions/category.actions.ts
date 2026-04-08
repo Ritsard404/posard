@@ -1,7 +1,7 @@
 "use server";
 
-import { categoryService } from "@/app/(protected)/inventory/_services/category.service";
-import type { CategoryDto } from "@/app/(protected)/inventory/_services/_dto/category.dto";
+import { categoryService } from "@/app/(protected)/product/_services/category.service";
+import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
 
 export async function findAllCategories(): Promise<CategoryDto[]> {
   return categoryService.findAll();

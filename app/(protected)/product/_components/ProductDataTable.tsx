@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { ProductDto } from "@/app/(protected)/inventory/_services/_dto/product.dto";
+import type { ProductDto } from "@/app/(protected)/product/_services/_dto/product.dto";
 
 // ─────────────────────────────────────────────
 // Props de la tabla de productos

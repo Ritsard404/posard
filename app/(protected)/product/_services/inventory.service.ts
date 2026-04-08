@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type {
   InventoryDto,
   InventoryTransactionRequestDto,
-} from "@/app/(protected)/inventory/_services/_dto/inventory.dto";
+} from "@/app/(protected)/product/_services/_dto/inventory.dto";
 
 // ─────────────────────────────────────────────
 // Service

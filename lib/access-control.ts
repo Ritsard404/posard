@@ -104,7 +104,7 @@ export const routes: RouteConfig[] = [
     permission: "view.inventory",
     label: "Inventory",
     icon: Package,
-    showInNav: true,
+    showInNav: false,
   },
   {
     href: "/report",

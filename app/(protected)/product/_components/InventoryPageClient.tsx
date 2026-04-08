@@ -11,14 +11,14 @@ import { CategoryManagerSheet } from "./CategoryManagerSheet";
 import { CsvUploadDialog } from "./CsvUploadDialog";
 import { StockAdjustmentDialog } from "./StockAdjustmentDialog";
 
-import { findAllProducts } from "@/app/(protected)/inventory/_actions/product.actions";
-import { deleteProduct } from "@/app/(protected)/inventory/_actions/product.actions";
-import { findAllCategoriesByCompany } from "@/app/(protected)/inventory/_actions/category.actions";
+import { findAllProducts } from "@/app/(protected)/product/_actions/product.actions";
+import { deleteProduct } from "@/app/(protected)/product/_actions/product.actions";
+import { findAllCategoriesByCompany } from "@/app/(protected)/product/_actions/category.actions";
 import type {
   ProductDto,
   PageResponse,
-} from "@/app/(protected)/inventory/_services/_dto/product.dto";
-import type { CategoryDto } from "@/app/(protected)/inventory/_services/_dto/category.dto";
+} from "@/app/(protected)/product/_services/_dto/product.dto";
+import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
 
 import {
   AlertDialog,
