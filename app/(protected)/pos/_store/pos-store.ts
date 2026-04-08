@@ -1,32 +1,14 @@
 import { create } from 'zustand';
+import { ProductDto as Product, CategoryDto as Category, VatType, ItemType } from '../_services/_dto/pos.dto';
+import { InvoiceStatusType } from '../_services/_dto/order.dto';
 
-// Product type derived from Prisma Schema
-export type ItemType = 'RESALE' | 'WHOLESALE';
-export type VatType = 'VATABLE' | 'EXEMPT' | 'ZERO';
-
-export interface Product {
-  id: string;
-  name: string;
-  productImageUrl: string | null;
-  barcode: string | null;
-  baseUnit: string;
-  quantity: number; // Stored as Decimal in Prisma, using number here for UI
-  cost: number;
-  price: number;
-  isAvailable: boolean;
-  itemType: ItemType;
-  vatType: VatType;
-  categoryId: string;
-}
-
-export interface Category {
-  id: string;
-  categoryName: string;
-}
+export type { Product, Category, VatType, ItemType };
 
 export interface CartItem extends Product {
+  cartItemId: string;
   cartQuantity: number;
   customSubtotal?: number;
+  itemStatus?: InvoiceStatusType;
 }
 
 export type DiscountType = 'NONE' | 'PWD' | 'SENIOR';
@@ -48,11 +30,18 @@ interface POSState {
   currentPage: number;
   itemsPerPage: number;
 
+  // POS Data
+  products: Product[];
+  categories: Category[];
+
   // Actions
+  setProducts: (products: Product[]) => void;
+  setCategories: (categories: Category[]) => void;
+
   addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
-  updateCartQuantity: (productId: string, quantity: number) => void;
-  updateItemSubtotal: (productId: string, subtotal?: number) => void;
+  removeFromCart: (cartItemId: string) => void;
+  updateCartQuantity: (cartItemId: string, quantity: number) => void;
+  updateItemSubtotal: (cartItemId: string, subtotal?: number) => void;
   clearCart: () => void;
   
   setDiscount: (discount: DiscountType) => void;
@@ -70,6 +59,9 @@ export const usePOSStore = create<POSState>((set, get) => ({
   discount: 'NONE',
   paymentMethod: 'CASH',
   amountTendered: 0,
+  
+  products: [],
+  categories: [],
 
   searchQuery: '',
   selectedCategoryId: null,
@@ -78,40 +70,45 @@ export const usePOSStore = create<POSState>((set, get) => ({
   currentPage: 1,
   itemsPerPage: 12,
 
+  setProducts: (products) => set({ products }),
+  setCategories: (categories) => set({ categories }),
+
   addToCart: (product) => {
     const { cart } = get();
-    const existing = cart.find(item => item.id === product.id);
-    if (existing) {
+    const existingActive = cart.find(item => item.id === product.id && item.itemStatus !== 'VOID');
+    if (existingActive) {
       set({
         cart: cart.map(item => 
-          item.id === product.id ? { ...item, cartQuantity: item.cartQuantity + 1 } : item
+          item.cartItemId === existingActive.cartItemId ? { ...item, cartQuantity: item.cartQuantity + 1 } : item
         )
       });
     } else {
-      set({ cart: [...cart, { ...product, cartQuantity: 1 }] });
+      set({ cart: [...cart, { ...product, cartItemId: crypto.randomUUID(), cartQuantity: 1, itemStatus: 'PENDING' }] });
     }
   },
 
-  removeFromCart: (productId) => set({
-    cart: get().cart.filter(item => item.id !== productId)
+  removeFromCart: (cartItemId) => set({
+    cart: get().cart.map(item => 
+      item.cartItemId === cartItemId ? { ...item, itemStatus: 'VOID' } : item
+    )
   }),
 
-  updateCartQuantity: (productId, quantity) => {
+  updateCartQuantity: (cartItemId, quantity) => {
     if (quantity <= 0) {
-      get().removeFromCart(productId);
+      get().removeFromCart(cartItemId);
       return;
     }
     set({
       cart: get().cart.map(item => 
-        item.id === productId ? { ...item, cartQuantity: quantity } : item
+        item.cartItemId === cartItemId ? { ...item, cartQuantity: quantity } : item
       )
     });
   },
 
-  updateItemSubtotal: (productId, subtotal) => {
+  updateItemSubtotal: (cartItemId, subtotal) => {
     set({
       cart: get().cart.map(item =>
-        item.id === productId ? { ...item, customSubtotal: subtotal } : item
+        item.cartItemId === cartItemId ? { ...item, customSubtotal: subtotal } : item
       )
     });
   },
@@ -128,24 +125,3 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setPage: (currentPage) => set({ currentPage })
 }));
 
-// Mock Data Source for UI Prototyping
-export const mockCategories: Category[] = [
-  { id: '1', categoryName: 'Food & Beverages' },
-  { id: '2', categoryName: 'Hardware Tools' },
-  { id: '3', categoryName: 'Electronics' },
-];
-
-export const mockProducts: Product[] = Array.from({ length: 24 }).map((_, i) => ({
-  id: `prod-${i}`,
-  name: `Mock Product ${i + 1}`,
-  productImageUrl: null,
-  barcode: `1000000${i}`,
-  baseUnit: 'PCS',
-  quantity: 100,
-  cost: Number((Math.random() * 50).toFixed(2)),
-  price: Number((Math.random() * 100 + 10).toFixed(2)),
-  isAvailable: true,
-  itemType: 'RESALE',
-  vatType: 'VATABLE',
-  categoryId: String((i % 3) + 1),
-}));

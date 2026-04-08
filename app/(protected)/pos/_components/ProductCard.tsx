@@ -1,7 +1,7 @@
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Product, usePOSStore, mockCategories } from '../_store/pos-store';
+import { Product, usePOSStore } from '../_store/pos-store';
 import { Package, Plus } from 'lucide-react';
 
 interface ProductCardProps {
@@ -11,7 +11,8 @@ interface ProductCardProps {
 
 export function ProductCard({ product, viewMode }: ProductCardProps) {
   const addToCart = usePOSStore((state) => state.addToCart);
-  const categoryName = mockCategories.find(c => c.id === product.categoryId)?.categoryName || 'Uncategorized';
+  const categories = usePOSStore((state) => state.categories);
+  const categoryName = categories.find(c => c.id === product.categoryId)?.categoryName || 'Uncategorized';
 
   const handleAdd = () => {
     addToCart(product);

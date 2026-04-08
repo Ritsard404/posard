@@ -4,18 +4,35 @@ import { useEffect, useState } from 'react';
 import { ProductDisplay } from './_components/ProductDisplay';
 import { CartPanel } from './_components/CartPanel';
 import { ShoppingCart, Package } from 'lucide-react';
+import { fetchPOSMetaDataAction } from './_actions/pos.action';
+import { usePOSStore } from './_store/pos-store';
 
 export default function POSPage() {
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"products" | "cart">("products");
 
-  useEffect(() => {
-    // Basic hydration strategy for mock state if strictly required. 
-    // Mostly required to prevent hydration mismatch from local state vs server rendering.
-    setMounted(true);
-  }, []);
+  const setProducts = usePOSStore(state => state.setProducts);
+  const setCategories = usePOSStore(state => state.setCategories);
 
-  if (!mounted) return null;
+  useEffect(() => {
+    async function loadData() {
+      const res = await fetchPOSMetaDataAction();
+      if (res.success) {
+        setProducts(res.data.products);
+        setCategories(res.data.categories);
+        // If we want to store epayments we can add that to the store later.
+      } else {
+        console.error("Failed to load POS metadata:", res.error);
+      }
+      setMounted(true);
+      setLoading(false);
+    }
+    
+    loadData();
+  }, [setProducts, setCategories]);
+
+  if (!mounted || loading) return <div className="flex w-full h-[calc(100vh-4rem)] items-center justify-center">Loading POS Data...</div>;
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] w-full overflow-hidden bg-muted/10">

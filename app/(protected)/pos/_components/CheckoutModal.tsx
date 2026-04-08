@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { usePOSStore, DiscountType, PaymentMethodType } from '../_store/pos-store';
+import { payOrderAction } from '../_actions/order.action';
+import { OrderDto } from '../_services/_dto/order.dto';
 import {
   Dialog,
   DialogContent,
@@ -33,9 +35,32 @@ export function CheckoutModal({ open, onOpenChange, totalAmount }: CheckoutModal
     setAmountTendered((amountTendered || 0) + amount);
   };
 
-  const handleComplete = () => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleComplete = async () => {
     if (!isTenderValid) return;
-    setStep('RECEIPT');
+    
+    setIsProcessing(true);
+    const orderDto: OrderDto = {
+      items: cart.map(i => ({
+        productId: i.id,
+        qty: i.cartQuantity,
+        price: i.price,
+        subTotal: i.itemStatus === 'VOID' ? 0 : (i.customSubtotal ?? (i.price * i.cartQuantity)),
+        status: i.itemStatus || 'PENDING'
+      })),
+      cashTenderAmount: amountTendered,
+      discount: discount !== 'NONE' ? { discountType: discount } : undefined
+    };
+
+    const res = await payOrderAction(orderDto);
+    setIsProcessing(false);
+
+    if (res.success) {
+      setStep('RECEIPT');
+    } else {
+      alert("Payment Failed: " + res.error);
+    }
   };
 
   const handleClose = () => {
@@ -87,7 +112,7 @@ export function CheckoutModal({ open, onOpenChange, totalAmount }: CheckoutModal
                 <span>AMOUNT</span>
               </div>
               {cart.map(item => (
-                <div key={item.id} className="flex justify-between text-xs">
+                <div key={item.cartItemId} className="flex justify-between text-xs">
                   <span className="w-2/3 truncate">{item.cartQuantity}x {item.name}</span>
                   <span>{(item.customSubtotal ?? (item.price * item.cartQuantity)).toFixed(2)}</span>
                 </div>
@@ -245,10 +270,10 @@ export function CheckoutModal({ open, onOpenChange, totalAmount }: CheckoutModal
             <Button 
               className="w-full h-14 text-lg font-bold shadow-md"
               size="lg"
-              disabled={!isTenderValid}
+              disabled={!isTenderValid || isProcessing}
               onClick={handleComplete}
             >
-              Confirm & Render Receipt
+              {isProcessing ? "Processing..." : "Confirm & Render Receipt"}
             </Button>
           </div>
         </div>

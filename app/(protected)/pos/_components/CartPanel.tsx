@@ -3,21 +3,24 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingCart, Info } from 'lucide-react';
 import { useState } from 'react';
+import { cancelOrderAction } from '../_actions/order.action';
+import { OrderDto } from '../_services/_dto/order.dto';
 
 export function CartPanel() {
   const { cart, updateCartQuantity, removeFromCart, clearCart, discount, updateItemSubtotal } = usePOSStore();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.customSubtotal ?? (item.price * item.cartQuantity)), 0);
+  const activeCart = cart.filter(item => item.itemStatus !== 'VOID');
+  const subtotal = activeCart.reduce((sum, item) => sum + (item.customSubtotal ?? (item.price * item.cartQuantity)), 0);
   
   // Calculate discount logic: 
   // PWD / Senior Citizen generally means VAT exempt (divide by 1.12 to remove 12% VAT)
   // And then 20% off from the VAT-exempt amount.
   let discountAmount = 0;
   if (discount === 'PWD' || discount === 'SENIOR') {
-    const vatableAmount = cart.filter(item => item.vatType === 'VATABLE')
+    const vatableAmount = activeCart.filter(item => item.vatType === 'VATABLE')
                               .reduce((sum, item) => sum + (item.customSubtotal ?? (item.price * item.cartQuantity)), 0);
     const nonVatableAmount = subtotal - vatableAmount;
     
@@ -55,8 +58,10 @@ export function CartPanel() {
           </div>
         ) : (
           <div className="space-y-4">
-            {cart.map((item) => (
-              <div key={item.id} className="flex flex-col border-b border-border pb-4 last:border-0 last:pb-0">
+            {cart.map((item) => {
+              const isVoid = item.itemStatus === 'VOID';
+              return (
+              <div key={item.cartItemId} className={`flex flex-col border-b border-border pb-4 last:border-0 last:pb-0 ${isVoid ? 'opacity-50 grayscale' : ''}`}>
                 <div className="flex justify-between items-start mb-2">
                   <div className="pr-4">
                     <h4 className="font-semibold text-sm line-clamp-2">{item.name}</h4>
@@ -73,11 +78,11 @@ export function CartPanel() {
                         value={item.customSubtotal !== undefined ? item.customSubtotal : Number((item.price * item.cartQuantity).toFixed(2))}
                         onChange={(e) => {
                           if (e.target.value === '') {
-                             updateItemSubtotal(item.id, undefined);
+                             updateItemSubtotal(item.cartItemId, undefined);
                           } else {
                             const val = parseFloat(e.target.value);
                             if (!isNaN(val) && val >= 0) {
-                              updateItemSubtotal(item.id, val);
+                              updateItemSubtotal(item.cartItemId, val);
                             }
                           }
                         }}
@@ -93,34 +98,44 @@ export function CartPanel() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-10 w-10 sm:h-8 sm:w-8 rounded-sm text-muted-foreground hover:text-foreground"
-                      onClick={() => updateCartQuantity(item.id, item.cartQuantity - 1)}
+                      className={`h-10 w-10 sm:h-8 sm:w-8 rounded-sm ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:text-foreground'}`}
+                      onClick={() => !isVoid && updateCartQuantity(item.cartItemId, item.cartQuantity - 1)}
+                      disabled={isVoid}
                     >
                       <Minus className="h-5 w-5 sm:h-4 sm:w-4" />
                     </Button>
-                    <div className="w-12 text-center font-semibold text-base sm:text-sm">
+                    <div className={`w-12 text-center font-semibold text-base sm:text-sm ${isVoid && 'line-through text-destructive'}`}>
                       {item.cartQuantity}
                     </div>
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-10 w-10 sm:h-8 sm:w-8 rounded-sm text-muted-foreground hover:text-foreground"
-                      onClick={() => updateCartQuantity(item.id, item.cartQuantity + 1)}
+                      className={`h-10 w-10 sm:h-8 sm:w-8 rounded-sm ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:text-foreground'}`}
+                      onClick={() => !isVoid && updateCartQuantity(item.cartItemId, item.cartQuantity + 1)}
+                      disabled={isVoid}
                     >
                       <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
                     </Button>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-10 w-10 sm:h-8 sm:w-8 text-destructive hover:bg-destructive/10"
-                    onClick={() => removeFromCart(item.id)}
-                  >
-                    <Trash2 className="h-5 w-5 sm:h-4 sm:w-4" />
-                  </Button>
+                  {isVoid ? (
+                    <Badge variant="destructive" className="uppercase text-[10px]">Voided</Badge>
+                  ) : (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-10 w-10 sm:h-8 sm:w-8 text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        if (confirm("Are you sure you want to void this item?")) {
+                          removeFromCart(item.cartItemId);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-5 w-5 sm:h-4 sm:w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
@@ -154,7 +169,34 @@ export function CartPanel() {
           <Button 
             variant="outline" 
             className="w-1/3 h-14 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-            onClick={clearCart}
+            onClick={async () => {
+              if (cart.length === 0) return;
+              if (!confirm("Are you sure you want to void this entire order?")) return;
+              
+              const manager = prompt("Manager email required to Authorize Void:");
+              if (!manager) return;
+              const reason = prompt("Enter void reason:");
+              if (!reason) return;
+
+              const orderDto: OrderDto = {
+                items: cart.map(i => ({
+                  productId: i.id, // Keep productId mapped from the product
+                  qty: i.cartQuantity,
+                  price: i.price,
+                  subTotal: i.itemStatus === 'VOID' ? 0 : (i.customSubtotal ?? (i.price * i.cartQuantity)),
+                  status: i.itemStatus || 'PENDING'
+                })),
+                cashTenderAmount: 0
+              };
+
+              const res = await cancelOrderAction({ order: orderDto, managerIdentifier: manager, reason });
+              if (res.success) {
+                clearCart();
+                alert("Order cancelled successfully.");
+              } else {
+                alert("Failed to cancel order: " + res.error);
+              }
+            }}
             disabled={cart.length === 0}
           >
             Void
@@ -162,7 +204,7 @@ export function CartPanel() {
           <Button 
             className="w-2/3 md:text-lg h-14 shadow-lg hover:shadow-xl transition-shadow font-semibold"
             onClick={() => setCheckoutOpen(true)}
-            disabled={cart.length === 0}
+            disabled={activeCart.length === 0}
           >
             Checkout
           </Button>

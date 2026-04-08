@@ -15,6 +15,7 @@ export interface ItemRequestDto {
   qty: number;
   price: number;
   subTotal: number;
+  status?: InvoiceStatusType;
 }
 
 export interface EPaymentDto {

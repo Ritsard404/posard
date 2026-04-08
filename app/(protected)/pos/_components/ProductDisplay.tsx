@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { usePOSStore, mockProducts, mockCategories } from '../_store/pos-store';
+import { usePOSStore } from '../_store/pos-store';
 import { ProductCard } from './ProductCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,17 +11,18 @@ export function ProductDisplay() {
     searchQuery, setSearchQuery, 
     selectedCategoryId, setSelectedCategoryId,
     viewMode, setViewMode,
-    currentPage, setPage, itemsPerPage
+    currentPage, setPage, itemsPerPage,
+    products, categories
   } = usePOSStore();
 
   const filteredProducts = useMemo(() => {
-    return mockProducts.filter((p) => {
+    return products.filter((p) => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                             (p.barcode && p.barcode.includes(searchQuery));
       const matchesCategory = selectedCategoryId ? p.categoryId === selectedCategoryId : true;
       return matchesSearch && matchesCategory;
     });
-  }, [searchQuery, selectedCategoryId]);
+  }, [searchQuery, selectedCategoryId, products]);
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -70,7 +71,7 @@ export function ProductDisplay() {
             >
               All Items
             </Button>
-            {mockCategories.map((cat) => (
+            {categories.map((cat) => (
               <Button
                 key={cat.id}
                 variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
