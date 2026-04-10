@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Nunito_Sans, Rubik } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -11,19 +11,33 @@ const defaultUrl = process.env.VERCEL_URL
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: {
-    default: "POSard",
-    template: "%s | POSard",
+    default: "Baisard POS | Professional Retail Solutions",
+    template: "%s | Baisard POS",
   },
   description:
-    "POSard is a modern point-of-sale system for managing sales, inventory, and transactions efficiently.",
-  applicationName: "POSard",
-  keywords: ["POS", "Point of Sale", "Inventory", "Sales System", "POSard"],
+    "Baisard POS is a premium, all-in-one point-of-sale system designed for modern retail. Manage sales, inventory, and analytics with ease and style.",
+  applicationName: "Baisard POS",
+  keywords: ["POS", "Point of Sale", "Retail Management", "Inventory Control", "Business Analytics", "Baisard"],
+  authors: [{ name: "Ritsard" }],
+  openGraph: {
+    title: "Baisard POS | Professional Retail Solutions",
+    description: "Steamline your business with our modern point-of-sale system.",
+    type: "website",
+  },
 };
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const nunitoSans = Nunito_Sans({
+  variable: "--font-nunito-sans",
   display: "swap",
   subsets: ["latin"],
+  weight: ["300", "400", "600", "700", "800"],
+});
+
+const rubik = Rubik({
+  variable: "--font-rubik",
+  display: "swap",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 export default function RootLayout({
@@ -33,7 +47,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased`}>
+      <body className={`${nunitoSans.variable} ${rubik.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
