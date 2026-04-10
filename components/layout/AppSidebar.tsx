@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useParams } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Suspense, useState, useEffect } from "react";
 import {
@@ -36,6 +36,7 @@ interface UserProfile {
   full_name?: string;
   avatar_url?: string;
   email?: string;
+  company_id?: string;
 }
 
 function getInitials(name?: string, email?: string): string {
@@ -58,6 +59,7 @@ function getInitials(name?: string, email?: string): string {
 function AppSidebarInner() {
   const pathname = usePathname();
   const router = useRouter();
+  const params = useParams();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,7 +85,7 @@ function AppSidebarInner() {
 
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("role, status")
+          .select("role, status, company_id")
           .eq("user_id", sessionUser.id)
           .single();
 
@@ -111,6 +113,7 @@ function AppSidebarInner() {
             full_name: undefined,
             avatar_url: undefined,
             email: sessionUser.email,
+            company_id: profileData.company_id,
           });
         }
       } catch (error) {
@@ -180,20 +183,25 @@ function AppSidebarInner() {
                   </span>
                 </SidebarMenuItem>
               ) : (
-                filteredRoutes.map((route) => (
-                  <SidebarMenuItem key={route.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === route.href}
-                      tooltip={route.label}
-                    >
-                      <Link href={route.href}>
-                        <route.icon />
-                        <span>{route.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))
+                filteredRoutes.map((route) => {
+                  const companyId = (params?.companyId as string) || profile?.company_id || "new";
+                  const resolvedHref = route.href.replace("[companyId]", companyId);
+                  
+                  return (
+                    <SidebarMenuItem key={route.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === resolvedHref || pathname.startsWith(resolvedHref + "/")}
+                        tooltip={route.label}
+                      >
+                        <Link href={resolvedHref}>
+                          <route.icon />
+                          <span>{route.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })
               )}
             </SidebarMenu>
           </SidebarGroupContent>

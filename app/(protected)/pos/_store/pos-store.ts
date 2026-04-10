@@ -34,9 +34,16 @@ interface POSState {
   products: Product[];
   categories: Category[];
 
+  // Session Data
+  activeSessionId: string | null;
+  activeTimestampId: string | null;
+  activeTerminal: { id: string, name: string } | null;
+  activeUser: { name: string | null, role: string } | null;
+
   // Actions
   setProducts: (products: Product[]) => void;
   setCategories: (categories: Category[]) => void;
+  setSession: (data: { sessionId: string | null, timestampId: string | null, terminal: { id: string, name: string } | null, user: { name: string | null, role: string } | null }) => void;
 
   addToCart: (product: Product) => void;
   removeFromCart: (cartItemId: string) => void;
@@ -63,6 +70,11 @@ export const usePOSStore = create<POSState>((set, get) => ({
   products: [],
   categories: [],
 
+  activeSessionId: null,
+  activeTimestampId: null,
+  activeTerminal: null,
+  activeUser: null,
+
   searchQuery: '',
   selectedCategoryId: null,
   viewMode: 'grid',
@@ -72,6 +84,12 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
   setProducts: (products) => set({ products }),
   setCategories: (categories) => set({ categories }),
+  setSession: (data) => set({ 
+    activeSessionId: data.sessionId, 
+    activeTimestampId: data.timestampId, 
+    activeTerminal: data.terminal,
+    activeUser: data.user
+  }),
 
   addToCart: (product) => {
     const { cart } = get();

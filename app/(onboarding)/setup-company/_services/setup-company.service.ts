@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export type SetupCompanyInput = {
   name: string;
@@ -9,6 +10,7 @@ export type SetupCompanyInput = {
   email?: string;
   phone?: string;
   logoImageUrl?: string;
+  managerPin: string;
 };
 
 export async function createCompany(data: SetupCompanyInput) {
@@ -46,7 +48,11 @@ export async function createCompany(data: SetupCompanyInput) {
   await prisma.$transaction([
     prisma.profile.update({
       where: { userId: currentUserId! },
-      data: { companyId: company.id },
+      data: { 
+        companyId: company.id,
+        pin: data.managerPin,
+        role: "manager" // Explicitly mark as manager just in case
+      },
     }),
     prisma.posTerminalInfo.create({
       data: {
@@ -73,5 +79,6 @@ export async function createCompany(data: SetupCompanyInput) {
     }),
   ]);
 
-  return company;
+  redirect("/dashboard");
+  // return company;
 }

@@ -43,6 +43,8 @@ model Profile {
   role   UserRole   @default(manager)
   status UserStatus @default(pending)
 
+  pin    String?    @db.VarChar(6)
+
   approvedAt DateTime? @map("approved_at") @db.Timestamptz
 
   //////////////////////////////////////////////////
@@ -58,6 +60,9 @@ model Profile {
 
   invoicesAsCashier  Invoice[] @relation("CashierInvoice")
   invoicesAsVoidedBy Invoice[] @relation("VoidedByInvoice")
+
+  posSessions   PosSession[]
+  approvalLogs  ApprovalLog[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -162,6 +167,7 @@ model PosTerminalInfo {
   // Modes
   isTrainMode  Boolean @default(false) @map("is_train_mode")
   isRetailType Boolean @default(false) @map("is_retail_type")
+  isActive     Boolean @default(false) @map("is_active")
 
   //////////////////////////////////////////////////
   // RELATIONS
@@ -179,9 +185,61 @@ model PosTerminalInfo {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
   invoices  Invoice[]
+  sessions  PosSession[]
 
   @@index([companyId])
   @@map("pos_terminal_info")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// POS SESSION
+/////////////////////////////////////////////////
+
+model PosSession {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_pos_session") @db.Uuid
+
+  loginTime  DateTime  @default(now()) @map("login_time") @db.Timestamptz
+  logoutTime DateTime? @map("logout_time") @db.Timestamptz
+  isActive   Boolean   @default(true) @map("is_active")
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  posTerminalId String          @map("pos_terminal_id") @db.Uuid
+  posTerminal   PosTerminalInfo @relation(fields: [posTerminalId], references: [id])
+
+  profileId String  @map("profile_id") @db.Uuid
+  profile   Profile @relation(fields: [profileId], references: [id])
+
+  @@index([posTerminalId])
+  @@index([profileId])
+  @@map("pos_session")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// APPROVAL LOG
+/////////////////////////////////////////////////
+
+model ApprovalLog {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_approval_log") @db.Uuid
+
+  actionType  String @map("action_type") // e.g. VOID_ITEM, CANCEL_INVOICE
+  referenceId String @map("reference_id") @db.Uuid // the id of the voided item/invoice
+
+  //////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////
+
+  managerId String  @map("manager_id") @db.Uuid
+  manager   Profile @relation(fields: [managerId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([managerId])
+  @@map("approval_log")
   @@schema("public")
 }
 

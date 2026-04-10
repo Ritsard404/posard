@@ -1,0 +1,59 @@
+import { z } from "zod";
+
+export const TerminalSchema = z.object({
+  id: z.string().uuid(),
+  minNumber: z.string().min(1, "MIN number is required"),
+  accreditationNumber: z.string().min(1, "Accreditation number is required"),
+  ptuNumber: z.string().min(1, "PTU number is required"),
+  dateIssued: z.date(),
+  validUntil: z.date(),
+  posName: z.string().min(1, "POS Name is required"),
+  registeredName: z.string().min(1, "Registered Name is required"),
+  operatedBy: z.string().min(1, "Operated By is required"),
+  address: z.string().min(1, "Address is required"),
+  vatTinNumber: z.string().min(1, "VAT TIN is required"),
+  vat: z.number().int().min(0),
+  discountMax: z.number().min(0),
+  costCenter: z.string().min(1, "Cost Center is required"),
+  branchCenter: z.string().min(1, "Branch Center is required"),
+  useCenter: z.string().min(1, "Use Center is required"),
+  dbName: z.string().nullable(),
+  printerName: z.string().min(1, "Printer Name is required"),
+  resetCounterNo: z.number().int().min(0),
+  resetCounterTrainNo: z.number().int().min(0),
+  zCounterNo: z.number().int().min(0),
+  zCounterTrainNo: z.number().int().min(0),
+  isTrainMode: z.boolean(),
+  isRetailType: z.boolean(),
+  companyId: z.string().uuid(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type TerminalDTO = z.infer<typeof TerminalSchema>;
+
+export const CreateTerminalSchema = z.object({
+  minNumber: z.string().min(1, "MIN number is required"),
+  accreditationNumber: z.string().min(1, "Accreditation number is required"),
+  ptuNumber: z.string().min(1, "PTU number is required"),
+  dateIssued: z.string().or(z.date()).transform((val) => new Date(val)),
+  validUntil: z.string().or(z.date()).transform((val) => new Date(val)),
+  posName: z.string().min(1, "POS Name is required"),
+  registeredName: z.string().min(1, "Registered Name is required"),
+  operatedBy: z.string().min(1, "Operated By is required"),
+  address: z.string().min(1, "Address is required"),
+  vatTinNumber: z.string().min(1, "VAT TIN is required"),
+  vat: z.coerce.number().int().min(0),
+  discountMax: z.coerce.number().min(0),
+  costCenter: z.string().min(1, "Cost Center is required"),
+  branchCenter: z.string().min(1, "Branch Center is required"),
+  useCenter: z.string().min(1, "Use Center is required"),
+  dbName: z.string().nullable().optional(),
+  printerName: z.string().min(1, "Printer Name is required"),
+});
+
+export type CreateTerminalInput = z.infer<typeof CreateTerminalSchema>;
+
+export const UpdateTerminalSchema = CreateTerminalSchema.partial();
+
+export type UpdateTerminalInput = z.infer<typeof UpdateTerminalSchema>;

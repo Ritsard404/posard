@@ -37,7 +37,10 @@ export type Permission =
   | "view.accounts"
   | "view.reports"
   | "view.profile"
-  | "view.settings"
+  | "view.company"
+  | "view.company.settings"
+  | "view.company.terminals"
+  | "view.company.subscription"
   | "view.product"
   | "view.admin";
 
@@ -49,7 +52,10 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "view.accounts",
     "view.reports",
     "view.profile",
-    "view.settings",
+    "view.company",
+    "view.company.settings",
+    "view.company.terminals",
+    "view.company.subscription",
   ],
   manager: [
     "view.dashboard",
@@ -58,9 +64,10 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "view.inventory",
     "view.product",
     "view.reports",
-    "view.admin",
     "view.profile",
-    "view.settings",
+    "view.company",
+    "view.company.settings",
+    "view.company.terminals",
   ],
   cashier: ["view.dashboard", "view.pos", "view.transactions", "view.profile"],
 };
@@ -92,6 +99,7 @@ export const routes: RouteConfig[] = [
     icon: ShoppingCart,
     showInNav: true,
   },
+
   {
     href: "/product",
     permission: "view.product",
@@ -99,13 +107,7 @@ export const routes: RouteConfig[] = [
     icon: BaggageClaimIcon,
     showInNav: true,
   },
-  {
-    href: "/inventory",
-    permission: "view.inventory",
-    label: "Inventory",
-    icon: Package,
-    showInNav: false,
-  },
+
   {
     href: "/report",
     permission: "view.reports",
@@ -113,6 +115,7 @@ export const routes: RouteConfig[] = [
     icon: BarChart3,
     showInNav: true,
   },
+
   {
     href: "/accounts",
     permission: "view.accounts",
@@ -120,39 +123,52 @@ export const routes: RouteConfig[] = [
     icon: Users,
     showInNav: true,
   },
+
   {
-    href: "/admin",
-    permission: "view.admin",
-    label: "Admin",
+    href: "/companies",
+    permission: "view.company",
+    label: "Company",
     icon: Users,
-    showInNav: true,
+    showInNav: true, // admin only will see this
   },
+
   {
-    href: "/settings",
-    permission: "view.settings",
+    href: "/companies/[companyId]",
+    permission: "view.company",
+    label: "Company",
+    icon: Users,
+    showInNav: false,
+  },
+
+  {
+    href: "/companies/[companyId]/terminals",
+    permission: "view.company.terminals",
+    label: "Terminals",
+    icon: BaggageClaimIcon,
+    showInNav: false,
+  },
+
+  {
+    href: "/companies/[companyId]/subscription",
+    permission: "view.company.subscription",
+    label: "Subscription",
+    icon: BarChart3,
+    showInNav: false,
+  },
+
+  {
+    href: "/companies/[companyId]/settings",
+    permission: "view.company.settings",
     label: "Settings",
     icon: Settings,
-    showInNav: true,
+    showInNav: false,
   },
+
   {
     href: "/profile",
     permission: "view.profile",
     label: "Profile",
     icon: Settings,
-    showInNav: false,
-  }, // accessible but hidden from nav
-  {
-    href: "/transactions",
-    permission: "view.transactions",
-    label: "Transactions",
-    icon: ShoppingCart,
-    showInNav: false,
-  },
-  {
-    href: "/orders",
-    permission: "view.orders",
-    label: "Orders",
-    icon: Package,
     showInNav: false,
   },
 ];

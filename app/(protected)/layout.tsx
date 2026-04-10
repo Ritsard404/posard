@@ -5,14 +5,13 @@ import {
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { PageTitle } from "@/components/layout/PageTitle";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pageTitle = "Dashboard";
-  
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -22,7 +21,7 @@ export default function DashboardLayout({
           <div className="flex items-center gap-2 min-w-0">
             <SidebarTrigger className="-ml-1" />
             <h1 className="text-xl font-bold truncate text-gray-900 dark:text-zinc-50">
-              {pageTitle}
+              <PageTitle />
             </h1>
           </div>
 

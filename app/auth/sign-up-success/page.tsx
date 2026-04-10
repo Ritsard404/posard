@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function Page() {
   return (
@@ -13,16 +14,20 @@ export default function Page() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">
-                Thank you for signing up!
-              </CardTitle>
-              <CardDescription>Check your email to confirm</CardDescription>
+              <CardTitle className="text-2xl">Account Created!</CardTitle>
+              <CardDescription>Pending admin approval</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
-                You&apos;ve successfully signed up. Please check your email to
-                confirm your account before signing in.
+                Your account has been created successfully. An admin will review
+                and activate your account shortly.
               </p>
+              <Link
+                href="/auth/login"
+                className="text-sm underline underline-offset-4"
+              >
+                Back to login
+              </Link>
             </CardContent>
           </Card>
         </div>

@@ -6,8 +6,13 @@ import {
   getFirstAccessibleRoute,
 } from "@/lib/access-control";
 
-const publicRoutes = ["/", "/auth/login", "/auth/sign-up"];
-const authRoutes = ["/auth/login", "/auth/sign-up", "/auth"];
+const publicRoutes = [
+  "/",
+  "/auth/login",
+  "/auth/sign-up",
+  "/auth/sign-up-success",
+];
+const authRoutes = ["/auth/login", "/auth/sign-up"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -48,20 +53,16 @@ export async function updateSession(request: NextRequest) {
       .eq("user_id", user.sub)
       .single();
 
-    // Pending account
-    if (profile?.status === "pending") {
-      if (!pathname.startsWith("/auth/pending")) {
-        return NextResponse.redirect(new URL("/auth/pending", request.url));
+    // Pending or disabled account
+    if (profile?.status === "pending" || profile?.status === "disabled") {
+      if (
+        pathname === "/auth/login" ||
+        pathname === "/auth/sign-up" ||
+        pathname === "/auth/sign-up-success"
+      ) {
+        return supabaseResponse;
       }
-      return supabaseResponse;
-    }
-
-    // Disabled account
-    if (profile?.status === "disabled") {
-      if (!pathname.startsWith("/auth/disabled")) {
-        return NextResponse.redirect(new URL("/auth/disabled", request.url));
-      }
-      return supabaseResponse;
+      return NextResponse.redirect(new URL("/auth/login", request.url));
     }
 
     userRole = profile?.role ?? null;
@@ -82,7 +83,9 @@ export async function updateSession(request: NextRequest) {
       // Logged-in user hitting "/" or auth pages → redirect to their dashboard
       if (pathname === "/" || authRoutes.some((r) => pathname.startsWith(r))) {
         const dest = getFirstAccessibleRoute(userRole);
-        return NextResponse.redirect(new URL(dest, request.url));
+        if (dest !== pathname) {
+          return NextResponse.redirect(new URL(dest, request.url));
+        }
       }
     }
     return supabaseResponse;
@@ -103,7 +106,9 @@ export async function updateSession(request: NextRequest) {
     if (dest === "/auth/login") {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
-    return NextResponse.redirect(new URL(dest, request.url));
+    if (dest !== pathname) {
+      return NextResponse.redirect(new URL(dest, request.url));
+    }
   }
 
   return supabaseResponse;

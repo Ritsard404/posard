@@ -36,14 +36,15 @@ export function SetupCompanyForm() {
       email: "",
       phone: "",
       logoImageUrl: "",
+      managerPin: "",
     },
   });
 
   async function onSubmit(data: SetupCompanyInput) {
     try {
       await createCompany(data);
-      router.push("/dashboard");
-      router.refresh();
+      // router.refresh();
+      // router.push("/dashboard");
     } catch (err: any) {
       setError("root", { message: err.message });
     }
@@ -109,6 +110,23 @@ export function SetupCompanyForm() {
               {errors.phone && (
                 <p className="text-sm text-destructive">
                   {errors.phone.message}
+                </p>
+              )}
+            </div>
+
+            {/* Manager PIN */}
+            <div className="grid gap-2">
+              <Label>Manager PIN *</Label>
+              <Input 
+                type="password" 
+                maxLength={6}
+                inputMode="numeric"
+                placeholder="4-6 digit numeric PIN" 
+                {...register("managerPin")} 
+              />
+              {errors.managerPin && (
+                <p className="text-sm text-destructive">
+                  {errors.managerPin.message}
                 </p>
               )}
             </div>

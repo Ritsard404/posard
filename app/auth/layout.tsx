@@ -25,7 +25,7 @@ export default function AuthLayout({
           </nav>
         </div>
       </header>
-      <div className="flex items-center justify-center px-3 sm:px-4 py-8 sm:py-12">
+      <div className="flex items-center justify-center px-3 sm:px-4">
         <div className="w-full max-w-md">{children}</div>
       </div>
     </div>

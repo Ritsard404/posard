@@ -3,7 +3,13 @@
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
@@ -14,7 +20,7 @@ export function SignUpForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
-  const [fullName, setFullName] = useState("");   // 👈 new
+  const [fullName, setFullName] = useState(""); // 👈 new
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
@@ -35,33 +41,21 @@ export function SignUpForm({
     }
 
     try {
-      // Step 1: Sign up with Supabase Auth
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-          data: { full_name: fullName },   // stored in auth.users raw_user_meta_data
+          // emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: { full_name: fullName }, // trigger reads this
         },
       });
-      if (signUpError) throw signUpError;
-
-      // Step 2: Insert profile row with full_name
-      // (skip this if you have a DB trigger that auto-creates profiles)
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert({
-            user_id: data.user.id,
-            email,
-            full_name: fullName,
-          });
-        if (profileError) throw profileError;
-      }
+      if (error) throw error;
 
       router.push("/auth/sign-up-success");
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      const msg =
+        error instanceof Error ? error.message : JSON.stringify(error);
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +71,6 @@ export function SignUpForm({
         <CardContent>
           <form onSubmit={handleSignUp}>
             <div className="flex flex-col gap-6">
-
               {/* 👇 New full name field */}
               <div className="grid gap-2">
                 <Label htmlFor="full-name">Full Name</Label>

@@ -7,10 +7,17 @@ import { Trash2, Plus, Minus, ShoppingCart, Info } from 'lucide-react';
 import { useState } from 'react';
 import { cancelOrderAction } from '../_actions/order.action';
 import { OrderDto } from '../_services/_dto/order.dto';
+import { ManagerApprovalModal } from './ManagerApprovalModal';
 
 export function CartPanel() {
   const { cart, updateCartQuantity, removeFromCart, clearCart, discount, updateItemSubtotal } = usePOSStore();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  
+  // Manager Approval State
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  const [approvalType, setApprovalType] = useState<"VOID_ITEM" | "CANCEL_ORDER">("VOID_ITEM");
+  const [approvalRefId, setApprovalRefId] = useState("");
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   const activeCart = cart.filter(item => item.itemStatus !== 'VOID');
   const subtotal = activeCart.reduce((sum, item) => sum + (item.customSubtotal ?? (item.price * item.cartQuantity)), 0);
@@ -125,9 +132,10 @@ export function CartPanel() {
                       size="icon" 
                       className="h-10 w-10 sm:h-8 sm:w-8 text-destructive hover:bg-destructive/10"
                       onClick={() => {
-                        if (confirm("Are you sure you want to void this item?")) {
-                          removeFromCart(item.cartItemId);
-                        }
+                        setApprovalType("VOID_ITEM");
+                        setApprovalRefId(item.cartItemId);
+                        setPendingAction(() => () => removeFromCart(item.cartItemId));
+                        setApprovalOpen(true);
                       }}
                     >
                       <Trash2 className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -171,31 +179,32 @@ export function CartPanel() {
             className="w-1/3 h-14 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
             onClick={async () => {
               if (cart.length === 0) return;
-              if (!confirm("Are you sure you want to void this entire order?")) return;
               
-              const manager = prompt("Manager email required to Authorize Void:");
-              if (!manager) return;
-              const reason = prompt("Enter void reason:");
-              if (!reason) return;
-
-              const orderDto: OrderDto = {
-                items: cart.map(i => ({
-                  productId: i.id, // Keep productId mapped from the product
-                  qty: i.cartQuantity,
-                  price: i.price,
-                  subTotal: i.itemStatus === 'VOID' ? 0 : (i.customSubtotal ?? (i.price * i.cartQuantity)),
-                  status: i.itemStatus || 'PENDING'
-                })),
-                cashTenderAmount: 0
-              };
-
-              const res = await cancelOrderAction({ order: orderDto, managerIdentifier: manager, reason });
-              if (res.success) {
-                clearCart();
-                alert("Order cancelled successfully.");
-              } else {
-                alert("Failed to cancel order: " + res.error);
-              }
+              setApprovalType("CANCEL_ORDER");
+              setApprovalRefId("CART_CANCELLATION");
+              setPendingAction(() => async () => {
+                const reason = prompt("Enter void reason:") || "Manager Cancelled via PIN";
+                
+                const orderDto: OrderDto = {
+                  items: cart.map(i => ({
+                    productId: i.id, // Keep productId mapped from the product
+                    qty: i.cartQuantity,
+                    price: i.price,
+                    subTotal: i.itemStatus === 'VOID' ? 0 : (i.customSubtotal ?? (i.price * i.cartQuantity)),
+                    status: i.itemStatus || 'PENDING'
+                  })),
+                  cashTenderAmount: 0
+                };
+  
+                const res = await cancelOrderAction({ order: orderDto, managerIdentifier: "Manager via PIN", reason });
+                if (res.success) {
+                  clearCart();
+                  alert("Order cancelled successfully.");
+                } else {
+                  alert("Failed to cancel order: " + res.error);
+                }
+              });
+              setApprovalOpen(true);
             }}
             disabled={cart.length === 0}
           >
@@ -215,6 +224,19 @@ export function CartPanel() {
         open={checkoutOpen} 
         onOpenChange={setCheckoutOpen} 
         totalAmount={total} 
+      />
+
+      <ManagerApprovalModal
+        open={approvalOpen}
+        onOpenChange={setApprovalOpen}
+        actionType={approvalType}
+        referenceId={approvalRefId}
+        onSuccess={() => {
+          if (pendingAction) {
+            pendingAction();
+            setPendingAction(null);
+          }
+        }}
       />
     </div>
   );
