@@ -83,7 +83,7 @@ export async function unlockTerminalAction(pin: string) {
   }
 }
 
-export async function authorizeManagerAction(pin: string, actionType: string, referenceId: string) {
+export async function authorizeManagerAction(pin: string, actionType: string, referenceId: string): Promise<{ success: true, manager: { id: string, email: string, name: string } } | { success: false, error: string }> {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -96,7 +96,7 @@ export async function authorizeManagerAction(pin: string, actionType: string, re
         if (!currentProfile) return { success: false, error: "Profile not found" };
 
         const manager = await prisma.profile.findFirst({
-            where: { companyId: currentProfile.companyId, pin: pin, role: "manager" } // Must be a manager
+            where: { companyId: currentProfile.companyId, pin: pin, role: { in: ["manager", "admin"] } }
         });
 
         if (!manager) {
@@ -112,8 +112,16 @@ export async function authorizeManagerAction(pin: string, actionType: string, re
             }
         });
 
-        return { success: true };
+        return { 
+            success: true, 
+            manager: { 
+                id: manager.id, 
+                email: manager.email, 
+                name: manager.fullName || "Manager" 
+            } 
+        };
     } catch (error) {
-        return { success: false, error: "Internal Error" };
+        console.error("Authorization Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Internal Error" };
     }
 }

@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { withdrawCashAction } from "../_actions/session.action";
+import { withdrawCashAction, getAvailableCashAction } from "../_actions/session.action";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 interface WithdrawModalProps {
   timestampId: string;
@@ -17,8 +18,20 @@ interface WithdrawModalProps {
 
 export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModalProps) {
   const [amount, setAmount] = useState<number>(0);
+  const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [availableCash, setAvailableCash] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function fetchAvailable() {
+      const res = await getAvailableCashAction(timestampId);
+      if (res.success) {
+        setAvailableCash(res.availableCash ?? null);
+      }
+    }
+    fetchAvailable();
+  }, [timestampId]);
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,8 +42,13 @@ export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModa
       return;
     }
 
+    if (pin.length < 4) {
+      setError("Manager PIN is required (min 4 digits)");
+      return;
+    }
+
     setIsLoading(true);
-    const result = await withdrawCashAction(timestampId, amount);
+    const result = await withdrawCashAction(timestampId, amount, pin);
     setIsLoading(false);
 
     if (result.success) {
@@ -53,6 +71,11 @@ export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModa
             <DialogTitle className="text-3xl font-heading font-black tracking-tight text-amber-500">Withdraw Cash</DialogTitle>
             <DialogDescription className="text-muted-foreground/60 font-medium uppercase tracking-[0.1em] text-[10px] mt-2 font-bold">
               Adjusting physical register balances
+              {availableCash !== null && (
+                <span className="block mt-1 text-amber-500/80">
+                  Available: ₱{availableCash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -75,6 +98,25 @@ export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModa
               />
             </div>
           </div>
+          
+          <div className="space-y-4">
+            <Label htmlFor="pin" className="font-black uppercase text-[10px] text-muted-foreground/40 tracking-[0.25em] ml-1">Manager Signature (PIN)</Label>
+            <div className="relative group">
+              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-amber-500/50 group-focus-within:text-amber-500 transition-colors font-black font-heading text-xl">
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+              <Input
+                id="pin"
+                type="password"
+                maxLength={6}
+                inputMode="numeric"
+                placeholder="••••••"
+                className="pl-12 pr-6 text-2xl h-16 rounded-2xl bg-white/5 border-white/5 focus:bg-white/10 transition-all font-heading font-black tracking-widest text-center"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
+          </div>
 
           {error && (
             <div className="animate-in slide-in-from-top-2 flex items-center gap-3 bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-500 text-xs font-bold uppercase tracking-widest">
@@ -89,7 +131,7 @@ export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModa
             <Button 
               type="submit" 
               className="flex-1 h-14 rounded-2xl bg-amber-600 text-white font-heading font-black text-lg uppercase tracking-widest glow-on-hover shadow-2xl shadow-amber-600/20 hover:bg-amber-500 active:scale-95 transition-all disabled:opacity-20 flex items-center justify-center gap-3" 
-              disabled={isLoading || amount <= 0}
+              disabled={isLoading || amount <= 0 || pin.length < 4}
             >
               {isLoading ? (
                 <>
@@ -111,4 +153,4 @@ export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModa
 }
 
 // Ensure icons are imported
-import { Wallet, ArrowRight } from "lucide-react";
+import { Wallet, ArrowRight, ShieldCheck } from "lucide-react";

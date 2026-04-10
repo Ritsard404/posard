@@ -63,55 +63,67 @@ export function CashTrackTrigger() {
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="mt-4 text-sm text-muted-foreground">Loading audit data...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+              <p className="mt-4 text-sm text-muted-foreground">Calculating session totals...</p>
             </div>
           ) : error ? (
             <div className="py-8 text-center text-destructive">{error}</div>
           ) : data ? (
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <p className="text-sm font-medium text-muted-foreground">Opening Cash</p>
-                  <p className="text-2xl font-bold text-emerald-600 mt-1">{formatMoney(data.cashInDrawerAmount)}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl">
+                  <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Opening Cash</p>
+                  <p className="text-xl font-bold text-emerald-600 mt-1">{formatMoney(data.openingCash)}</p>
                 </div>
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <p className="text-sm font-medium text-muted-foreground">Cash Withdrawn</p>
-                  <p className="text-2xl font-bold text-amber-600 mt-1">{formatMoney(data.withdrawnDrawerAmount)}</p>
-                  <p className="text-xs text-muted-foreground mt-1 text-right">Transactions: {Number(data.withdrawnDrawerCount)}</p>
+                <div className="bg-sky-50/50 border border-sky-100 p-4 rounded-xl">
+                  <p className="text-xs font-semibold text-sky-700 uppercase tracking-wider">Cash Sales (+)</p>
+                  <p className="text-xl font-bold text-sky-600 mt-1">{formatMoney(data.totalCashSales)}</p>
+                </div>
+                <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-xl">
+                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Withdrawals (-)</p>
+                  <p className="text-xl font-bold text-amber-600 mt-1">{formatMoney(data.totalWithdrawals)}</p>
+                  <p className="text-[10px] text-amber-600/70 mt-0.5">Txns: {data.withdrawnCount}</p>
+                </div>
+                <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-xl">
+                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">E-Payments</p>
+                  <p className="text-xl font-bold text-purple-600 mt-1">{formatMoney(data.totalEPaymentSales)}</p>
+                  <p className="text-[10px] text-purple-600/70 mt-0.5">(Reference only)</p>
                 </div>
               </div>
 
-              <div className="bg-muted/50 p-4 rounded-lg flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Expected Drawer Amount</p>
-                  <p className="text-xs text-muted-foreground">Opening - Withdrawn (Sales pending update)</p>
+              <div className="bg-emerald-600 p-5 rounded-xl text-white shadow-lg shadow-emerald-200/50">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-xs font-medium text-emerald-100 uppercase tracking-wider">Expected in Drawer</p>
+                    <p className="text-xs text-emerald-200/80 mt-0.5">Opening + Cash Sales - Withdrawals</p>
+                  </div>
+                  <p className="text-3xl font-black">
+                    {formatMoney(data.expectedDrawerAmount)}
+                  </p>
                 </div>
-                <p className="text-2xl font-bold">
-                  {formatMoney(Number(data.cashInDrawerAmount) - Number(data.withdrawnDrawerAmount))}
-                </p>
               </div>
 
-              <div className="text-sm space-y-1 mt-6 border-t pt-4 text-muted-foreground">
+              <div className="text-xs space-y-2 mt-6 border-t pt-4 text-muted-foreground/80">
                 <div className="flex justify-between">
                   <span>Terminal:</span>
-                  <span className="font-medium text-foreground">{data.posTerminal?.posName}</span>
+                  <span className="font-semibold text-foreground">{data.terminalName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Logged in by:</span>
-                  <span className="font-medium text-foreground">{data.cashier?.fullName || "Unknown"}</span>
+                  <span>Cashier:</span>
+                  <span className="font-semibold text-foreground">{data.cashierName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Time Started:</span>
-                  <span className="font-medium text-foreground">
-                    {new Date(data.timestampIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <span>Started At:</span>
+                  <span className="font-semibold text-foreground">
+                    {new Date(data.timestampIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </span>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="py-8 text-center">No active session found</div>
+            <div className="py-8 text-center text-muted-foreground">No active session found</div>
           )}
+
         </DialogContent>
       </Dialog>
     </>

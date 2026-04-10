@@ -37,13 +37,13 @@ interface POSState {
   // Session Data
   activeSessionId: string | null;
   activeTimestampId: string | null;
-  activeTerminal: { id: string, name: string } | null;
+  activeTerminal: { id: string, name: string, vat: number } | null;
   activeUser: { name: string | null, role: string } | null;
 
   // Actions
   setProducts: (products: Product[]) => void;
   setCategories: (categories: Category[]) => void;
-  setSession: (data: { sessionId: string | null, timestampId: string | null, terminal: { id: string, name: string } | null, user: { name: string | null, role: string } | null }) => void;
+  setSession: (data: { sessionId: string | null, timestampId: string | null, terminal: { id: string, name: string, vat: number } | null, user: { name: string | null, role: string } | null }) => void;
 
   addToCart: (product: Product) => void;
   removeFromCart: (cartItemId: string) => void;

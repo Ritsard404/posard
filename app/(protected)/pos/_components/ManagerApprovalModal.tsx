@@ -12,7 +12,7 @@ interface ManagerApprovalModalProps {
   onOpenChange: (open: boolean) => void;
   actionType: string;
   referenceId: string;
-  onSuccess: () => void;
+  onSuccess: (manager: { email: string, name: string }) => void;
 }
 
 export function ManagerApprovalModal({ open, onOpenChange, actionType, referenceId, onSuccess }: ManagerApprovalModalProps) {
@@ -34,7 +34,7 @@ export function ManagerApprovalModal({ open, onOpenChange, actionType, reference
 
     if (result.success) {
       setPin("");
-      onSuccess();
+      onSuccess(result.manager);
       onOpenChange(false);
     } else {
       setError(result.error || "Invalid Manager PIN");

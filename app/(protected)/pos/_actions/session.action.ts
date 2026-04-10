@@ -35,7 +35,11 @@ export async function getCurrentSessionAction() {
       data: {
         sessionId: timestamp.id, // Using timestampId mapping for backwards compatibility in UI
         timestampId: timestamp.id,
-        terminal: { id: timestamp.posTerminalId, name: timestamp.posTerminal.posName },
+        terminal: { 
+          id: timestamp.posTerminalId, 
+          name: timestamp.posTerminal.posName,
+          vat: timestamp.posTerminal.vat
+        },
         user: { name: profile.fullName || null, role: profile.role }
       }
     };
@@ -136,19 +140,36 @@ export async function openSessionAction(terminalId: string, pin: string, opening
     return { 
       success: true, 
       user: { name: unlocker.fullName, role: unlocker.role },
-      sessionId: result.timestamp.id, // pass timestamp as session ID
-      timestampId: result.timestamp.id
+      sessionId: result.timestamp.id,
+      timestampId: result.timestamp.id,
+      terminal: {
+        id: terminal.id,
+        name: terminal.posName,
+        vat: terminal.vat
+      }
     };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Internal Error" };
   }
 }
 
-export async function withdrawCashAction(timestampId: string, amount: number) {
+export async function withdrawCashAction(timestampId: string, amount: number, managerPin: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const profile = await getCurrentProfile();
+    if (!profile.companyId) return { success: false, error: "No company associated with user." };
     
     if (amount <= 0) return { success: false, error: "Amount must be greater than 0" };
+
+    // 1. Validate Manager
+    const approver = await prisma.profile.findFirst({
+      where: { 
+        companyId: profile.companyId, 
+        pin: managerPin, 
+        role: { in: ["manager", "admin"] }
+      }
+    });
+
+    if (!approver) return { success: false, error: "Invalid Manager PIN" };
 
     const timestamp = await prisma.timestamp.findUnique({
       where: { id: timestampId }
@@ -156,17 +177,37 @@ export async function withdrawCashAction(timestampId: string, amount: number) {
 
     if (!timestamp) return { success: false, error: "Active session not found" };
 
-    // Note: If we had a detailed log, we'd log 'reason' in an ApprovalLog or similar, 
-    // but schema ONLY has 'withdrawnDrawerAmount' counter.
-    await prisma.timestamp.update({
-      where: { id: timestampId },
-      data: {
-        withdrawnDrawerAmount: { increment: amount },
-        withdrawnDrawerCount: { increment: 1 }
+    // 2. Validate balance and Process in Transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Logic for cash track must be consistent - maybe just fetch needed counts here
+      // But reportService.getTimestampCashTrack is async and uses prisma (not tx)
+      // So we'll do a quick manual check or trust the pre-fetch if we use locks
+      
+      const reportData = await reportService.getTimestampCashTrack(timestampId);
+      if (amount > reportData.expectedDrawerAmount) {
+        throw new Error(`Insufficient cash in drawer. Available: ₱${reportData.expectedDrawerAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
       }
+
+      await tx.timestamp.update({
+        where: { id: timestampId },
+        data: {
+          withdrawnDrawerAmount: { increment: amount },
+          withdrawnDrawerCount: { increment: 1 }
+        }
+      });
+
+      await tx.approvalLog.create({
+        data: {
+          managerId: approver.id,
+          actionType: "CASH_WITHDRAWAL",
+          referenceId: timestamp.id
+        }
+      });
+
+      return { success: true };
     });
 
-    return { success: true };
+    return result;
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Internal Error" };
   }
@@ -231,22 +272,23 @@ export async function closeSessionAction(sessionId: string, timestampId: string,
   }
 }
 
+import { reportService } from "../_services/report.service";
+
 export async function getSessionCashTrackAction(timestampId: string) {
   try {
-    const timestamp = await prisma.timestamp.findUnique({
-      where: { id: timestampId },
-      include: {
-        cashier: { select: { fullName: true } },
-        managerIn: { select: { fullName: true } },
-        managerOut: { select: { fullName: true } },
-        posTerminal: { select: { posName: true } }
-      }
-    });
-
-    if (!timestamp) return { success: false, error: "Session not found" };
-
-    return { success: true, data: timestamp };
+    const data = await reportService.getTimestampCashTrack(timestampId);
+    return { success: true, data };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Internal Error" };
   }
 }
+
+export async function getAvailableCashAction(timestampId: string): Promise<{ success: true; availableCash: number } | { success: false; error: string }> {
+  try {
+    const data = await reportService.getTimestampCashTrack(timestampId);
+    return { success: true, availableCash: data.expectedDrawerAmount };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Internal Error" };
+  }
+}
+

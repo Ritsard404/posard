@@ -34,3 +34,22 @@ export interface POSMetaDataDto {
   products: ProductDto[];
   epaymentMethods: EPaymentMethodDto[];
 }
+
+export interface CashTrackReportDto {
+  timestampId: string;
+  cashierName: string;
+  terminalName: string;
+  timestampIn: Date;
+  isTrainMode: boolean;
+  
+  // Financials
+  openingCash: number;
+  totalCashSales: number;
+  totalWithdrawals: number;
+  withdrawnCount: number;
+  expectedDrawerAmount: number;
+  
+  // Reference (Non-cash)
+  totalEPaymentSales: number;
+}
+

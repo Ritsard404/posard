@@ -236,10 +236,6 @@ export function InventoryPageClient({
       <div className="absolute -bottom-20 left-40 w-96 h-96 bg-indigo-500/5 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000 pointer-events-none"></div>
 
       <div className="relative z-10 flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-heading font-extrabold tracking-tight">Inventory Management</h1>
-          <p className="text-muted-foreground font-medium">Manage your products, categories, and stock levels</p>
-        </div>
 
         {/* Tarjetas de resumen */}
         <InventoryStatsBar

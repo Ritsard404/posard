@@ -10,20 +10,31 @@ import { OrderDto } from '../_services/_dto/order.dto';
 import { ManagerApprovalModal } from './ManagerApprovalModal';
 
 export function CartPanel() {
-  const { cart, updateCartQuantity, removeFromCart, clearCart, discount, updateItemSubtotal } = usePOSStore();
+  const { cart, updateCartQuantity, removeFromCart, clearCart, discount, updateItemSubtotal, activeTerminal } = usePOSStore();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   
   // Manager Approval State
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalType, setApprovalType] = useState<"VOID_ITEM" | "CANCEL_ORDER">("VOID_ITEM");
   const [approvalRefId, setApprovalRefId] = useState("");
-  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [pendingAction, setPendingAction] = useState<((manager: { email: string, name: string }) => void) | null>(null);
+
+  const { activeTimestampId } = usePOSStore();
 
   const activeCart = cart.filter(item => item.itemStatus !== 'VOID');
   const subtotal = activeCart.reduce((sum, item) => sum + (item.customSubtotal ?? (item.price * item.cartQuantity)), 0);
   
+  // ... (omitting calculation logic for brevity in this chunk)
+  
+  // Update the void button onClick
+  // ...
+  
+  const terminalVat = activeTerminal?.vat ?? 12;
+  const vatMultiplier = 1 + (terminalVat / 100);
+  const vatRate = terminalVat / 100;
+
   // Calculate discount logic: 
-  // PWD / Senior Citizen generally means VAT exempt (divide by 1.12 to remove 12% VAT)
+  // PWD / Senior Citizen generally means VAT exempt (divide by vatMultiplier to remove VAT)
   // And then 20% off from the VAT-exempt amount.
   let discountAmount = 0;
   if (discount === 'PWD' || discount === 'SENIOR') {
@@ -32,15 +43,14 @@ export function CartPanel() {
     const nonVatableAmount = subtotal - vatableAmount;
     
     // Convert vatable to vatexempt
-    const vatExemptAmount = vatableAmount / 1.12;
+    const vatExemptAmount = vatableAmount / vatMultiplier;
     // 20% discount on both vat exempt and natively non-vatable
     discountAmount = (vatExemptAmount + nonVatableAmount) * 0.20;
     // Plus the VAT that was removed
     discountAmount += (vatableAmount - vatExemptAmount);
   }
 
-  const taxAmount = (discount === 'PWD' || discount === 'SENIOR') ? 0 : subtotal * 0.12; // Assuming 12% VAT embedded or added? If price is inclusive of VAT, tax is derived. Let's do inclusive.
-  const taxDerived = taxAmount > 0 ? subtotal - (subtotal / 1.12) : 0;
+  const taxDerived = (discount === 'PWD' || discount === 'SENIOR' || terminalVat === 0) ? 0 : subtotal - (subtotal / vatMultiplier);
   
   const total = subtotal - discountAmount;
 
@@ -143,7 +153,7 @@ export function CartPanel() {
                       onClick={() => {
                         setApprovalType("VOID_ITEM");
                         setApprovalRefId(item.cartItemId);
-                        setPendingAction(() => () => removeFromCart(item.cartItemId));
+                        setPendingAction(() => (_manager: any) => removeFromCart(item.cartItemId));
                         setApprovalOpen(true);
                       }}
                     >
@@ -171,7 +181,7 @@ export function CartPanel() {
           )}
           {discount === 'NONE' && taxDerived > 0 && (
              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 italic">
-               <span>VAT (Int. 12%)</span>
+               <span>VAT (Int. {terminalVat}%)</span>
                <span className="font-sans">₱ {taxDerived.toFixed(2)}</span>
              </div>
           )}
@@ -195,13 +205,14 @@ export function CartPanel() {
               if (cart.length === 0) return;
               
               setApprovalType("CANCEL_ORDER");
-              setApprovalRefId("CART_CANCELLATION");
-              setPendingAction(() => async () => {
+              // Use activeTimestampId instead of "CART_CANCELLATION" because referenceId must be a UUID
+              setApprovalRefId(activeTimestampId || "");
+              setPendingAction(() => async (manager: { email: string, name: string }) => {
                 const reason = prompt("Enter void reason:") || "Manager Cancelled via PIN";
                 
                 const orderDto: OrderDto = {
                   items: cart.map(i => ({
-                    productId: i.id, // Keep productId mapped from the product
+                    productId: i.id,
                     qty: i.cartQuantity,
                     price: i.price,
                     subTotal: i.itemStatus === 'VOID' ? 0 : (i.customSubtotal ?? (i.price * i.cartQuantity)),
@@ -210,7 +221,12 @@ export function CartPanel() {
                   cashTenderAmount: 0
                 };
   
-                const res = await cancelOrderAction({ order: orderDto, managerIdentifier: "Manager via PIN", reason });
+                const res = await cancelOrderAction({ 
+                  order: orderDto, 
+                  managerIdentifier: manager.email, // Use manager's email from modal
+                  reason 
+                });
+                
                 if (res.success) {
                   clearCart();
                   alert("Order cancelled successfully.");
@@ -249,9 +265,9 @@ export function CartPanel() {
         onOpenChange={setApprovalOpen}
         actionType={approvalType}
         referenceId={approvalRefId}
-        onSuccess={() => {
+        onSuccess={(manager) => {
           if (pendingAction) {
-            pendingAction();
+            pendingAction(manager);
             setPendingAction(null);
           }
         }}
