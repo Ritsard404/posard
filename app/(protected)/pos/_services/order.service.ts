@@ -39,6 +39,7 @@ async function getTerminalForProfile(companyId: string) {
       isTrainMode: true,
       resetCounterNo: true,
       resetCounterTrainNo: true,
+      isRetailType: true,
     },
   });
 
@@ -55,7 +56,7 @@ async function getTerminalForProfile(companyId: string) {
 
 async function generateInvoiceNumber(
   terminalId: string,
-  isTrainMode: boolean
+  isTrainMode: boolean,
 ): Promise<number> {
   const last = await prisma.invoice.findFirst({
     where: { posTerminalId: terminalId, isTrainMode },
@@ -70,7 +71,7 @@ async function generateInvoiceNumber(
 async function updateTerminalCounter(
   terminalId: string,
   isTrainMode: boolean,
-  current: { resetCounterNo: number; resetCounterTrainNo: number }
+  current: { resetCounterNo: number; resetCounterTrainNo: number },
 ) {
   await prisma.posTerminalInfo.update({
     where: { id: terminalId },
@@ -102,7 +103,7 @@ function validateOrderRequest(dto: OrderDto) {
 function validatePayment(calc: PaymentCalculation) {
   if (calc.cashTendered < calc.totalAmount) {
     throw new Error(
-      `Insufficient payment. Required: ₱${calc.totalAmount.toFixed(2)}, Tendered: ₱${calc.cashTendered.toFixed(2)}`
+      `Insufficient payment. Required: ₱${calc.totalAmount.toFixed(2)}, Tendered: ₱${calc.cashTendered.toFixed(2)}`,
     );
   }
 }
@@ -111,30 +112,45 @@ function validatePayment(calc: PaymentCalculation) {
 // Product Loading
 // ─────────────────────────────────────────────
 
-async function loadAndValidateProducts(items: ItemRequestDto[]) {
+async function loadAndValidateProducts(
+  items: ItemRequestDto[],
+  skipStockCheck = false,
+) {
   const productIds = items.map((i) => i.productId);
+  const uniqueProductIds = [...new Set(productIds)];
 
   const products = await prisma.product.findMany({
-    where: { id: { in: productIds }, isDeleted: false },
-    select: { id: true, name: true, vatType: true, quantity: true },
+    where: { id: { in: uniqueProductIds }, isDeleted: false },
+    select: {
+      id: true,
+      name: true,
+      vatType: true,
+      quantity: true,
+      trackInventory: true,
+    },
   });
 
-  if (products.length !== productIds.length) {
+  if (products.length !== uniqueProductIds.length) {
     throw new Error("One or more products not found");
   }
 
   const productMap = new Map(products.map((p) => [p.id, p]));
 
   // Validate stock
-  for (const item of items) {
-    const product = productMap.get(item.productId);
-    if (!product) throw new Error(`Product not found: ${item.productId}`);
+  if (!skipStockCheck) {
+    for (const item of items) {
+      const product = productMap.get(item.productId);
+      if (!product) throw new Error(`Product not found: ${item.productId}`);
 
-    const available = Number(product.quantity ?? 0);
-    if (available < item.qty) {
-      throw new Error(
-        `Insufficient stock for "${product.name}". Available: ${available}, Required: ${item.qty}`
-      );
+      // Only check if product is set to track inventory
+      if (product.trackInventory) {
+        const available = Number(product.quantity ?? 0);
+        if (available < item.qty) {
+          throw new Error(
+            `Insufficient stock for "${product.name}". Available: ${available}, Required: ${item.qty}`,
+          );
+        }
+      }
     }
   }
 
@@ -143,13 +159,20 @@ async function loadAndValidateProducts(items: ItemRequestDto[]) {
 
 async function loadProducts(items: ItemRequestDto[]) {
   const productIds = items.map((i) => i.productId);
+  const uniqueProductIds = [...new Set(productIds)];
 
   const products = await prisma.product.findMany({
-    where: { id: { in: productIds }, isDeleted: false },
-    select: { id: true, name: true, vatType: true, quantity: true },
+    where: { id: { in: uniqueProductIds }, isDeleted: false },
+    select: {
+      id: true,
+      name: true,
+      vatType: true,
+      quantity: true,
+      trackInventory: true,
+    },
   });
 
-  if (products.length !== productIds.length) {
+  if (products.length !== uniqueProductIds.length) {
     throw new Error("One or more products not found");
   }
 
@@ -164,7 +187,7 @@ async function loadProducts(items: ItemRequestDto[]) {
 function calculateTotalByVatType(
   items: ItemRequestDto[],
   productMap: Awaited<ReturnType<typeof loadProducts>>,
-  vatType: VatType
+  vatType: VatType,
 ): number {
   return items
     .filter((item) => productMap.get(item.productId)?.vatType === vatType)
@@ -174,7 +197,7 @@ function calculateTotalByVatType(
 function calculateDiscountAmount(
   discount: DiscountDto | undefined,
   grossTotal: number,
-  maxDiscount: number
+  maxDiscount: number,
 ): number {
   if (!discount) return 0;
 
@@ -195,13 +218,21 @@ function calculateDiscountAmount(
 function calculatePayment(
   dto: OrderDto,
   productMap: Awaited<ReturnType<typeof loadProducts>>,
-  vatRate: number,       // e.g. 12 → stored as 12 in DB
-  maxDiscount: number    // stored as Decimal in DB
+  vatRate: number, // e.g. 12 → stored as 12 in DB
+  maxDiscount: number, // stored as Decimal in DB
 ): PaymentCalculation {
   const vat = vatRate / 100; // 12 → 0.12
 
-  const vatableTotal = calculateTotalByVatType(dto.items, productMap, "VATABLE");
-  const vatExemptTotal = calculateTotalByVatType(dto.items, productMap, "EXEMPT");
+  const vatableTotal = calculateTotalByVatType(
+    dto.items,
+    productMap,
+    "VATABLE",
+  );
+  const vatExemptTotal = calculateTotalByVatType(
+    dto.items,
+    productMap,
+    "EXEMPT",
+  );
   const vatZeroTotal = calculateTotalByVatType(dto.items, productMap, "ZERO");
 
   // VAT Sales = vatable / (1 + vatRate)
@@ -209,7 +240,11 @@ function calculatePayment(
   const vatAmount = round2(vatableTotal - vatSales);
 
   const grossTotal = dto.items.reduce((sum, i) => sum + i.subTotal, 0);
-  const discountAmount = calculateDiscountAmount(dto.discount, grossTotal, maxDiscount);
+  const discountAmount = calculateDiscountAmount(
+    dto.discount,
+    grossTotal,
+    maxDiscount,
+  );
 
   const totalAmount = round2(grossTotal - discountAmount);
   const dueAmount = totalAmount;
@@ -220,7 +255,10 @@ function calculatePayment(
     : 0;
 
   const remainingAfterCash = totalAmount - dto.cashTenderAmount;
-  const effectiveEPayment = Math.min(ePaymentTotal, Math.max(remainingAfterCash, 0));
+  const effectiveEPayment = Math.min(
+    ePaymentTotal,
+    Math.max(remainingAfterCash, 0),
+  );
 
   const totalTendered = round2(dto.cashTenderAmount + effectiveEPayment);
   const changeAmount = round2(totalTendered - totalAmount);
@@ -249,10 +287,15 @@ function calculatePayment(
 
 async function deductStock(
   items: ItemRequestDto[],
-  productMap: Awaited<ReturnType<typeof loadProducts>>
+  productMap: Awaited<ReturnType<typeof loadProducts>>,
 ) {
+  // Only deduct for items that track inventory
+  const itemsToDeduct = items.filter(
+    (item) => productMap.get(item.productId)?.trackInventory,
+  );
+
   await Promise.all(
-    items.map((item) => {
+    itemsToDeduct.map((item) => {
       const product = productMap.get(item.productId)!;
       const newQty = Number(product.quantity ?? 0) - item.qty;
 
@@ -260,7 +303,7 @@ async function deductStock(
         where: { id: item.productId },
         data: { quantity: newQty },
       });
-    })
+    }),
   );
 }
 
@@ -303,21 +346,27 @@ export const orderService = {
     const terminal = await getTerminalForProfile(profile.companyId);
 
     // 3. Load products & validate stock
-    const productMap = await loadAndValidateProducts(dto.items);
+    const productMap = await loadAndValidateProducts(
+      dto.items,
+      !terminal.isRetailType,
+    );
 
     // 4. Calculate payment
     const calc = calculatePayment(
       dto,
       productMap,
       terminal.vat,
-      Number(terminal.discountMax)
+      Number(terminal.discountMax),
     );
 
     // 5. Validate tender
     validatePayment(calc);
 
     // 6. Generate invoice number
-    const invoiceNumber = await generateInvoiceNumber(terminal.id, terminal.isTrainMode);
+    const invoiceNumber = await generateInvoiceNumber(
+      terminal.id,
+      terminal.isTrainMode,
+    );
 
     // 7. Persist — invoice + items + e-payments
     await prisma.invoice.create({
@@ -353,8 +402,8 @@ export const orderService = {
             productId: item.productId,
             qty: item.qty,
             price: item.price,
-            subTotal: item.status === 'VOID' ? 0 : item.subTotal,
-            status: item.status || "PAID" satisfies InvoiceStatusType,
+            subTotal: item.status === "VOID" ? 0 : item.subTotal,
+            status: item.status || ("PAID" satisfies InvoiceStatusType),
             isTrainingMode: terminal.isTrainMode,
           })),
         },
@@ -369,8 +418,8 @@ export const orderService = {
       },
     });
 
-    // 8. Deduct stock (skip in train mode)
-    if (!terminal.isTrainMode) {
+    // 8. Deduct stock (skip in train mode or non-retail)
+    if (!terminal.isTrainMode && terminal.isRetailType) {
       await deductStock(dto.items, productMap);
     }
 
@@ -419,11 +468,14 @@ export const orderService = {
       dto.order,
       productMap,
       terminal.vat,
-      Number(terminal.discountMax)
+      Number(terminal.discountMax),
     );
 
     // 5. Generate invoice number
-    const invoiceNumber = await generateInvoiceNumber(terminal.id, terminal.isTrainMode);
+    const invoiceNumber = await generateInvoiceNumber(
+      terminal.id,
+      terminal.isTrainMode,
+    );
 
     // 6. Persist cancelled invoice with VOID items
     await prisma.invoice.create({

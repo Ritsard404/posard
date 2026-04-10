@@ -102,42 +102,51 @@ export default function AccountsPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Accounts</h1>
-        <p className="text-gray-600 text-sm md:text-base mt-1">
-          Manage user accounts and permissions
-        </p>
-      </div>
+    <div className="relative min-h-[calc(100vh-4rem)]">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 -left-10 w-96 h-96 bg-accent/5 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob pointer-events-none"></div>
+      <div className="absolute top-20 -right-10 w-96 h-96 bg-emerald-500/5 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000 pointer-events-none"></div>
+      <div className="absolute -bottom-20 left-40 w-96 h-96 bg-indigo-500/5 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000 pointer-events-none"></div>
 
-      {/* Error banner */}
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex justify-between">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 font-medium">
-            Dismiss
-          </button>
+      <div className="relative z-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* Header */}
+        <div className="space-y-1">
+          <h1 className="text-3xl font-heading font-extrabold tracking-tight">Accounts</h1>
+          <p className="text-muted-foreground font-medium">
+            Manage user accounts, permissions, and administrative approvals
+          </p>
         </div>
-      )}
 
-      {/* Table */}
-      <AccountTable
-        profiles={pageContent}
-        isLoading={isLoading}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onActivate={handleActivate}
-        onDeactivate={handleDeactivate}
-        itemsPerPage={pageSize}
-        onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
-        totalCount={totalCount}
-        currentPage={page}
-        onPageChange={setPage}
-        onSearch={(kw) => { setKeyword(kw); setPage(0); }}
-        onStatusFilter={(s) => { setStatusFilter(s); setPage(0); }}
-        currentStatus={statusFilter}
-      />
+        {/* Error banner */}
+        {error && (
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm font-medium flex justify-between animate-in fade-in zoom-in-95">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="text-destructive hover:underline font-bold">
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Table container */}
+        <div className="relative">
+          <AccountTable
+            profiles={pageContent}
+            isLoading={isLoading}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onActivate={handleActivate}
+            onDeactivate={handleDeactivate}
+            itemsPerPage={pageSize}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
+            totalCount={totalCount}
+            currentPage={page}
+            onPageChange={setPage}
+            onSearch={(kw) => { setKeyword(kw); setPage(0); }}
+            onStatusFilter={(s) => { setStatusFilter(s); setPage(0); }}
+            currentStatus={statusFilter}
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -28,45 +28,45 @@ export function ProductDisplay() {
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="flex flex-col h-full bg-background border-r border-border">
+    <div className="flex flex-col h-full bg-transparent border-r border-white/5 animate-in fade-in duration-700">
       {/* Header & Controls */}
-      <div className="p-4 border-b border-border space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-grow">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+      <div className="p-6 border-b border-white/5 space-y-6 bg-white/[0.02] backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-grow group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-accent transition-colors" />
             <Input 
-              placeholder="Search products by name or barcode..." 
+              placeholder="Search products or scan barcode..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 w-full bg-muted/50 rounded-full h-12 text-base"
+              className="pl-12 w-full bg-background/50 rounded-2xl h-12 text-base border-white/10 focus:border-accent/50 focus:ring-0 transition-all font-medium"
             />
           </div>
-          <div className="flex bg-muted/50 rounded-lg p-1">
+          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
             <Button 
               variant={viewMode === 'grid' ? "default" : "ghost"} 
               size="icon" 
               onClick={() => setViewMode('grid')}
-              className="h-8 w-8 rounded-md"
+              className={`h-10 w-10 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted-foreground hover:bg-white/5'}`}
             >
-              <LayoutGrid className="h-4 w-4" />
+              <LayoutGrid className="h-5 w-5" />
             </Button>
             <Button 
               variant={viewMode === 'list' ? "default" : "ghost"} 
               size="icon" 
               onClick={() => setViewMode('list')}
-              className="h-8 w-8 rounded-md"
+              className={`h-10 w-10 rounded-lg transition-all ${viewMode === 'list' ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted-foreground hover:bg-white/5'}`}
             >
-              <List className="h-4 w-4" />
+              <List className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
         {/* Categories */}
-        <ScrollArea className="w-full whitespace-nowrap pb-2">
-          <div className="flex w-max space-x-2">
+        <ScrollArea className="w-full whitespace-nowrap">
+          <div className="flex w-max space-x-2 pb-2">
             <Button
               variant={selectedCategoryId === null ? 'default' : 'outline'}
-              className="rounded-full px-6 h-10"
+              className={`rounded-full px-6 h-10 font-bold text-xs uppercase tracking-widest transition-all ${selectedCategoryId === null ? 'bg-accent text-white border-transparent shadow-lg shadow-accent/20' : 'bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10 hover:border-white/20'}`}
               onClick={() => setSelectedCategoryId(null)}
             >
               All Items
@@ -75,7 +75,7 @@ export function ProductDisplay() {
               <Button
                 key={cat.id}
                 variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                className="rounded-full px-6 h-10"
+                className={`rounded-full px-6 h-10 font-bold text-xs uppercase tracking-widest transition-all ${selectedCategoryId === cat.id ? 'bg-accent text-white border-transparent shadow-lg shadow-accent/20' : 'bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10 hover:border-white/20'}`}
                 onClick={() => setSelectedCategoryId(cat.id)}
               >
                 {cat.categoryName}
@@ -86,20 +86,29 @@ export function ProductDisplay() {
       </div>
 
       {/* Main Grid/List */}
-      <ScrollArea className="flex-1 p-4 bg-muted/30">
+      <ScrollArea className="flex-1 p-6 bg-white/[0.01]">
         {paginatedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <Package className="h-12 w-12 mb-4 opacity-20" />
-            <p>No products found.</p>
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20 animate-in fade-in zoom-in-95">
+            <div className="size-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
+              <Package className="h-10 w-10 opacity-20" />
+            </div>
+            <p className="text-xl font-heading font-bold text-foreground">No matches found</p>
+            <p className="font-medium mt-1">Try a different search or category.</p>
           </div>
         ) : (
           <div className={
             viewMode === 'grid' 
-              ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 pb-4" 
-              : "flex flex-col gap-3 pb-4"
+              ? "grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-10" 
+              : "flex flex-col gap-4 pb-10"
           }>
-            {paginatedProducts.map(product => (
-              <ProductCard key={product.id} product={product} viewMode={viewMode} />
+            {paginatedProducts.map((product, idx) => (
+              <div 
+                key={product.id} 
+                className="animate-in fade-in slide-in-from-bottom-2 duration-500"
+                style={{ animationDelay: `${idx * 50}ms` }}
+              >
+                <ProductCard product={product} viewMode={viewMode} />
+              </div>
             ))}
           </div>
         )}
@@ -107,25 +116,25 @@ export function ProductDisplay() {
 
       {/* Pagination Footer */}
       {totalPages > 1 && (
-        <div className="p-3 border-t border-border flex items-center justify-between bg-card text-sm">
-          <span className="text-muted-foreground">
-            Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of {filteredProducts.length}
+        <div className="p-4 border-t border-white/5 flex items-center justify-between bg-white/[0.02] backdrop-blur-md text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+          <span>
+            Showing <span className="text-foreground">{(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> of {filteredProducts.length}
           </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4">
             <Button 
               variant="outline" 
-              className="h-10 px-4"
+              className="h-10 px-4 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"
               disabled={currentPage === 1}
               onClick={() => setPage(currentPage - 1)}
             >
               Prev
             </Button>
-            <div className="flex items-center px-2 sm:px-4 font-medium">
-              {currentPage} / {totalPages}
+            <div className="flex items-center px-4 font-heading text-foreground text-sm">
+              Page {currentPage} <span className="text-muted-foreground/40 lowercase mx-2 italic font-sans font-medium">of</span> {totalPages}
             </div>
             <Button 
               variant="outline" 
-              className="h-10 px-4"
+              className="h-10 px-4 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"
               disabled={currentPage === totalPages}
               onClick={() => setPage(currentPage + 1)}
             >

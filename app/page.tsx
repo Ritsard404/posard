@@ -143,6 +143,7 @@ export default async function Home() {
                         width={32} 
                         height={32} 
                         className="rounded-full"
+                        unoptimized
                       />
                     </div>
                   ))}
@@ -161,6 +162,7 @@ export default async function Home() {
                   height={600}
                   className="rounded-[1.5rem] shadow-2xl"
                   priority
+                  unoptimized   
                 />
               </div>
             </div>

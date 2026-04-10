@@ -28,18 +28,18 @@ interface StatCardProps {
 
 function StatCard({ label, value, icon, accentClass }: StatCardProps) {
   return (
-    <Card className="relative overflow-hidden transition-shadow hover:shadow-md">
-      <CardContent className="flex items-center gap-4 p-4">
+    <Card className="glass-card relative overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98] border-white/5">
+      <CardContent className="flex items-center gap-4 p-5">
         {/* Ícono con fondo de acento */}
         <div
-          className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${accentClass}`}
+          className={`flex size-12 shrink-0 items-center justify-center rounded-xl shadow-lg ${accentClass}`}
         >
           {icon}
         </div>
 
         <div className="min-w-0">
-          <p className="text-2xl font-bold tracking-tight">{value}</p>
-          <p className="truncate text-xs text-muted-foreground">{label}</p>
+          <p className="font-heading text-2xl font-extrabold tracking-tight">{value}</p>
+          <p className="truncate text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
         </div>
       </CardContent>
     </Card>
@@ -66,28 +66,28 @@ export function InventoryStatsBar({
     {
       label: "Total Products",
       value: totalElements,
-      icon: <Package className="size-5 text-blue-600 dark:text-blue-400" />,
-      accentClass: "bg-blue-100 dark:bg-blue-900/40",
+      icon: <Package className="size-6 text-accent" />,
+      accentClass: "bg-accent/10 border border-accent/20",
     },
     {
       label: "Categories",
       value: categories.length,
-      icon: <Layers className="size-5 text-violet-600 dark:text-violet-400" />,
-      accentClass: "bg-violet-100 dark:bg-violet-900/40",
+      icon: <Layers className="size-6 text-indigo-400" />,
+      accentClass: "bg-indigo-500/10 border border-indigo-500/20",
     },
     {
       label: "Low Stock",
       value: lowStockCount,
       icon: (
-        <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400" />
+        <AlertTriangle className="size-6 text-amber-500" />
       ),
-      accentClass: "bg-amber-100 dark:bg-amber-900/40",
+      accentClass: "bg-amber-500/10 border border-amber-500/20",
     },
     {
       label: "Unavailable",
       value: unavailableCount,
-      icon: <XCircle className="size-5 text-red-600 dark:text-red-400" />,
-      accentClass: "bg-red-100 dark:bg-red-900/40",
+      icon: <XCircle className="size-6 text-red-500" />,
+      accentClass: "bg-red-500/10 border border-red-500/20",
     },
   ];
 

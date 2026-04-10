@@ -73,35 +73,36 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
+      <Card className="glass-card border-white/5">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-heading font-extrabold tracking-tight">Login</CardTitle>
+          <CardDescription className="text-muted-foreground font-medium">
+            Enter your credentials to access your terminal
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="m@example.com"
+                  placeholder="name@company.com"
                   required
                   value={email}
+                  className="h-12 rounded-xl bg-background/50 border-white/10"
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Password</Label>
                   <Link
                     href="/auth/forgot-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                    className="ml-auto inline-block text-xs font-bold text-accent hover:underline underline-offset-4"
                   >
-                    Forgot your password?
+                    Forgot password?
                   </Link>
                 </div>
                 <Input
@@ -109,19 +110,20 @@ export function LoginForm({
                   type="password"
                   required
                   value={password}
+                  className="h-12 rounded-xl bg-background/50 border-white/10"
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Login"}
+              {error && <p className="text-xs font-bold text-destructive text-center">{error}</p>}
+              <Button type="submit" className="h-12 w-full rounded-xl font-bold glow-on-hover" disabled={isLoading}>
+                {isLoading ? "Authenticating..." : "Login to Terminal"}
               </Button>
             </div>
-            <div className="mt-4 text-center text-sm">
+            <div className="mt-6 text-center text-sm font-medium text-muted-foreground">
               Don&apos;t have an account?{" "}
               <Link
                 href="/auth/sign-up"
-                className="underline underline-offset-4"
+                className="text-accent font-bold hover:underline underline-offset-4"
               >
                 Sign up
               </Link>

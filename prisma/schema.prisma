@@ -43,7 +43,7 @@ model Profile {
   role   UserRole   @default(manager)
   status UserStatus @default(pending)
 
-  pin    String?    @db.VarChar(6)
+  pin String? @db.VarChar(6)
 
   approvedAt DateTime? @map("approved_at") @db.Timestamptz
 
@@ -61,8 +61,8 @@ model Profile {
   invoicesAsCashier  Invoice[] @relation("CashierInvoice")
   invoicesAsVoidedBy Invoice[] @relation("VoidedByInvoice")
 
-  posSessions   PosSession[]
-  approvalLogs  ApprovalLog[]
+  posSessions  PosSession[]
+  approvalLogs ApprovalLog[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -182,8 +182,8 @@ model PosTerminalInfo {
   // AUDIT
   //////////////////////////////////////////////////
 
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz
   invoices  Invoice[]
   sessions  PosSession[]
 
@@ -363,6 +363,7 @@ model Product {
   cost            Decimal  @default(0) @db.Decimal(19, 4)
   price           Decimal  @db.Decimal(19, 4)
   isAvailable     Boolean  @default(true) @map("is_available")
+  trackInventory  Boolean  @default(true) @map("track_inventory")
   itemType        ItemType @default(RESALE) @map("item_type")
   vatType         VatType  @default(VATABLE) @map("vat_type")
 

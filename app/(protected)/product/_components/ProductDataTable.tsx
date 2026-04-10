@@ -80,16 +80,16 @@ function TableSkeletonRows() {
 function AvailabilityBadge({ available }: { available: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide transition-colors ${
         available
-          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
-          : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+          ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+          : "bg-red-500/10 text-red-500 border border-red-500/20"
       }`}
     >
       <span
-        className={`size-1.5 rounded-full ${available ? "bg-emerald-500" : "bg-red-500"}`}
+        className={`size-1.5 rounded-full animate-pulse ${available ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"}`}
       />
-      {available ? "Active" : "Inactive"}
+      {available ? "Active" : "Disabled"}
     </span>
   );
 }
@@ -100,24 +100,26 @@ function AvailabilityBadge({ available }: { available: boolean }) {
 
 function QuantityDisplay({ quantity }: { quantity: number | null }) {
   if (quantity === null) {
-    return <span className="text-muted-foreground">—</span>;
+    return <span className="text-muted-foreground/40 font-mono">—</span>;
   }
 
   const isLow = quantity <= 5;
 
   return (
-    <span
-      className={`font-medium tabular-nums ${
-        isLow
-          ? "text-amber-600 dark:text-amber-400"
-          : "text-foreground"
-      }`}
-    >
-      {quantity}
+    <div className="flex flex-col items-end gap-0.5">
+      <span
+        className={`font-bold tabular-nums text-sm ${
+          isLow
+            ? "text-amber-500"
+            : "text-foreground"
+        }`}
+      >
+        {quantity.toLocaleString()}
+      </span>
       {isLow && (
-        <span className="ml-1 text-[10px] font-normal text-amber-500">Low</span>
+        <span className="text-[9px] font-extrabold uppercase tracking-tighter text-amber-500/80 bg-amber-500/10 px-1 rounded">Low Stock</span>
       )}
-    </span>
+    </div>
   );
 }
 
@@ -133,50 +135,54 @@ export function ProductDataTable({
   onDelete,
 }: ProductDataTableProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-white/5 glass-card shadow-2xl animate-in fade-in zoom-in-95 duration-500">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                Product
+            <tr className="border-b border-white/10 bg-white/5">
+              <th className="px-5 py-4 text-left font-heading text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/80">
+                Product Information
               </th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+              <th className="px-5 py-4 text-left font-heading text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/80">
                 Category
               </th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                Price
+              <th className="px-5 py-4 text-right font-heading text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/80">
+                List Price
               </th>
-              <th className="hidden px-4 py-3 text-right font-medium text-muted-foreground md:table-cell">
-                Cost
+              <th className="hidden px-5 py-4 text-right font-heading text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/80 md:table-cell">
+                Unit Cost
               </th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                Stock
+              <th className="px-5 py-4 text-right font-heading text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/80">
+                Current Stock
               </th>
-              <th className="hidden px-4 py-3 text-left font-medium text-muted-foreground lg:table-cell">
+              <th className="hidden px-5 py-4 text-left font-heading text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/80 lg:table-cell">
                 Status
               </th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+              <th className="px-5 py-4 text-right">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
           </thead>
 
-          <tbody>
+          <tbody className="divide-y divide-white/5">
             {isLoading ? (
               <TableSkeletonRows />
             ) : products.length === 0 ? (
               <tr>
                 <td
                   colSpan={7}
-                  className="px-4 py-12 text-center text-muted-foreground"
+                  className="px-5 py-20 text-center text-muted-foreground"
                 >
-                  <div className="flex flex-col items-center gap-2">
-                    <ImageIcon className="size-8 opacity-40" />
-                    <p className="text-sm font-medium">No products found</p>
-                    <p className="text-xs">
-                      Try adjusting your search or filters.
-                    </p>
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="size-16 rounded-full bg-white/5 flex items-center justify-center">
+                      <ImageIcon className="size-8 opacity-20" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-lg font-heading font-bold text-foreground">No matching products</p>
+                      <p className="text-sm max-w-[250px] mx-auto text-muted-foreground font-medium">
+                        Try refining your search or selecting a different category.
+                      </p>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -184,84 +190,84 @@ export function ProductDataTable({
               products.map((product) => (
                 <tr
                   key={product.id}
-                  className="border-b border-border transition-colors last:border-0 hover:bg-muted/30"
+                  className="group border-white/5 transition-all hover:bg-white/[0.04]"
                 >
                   {/* Nombre + imagen */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-4">
                       {/* Placeholder de ícono cuando no hay imagen */}
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/60">
-                        <ImageIcon className="size-4 text-muted-foreground" />
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/5 group-hover:bg-accent/10 group-hover:border-accent/20 transition-colors">
+                        <ImageIcon className="size-5 text-muted-foreground group-hover:text-accent transition-colors" />
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium leading-tight">
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="truncate font-bold text-sm tracking-tight group-hover:text-accent transition-colors">
                           {product.name}
                         </p>
                         {product.barcode && (
-                          <p className="truncate text-xs text-muted-foreground">
-                            {product.barcode}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono font-medium text-muted-foreground/60 bg-white/5 px-1.5 rounded uppercase">SKU: {product.barcode}</span>
+                          </div>
                         )}
                       </div>
                     </div>
                   </td>
 
                   {/* Categoría */}
-                  <td className="px-4 py-3">
-                    <Badge variant="secondary" className="text-[11px]">
-                      {product.categoryName ?? "—"}
+                  <td className="px-5 py-4">
+                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider bg-white/5 border-white/10 text-muted-foreground">
+                      {product.categoryName ?? "Uncategorized"}
                     </Badge>
                   </td>
 
                   {/* Precio */}
-                  <td className="px-4 py-3 text-right tabular-nums font-medium">
-                    ₱{product.price.toFixed(2)}
+                  <td className="px-5 py-4 text-right tabular-nums font-bold text-foreground">
+                    ₱{product.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
 
                   {/* Costo (oculto en móvil) */}
-                  <td className="hidden px-4 py-3 text-right tabular-nums text-muted-foreground md:table-cell">
-                    ₱{product.cost.toFixed(2)}
+                  <td className="hidden px-5 py-4 text-right tabular-nums text-muted-foreground/70 font-medium md:table-cell">
+                    ₱{product.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
 
                   {/* Cantidad / Stock */}
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-5 py-4 text-right">
                     <QuantityDisplay quantity={product.quantity} />
                   </td>
 
                   {/* Estado (oculto en pantallas pequeñas) */}
-                  <td className="hidden px-4 py-3 lg:table-cell">
+                  <td className="hidden px-5 py-4 lg:table-cell">
                     <AvailabilityBadge available={product.isAvailable} />
                   </td>
 
                   {/* Menú de acciones por fila */}
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-5 py-4 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          className="text-muted-foreground"
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-white/10 hover:text-foreground transition-all"
                         >
                           <MoreHorizontal className="size-4" />
                           <span className="sr-only">Actions</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem onClick={() => onEdit(product)}>
-                          <Pencil className="size-4" />
-                          Edit
+                      <DropdownMenuContent align="end" className="w-48 glass-card border-white/5 p-1">
+                        <DropdownMenuItem onClick={() => onEdit(product)} className="rounded-lg font-bold gap-2">
+                          <Pencil className="size-4 text-accent" />
+                          Edit Product
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onAdjustStock(product)}>
-                          <ArrowUpDown className="size-4" />
+                        <DropdownMenuItem onClick={() => onAdjustStock(product)} className="rounded-lg font-bold gap-2">
+                          <ArrowUpDown className="size-4 text-emerald-500" />
                           Adjust Stock
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
+                        <DropdownMenuSeparator className="bg-white/5" />
                         <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
+                          className="rounded-lg font-bold gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
                           onClick={() => onDelete(product)}
                         >
                           <Trash2 className="size-4" />
-                          Delete
+                          Delete Product
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

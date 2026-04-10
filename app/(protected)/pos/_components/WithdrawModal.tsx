@@ -43,37 +43,65 @@ export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModa
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-amber-600">Withdraw Cash</DialogTitle>
-          <DialogDescription>
-            Enter the amount you wish to withdraw from the drawer.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleWithdraw} className="flex flex-col space-y-6 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="amount">Withdrawal Amount</Label>
-            <Input
-              id="amount"
-              type="number"
-              min="0.01"
-              step="0.01"
-              autoFocus
-              placeholder="0.00"
-              className="text-right text-lg h-12 font-medium"
-              value={amount || ""}
-              onChange={(e) => setAmount(Number(e.target.value))}
-            />
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden border-white/5 glass-card backdrop-blur-3xl animate-in zoom-in-95 duration-500 shadow-2xl shadow-amber-900/10">
+        <div className="bg-amber-500/10 p-8 text-center flex flex-col items-center border-b border-white/5 relative">
+          <div className="absolute top-0 -left-10 size-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="size-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-6">
+            <Wallet className="h-8 w-8 text-amber-500" />
+          </div>
+          <DialogHeader className="p-0">
+            <DialogTitle className="text-3xl font-heading font-black tracking-tight text-amber-500">Withdraw Cash</DialogTitle>
+            <DialogDescription className="text-muted-foreground/60 font-medium uppercase tracking-[0.1em] text-[10px] mt-2 font-bold">
+              Adjusting physical register balances
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <form onSubmit={handleWithdraw} className="flex flex-col space-y-8 p-8 relative">
+          <div className="space-y-4">
+            <Label htmlFor="amount" className="font-black uppercase text-[10px] text-muted-foreground/40 tracking-[0.25em] ml-1">Withdrawal Amount</Label>
+            <div className="relative group">
+              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-amber-500/50 group-focus-within:text-amber-500 transition-colors font-black font-heading text-xl">₱</span>
+              <Input
+                id="amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                autoFocus
+                placeholder="0.00"
+                className="pl-12 pr-6 text-4xl h-20 rounded-2xl bg-white/5 border-white/5 focus:bg-white/10 transition-all font-heading font-black tracking-tighter"
+                value={amount || ""}
+                onChange={(e) => setAmount(Number(e.target.value))}
+              />
+            </div>
           </div>
 
-          {error && <p className="text-sm text-destructive font-medium bg-destructive/10 p-2 rounded-md">{error}</p>}
+          {error && (
+            <div className="animate-in slide-in-from-top-2 flex items-center gap-3 bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-500 text-xs font-bold uppercase tracking-widest">
+              <span>{error}</span>
+            </div>
+          )}
           
-          <div className="flex justify-end gap-3 pt-2 w-full">
-            <Button type="button" variant="outline" className="flex-1 h-12" onClick={onCancel} disabled={isLoading}>
-              Cancel
+          <div className="flex gap-3 pt-4">
+            <Button type="button" variant="ghost" className="flex-1 h-14 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-muted-foreground/40 hover:bg-white/5 hover:text-muted-foreground transition-all" onClick={onCancel} disabled={isLoading}>
+              Close Window
             </Button>
-            <Button type="submit" variant="default" className="flex-1 h-12 text-lg bg-amber-600 hover:bg-amber-700" disabled={isLoading || amount <= 0}>
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Withdraw"}
+            <Button 
+              type="submit" 
+              className="flex-1 h-14 rounded-2xl bg-amber-600 text-white font-heading font-black text-lg uppercase tracking-widest glow-on-hover shadow-2xl shadow-amber-600/20 hover:bg-amber-500 active:scale-95 transition-all disabled:opacity-20 flex items-center justify-center gap-3" 
+              disabled={isLoading || amount <= 0}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Wait...
+                </>
+              ) : (
+                <>
+                  Withdraw
+                  <ArrowRight className="h-5 w-5" />
+                </>
+              )}
             </Button>
           </div>
         </form>
@@ -81,3 +109,6 @@ export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModa
     </Dialog>
   );
 }
+
+// Ensure icons are imported
+import { Wallet, ArrowRight } from "lucide-react";

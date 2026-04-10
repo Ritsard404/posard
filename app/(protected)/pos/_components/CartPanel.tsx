@@ -45,43 +45,51 @@ export function CartPanel() {
   const total = subtotal - discountAmount;
 
   return (
-    <div className="flex flex-col h-full bg-card w-full relative z-10">
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShoppingCart className="h-5 w-5 text-primary" />
-          <h2 className="font-bold text-lg">Current Order</h2>
+    <div className="flex flex-col h-full bg-white/5 backdrop-blur-xl w-full relative z-10 border-l border-white/5 shadow-[-20px_0_50px_rgba(0,0,0,0.2)] animate-in slide-in-from-right-4 duration-500">
+      <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+        <div className="flex items-center gap-3">
+          <div className="size-8 rounded-lg bg-accent/10 flex items-center justify-center border border-accent/20">
+            <ShoppingCart className="h-4 w-4 text-accent" />
+          </div>
+          <h2 className="font-heading font-extrabold text-xl tracking-tight">Active Cart</h2>
         </div>
-        <Badge variant="secondary" className="font-mono text-sm">
-          {cart.length} {cart.length === 1 ? 'Item' : 'Items'}
+        <Badge variant="secondary" className="glass-card border-white/10 px-3 py-1 font-bold text-[10px] uppercase tracking-widest text-accent">
+          {activeCart.length} {activeCart.length === 1 ? 'Item' : 'Items'}
         </Badge>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/10">
         {cart.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 py-20">
-            <ShoppingCart className="h-16 w-16 mb-4" />
-            <p className="text-lg font-medium">Cart is Empty</p>
-            <p className="text-sm">Add products to start an order</p>
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20 animate-in fade-in zoom-in-95">
+            <div className="size-24 rounded-full bg-white/[0.03] border border-white/5 flex items-center justify-center mb-6">
+              <ShoppingCart className="h-10 w-10 opacity-20" />
+            </div>
+            <p className="text-xl font-heading font-bold text-foreground">Cart is empty</p>
+            <p className="font-medium mt-1">Start scanning products...</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {cart.map((item) => {
+            {cart.map((item, idx) => {
               const isVoid = item.itemStatus === 'VOID';
               return (
-              <div key={item.cartItemId} className={`flex flex-col border-b border-border pb-4 last:border-0 last:pb-0 ${isVoid ? 'opacity-50 grayscale' : ''}`}>
-                <div className="flex justify-between items-start mb-2">
-                  <div className="pr-4">
-                    <h4 className="font-semibold text-sm line-clamp-2">{item.name}</h4>
-                    <p className="text-xs text-muted-foreground font-mono mt-1">₱ {item.price.toFixed(2)}</p>
+              <div 
+                key={item.cartItemId} 
+                className={`flex flex-col glass-card p-4 border-white/5 transition-all animate-in fade-in slide-in-from-right-2 ${isVoid ? 'opacity-40 grayscale blur-[0.5px]' : 'hover:border-white/10'}`}
+                style={{ animationDelay: `${idx * 50}ms` }}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="pr-4 min-w-0">
+                    <h4 className="font-heading font-bold text-sm tracking-tight truncate group-hover:text-accent transition-colors">{item.name}</h4>
+                    <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-1">₱ {item.price.toFixed(2)} / {item.baseUnit || 'PC'}</p>
                   </div>
-                  <div className="flex flex-col items-end">
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm font-semibold text-muted-foreground">₱</span>
+                  <div className="flex flex-col items-end flex-shrink-0">
+                    <div className="flex items-center gap-1.5 bg-background/40 p-1.5 rounded-xl border border-white/5">
+                      <span className="text-[10px] font-bold text-muted-foreground/40">₱</span>
                       <Input
                         type="number"
                         min="0"
                         step="0.01"
-                        className={`h-10 w-24 text-right font-bold text-base focus-visible:ring-1 ${item.customSubtotal !== undefined ? 'border-primary text-primary bg-primary/5' : ''}`}
+                        className={`h-7 w-20 border-none bg-transparent p-0 text-right font-black text-sm focus-visible:ring-0 ${item.customSubtotal !== undefined ? 'text-accent' : 'text-foreground/80'}`}
                         value={item.customSubtotal !== undefined ? item.customSubtotal : Number((item.price * item.cartQuantity).toFixed(2))}
                         onChange={(e) => {
                           if (e.target.value === '') {
@@ -96,41 +104,42 @@ export function CartPanel() {
                       />
                     </div>
                     {item.customSubtotal !== undefined && (
-                      <span className="text-[10px] text-primary mt-1 mr-1 uppercase font-bold tracking-wider">Edited</span>
+                      <span className="text-[8px] text-accent mt-1 mr-1 uppercase font-black tracking-widest animate-pulse">Manual Overwrite</span>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center bg-muted rounded-md p-1 border border-border/50">
+                
+                <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                  <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1 border border-white/5">
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className={`h-10 w-10 sm:h-8 sm:w-8 rounded-sm ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`h-9 w-9 rounded-lg ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}
                       onClick={() => !isVoid && updateCartQuantity(item.cartItemId, item.cartQuantity - 1)}
                       disabled={isVoid}
                     >
-                      <Minus className="h-5 w-5 sm:h-4 sm:w-4" />
+                      <Minus className="h-4 w-4" />
                     </Button>
-                    <div className={`w-12 text-center font-semibold text-base sm:text-sm ${isVoid && 'line-through text-destructive'}`}>
+                    <div className={`w-10 text-center font-black text-sm tracking-tighter ${isVoid && 'line-through text-destructive'}`}>
                       {item.cartQuantity}
                     </div>
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className={`h-10 w-10 sm:h-8 sm:w-8 rounded-sm ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`h-9 w-9 rounded-lg ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}
                       onClick={() => !isVoid && updateCartQuantity(item.cartItemId, item.cartQuantity + 1)}
                       disabled={isVoid}
                     >
-                      <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+                      <Plus className="h-4 w-4" />
                     </Button>
                   </div>
                   {isVoid ? (
-                    <Badge variant="destructive" className="uppercase text-[10px]">Voided</Badge>
+                    <Badge variant="destructive" className="uppercase text-[9px] font-black tracking-widest px-2 py-0.5 border-transparent">Voided</Badge>
                   ) : (
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-10 w-10 sm:h-8 sm:w-8 text-destructive hover:bg-destructive/10"
+                      className="h-9 w-9 rounded-lg bg-red-500/5 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/10"
                       onClick={() => {
                         setApprovalType("VOID_ITEM");
                         setApprovalRefId(item.cartItemId);
@@ -138,7 +147,7 @@ export function CartPanel() {
                         setApprovalOpen(true);
                       }}
                     >
-                      <Trash2 className="h-5 w-5 sm:h-4 sm:w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
@@ -148,35 +157,40 @@ export function CartPanel() {
         )}
       </div>
 
-      <div className="p-4 border-t border-border bg-muted/20">
-        <div className="space-y-2 mb-4 text-sm">
-          <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal</span>
-            <span>₱ {subtotal.toFixed(2)}</span>
+      <div className="p-6 border-t border-white/5 bg-white/[0.03] backdrop-blur-2xl">
+        <div className="space-y-4 mb-8">
+          <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60">
+            <span>Aggregated Subtotal</span>
+            <span className="font-sans font-bold">₱ {subtotal.toFixed(2)}</span>
           </div>
           {discountAmount > 0 && (
-            <div className="flex justify-between text-destructive font-medium">
-              <span>Discount ({discount})</span>
-              <span>- ₱ {discountAmount.toFixed(2)}</span>
+            <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-red-500 animate-pulse">
+              <span>Adjustment ({discount})</span>
+              <span className="font-sans font-bold">- ₱ {discountAmount.toFixed(2)}</span>
             </div>
           )}
           {discount === 'NONE' && taxDerived > 0 && (
-             <div className="flex justify-between text-muted-foreground text-xs">
-               <span>VAT (12% Included)</span>
-               <span>₱ {taxDerived.toFixed(2)}</span>
+             <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 italic">
+               <span>VAT (Int. 12%)</span>
+               <span className="font-sans">₱ {taxDerived.toFixed(2)}</span>
              </div>
           )}
-          <Separator className="my-2" />
+          
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-4" />
+          
           <div className="flex justify-between items-end">
-            <span className="font-semibold text-lg">Total</span>
-            <span className="font-extrabold text-3xl text-primary tracking-tight">₱ {Math.max(0, total).toFixed(2)}</span>
+            <div className="flex flex-col gap-1">
+               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent group-hover:text-accent/80 transition-colors">Total Amount</span>
+               <span className="text-xs text-muted-foreground font-medium italic">Inc. all applicable taxes</span>
+            </div>
+            <span className="font-heading font-black text-5xl text-white tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">₱ {Math.max(0, total).toFixed(2)}</span>
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Button 
             variant="outline" 
-            className="w-1/3 h-14 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            className="w-1/4 h-14 rounded-2xl border-white/5 bg-white/5 text-red-500 font-bold uppercase tracking-[0.15em] text-[10px] hover:bg-red-500 hover:text-white transition-all shadow-lg active:scale-95 group"
             onClick={async () => {
               if (cart.length === 0) return;
               
@@ -208,14 +222,18 @@ export function CartPanel() {
             }}
             disabled={cart.length === 0}
           >
-            Void
+            <div className="flex flex-col items-center">
+              <Trash2 className="size-4 mb-1 group-hover:rotate-12 transition-transform" />
+              Void
+            </div>
           </Button>
           <Button 
-            className="w-2/3 md:text-lg h-14 shadow-lg hover:shadow-xl transition-shadow font-semibold"
+            className="flex-1 h-16 rounded-2xl bg-accent hover:bg-accent/90 text-white font-heading font-black text-xl uppercase tracking-widest glow-on-hover shadow-2xl active:scale-95 transition-all group"
             onClick={() => setCheckoutOpen(true)}
             disabled={activeCart.length === 0}
           >
-            Checkout
+            Checkout Flow
+            <ChevronRight className="size-6 ml-2 group-hover:translate-x-1 transition-transform" />
           </Button>
         </div>
       </div>
@@ -243,5 +261,7 @@ export function CartPanel() {
 }
 
 // Let's make sure Badge is here.
-import { Badge } from '@/components/ui/badge';import { CheckoutModal } from './CheckoutModal';
+import { Badge } from '@/components/ui/badge';
+import { CheckoutModal } from './CheckoutModal';
+import { ChevronRight } from 'lucide-react';
 

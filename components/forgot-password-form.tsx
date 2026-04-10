@@ -47,51 +47,56 @@ export function ForgotPasswordForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       {success ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">Check Your Email</CardTitle>
-            <CardDescription>Password reset instructions sent</CardDescription>
+        <Card className="glass-card border-white/5 shadow-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-heading font-extrabold tracking-tight text-emerald-500">Welcome Aboard!</CardTitle>
+            <CardDescription className="text-muted-foreground font-medium">Registration successful</CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              If you registered using your email and password, you will receive
-              a password reset email.
+          <CardContent className="flex flex-col gap-6 text-center">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Your merchant profile is now ready. Our administration team will review
+              and activate your terminal access shortly.
             </p>
+            <Link href="/auth/login">
+              <Button className="w-full h-11 rounded-xl font-bold glow-on-hover shadow-lg">
+                Proceed to Login
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">Reset Your Password</CardTitle>
-            <CardDescription>
-              Type in your email and we&apos;ll send you a link to reset your
-              password
+        <Card className="glass-card border-white/5 shadow-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-heading font-extrabold tracking-tight">Reset Password</CardTitle>
+            <CardDescription className="text-muted-foreground font-medium">
+              We&apos;ll send a secure link to your inbox
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleForgotPassword}>
               <div className="flex flex-col gap-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Registered Email</Label>
                   <Input
                     id="email"
                     type="email"
                     placeholder="m@example.com"
                     required
                     value={email}
+                    className="h-12 rounded-xl bg-background/50 border-white/10"
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
-                {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Sending..." : "Send reset email"}
+                {error && <p className="text-xs font-bold text-destructive text-center">{error}</p>}
+                <Button type="submit" className="h-12 w-full rounded-xl font-bold glow-on-hover" disabled={isLoading}>
+                  {isLoading ? "Sending Link..." : "Send Reset Link"}
                 </Button>
               </div>
-              <div className="mt-4 text-center text-sm">
-                Already have an account?{" "}
+              <div className="mt-6 text-center text-sm font-medium text-muted-foreground">
+                Remembered your password?{" "}
                 <Link
                   href="/auth/login"
-                  className="underline underline-offset-4"
+                  className="text-accent font-bold hover:underline underline-offset-4"
                 >
                   Login
                 </Link>

@@ -65,58 +65,71 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-muted/20 items-center overflow-y-auto">
-      <div className="w-full max-w-5xl py-12 px-4 md:px-8">
-        <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold tracking-tight">Select POS Terminal</h1>
-          <p className="text-muted-foreground mt-2">Choose an available terminal to start your session.</p>
+    <div className="flex flex-col h-[calc(100vh-4rem)] items-center overflow-y-auto w-full">
+      <div className="w-full max-w-5xl py-16 px-6 md:px-8">
+        <div className="mb-14 text-center animate-in fade-in slide-in-from-top-4 duration-700">
+          <h1 className="text-4xl font-heading font-extrabold tracking-tight">Select POS Terminal</h1>
+          <p className="text-muted-foreground font-medium mt-3">Ready for business. Choose an available workstation to start your session.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {terminals.map((t) => (
-            <Card 
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {terminals.map((t, idx) => (
+            <div 
               key={t.id} 
-              className={`transition-all ${t.isActive ? "opacity-75 relative overflow-hidden" : "hover:border-primary cursor-pointer hover:shadow-md"}`}
-              onClick={() => !t.isActive && onSelectTerminal(t.id, t.posName)}
+              className="animate-in fade-in slide-in-from-bottom-4 duration-700"
+              style={{ animationDelay: `${idx * 100}ms` }}
             >
-              <CardHeader className="flex flex-row items-center gap-4 pb-2">
-                <div className={`p-3 rounded-xl ${t.isActive ? "bg-muted" : "bg-primary/10 text-primary"}`}>
-                  <MonitorSmartphone className="w-6 h-6" />
-                </div>
-                <div>
-                  <CardTitle>{t.posName}</CardTitle>
-                  <CardDescription className="mt-1">
-                    {t.isActive ? (
-                      <span className="text-destructive font-medium flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-destructive" /> In Use
-                      </span>
+              <Card 
+                className={`group relative overflow-hidden glass-card p-2 border-white/5 transition-all duration-300 ${t.isActive ? "opacity-60 grayscale-[0.5]" : "hover:scale-[1.03] active:scale-[0.98] cursor-pointer hover:border-accent/30 hover:shadow-2xl group-hover:shadow-accent/5"}`}
+                onClick={() => !t.isActive && onSelectTerminal(t.id, t.posName)}
+              >
+                <CardHeader className="flex flex-row items-center gap-5 pb-4">
+                  <div className={`size-14 rounded-2xl flex items-center justify-center border transition-all duration-300 ${t.isActive ? "bg-white/5 border-white/10" : "bg-accent/10 text-accent border-accent/20 group-hover:bg-accent group-hover:text-white"}`}>
+                    <MonitorSmartphone className="size-7" />
+                  </div>
+                  <div className="min-w-0">
+                    <CardTitle className="font-heading font-bold text-xl truncate">{t.posName}</CardTitle>
+                    <div className="mt-1">
+                      {t.isActive ? (
+                        <span className="text-destructive font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]" /> 
+                          In Use
+                        </span>
+                      ) : (
+                        <span className="text-emerald-500 font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" /> 
+                          Available
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  <div className="h-20 flex flex-col justify-center">
+                    {t.isActive && t.sessions?.[0] ? (
+                      <div className="bg-white/5 border border-white/10 rounded-xl p-3 backdrop-blur-sm">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Current Cashier</p>
+                        <p className="font-bold text-sm text-foreground truncate">{t.sessions[0].profile.fullName || "Unknown Staff"}</p>
+                      </div>
                     ) : (
-                      <span className="text-emerald-500 font-medium flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> Available
-                      </span>
+                      <div className="px-1">
+                        <p className="text-sm font-medium text-muted-foreground/80 leading-relaxed">
+                          Securely access this terminal to manage inventory and process customer transactions.
+                        </p>
+                      </div>
                     )}
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {t.isActive && t.sessions?.[0] ? (
-                  <p className="text-sm text-muted-foreground bg-muted p-2 rounded-md">
-                    Currently operated by: <strong className="text-foreground">{t.sessions[0].profile.fullName || "Unknown"}</strong>
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Click to select and open session.
-                  </p>
-                )}
-                <Button 
-                  className="w-full mt-4" 
-                  disabled={t.isActive}
-                  variant={t.isActive ? "secondary" : "default"}
-                >
-                  {t.isActive ? "Terminal Locked" : "Select Terminal"}
-                </Button>
-              </CardContent>
-            </Card>
+                  </div>
+                  
+                  <Button 
+                    className={`w-full mt-6 h-12 rounded-xl font-bold transition-all ${t.isActive ? "bg-white/5 text-muted-foreground border-white/5" : "bg-primary hover:bg-primary/90 glow-on-hover"}`} 
+                    disabled={t.isActive}
+                    variant={t.isActive ? "secondary" : "default"}
+                  >
+                    {t.isActive ? "Terminal Locked" : "Initialize Session"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           ))}
         </div>
       </div>

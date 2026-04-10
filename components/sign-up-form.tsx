@@ -63,67 +63,72 @@ export function SignUpForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Sign up</CardTitle>
-          <CardDescription>Create a new account</CardDescription>
+      <Card className="glass-card border-white/5">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-heading font-extrabold tracking-tight">Sign up</CardTitle>
+          <CardDescription className="text-muted-foreground font-medium">
+            Create your merchant account to get started
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignUp}>
             <div className="flex flex-col gap-6">
-              {/* 👇 New full name field */}
               <div className="grid gap-2">
-                <Label htmlFor="full-name">Full Name</Label>
+                <Label htmlFor="full-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Full Name</Label>
                 <Input
                   id="full-name"
                   type="text"
                   placeholder="Juan dela Cruz"
                   required
                   value={fullName}
+                  className="h-12 rounded-xl bg-background/50 border-white/10"
                   onChange={(e) => setFullName(e.target.value)}
                 />
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="m@example.com"
                   required
                   value={email}
+                  className="h-12 rounded-xl bg-background/50 border-white/10"
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Password</Label>
                 <Input
                   id="password"
                   type="password"
                   required
                   value={password}
+                  className="h-12 rounded-xl bg-background/50 border-white/10"
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="repeat-password">Repeat Password</Label>
+                <Label htmlFor="repeat-password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Repeat Password</Label>
                 <Input
                   id="repeat-password"
                   type="password"
                   required
                   value={repeatPassword}
+                  className="h-12 rounded-xl bg-background/50 border-white/10"
                   onChange={(e) => setRepeatPassword(e.target.value)}
                 />
               </div>
 
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating an account..." : "Sign up"}
+              {error && <p className="text-xs font-bold text-destructive text-center">{error}</p>}
+              <Button type="submit" className="h-12 w-full rounded-xl font-bold glow-on-hover" disabled={isLoading}>
+                {isLoading ? "Creating Account..." : "Create My Merchant Account"}
               </Button>
             </div>
-            <div className="mt-4 text-center text-sm">
+            <div className="mt-6 text-center text-sm font-medium text-muted-foreground">
               Already have an account?{" "}
-              <Link href="/auth/login" className="underline underline-offset-4">
+              <Link href="/auth/login" className="text-accent font-bold hover:underline underline-offset-4">
                 Login
               </Link>
             </div>

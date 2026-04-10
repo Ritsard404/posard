@@ -40,15 +40,15 @@ interface AccountTableProps {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<UserStatus, string> = {
-  active:   "text-green-700 bg-green-100 border border-green-200",
-  pending:  "text-amber-700 bg-amber-100 border border-amber-200",
-  disabled: "text-red-700   bg-red-100   border border-red-200",
+  active:   "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.1)]",
+  pending:  "bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.1)]",
+  disabled: "bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_8px_rgba(239,68,68,0.1)]",
 };
 
 const STATUS_ICONS: Record<UserStatus, React.ReactNode> = {
-  active:   <CheckCircle2 className="w-4 h-4" />,
-  pending:  <Power        className="w-4 h-4" />,
-  disabled: <XCircle      className="w-4 h-4" />,
+  active:   <CheckCircle2 className="size-3.5" />,
+  pending:  <Power        className="size-3.5 animate-pulse" />,
+  disabled: <XCircle      className="size-3.5" />,
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ export default function AccountTable({
               size="sm"
               variant="outline"
               onClick={() => onApprove(profile.id)}
-              className="text-xs text-green-600 border-green-200 hover:bg-green-50"
+              className="h-8 rounded-lg text-xs font-bold text-emerald-500 border-white/5 bg-white/5 hover:bg-emerald-500/10 transition-colors"
             >
               Approve
             </Button>
@@ -111,7 +111,7 @@ export default function AccountTable({
               size="sm"
               variant="outline"
               onClick={() => onReject(profile.id)}
-              className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+              className="h-8 rounded-lg text-xs font-bold text-red-500 border-white/5 bg-white/5 hover:bg-red-500/10 transition-colors"
             >
               Reject
             </Button>
@@ -126,7 +126,7 @@ export default function AccountTable({
                 size="sm"
                 variant="outline"
                 onClick={() => onDeactivate(profile.id)}
-                className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                className="h-8 rounded-lg text-xs font-bold text-red-500 border-white/5 bg-white/5 hover:bg-red-500/10 transition-colors"
               >
                 Deactivate
               </Button>
@@ -136,7 +136,7 @@ export default function AccountTable({
                 size="sm"
                 variant="outline"
                 onClick={() => onActivate(profile.id)}
-                className="text-xs text-green-600 border-green-200 hover:bg-green-50"
+                className="h-8 rounded-lg text-xs font-bold text-emerald-500 border-white/5 bg-white/5 hover:bg-emerald-500/10 transition-colors"
               >
                 Activate
               </Button>
@@ -149,28 +149,29 @@ export default function AccountTable({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
+      <Card className="glass-card border-white/5 p-20 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="size-10 animate-spin text-accent" />
+        <p className="text-muted-foreground font-medium animate-pulse">Syncing accounts...</p>
+      </Card>
     );
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden glass-card border-white/5 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
       {/* Filters Bar */}
-      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+      <div className="p-5 bg-white/[0.03] border-b border-white/5">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* Search */}
-          <div className="md:col-span-6 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <div className="md:col-span-6 relative group">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-accent transition-colors" />
             <Input
               placeholder="Search by name or email..."
               value={tempKeyword}
               onChange={(e) => setTempKeyword(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="pl-10 border-gray-300 focus:border-blue-500"
+              className="h-11 pl-11 rounded-xl bg-background/50 border-white/10 focus:border-accent/50 focus:ring-0 transition-all font-medium"
             />
           </div>
 
@@ -179,12 +180,12 @@ export default function AccountTable({
             <select
               value={currentStatus}
               onChange={(e) => onStatusFilter?.(e.target.value as UserStatus | "")}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-gray-400 transition-colors"
+              className="w-full h-11 px-4 border border-white/10 rounded-xl text-sm font-bold bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all cursor-pointer appearance-none"
             >
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="active">Active</option>
-              <option value="disabled">Disabled</option>
+              <option value="" className="bg-popover">All Status</option>
+              <option value="pending" className="bg-popover">Pending</option>
+              <option value="active" className="bg-popover">Active Only</option>
+              <option value="disabled" className="bg-popover">Disabled Only</option>
             </select>
           </div>
 
@@ -192,15 +193,15 @@ export default function AccountTable({
           <div className="md:col-span-3 flex gap-2">
             <Button
               onClick={handleSearch}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              className="flex-1 h-11 rounded-xl font-bold bg-accent hover:bg-accent/80 transition-all glow-on-hover px-4"
               size="sm"
             >
-              <Search className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Search</span>
+              <Search className="size-4 mr-2" />
+              Search
             </Button>
-            <Button onClick={handleReset} variant="outline" className="flex-1" size="sm">
-              <X className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Reset</span>
+            <Button onClick={handleReset} variant="outline" className="flex-1 h-11 rounded-xl font-bold border-white/10 bg-white/5 hover:bg-white/10" size="sm">
+              <X className="size-4 mr-2" />
+              Reset
             </Button>
           </div>
         </div>
@@ -208,58 +209,60 @@ export default function AccountTable({
 
       {/* Empty state */}
       {profiles.length === 0 ? (
-        <div className="p-12 text-center">
-          <Search className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-          <p className="text-gray-500 font-medium">No accounts found</p>
-          <p className="text-gray-400 text-sm mt-1">Try adjusting your search or filters</p>
+        <div className="p-20 text-center">
+          <div className="size-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+            <Search className="size-8 text-muted-foreground opacity-20" />
+          </div>
+          <p className="text-xl font-heading font-bold text-foreground">No matching accounts</p>
+          <p className="text-muted-foreground font-medium mt-1">Try adjusting your filters or search terms.</p>
         </div>
       ) : (
         <>
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50">
-                  {["User", "Company", "Role", "Status", "Actions"].map((h) => (
+                <tr className="border-b border-white/5 bg-white/[0.02]">
+                  {["User Details", "Organization", "Access Level", "Account Status", "Actions"].map((h) => (
                     <th
                       key={h}
-                      className={`px-4 py-3 text-sm font-semibold text-gray-700 ${h === "Actions" ? "text-right" : "text-left"}`}
+                      className={`px-5 py-4 font-heading text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/80 ${h === "Actions" ? "text-right" : "text-left"}`}
                     >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-white/5">
                 {profiles.map((profile) => (
                   <tr
                     key={profile.id}
-                    className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="group border-white/5 transition-all hover:bg-white/[0.04] cursor-pointer"
                     onClick={() => router.push(`/accounts/${profile.id}`)}
                   >
-                    <td className="px-4 py-3 text-sm">
-                      <div className="font-medium text-gray-900">
+                    <td className="px-5 py-4">
+                      <div className="font-bold text-sm tracking-tight group-hover:text-accent transition-colors">
                         {profile.fullName ?? profile.email}
                       </div>
-                      <div className="text-xs text-gray-500">{profile.email}</div>
+                      <div className="text-[11px] font-medium text-muted-foreground/60">{profile.email}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="font-medium text-gray-900">
-                        {profile.company?.name ?? "N/A"}
+                    <td className="px-5 py-4">
+                      <div className="font-bold text-sm tracking-tight text-foreground/80">
+                        {profile.company?.name ?? "Independent"}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold border border-blue-200 capitalize">
+                    <td className="px-5 py-4">
+                      <span className="px-2.5 py-1 bg-accent/10 text-accent rounded-full text-[10px] font-bold uppercase tracking-wider border border-accent/20">
                         {profile.role}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[profile.status]}`}>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${STATUS_STYLES[profile.status]}`}>
                         {STATUS_ICONS[profile.status]}
                         {profile.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <div className="flex justify-end">
                         {renderActions(profile)}
                       </div>
@@ -271,37 +274,37 @@ export default function AccountTable({
           </div>
 
           {/* Mobile Cards */}
-          <div className="md:hidden p-4 space-y-3">
+          <div className="md:hidden p-4 space-y-4 bg-white/[0.01]">
             {profiles.map((profile) => (
               <Card
                 key={profile.id}
-                className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                className="p-5 glass-card border-white/5 cursor-pointer hover:border-accent/30 transition-all active:scale-[0.98]"
                 onClick={() => router.push(`/accounts/${profile.id}`)}
               >
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="font-medium text-gray-900">
+                      <div className="font-bold text-lg tracking-tight text-foreground">
                         {profile.fullName ?? profile.email}
                       </div>
-                      <div className="text-xs text-gray-500">{profile.company?.name}</div>
+                      <div className="text-xs font-bold text-accent uppercase tracking-wider mt-0.5">{profile.company?.name}</div>
                     </div>
-                    <span className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${STATUS_STYLES[profile.status]}`}>
+                    <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLES[profile.status]}`}>
                       {STATUS_ICONS[profile.status]}
                       {profile.status}
                     </span>
                   </div>
 
-                  <div className="flex gap-2 text-xs">
-                    <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded capitalize">
+                  <div className="flex gap-2 text-[10px] font-bold uppercase tracking-widest">
+                    <span className="px-2 py-1 bg-accent/10 text-accent rounded-lg border border-accent/20">
                       {profile.role}
                     </span>
-                    <span className={`px-2 py-1 rounded ${profile.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                    <span className={`px-2 py-1 rounded-lg border ${profile.isActive ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-white/5 text-muted-foreground border-white/10"}`}>
                       {profile.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
 
-                  <div className="pt-1">
+                  <div className="pt-2 border-t border-white/5">
                     {renderActions(profile)}
                   </div>
                 </div>
@@ -310,49 +313,54 @@ export default function AccountTable({
           </div>
 
           {/* Pagination */}
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 p-4 border-t bg-gray-50">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 p-5 border-t border-white/5 bg-white/[0.01]">
             {/* Page size */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Show</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-                className="px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {[5, 10, 20, 50, 100].map((size) => (
-                  <option key={size} value={size}>{size}</option>
-                ))}
-              </select>
-              <span className="text-sm text-gray-600">entries</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Show</span>
+              <div className="relative">
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+                  className="px-3 py-1.5 border border-white/10 rounded-lg text-xs font-bold bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 cursor-pointer appearance-none pr-8"
+                >
+                  {[5, 10, 20, 50, 100].map((size) => (
+                    <option key={size} value={size} className="bg-popover">{size}</option>
+                  ))}
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <ChevronRight className="size-3 rotate-90 text-muted-foreground" />
+                </div>
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">entries</span>
             </div>
 
             {/* Range info */}
-            <div className="text-sm text-gray-600">
+            <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground/80">
               {totalCount === 0
-                ? "No entries"
-                : `Showing ${rangeStart}–${rangeEnd} of ${totalCount} entries`}
+                ? "No entries available"
+                : `Viewing ${rangeStart}–${rangeEnd} of ${totalCount} entries`}
             </div>
 
             {/* Page controls */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <Button
                 variant="outline"
-                size="sm"
+                className="h-8 w-8 p-0 rounded-lg border-white/10 bg-white/5 hover:bg-white/10"
                 onClick={() => onPageChange?.(currentPage - 1)}
                 disabled={currentPage === 0}
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="size-4" />
               </Button>
-              <span className="text-sm text-gray-600">
-                Page {currentPage + 1} of {totalPages}
+              <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">
+                Page {currentPage + 1} <span className="text-muted-foreground font-medium lowercase tracking-normal mx-1">of</span> {totalPages}
               </span>
               <Button
                 variant="outline"
-                size="sm"
+                className="h-8 w-8 p-0 rounded-lg border-white/10 bg-white/5 hover:bg-white/10"
                 onClick={() => onPageChange?.(currentPage + 1)}
                 disabled={currentPage >= totalPages - 1}
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="size-4" />
               </Button>
             </div>
           </div>

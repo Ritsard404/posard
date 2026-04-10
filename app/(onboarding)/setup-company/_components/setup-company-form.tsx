@@ -51,112 +51,126 @@ export function SetupCompanyForm() {
   }
 
   return (
-    <Card className="max-w-xl mx-auto">
-      <CardHeader>
-        <CardTitle>Create Company</CardTitle>
-        <CardDescription>Set up your company information</CardDescription>
+    <Card className="glass-card max-w-2xl mx-auto border-white/5 shadow-2xl">
+      <CardHeader className="text-center pb-8">
+        <CardTitle className="text-3xl font-heading font-extrabold tracking-tight">Create Your Workspace</CardTitle>
+        <CardDescription className="text-muted-foreground font-medium">
+          Set up your company profile to start managing your point of sale
+        </CardDescription>
       </CardHeader>
 
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           {/* Company Info */}
-          <div className="grid gap-4">
-            <p className="text-xs font-mono uppercase text-muted-foreground border-b pb-2">
-              Company Info
-            </p>
-
-            {/* Name */}
-            <div className="grid gap-2">
-              <Label>Company Name *</Label>
-              <Input placeholder="e.g. Brew & Co." {...register("name")} />
-              {errors.name && (
-                <p className="text-sm text-destructive">
-                  {errors.name.message}
-                </p>
-              )}
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent/80 px-2">Company Essentials</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             </div>
 
-            {/* Code + Email */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-6">
+              {/* Name */}
               <div className="grid gap-2">
-                <Label>Code</Label>
-                <Input placeholder="e.g. BREW01" {...register("code")} />
-                {errors.code && (
-                  <p className="text-sm text-destructive">
-                    {errors.code.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  placeholder="company@email.com"
-                  {...register("email")}
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Legal Company Name *</Label>
+                <Input 
+                  placeholder="e.g. Brew & Co." 
+                  {...register("name")} 
+                  className="h-12 rounded-xl bg-background/50 border-white/10 focus:border-accent/50 transition-all"
                 />
-                {errors.email && (
-                  <p className="text-sm text-destructive">
-                    {errors.email.message}
+                {errors.name && (
+                  <p className="text-xs font-bold text-destructive">
+                    {errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Code + Email */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid gap-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Internal Code</Label>
+                  <Input 
+                    placeholder="e.g. BREW01" 
+                    {...register("code")} 
+                    className="h-12 rounded-xl bg-background/50 border-white/10 focus:border-accent/50 transition-all"
+                  />
+                  {errors.code && (
+                    <p className="text-xs font-bold text-destructive">
+                      {errors.code.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Public Email Address</Label>
+                  <Input
+                    type="email"
+                    placeholder="contact@brewco.com"
+                    {...register("email")}
+                    className="h-12 rounded-xl bg-background/50 border-white/10 focus:border-accent/50 transition-all"
+                  />
+                  {errors.email && (
+                    <p className="text-xs font-bold text-destructive">
+                      {errors.email.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div className="grid gap-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contact Phone</Label>
+                <Input 
+                  placeholder="+63 912 345 6789" 
+                  {...register("phone")} 
+                  className="h-12 rounded-xl bg-background/50 border-white/10 focus:border-accent/50 transition-all"
+                />
+                {errors.phone && (
+                  <p className="text-xs font-bold text-destructive">
+                    {errors.phone.message}
                   </p>
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Phone */}
-            <div className="grid gap-2">
-              <Label>Phone</Label>
-              <Input placeholder="09123456789" {...register("phone")} />
-              {errors.phone && (
-                <p className="text-sm text-destructive">
-                  {errors.phone.message}
-                </p>
-              )}
+          {/* Security */}
+          <div className="space-y-6 pt-4">
+            <div className="flex items-center gap-4">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-500/80 px-2">Security & Access</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             </div>
 
-            {/* Manager PIN */}
             <div className="grid gap-2">
-              <Label>Manager PIN *</Label>
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Manager Master PIN *</Label>
               <Input 
                 type="password" 
                 maxLength={6}
                 inputMode="numeric"
-                placeholder="4-6 digit numeric PIN" 
+                placeholder="Secure 4-6 digit numeric PIN" 
                 {...register("managerPin")} 
+                className="h-12 rounded-xl bg-background/50 border-white/10 focus:border-emerald-500/50 transition-all font-mono tracking-widest text-center text-lg"
               />
+              <p className="text-[10px] text-muted-foreground text-center">Required for high-level operations like voids and terminal overrides.</p>
               {errors.managerPin && (
-                <p className="text-sm text-destructive">
+                <p className="text-xs font-bold text-destructive text-center">
                   {errors.managerPin.message}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Logo */}
-          {/* <div className="grid gap-4">
-            <p className="text-xs font-mono uppercase text-muted-foreground border-b pb-2">
-              Logo
-            </p>
+          <div className="pt-8">
+            {/* Root error */}
+            {errors.root && (
+              <p className="text-xs font-bold text-destructive text-center mb-4">{errors.root.message}</p>
+            )}
 
-            <div className="grid gap-2">
-              <Label>Logo Image URL</Label>
-              <Input placeholder="https://..." {...register("logoImageUrl")} />
-              {errors.logoImageUrl && (
-                <p className="text-sm text-destructive">
-                  {errors.logoImageUrl.message}
-                </p>
-              )}
-            </div>
-          </div> */}
-
-          {/* Root error */}
-          {errors.root && (
-            <p className="text-sm text-destructive">{errors.root.message}</p>
-          )}
-
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Company"}
-          </Button>
+            <Button type="submit" disabled={isSubmitting} className="w-full h-14 rounded-2xl font-bold text-lg glow-on-hover shadow-xl shadow-accent/20 transition-all">
+              {isSubmitting ? "Initialising Workspace..." : "Launch My Workspace"}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>
