@@ -21,7 +21,7 @@ export default function POSPage() {
   const [activeTab, setActiveTab] = useState<"products" | "cart">("products");
   
   // UI State for Modal handling
-  const [selectedTerminal, setSelectedTerminal] = useState<{ id: string, name: string } | null>(null);
+  const [selectedTerminal, setSelectedTerminal] = useState<{ id: string, name: string, vat: number } | null>(null);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showCloseSession, setShowCloseSession] = useState(false);
 
@@ -88,7 +88,7 @@ export default function POSPage() {
         
         <div className="relative z-10">
           <TerminalSelection 
-            onSelectTerminal={(id, name) => setSelectedTerminal({ id, name })} 
+            onSelectTerminal={(id, name, vat) => setSelectedTerminal({ id, name, vat })} 
           />
         </div>
 
@@ -100,7 +100,7 @@ export default function POSPage() {
               setSession({
                 sessionId: data.sessionId,
                 timestampId: data.timestampId,
-                terminal: selectedTerminal,
+                terminal: { id: selectedTerminal.id, name: selectedTerminal.name, vat: selectedTerminal.vat },
                 user: data.user
               });
               setSelectedTerminal(null);

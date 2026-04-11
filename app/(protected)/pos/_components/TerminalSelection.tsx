@@ -10,6 +10,7 @@ interface Terminal {
   id: string;
   posName: string;
   isActive: boolean;
+  vat: number;
   sessions: {
     profile: {
       fullName: string | null;
@@ -18,7 +19,7 @@ interface Terminal {
 }
 
 interface TerminalSelectionProps {
-  onSelectTerminal: (terminalId: string, terminalName: string) => void;
+  onSelectTerminal: (terminalId: string, terminalName: string, vat: number) => void;
 }
 
 export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) {
@@ -81,7 +82,7 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
             >
               <Card 
                 className={`group relative overflow-hidden glass-card p-2 border-white/5 transition-all duration-300 ${t.isActive ? "opacity-60 grayscale-[0.5]" : "hover:scale-[1.03] active:scale-[0.98] cursor-pointer hover:border-accent/30 hover:shadow-2xl group-hover:shadow-accent/5"}`}
-                onClick={() => !t.isActive && onSelectTerminal(t.id, t.posName)}
+                onClick={() => !t.isActive && onSelectTerminal(t.id, t.posName, t.vat)}
               >
                 <CardHeader className="flex flex-row items-center gap-5 pb-4">
                   <div className={`size-14 rounded-2xl flex items-center justify-center border transition-all duration-300 ${t.isActive ? "bg-white/5 border-white/10" : "bg-accent/10 text-accent border-accent/20 group-hover:bg-accent group-hover:text-white"}`}>
