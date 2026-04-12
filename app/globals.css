@@ -4,52 +4,52 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 210 20% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 222 47% 11%;
+    --primary: 221 79% 48%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 142 76% 36%;
+    --secondary-foreground: 210 40% 98%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215 16% 47%;
-    --accent: 243 75% 59%;
+    --accent: 38 92% 50%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 243 75% 59%;
+    --ring: 221 79% 48%;
     --chart-1: 221.2 83.2% 53.3%;
     --chart-2: 212 95% 68%;
     --chart-3: 161 72% 48%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.75rem;
+    --radius: 1rem;
   }
   .dark {
-    --background: 222 47% 11%;
+    --background: 222 47% 6%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
+    --card: 222 47% 10%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
+    --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary: 221 79% 55%;
+    --primary-foreground: 222 47% 6%;
+    --secondary: 142 76% 36%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 243 75% 59%;
+    --accent: 38 92% 50%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 243 75% 59%;
+    --ring: 221 79% 55%;
     --chart-1: 224.3 76.3% 48%;
     --chart-2: 221.2 83.2% 53.3%;
     --chart-3: 161 72% 48%;
@@ -60,13 +60,13 @@
 
 @layer components {
   .glass-card {
-    @apply bg-background/60 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl transition-all duration-300;
+    @apply bg-card/60 backdrop-blur-xl border border-white/20 dark:border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.05)] transition-all duration-300;
   }
   .glass-header {
-    @apply sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-white/10;
+    @apply sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border;
   }
   .glow-on-hover {
-    @apply relative overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(79,70,229,0.3)];
+    @apply relative overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(26,86,219,0.3)];
   }
 }
 

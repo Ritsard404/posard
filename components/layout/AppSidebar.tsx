@@ -148,12 +148,13 @@ function AppSidebarInner() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link className="flex items-center space-x-1" href="/">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900">
-                <span className="text-md font-bold">P</span>
+            <Link className="flex items-center space-x-2 px-2" href="/">
+              <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                <span className="text-lg font-bold">P</span>
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">POSard</span>
+                <span className="truncate font-bold tracking-tight text-foreground">POSard</span>
+                <span className="truncate text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Business Suite</span>
               </div>
             </Link>
           </SidebarMenuItem>
@@ -216,12 +217,12 @@ function AppSidebarInner() {
               className="cursor-default hover:bg-transparent active:bg-transparent"
               tooltip={profile?.full_name ?? profile?.email ?? "User"}
             >
-              <Avatar className="size-8 shrink-0">
+              <Avatar className="size-8 shrink-0 rounded-lg">
                 <AvatarImage
                   src={profile?.avatar_url}
                   alt={profile?.full_name ?? "User"}
                 />
-                <AvatarFallback className="bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-xs font-semibold">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold rounded-lg border border-primary/20">
                   {getInitials(profile?.full_name, profile?.email)}
                 </AvatarFallback>
               </Avatar>
@@ -293,12 +294,12 @@ export function AppSidebar() {
           <SidebarHeader>
             <SidebarMenu>
               <SidebarMenuItem>
-                <div className="flex items-center space-x-1">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-900 text-white">
-                    <span className="text-md font-bold">P</span>
+                <div className="flex items-center space-x-2 px-2">
+                  <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                    <span className="text-lg font-bold">P</span>
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">POSard</span>
+                    <span className="truncate font-bold text-foreground">POSard</span>
                   </div>
                 </div>
               </SidebarMenuItem>

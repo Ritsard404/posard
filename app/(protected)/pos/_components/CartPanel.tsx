@@ -55,24 +55,24 @@ export function CartPanel() {
   const total = subtotal - discountAmount;
 
   return (
-    <div className="flex flex-col h-full bg-white/5 backdrop-blur-xl w-full relative z-10 border-l border-white/5 shadow-[-20px_0_50px_rgba(0,0,0,0.2)] animate-in slide-in-from-right-4 duration-500">
-      <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+    <div className="flex flex-col h-full bg-card/50 backdrop-blur-xl w-full relative z-10 border-l shadow-[-20px_0_50px_rgba(0,0,0,0.05)] animate-in slide-in-from-right-4 duration-500">
+      <div className="p-4 lg:p-6 border-b flex items-center justify-between bg-muted/20">
         <div className="flex items-center gap-3">
-          <div className="size-8 rounded-lg bg-accent/10 flex items-center justify-center border border-accent/20">
-            <ShoppingCart className="h-4 w-4 text-accent" />
+          <div className="size-9 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-sm">
+            <ShoppingCart className="size-5 text-primary" />
           </div>
-          <h2 className="font-heading font-extrabold text-xl tracking-tight">Active Cart</h2>
+          <h2 className="font-heading font-black text-xl tracking-tight text-foreground">Active Cart</h2>
         </div>
-        <Badge variant="secondary" className="glass-card border-white/10 px-3 py-1 font-bold text-[10px] uppercase tracking-widest text-accent">
+        <Badge variant="secondary" className="bg-primary/5 border-primary/10 px-3 py-1 font-bold text-[10px] uppercase tracking-wider text-primary">
           {activeCart.length} {activeCart.length === 1 ? 'Item' : 'Items'}
         </Badge>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/10">
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         {cart.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20 animate-in fade-in zoom-in-95">
-            <div className="size-24 rounded-full bg-white/[0.03] border border-white/5 flex items-center justify-center mb-6">
-              <ShoppingCart className="h-10 w-10 opacity-20" />
+            <div className="size-24 rounded-full bg-muted/50 border flex items-center justify-center mb-6">
+              <ShoppingCart className="size-10 opacity-20" />
             </div>
             <p className="text-xl font-heading font-bold text-foreground">Cart is empty</p>
             <p className="font-medium mt-1">Start scanning products...</p>
@@ -84,22 +84,22 @@ export function CartPanel() {
               return (
               <div 
                 key={item.cartItemId} 
-                className={`flex flex-col glass-card p-4 border-white/5 transition-all animate-in fade-in slide-in-from-right-2 ${isVoid ? 'opacity-40 grayscale blur-[0.5px]' : 'hover:border-white/10'}`}
+                className={`flex flex-col glass-card p-4 transition-all animate-in fade-in slide-in-from-right-2 ${isVoid ? 'opacity-40 grayscale blur-[0.5px]' : 'hover:border-primary/20'}`}
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="pr-4 min-w-0">
-                    <h4 className="font-heading font-bold text-sm tracking-tight truncate group-hover:text-accent transition-colors">{item.name}</h4>
+                    <h4 className="font-heading font-bold text-sm tracking-tight truncate group-hover:text-primary transition-colors">{item.name}</h4>
                     <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-1">₱ {item.price.toFixed(2)} / {item.baseUnit || 'PC'}</p>
                   </div>
                   <div className="flex flex-col items-end flex-shrink-0">
-                    <div className="flex items-center gap-1.5 bg-background/40 p-1.5 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-1.5 bg-muted/30 p-1.5 rounded-lg border">
                       <span className="text-[10px] font-bold text-muted-foreground/40">₱</span>
                       <Input
                         type="number"
                         min="0"
                         step="0.01"
-                        className={`h-7 w-20 border-none bg-transparent p-0 text-right font-black text-sm focus-visible:ring-0 ${item.customSubtotal !== undefined ? 'text-accent' : 'text-foreground/80'}`}
+                        className={`h-7 w-20 border-none bg-transparent p-0 text-right font-black text-sm focus-visible:ring-0 ${item.customSubtotal !== undefined ? 'text-primary' : 'text-foreground/80'}`}
                         value={item.customSubtotal !== undefined ? item.customSubtotal : Number((item.price * item.cartQuantity).toFixed(2))}
                         onChange={(e) => {
                           if (e.target.value === '') {
@@ -114,21 +114,21 @@ export function CartPanel() {
                       />
                     </div>
                     {item.customSubtotal !== undefined && (
-                      <span className="text-[8px] text-accent mt-1 mr-1 uppercase font-black tracking-widest animate-pulse">Manual Overwrite</span>
+                      <span className="text-[8px] text-primary mt-1 mr-1 uppercase font-black tracking-widest animate-pulse">Manual Overwrite</span>
                     )}
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                  <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1 border border-white/5">
+                <div className="flex items-center justify-between pt-3 border-t">
+                  <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border">
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className={`h-9 w-9 rounded-lg ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}
+                      className={`h-9 w-9 rounded-lg ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
                       onClick={() => !isVoid && updateCartQuantity(item.cartItemId, item.cartQuantity - 1)}
                       disabled={isVoid}
                     >
-                      <Minus className="h-4 w-4" />
+                      <Minus className="size-4" />
                     </Button>
                     <div className={`w-10 text-center font-black text-sm tracking-tighter ${isVoid && 'line-through text-destructive'}`}>
                       {item.cartQuantity}
@@ -136,20 +136,20 @@ export function CartPanel() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className={`h-9 w-9 rounded-lg ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}
+                      className={`h-9 w-9 rounded-lg ${isVoid ? 'opacity-50' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
                       onClick={() => !isVoid && updateCartQuantity(item.cartItemId, item.cartQuantity + 1)}
                       disabled={isVoid}
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="size-4" />
                     </Button>
                   </div>
                   {isVoid ? (
-                    <Badge variant="destructive" className="uppercase text-[9px] font-black tracking-widest px-2 py-0.5 border-transparent">Voided</Badge>
+                    <Badge variant="destructive" className="uppercase text-[9px] font-black tracking-widest px-2 py-0.5">Voided</Badge>
                   ) : (
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-9 w-9 rounded-lg bg-red-500/5 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/10"
+                      className="h-9 w-9 rounded-lg bg-destructive/5 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all border border-destructive/10"
                       onClick={() => {
                         setApprovalType("VOID_ITEM");
                         setApprovalRefId(item.cartItemId);
@@ -167,14 +167,14 @@ export function CartPanel() {
         )}
       </div>
 
-      <div className="p-6 border-t border-white/5 bg-white/[0.03] backdrop-blur-2xl">
-        <div className="space-y-4 mb-8">
-          <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60">
+      <div className="p-4 lg:p-6 border-t bg-card/80 backdrop-blur-2xl">
+        <div className="space-y-3 mb-6">
+          <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
             <span>Aggregated Subtotal</span>
-            <span className="font-sans font-bold">₱ {subtotal.toFixed(2)}</span>
+            <span className="font-sans font-bold text-foreground">₱ {subtotal.toFixed(2)}</span>
           </div>
           {discountAmount > 0 && (
-            <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-red-500 animate-pulse">
+            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-destructive animate-pulse">
               <span>Adjustment ({discount})</span>
               <span className="font-sans font-bold">- ₱ {discountAmount.toFixed(2)}</span>
             </div>
@@ -186,26 +186,25 @@ export function CartPanel() {
              </div>
           )}
           
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-4" />
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent my-4" />
           
           <div className="flex justify-between items-end">
             <div className="flex flex-col gap-1">
-               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent group-hover:text-accent/80 transition-colors">Total Amount</span>
-               <span className="text-xs text-muted-foreground font-medium italic">Inc. all applicable taxes</span>
+               <span className="text-[10px] font-black uppercase tracking-[0.15em] text-primary transition-colors">Total Amount</span>
+               <span className="text-[10px] text-muted-foreground font-medium italic">Inc. all applicable taxes</span>
             </div>
-            <span className="font-heading font-black text-5xl text-white tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">₱ {Math.max(0, total).toFixed(2)}</span>
+            <span className="font-heading font-black text-4xl lg:text-5xl text-foreground tracking-tighter drop-shadow-sm">₱ {Math.max(0, total).toFixed(2)}</span>
           </div>
         </div>
 
         <div className="flex gap-3">
           <Button 
             variant="outline" 
-            className="w-1/4 h-14 rounded-2xl border-white/5 bg-white/5 text-red-500 font-bold uppercase tracking-[0.15em] text-[10px] hover:bg-red-500 hover:text-white transition-all shadow-lg active:scale-95 group"
+            className="w-1/4 h-14 rounded-xl border-border bg-background text-destructive font-bold uppercase tracking-wider text-[10px] hover:bg-destructive hover:text-destructive-foreground transition-all shadow-sm active:scale-95 group"
             onClick={async () => {
               if (cart.length === 0) return;
               
               setApprovalType("CANCEL_ORDER");
-              // Use activeTimestampId instead of "CART_CANCELLATION" because referenceId must be a UUID
               setApprovalRefId(activeTimestampId || "");
               setPendingAction(() => async (manager: { email: string, name: string }) => {
                 const reason = prompt("Enter void reason:") || "Manager Cancelled via PIN";
@@ -244,11 +243,11 @@ export function CartPanel() {
             </div>
           </Button>
           <Button 
-            className="flex-1 h-16 rounded-2xl bg-accent hover:bg-accent/90 text-white font-heading font-black text-xl uppercase tracking-widest glow-on-hover shadow-2xl active:scale-95 transition-all group"
+            className="flex-1 h-14 lg:h-16 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-heading font-black text-lg lg:text-xl uppercase tracking-widest shadow-lg active:scale-95 transition-all group"
             onClick={() => setCheckoutOpen(true)}
             disabled={activeCart.length === 0}
           >
-            Checkout Flow
+            Checkout
             <ChevronRight className="size-6 ml-2 group-hover:translate-x-1 transition-transform" />
           </Button>
         </div>
