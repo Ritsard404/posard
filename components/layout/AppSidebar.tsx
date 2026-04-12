@@ -30,6 +30,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { getNavByRole, isValidUserRole, UserRole } from "@/lib/access-control";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface UserProfile {
   role: UserRole;
@@ -145,59 +146,91 @@ function AppSidebarInner() {
 
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
-      <SidebarHeader>
+      <SidebarHeader className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link className="flex items-center space-x-2 px-2" href="/">
-              <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                <span className="text-lg font-bold">P</span>
+            <Link className="flex items-center gap-3 px-2 group" href="/">
+              <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 group-hover:scale-105 transition-all duration-300">
+                <span className="text-xl font-bold tracking-tighter">P</span>
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-bold tracking-tight text-foreground">POSard</span>
-                <span className="truncate text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Business Suite</span>
+                <span className="truncate font-heading font-extrabold text-base tracking-tight text-foreground">
+                  POSard
+                </span>
+                <span className="truncate text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">
+                  Business Suite
+                </span>
               </div>
             </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-2">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1.5">
               {isLoading ? (
-                <SidebarMenuItem>
-                  <span className="block px-3 py-2 text-sm text-muted-foreground">
-                    Loading navigation...
-                  </span>
-                </SidebarMenuItem>
+                <div className="space-y-2 px-3 py-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className="h-9 w-full rounded-lg bg-muted/50 animate-pulse"
+                    />
+                  ))}
+                </div>
               ) : fetchError ? (
                 <SidebarMenuItem>
-                  <span className="block px-3 py-2 text-sm text-destructive">
+                  <span className="block px-3 py-2 text-sm font-medium text-destructive bg-destructive/5 rounded-lg border border-destructive/10">
                     {fetchError}
                   </span>
                 </SidebarMenuItem>
               ) : filteredRoutes.length === 0 ? (
                 <SidebarMenuItem>
-                  <span className="block px-3 py-2 text-sm text-muted-foreground">
-                    No accessible items for your role
+                  <span className="block px-3 py-2 text-sm text-muted-foreground italic">
+                    No accessible items...
                   </span>
                 </SidebarMenuItem>
               ) : (
                 filteredRoutes.map((route) => {
-                  const companyId = (params?.companyId as string) || profile?.company_id || "new";
-                  const resolvedHref = route.href.replace("[companyId]", companyId);
-                  
+                  const companyId =
+                    (params?.companyId as string) ||
+                    profile?.company_id ||
+                    "new";
+                  const resolvedHref = route.href.replace(
+                    "[companyId]",
+                    companyId,
+                  );
+                  const isActive =
+                    pathname === resolvedHref ||
+                    pathname.startsWith(resolvedHref + "/");
+
                   return (
                     <SidebarMenuItem key={route.href}>
                       <SidebarMenuButton
                         asChild
-                        isActive={pathname === resolvedHref || pathname.startsWith(resolvedHref + "/")}
+                        isActive={isActive}
                         tooltip={route.label}
+                        className={cn(
+                          "h-11 px-3 rounded-xl transition-all duration-200",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/10 hover:bg-primary/90 hover:text-primary-foreground"
+                            : "hover:bg-muted font-medium",
+                        )}
                       >
-                        <Link href={resolvedHref}>
-                          <route.icon />
-                          <span>{route.label}</span>
+                        <Link
+                          href={resolvedHref}
+                          className="flex items-center gap-3"
+                        >
+                          <route.icon
+                            className={cn(
+                              "size-5",
+                              isActive
+                                ? "text-primary"
+                                : "text-muted-foreground",
+                            )}
+                          />
+                          <span className="text-[14px]">{route.label}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -209,40 +242,36 @@ function AppSidebarInner() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
+      <SidebarFooter className="p-4 mt-auto border-t border-border/50">
+        <SidebarMenu className="gap-2">
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              className="cursor-default hover:bg-transparent active:bg-transparent"
-              tooltip={profile?.full_name ?? profile?.email ?? "User"}
-            >
-              <Avatar className="size-8 shrink-0 rounded-lg">
+            <div className="flex items-center gap-3 p-2 rounded-2xl bg-muted/30 border border-muted/50">
+              <Avatar className="size-10 shrink-0 rounded-xl shadow-sm ring-2 ring-background">
                 <AvatarImage
                   src={profile?.avatar_url}
                   alt={profile?.full_name ?? "User"}
                 />
-                <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold rounded-lg border border-primary/20">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold rounded-xl">
                   {getInitials(profile?.full_name, profile?.email)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex min-w-0 flex-1 flex-col text-left">
-                <span className="truncate text-sm font-medium leading-tight">
-                  {profile?.full_name ?? "Unknown User"}
+              <div className="flex min-w-0 flex-1 flex-col justify-center">
+                <span className="truncate text-sm font-bold text-foreground leading-none mb-1">
+                  {profile?.full_name ?? "Anonymous"}
                 </span>
-                <span className="truncate text-xs text-muted-foreground leading-tight">
+                <span className="truncate text-[11px] text-muted-foreground leading-none">
                   {profile?.email}
                 </span>
               </div>
               {profile?.role && (
                 <Badge
                   variant="secondary"
-                  className="ml-auto shrink-0 capitalize text-[10px] px-1.5 py-0"
+                  className="shrink-0 capitalize text-[9px] font-bold px-1.5 py-0 bg-primary/5 text-primary border-primary/10"
                 >
                   {profile.role}
                 </Badge>
               )}
-            </SidebarMenuButton>
+            </div>
           </SidebarMenuItem>
 
           <SidebarMenuItem>
@@ -251,24 +280,31 @@ function AppSidebarInner() {
               onOpenChange={setShowLogoutDialog}
             >
               <AlertDialogTrigger asChild>
-                <SidebarMenuButton tooltip="Sign Out">
-                  <LogOut />
-                  <span>Log out</span>
+                <SidebarMenuButton
+                  tooltip="Sign Out"
+                  className="h-10 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-xl transition-colors"
+                >
+                  <LogOut className="size-4" />
+                  <span className="text-sm font-medium">Log out</span>
                 </SidebarMenuButton>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="rounded-3xl">
                 <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Are you sure you want to logout?
+                  <AlertDialogTitle className="font-heading text-xl">
+                    Logout of POSard?
                   </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    You will be signed out of your account and redirected to the
-                    sign-in page.
+                  <AlertDialogDescription className="text-sm">
+                    You'll need to sign back in to access your dashboard.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleLogout}>
+                <AlertDialogFooter className="gap-2">
+                  <AlertDialogCancel className="rounded-xl border-muted">
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleLogout}
+                    className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-lg shadow-destructive/20"
+                  >
                     Logout
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -299,7 +335,9 @@ export function AppSidebar() {
                     <span className="text-lg font-bold">P</span>
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-bold text-foreground">POSard</span>
+                    <span className="truncate font-bold text-foreground">
+                      POSard
+                    </span>
                   </div>
                 </div>
               </SidebarMenuItem>

@@ -17,21 +17,15 @@ export default function AuthLayout({
       <header className="glass-header w-full">
         <div className="container flex h-16 max-w-screen-2xl items-center justify-between px-6 mx-auto">
           <Link href="/" className="flex items-center gap-2 group transition-all">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center group-hover:scale-110 transition-transform">
-              <ShieldCheck className="w-5 h-5 text-accent-foreground" />
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center group-hover:scale-105 transition-all shadow-lg shadow-primary/20">
+              <ShieldCheck className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="text-xl font-heading font-extrabold tracking-tight text-foreground">
-              Baisard<span className="text-accent">POS</span>
+              POSard<span className="text-primary italic">.suite</span>
             </span>
           </Link>
 
           <nav className="flex items-center gap-6">
-            <Link
-              href="/"
-              className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors uppercase tracking-widest"
-            >
-              Home
-            </Link>
             <ThemeSwitcher />
           </nav>
         </div>
