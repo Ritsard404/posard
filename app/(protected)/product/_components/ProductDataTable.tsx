@@ -109,15 +109,15 @@ function QuantityDisplay({ quantity }: { quantity: number | null }) {
     <div className="flex flex-col items-end gap-0.5">
       <span
         className={`font-bold tabular-nums text-sm ${
-          isLow
-            ? "text-amber-500"
-            : "text-foreground"
+          isLow ? "text-amber-500" : "text-foreground"
         }`}
       >
         {quantity.toLocaleString()}
       </span>
       {isLow && (
-        <span className="text-[9px] font-extrabold uppercase tracking-tighter text-amber-500/80 bg-amber-500/10 px-1 rounded">Low Stock</span>
+        <span className="text-[9px] font-extrabold uppercase tracking-tighter text-amber-500/80 bg-amber-500/10 px-1 rounded">
+          Low Stock
+        </span>
       )}
     </div>
   );
@@ -178,9 +178,12 @@ export function ProductDataTable({
                       <ImageIcon className="size-8 opacity-20" />
                     </div>
                     <div className="space-y-1">
-                      <p className="text-lg font-heading font-bold text-foreground">No matching products</p>
+                      <p className="text-lg font-heading font-bold text-foreground">
+                        No matching products
+                      </p>
                       <p className="text-sm max-w-[250px] mx-auto text-muted-foreground font-medium">
-                        Try refining your search or selecting a different category.
+                        Try refining your search or selecting a different
+                        category.
                       </p>
                     </div>
                   </div>
@@ -205,7 +208,9 @@ export function ProductDataTable({
                         </p>
                         {product.barcode && (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-mono font-medium text-muted-foreground/60 bg-white/5 px-1.5 rounded uppercase">SKU: {product.barcode}</span>
+                            <span className="text-[10px] font-mono font-medium text-muted-foreground/60 bg-white/5 px-1.5 rounded uppercase">
+                              SKU: {product.barcode}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -214,19 +219,30 @@ export function ProductDataTable({
 
                   {/* Categoría */}
                   <td className="px-5 py-4">
-                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider bg-white/5 border-white/10 text-muted-foreground">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-bold uppercase tracking-wider bg-white/5 border-white/10 text-muted-foreground"
+                    >
                       {product.categoryName ?? "Uncategorized"}
                     </Badge>
                   </td>
 
                   {/* Precio */}
                   <td className="px-5 py-4 text-right tabular-nums font-bold text-foreground">
-                    ₱{product.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₱
+                    {product.price.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </td>
 
                   {/* Costo (oculto en móvil) */}
                   <td className="hidden px-5 py-4 text-right tabular-nums text-muted-foreground/70 font-medium md:table-cell">
-                    ₱{product.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₱
+                    {product.cost.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </td>
 
                   {/* Cantidad / Stock */}
@@ -252,12 +268,21 @@ export function ProductDataTable({
                           <span className="sr-only">Actions</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 glass-card border-white/5 p-1">
-                        <DropdownMenuItem onClick={() => onEdit(product)} className="rounded-lg font-bold gap-2">
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-48 glass-card border-white/5 p-1"
+                      >
+                        <DropdownMenuItem
+                          onClick={() => onEdit(product)}
+                          className="rounded-lg font-bold gap-2"
+                        >
                           <Pencil className="size-4 text-accent" />
                           Edit Product
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onAdjustStock(product)} className="rounded-lg font-bold gap-2">
+                        <DropdownMenuItem
+                          onClick={() => onAdjustStock(product)}
+                          className="rounded-lg font-bold gap-2"
+                        >
                           <ArrowUpDown className="size-4 text-emerald-500" />
                           Adjust Stock
                         </DropdownMenuItem>

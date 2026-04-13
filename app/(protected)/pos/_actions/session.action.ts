@@ -39,6 +39,7 @@ export async function getCurrentSessionAction() {
           id: timestamp.posTerminalId,
           name: timestamp.posTerminal.posName,
           vat: timestamp.posTerminal.vat,
+          discountMax: Number(timestamp.posTerminal.discountMax),
         },
         user: { name: profile.fullName || null, role: profile.role },
       },
@@ -71,6 +72,7 @@ export async function getTerminalsAction() {
     // Map `timestamps` to `sessions` format for UI compatibility
     const mappedTerminals = terminals.map((t) => ({
       ...t,
+      discountMax: Number(t.discountMax),
       sessions: t.timestamps.map((ts) => ({
         profile: ts.cashier,
       })),
@@ -165,6 +167,7 @@ export async function openSessionAction(
         id: terminal.id,
         name: terminal.posName,
         vat: terminal.vat,
+        discountMax: Number(terminal.discountMax),
       },
     };
   } catch (error) {
@@ -207,7 +210,7 @@ export async function withdrawCashAction(
       return { success: false, error: "Active session not found" };
 
     // 2. Validate balance and Process in Transaction
-    const result = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Logic for cash track must be consistent - maybe just fetch needed counts here
       // But reportService.getTimestampCashTrack is async and uses prisma (not tx)
       // So we'll do a quick manual check or trust the pre-fetch if we use locks
@@ -234,8 +237,6 @@ export async function withdrawCashAction(
           referenceId: timestamp.id,
         },
       });
-
-      return { success: true };
     });
 
     return { success: true as const };

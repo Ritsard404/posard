@@ -14,7 +14,12 @@ import { Monitor } from 'lucide-react';
 export function POSTerminalManager() {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [selectedTerminal, setSelectedTerminal] = useState<{ id: string, name: string, vat: number } | null>(null);
+  const [selectedTerminal, setSelectedTerminal] = useState<{
+    id: string;
+    name: string;
+    vat: number;
+    discountMax: number;
+  } | null>(null);
 
   const { setProducts, setCategories, setSession, activeSessionId } = usePOSStore();
 
@@ -71,7 +76,9 @@ export function POSTerminalManager() {
     return (
       <div className="relative min-h-[calc(100vh-10rem)] flex flex-col items-center justify-center p-4">
         <TerminalSelection 
-          onSelectTerminal={(id, name, vat) => setSelectedTerminal({ id, name, vat })} 
+          onSelectTerminal={(id, name, vat, discountMax) =>
+            setSelectedTerminal({ id, name, vat, discountMax })
+          } 
         />
 
         {selectedTerminal && (
@@ -82,7 +89,12 @@ export function POSTerminalManager() {
               setSession({
                 sessionId: data.sessionId,
                 timestampId: data.timestampId,
-                terminal: { id: selectedTerminal.id, name: selectedTerminal.name, vat: selectedTerminal.vat },
+                terminal: {
+                  id: selectedTerminal.id,
+                  name: selectedTerminal.name,
+                  vat: selectedTerminal.vat,
+                  discountMax: selectedTerminal.discountMax,
+                },
                 user: data.user
               });
               setSelectedTerminal(null);

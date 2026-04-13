@@ -166,7 +166,7 @@ function AppSidebarInner() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="overflow-x-hidden px-2">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1.5">
@@ -242,7 +242,7 @@ function AppSidebarInner() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 mt-auto border-t border-border/50">
+      <SidebarFooter className="sticky bottom-0 z-10 mt-auto border-t border-border/50 bg-sidebar p-4">
         <SidebarMenu className="gap-2">
           <SidebarMenuItem>
             <div className="flex items-center gap-3 p-2 rounded-2xl bg-muted/30 border border-muted/50">

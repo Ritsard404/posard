@@ -7,13 +7,14 @@ import type {
   EPaymentDto,
   ItemRequestDto,
   OrderDto,
-  PaymentCalculation,
 } from "./_dto/order.dto";
-import { InvoiceStatusType, VatType } from "@prisma/client";
-
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
+import { InvoiceStatusType } from "@prisma/client";
+import {
+  calculatePayment,
+  getEffectiveDiscountPercent,
+  isDiscountWithRequiredMetadata,
+  type PaymentCalculationItem,
+} from "./payment-calculation.service";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -47,13 +48,6 @@ async function getTerminalForProfile(companyId: string) {
   return terminal;
 }
 
-// ─────────────────────────────────────────────
-// Invoice Number Generator
-// Mirrors Java: generateInvoiceNumber()
-// Each terminal has its own independent sequence.
-// Train mode starts at 9,000,001 to be easily identifiable.
-// ─────────────────────────────────────────────
-
 async function generateInvoiceNumber(
   terminalId: string,
   isTrainMode: boolean,
@@ -81,10 +75,6 @@ async function updateTerminalCounter(
   });
 }
 
-// ─────────────────────────────────────────────
-// Validation
-// ─────────────────────────────────────────────
-
 function validateOrderRequest(dto: OrderDto) {
   if (!dto.items || dto.items.length === 0) {
     throw new Error("Items cannot be empty");
@@ -98,19 +88,25 @@ function validateOrderRequest(dto: OrderDto) {
     if (item.qty <= 0) throw new Error("Quantity must be greater than zero");
     if (item.price < 0) throw new Error("Price cannot be negative");
   }
+
+  if (isDiscountWithRequiredMetadata(dto.discount?.discountType)) {
+    if (!dto.discount?.eligibleDiscName?.trim()) {
+      throw new Error("Discount customer name is required");
+    }
+
+    if (!dto.discount?.oscaIdNum?.trim()) {
+      throw new Error("Discount ID number is required");
+    }
+  }
 }
 
-function validatePayment(calc: PaymentCalculation) {
+function validatePayment(calc: ReturnType<typeof calculatePayment>) {
   if (calc.cashTendered < calc.totalAmount) {
     throw new Error(
       `Insufficient payment. Required: ₱${calc.totalAmount.toFixed(2)}, Tendered: ₱${calc.cashTendered.toFixed(2)}`,
     );
   }
 }
-
-// ─────────────────────────────────────────────
-// Product Loading
-// ─────────────────────────────────────────────
 
 async function loadAndValidateProducts(
   items: ItemRequestDto[],
@@ -136,13 +132,11 @@ async function loadAndValidateProducts(
 
   const productMap = new Map(products.map((p) => [p.id, p]));
 
-  // Validate stock
   if (!skipStockCheck) {
     for (const item of items) {
       const product = productMap.get(item.productId);
       if (!product) throw new Error(`Product not found: ${item.productId}`);
 
-      // Only check if product is set to track inventory
       if (product.trackInventory) {
         const available = Number(product.quantity ?? 0);
         if (available < item.qty) {
@@ -179,117 +173,39 @@ async function loadProducts(items: ItemRequestDto[]) {
   return new Map(products.map((p) => [p.id, p]));
 }
 
-// ─────────────────────────────────────────────
-// Payment Calculation
-// Mirrors Java: calculatePayment()
-// ─────────────────────────────────────────────
-
-function calculateTotalByVatType(
-  items: ItemRequestDto[],
-  productMap: Awaited<ReturnType<typeof loadProducts>>,
-  vatType: VatType,
-): number {
-  return items
-    .filter((item) => productMap.get(item.productId)?.vatType === vatType)
-    .reduce((sum, item) => sum + item.subTotal, 0);
-}
-
-function calculateDiscountAmount(
-  discount: DiscountDto | undefined,
-  grossTotal: number,
-  maxDiscount: number,
-): number {
-  if (!discount) return 0;
-
-  // Fixed amount discount takes priority
-  if (discount.discountAmount && discount.discountAmount > 0) {
-    return Math.min(discount.discountAmount, maxDiscount);
-  }
-
-  // Percentage discount
-  if (discount.discountPercent && discount.discountPercent > 0) {
-    const amount = (grossTotal * discount.discountPercent) / 100;
-    return Math.min(amount, maxDiscount);
-  }
-
-  return 0;
-}
-
-function calculatePayment(
-  dto: OrderDto,
-  productMap: Awaited<ReturnType<typeof loadProducts>>,
-  vatRate: number, // e.g. 12 → stored as 12 in DB
-  maxDiscount: number, // stored as Decimal in DB
-): PaymentCalculation {
-  const vat = vatRate / 100; // 12 → 0.12
-
-  const vatableTotal = calculateTotalByVatType(
-    dto.items,
-    productMap,
-    "VATABLE",
-  );
-  const vatExemptTotal = calculateTotalByVatType(
-    dto.items,
-    productMap,
-    "EXEMPT",
-  );
-  const vatZeroTotal = calculateTotalByVatType(dto.items, productMap, "ZERO");
-
-  // VAT Sales = vatable / (1 + vatRate)
-  const vatSales = round2(vatableTotal / (1 + vat));
-  const vatAmount = round2(vatableTotal - vatSales);
-
-  const grossTotal = dto.items.reduce((sum, i) => sum + i.subTotal, 0);
-  const discountAmount = calculateDiscountAmount(
-    dto.discount,
-    grossTotal,
-    maxDiscount,
-  );
-
-  const totalAmount = round2(grossTotal - discountAmount);
-  const dueAmount = totalAmount;
-  const subTotal = round2(dueAmount - vatAmount);
-
-  const ePaymentTotal = dto.ePayments
-    ? dto.ePayments.reduce((sum, p) => sum + p.amount, 0)
-    : 0;
-
-  const remainingAfterCash = totalAmount - dto.cashTenderAmount;
-  const effectiveEPayment = Math.min(
-    ePaymentTotal,
-    Math.max(remainingAfterCash, 0),
-  );
-
-  const totalTendered = round2(dto.cashTenderAmount + effectiveEPayment);
-  const changeAmount = round2(totalTendered - totalAmount);
+function normalizeDiscount(discount?: DiscountDto): DiscountDto | undefined {
+  if (!discount) return undefined;
 
   return {
-    grossAmount: round2(grossTotal),
-    totalAmount,
-    subTotal,
-    discountAmount: round2(discountAmount),
-    vatableTotal: round2(vatableTotal),
-    vatSales,
-    vatAmount,
-    vatExempt: round2(vatExemptTotal),
-    vatZero: round2(vatZeroTotal),
-    cashTendered: dto.cashTenderAmount,
-    totalTendered,
-    changeAmount,
-    dueAmount,
+    ...discount,
+    eligibleDiscName: discount.eligibleDiscName?.trim() || undefined,
+    oscaIdNum: discount.oscaIdNum?.trim() || undefined,
   };
 }
 
-// ─────────────────────────────────────────────
-// Stock Deduction
-// Mirrors Java: deductStock()
-// ─────────────────────────────────────────────
+function buildCalculationItems(
+  items: ItemRequestDto[],
+  productMap: Awaited<ReturnType<typeof loadProducts>>,
+): PaymentCalculationItem[] {
+  return items.map((item) => {
+    const product = productMap.get(item.productId);
+
+    if (!product) {
+      throw new Error(`Product not found: ${item.productId}`);
+    }
+
+    return {
+      productId: item.productId,
+      subTotal: item.subTotal,
+      vatType: product.vatType,
+    };
+  });
+}
 
 async function deductStock(
   items: ItemRequestDto[],
   productMap: Awaited<ReturnType<typeof loadProducts>>,
 ) {
-  // Only deduct for items that track inventory
   const itemsToDeduct = items.filter(
     (item) => productMap.get(item.productId)?.trackInventory,
   );
@@ -307,68 +223,36 @@ async function deductStock(
   );
 }
 
-// ─────────────────────────────────────────────
-// Utility
-// ─────────────────────────────────────────────
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-// ─────────────────────────────────────────────
-// Service
-// ─────────────────────────────────────────────
-
 export const orderService = {
-  /**
-   * POST /orders/pay
-   *
-   * Mirrors Java: OrderService.payOrder()
-   *
-   * Steps:
-   *  1. Validate request
-   *  2. Get current cashier & their terminal
-   *  3. Load products & validate stock
-   *  4. Calculate payment (VAT breakdown, discount, change)
-   *  5. Validate tender >= total
-   *  6. Generate invoice number
-   *  7. Persist invoice + items + e-payments in one transaction
-   *  8. Deduct stock (skipped in train mode)
-   *  9. Increment terminal counter
-   */
   async payOrder(dto: OrderDto): Promise<void> {
-    // 1. Validate request
     validateOrderRequest(dto);
+    const discount = normalizeDiscount(dto.discount);
 
-    // 2. Get cashier & terminal
     const profile = await getCurrentProfile();
     if (!profile.companyId) throw new Error("User has no assigned company");
     const terminal = await getTerminalForProfile(profile.companyId);
 
-    // 3. Load products & validate stock
     const productMap = await loadAndValidateProducts(
       dto.items,
       !terminal.isRetailType,
     );
 
-    // 4. Calculate payment
-    const calc = calculatePayment(
-      dto,
-      productMap,
-      terminal.vat,
-      Number(terminal.discountMax),
-    );
+    const calc = calculatePayment({
+      items: buildCalculationItems(dto.items, productMap),
+      discount,
+      vatRate: terminal.vat,
+      maxDiscount: Number(terminal.discountMax),
+      cashTenderAmount: dto.cashTenderAmount,
+      ePayments: dto.ePayments,
+    });
 
-    // 5. Validate tender
     validatePayment(calc);
 
-    // 6. Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(
       terminal.id,
       terminal.isTrainMode,
     );
 
-    // 7. Persist — invoice + items + e-payments
     await prisma.invoice.create({
       data: {
         invoiceNumber,
@@ -388,11 +272,14 @@ export const orderService = {
         vatZero: calc.vatZero,
         discountAmount: calc.discountAmount,
 
-        // Discount metadata
-        eligibleDiscName: dto.discount?.eligibleDiscName,
-        oscaIdNum: dto.discount?.oscaIdNum,
-        discountType: dto.discount?.discountType,
-        discountPercent: dto.discount?.discountPercent,
+        ...(discount?.eligibleDiscName
+          ? { customerName: discount.eligibleDiscName }
+          : {}),
+
+        eligibleDiscName: discount?.eligibleDiscName,
+        oscaIdNum: discount?.oscaIdNum,
+        discountType: discount?.discountType,
+        discountPercent: getEffectiveDiscountPercent(discount),
 
         status: "PAID" satisfies InvoiceStatusType,
         isTrainMode: terminal.isTrainMode,
@@ -418,32 +305,14 @@ export const orderService = {
       },
     });
 
-    // 8. Deduct stock (skip in train mode or non-retail)
     if (!terminal.isTrainMode && terminal.isRetailType) {
       await deductStock(dto.items, productMap);
     }
 
-    // 9. Update terminal counter
     await updateTerminalCounter(terminal.id, terminal.isTrainMode, terminal);
   },
 
-  /**
-   * POST /orders/cancel
-   *
-   * Mirrors Java: OrderService.cancelOrder()
-   *
-   * Steps:
-   *  1. Validate manager exists and has manager/admin role
-   *  2. Get current cashier & terminal
-   *  3. Load products (no stock validation needed for cancel)
-   *  4. Calculate payment (for record keeping in the invoice)
-   *  5. Generate invoice number
-   *  6. Persist cancelled invoice + void items
-   *  7. Increment terminal counter
-   *  Note: Stock is NOT deducted for cancelled orders.
-   */
   async cancelOrder(dto: CancelOrderDto): Promise<void> {
-    // 1. Validate manager
     const manager = await prisma.profile.findFirst({
       where: { email: dto.managerIdentifier },
       select: { id: true, role: true },
@@ -455,29 +324,26 @@ export const orderService = {
       throw new Error("User does not have manager privileges");
     }
 
-    // 2. Get cashier & terminal
     const profile = await getCurrentProfile();
     if (!profile.companyId) throw new Error("User has no assigned company");
     const terminal = await getTerminalForProfile(profile.companyId);
 
-    // 3. Load products (no stock check for cancellation)
     const productMap = await loadProducts(dto.order.items);
+    const discount = normalizeDiscount(dto.order.discount);
+    const calc = calculatePayment({
+      items: buildCalculationItems(dto.order.items, productMap),
+      discount,
+      vatRate: terminal.vat,
+      maxDiscount: Number(terminal.discountMax),
+      cashTenderAmount: dto.order.cashTenderAmount,
+      ePayments: dto.order.ePayments,
+    });
 
-    // 4. Calculate payment (for record keeping)
-    const calc = calculatePayment(
-      dto.order,
-      productMap,
-      terminal.vat,
-      Number(terminal.discountMax),
-    );
-
-    // 5. Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(
       terminal.id,
       terminal.isTrainMode,
     );
 
-    // 6. Persist cancelled invoice with VOID items
     await prisma.invoice.create({
       data: {
         invoiceNumber,
@@ -486,7 +352,6 @@ export const orderService = {
         voidedById: manager.id,
         reason: dto.reason,
 
-        // Gross is recorded; everything else is zeroed (mirrors Java)
         grossAmount: calc.grossAmount,
         totalAmount: 0,
         subTotal: 0,
@@ -508,7 +373,7 @@ export const orderService = {
             productId: item.productId,
             qty: item.qty,
             price: item.price,
-            subTotal: 0, // Cancelled items have 0 subtotal
+            subTotal: 0,
             status: "VOID" satisfies InvoiceStatusType,
             isTrainingMode: terminal.isTrainMode,
           })),
@@ -516,15 +381,9 @@ export const orderService = {
       },
     });
 
-    // 7. Update terminal counter
     await updateTerminalCounter(terminal.id, terminal.isTrainMode, terminal);
   },
 };
-
-// ─────────────────────────────────────────────
-// E-Payment builder
-// Validates each saleTypeId exists before creating
-// ─────────────────────────────────────────────
 
 async function buildEPaymentData(ePayments: EPaymentDto[]) {
   const saleTypeIds = ePayments.map((p) => p.saleTypeId);
