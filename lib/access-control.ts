@@ -52,6 +52,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
   ],
   manager: [
     "view.dashboard",
+    "view.accounts",
     "view.pos",
     "view.orders",
     "view.inventory",
