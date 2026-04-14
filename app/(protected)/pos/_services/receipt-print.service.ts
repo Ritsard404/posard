@@ -16,14 +16,14 @@ function centerText(text: string) {
 
 function alignLabelAmount(label: string, amount: string) {
   if (label.length + amount.length + 1 <= RECEIPT_WIDTH) {
-    return label.padRight(RECEIPT_WIDTH - amount.length) + amount;
+    return label.padEnd(RECEIPT_WIDTH - amount.length) + amount;
   }
 
   return `${label}\n${amount.padStart(RECEIPT_WIDTH)}`;
 }
 
 function formatItemLine(qty: string, description: string, amount: string) {
-  return `${qty.padRight(QTY_WIDTH)}${description.padRight(DESC_WIDTH)}${amount.padStart(AMOUNT_WIDTH)}`;
+  return `${qty.padEnd(QTY_WIDTH)}${description.padEnd(DESC_WIDTH)}${amount.padStart(AMOUNT_WIDTH)}`;
 }
 
 function formatDate(value: string) {
@@ -74,10 +74,10 @@ function buildReceiptBody(receipt: ReceiptDto, copyLabel?: string) {
 
   content.push(
     "",
-    `INV: ${receipt.invoiceNumber}`.padRight(RECEIPT_WIDTH),
+    `INV: ${receipt.invoiceNumber}`.padEnd(RECEIPT_WIDTH),
     "",
-    `Date: ${formatDate(receipt.createdAt)}`.padRight(RECEIPT_WIDTH),
-    `Cashier: ${receipt.cashierName}`.padRight(RECEIPT_WIDTH),
+    `Date: ${formatDate(receipt.createdAt)}`.padEnd(RECEIPT_WIDTH),
+    `Cashier: ${receipt.cashierName}`.padEnd(RECEIPT_WIDTH),
     "-".repeat(RECEIPT_WIDTH),
     formatItemLine("Qty", "Description", "Amount"),
     "-".repeat(RECEIPT_WIDTH),

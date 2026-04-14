@@ -72,11 +72,16 @@ export async function getTerminalsAction() {
     });
 
     // Map `timestamps` to `sessions` format for UI compatibility
-    const mappedTerminals = terminals.map((t) => ({
-      ...t,
-      discountMax: Number(t.discountMax),
-      sessions: t.timestamps.map((ts) => ({
-        profile: ts.cashier,
+    const mappedTerminals = terminals.map((terminal) => ({
+      id: terminal.id,
+      posName: terminal.posName,
+      isActive: terminal.isActive,
+      vat: terminal.vat,
+      discountMax: Number(terminal.discountMax),
+      sessions: terminal.timestamps.map((timestamp) => ({
+        profile: {
+          fullName: timestamp.cashier.fullName ?? null,
+        },
       })),
     }));
 

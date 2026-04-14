@@ -1,10 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type {
-  LegendProps,
-  TooltipProps,
-} from "recharts";
+import type { TooltipContentProps } from "recharts";
 import { Legend, ResponsiveContainer, Tooltip } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +60,10 @@ export function ChartContainer({
 
   return (
     <ChartContext.Provider value={config}>
-      <div className={cn("h-[320px] w-full", className)} style={style as React.CSSProperties}>
+      <div
+        className={cn("h-[320px] w-full", className)}
+        style={style as React.CSSProperties}
+      >
         <ResponsiveContainer width="100%" height="100%">
           {children as React.ReactElement}
         </ResponsiveContainer>
@@ -80,7 +80,7 @@ export function ChartTooltipContent({
   label,
   hideLabel = false,
   formatter,
-}: TooltipProps<number, string> & {
+}: Partial<TooltipContentProps<number, string>> & {
   hideLabel?: boolean;
   formatter?: (value: number, name: string) => React.ReactNode;
 }) {
@@ -104,11 +104,16 @@ export function ChartTooltipContent({
           const value = Number(entry.value ?? 0);
 
           return (
-            <div key={`${key}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+            <div
+              key={`${key}-${index}`}
+              className="flex items-center justify-between gap-3 text-sm"
+            >
               <div className="flex items-center gap-2">
                 <span
                   className="size-2.5 rounded-full"
-                  style={{ backgroundColor: meta?.color ?? entry.color ?? "#0f172a" }}
+                  style={{
+                    backgroundColor: meta?.color ?? entry.color ?? "#0f172a",
+                  }}
                 />
                 <span className="text-muted-foreground">
                   {meta?.label ?? entry.name ?? key}
@@ -127,7 +132,11 @@ export function ChartTooltipContent({
 
 export const ChartLegend = Legend;
 
-export function ChartLegendContent({ payload }: LegendProps) {
+export function ChartLegendContent({
+  payload,
+}: {
+  payload?: Array<{ value?: string; color?: string; dataKey?: string }>;
+}) {
   const config = useChart();
 
   if (!payload || payload.length === 0) {
@@ -137,14 +146,19 @@ export function ChartLegendContent({ payload }: LegendProps) {
   return (
     <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
       {payload.map((entry, index) => {
-        const key = getPayloadKey(entry) ?? `legend-${index}`;
+        const key = entry.dataKey ?? entry.value ?? `legend-${index}`;
         const meta = config[key];
 
         return (
-          <div key={`${key}-${index}`} className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div
+            key={`${key}-${index}`}
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+          >
             <span
               className="size-2.5 rounded-full"
-              style={{ backgroundColor: meta?.color ?? entry.color ?? "#0f172a" }}
+              style={{
+                backgroundColor: meta?.color ?? entry.color ?? "#0f172a",
+              }}
             />
             <span>{meta?.label ?? entry.value ?? key}</span>
           </div>
