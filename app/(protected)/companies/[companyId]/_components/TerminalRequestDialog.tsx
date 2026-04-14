@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   CreateTerminalRequestSchema,
+  type CreateTerminalRequestInput,
   type CreateTerminalRequestPayload,
 } from "../_services/terminal-request.dto";
 
@@ -24,7 +25,7 @@ interface TerminalRequestDialogProps {
   open: boolean;
   isSubmitting?: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: CreateTerminalRequestPayload) => void;
+  onSubmit: (data: CreateTerminalRequestInput) => void;
 }
 
 export function TerminalRequestDialog({
@@ -38,7 +39,7 @@ export function TerminalRequestDialog({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<CreateTerminalRequestPayload>({
+  } = useForm<CreateTerminalRequestPayload, unknown, CreateTerminalRequestInput>({
     resolver: zodResolver(CreateTerminalRequestSchema),
     defaultValues: {
       requestedTerminals: 1,

@@ -1,5 +1,6 @@
 "use client";
 
+import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -12,6 +13,8 @@ import {
   type CompanyDetailDTO,
   type UpdateCompanyInput,
 } from "../_services/company.dto";
+
+type UpdateCompanyFormValues = z.input<typeof UpdateCompanySchema>;
 
 interface CompanySettingsFormProps {
   company: CompanyDetailDTO;
@@ -32,7 +35,7 @@ export default function CompanySettingsForm({
     setValue,
     watch,
     formState: { errors, isDirty },
-  } = useForm<UpdateCompanyInput>({
+  } = useForm<UpdateCompanyFormValues, unknown, UpdateCompanyInput>({
     resolver: zodResolver(UpdateCompanySchema),
     defaultValues: {
       name: company.name,

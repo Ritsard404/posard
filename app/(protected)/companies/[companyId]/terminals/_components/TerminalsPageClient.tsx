@@ -26,7 +26,7 @@ import { TerminalRequestDialog } from "../../_components/TerminalRequestDialog";
 import { TerminalRequestList } from "../../_components/TerminalRequestList";
 import TerminalTable from "../../_components/TerminalTable";
 import type {
-  CreateTerminalRequestPayload,
+  CreateTerminalRequestInput,
   TerminalRequestDTO,
 } from "../../_services/terminal-request.dto";
 import type { CreateTerminalPayload, TerminalDTO } from "../../_services/terminal.dto";
@@ -126,7 +126,7 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
     toast.error(result.error);
   };
 
-  const handleTerminalRequest = async (data: CreateTerminalRequestPayload) => {
+  const handleTerminalRequest = async (data: CreateTerminalRequestInput) => {
     setIsRequestSubmitting(true);
     try {
       const result = await createTerminalRequestAction(companyId, data);

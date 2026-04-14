@@ -5,7 +5,7 @@ import { companyAccessService } from "../_services/company-access.service";
 import {
   CreateTerminalRequestSchema,
   UpdateTerminalRequestStatusSchema,
-  type CreateTerminalRequestPayload,
+  type CreateTerminalRequestInput,
   type TerminalRequestDTO,
   type UpdateTerminalRequestStatusInput,
 } from "../_services/terminal-request.dto";
@@ -28,7 +28,7 @@ export async function getTerminalRequestsAction(companyId: string): Promise<
 
 export async function createTerminalRequestAction(
   companyId: string,
-  payload: CreateTerminalRequestPayload,
+  payload: CreateTerminalRequestInput,
 ): Promise<{ success: true; data: TerminalRequestDTO } | { success: false; error: string }> {
   try {
     const viewer = await companyAccessService.assertCompanyAccess(companyId);
