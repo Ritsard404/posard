@@ -12,6 +12,20 @@ import {
   Settings,
   BaggageClaimIcon,
   BarChart3,
+  Boxes,
+  Building2,
+  ChevronRight,
+  ClipboardList,
+  CreditCard,
+  FileBarChart2,
+  FileClock,
+  MonitorCog,
+  Package,
+  Receipt,
+  ScanSearch,
+  StoreIcon,
+  Terminal,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -45,6 +59,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "view.accounts",
     "view.reports",
     "view.profile",
+    "view.admin",
     "view.company",
     "view.company.settings",
     "view.company.terminals",
@@ -85,15 +100,15 @@ export const routes: RouteConfig[] = [
   {
     href: "/pos",
     permission: "view.pos",
-    label: "Point of Sale",
+    label: "POS",
     icon: ShoppingCart,
     showInNav: true,
   },
   {
     href: "/product",
     permission: "view.product",
-    label: "Products",
-    icon: BaggageClaimIcon,
+    label: "Products & Inventory",
+    icon: Package,
     showInNav: true,
   },
   {
@@ -106,42 +121,42 @@ export const routes: RouteConfig[] = [
   {
     href: "/accounts",
     permission: "view.accounts",
-    label: "Accounts",
+    label: "User Management",
     icon: Users,
     showInNav: true,
   },
   {
     href: "/companies",
     permission: "view.company",
-    label: "Company",
-    icon: Users,
+    label: "Manage Companies",
+    icon: Building2,
     showInNav: true,
   },
   {
     href: "/companies/[companyId]",
     permission: "view.company",
     label: "Company",
-    icon: Users,
+    icon: Building2,
     showInNav: false,
   },
   {
     href: "/companies/[companyId]/terminals",
     permission: "view.company.terminals",
-    label: "Terminals",
-    icon: BaggageClaimIcon,
+    label: "Terminal List",
+    icon: Terminal,
     showInNav: false,
   },
   {
     href: "/companies/[companyId]/subscription",
     permission: "view.company.subscription",
-    label: "Subscription",
-    icon: BarChart3,
+    label: "Subscriptions",
+    icon: CreditCard,
     showInNav: false,
   },
   {
     href: "/companies/[companyId]/settings",
     permission: "view.company.settings",
-    label: "Settings",
+    label: "Business Info",
     icon: Settings,
     showInNav: false,
   },
@@ -151,6 +166,308 @@ export const routes: RouteConfig[] = [
     label: "Profile",
     icon: Settings,
     showInNav: false,
+  },
+  {
+    href: "/accounts/[profileId]",
+    permission: "view.profile",
+    label: "Profile",
+    icon: UserRound,
+    showInNav: false,
+  },
+  {
+    href: "/settings",
+    permission: "view.company.settings",
+    label: "Settings",
+    icon: Settings,
+    showInNav: false,
+  },
+  {
+    href: "/admin",
+    permission: "view.admin",
+    label: "Administration",
+    icon: Users,
+    showInNav: false,
+  },
+];
+
+export interface SidebarNavContext {
+  companyId?: string | null;
+  profileId?: string | null;
+}
+
+export interface SidebarNavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  href?: string;
+  disabled?: boolean;
+  badge?: string;
+  children?: SidebarNavItem[];
+}
+
+export interface SidebarNavSection {
+  id: string;
+  label: string;
+  icon?: LucideIcon;
+  variant?: "list" | "accordion" | "dropdown";
+  placement?: "content" | "footer";
+  items: SidebarNavItem[];
+}
+
+interface SidebarNavItemConfig {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  href?: string;
+  permission?: Permission;
+  roles?: UserRole[];
+  disabled?: boolean;
+  badge?: string;
+  keepVisibleWithoutHref?: boolean;
+  children?: SidebarNavItemConfig[];
+}
+
+interface SidebarNavSectionConfig {
+  id: string;
+  label: string;
+  icon?: LucideIcon;
+  variant?: "list" | "accordion" | "dropdown";
+  placement?: "content" | "footer";
+  items: SidebarNavItemConfig[];
+}
+
+const sidebarNavConfig: SidebarNavSectionConfig[] = [
+  {
+    id: "main",
+    label: "Main",
+    placement: "content",
+    items: [
+      {
+        id: "pos",
+        label: "POS",
+        icon: ShoppingCart,
+        href: "/pos",
+        permission: "view.pos",
+      },
+      {
+        id: "orders-sales",
+        label: "Orders / Sales",
+        icon: Receipt,
+        roles: ["manager", "cashier"],
+        disabled: true,
+        badge: "Soon",
+      },
+      {
+        id: "products-inventory",
+        label: "Products & Inventory",
+        icon: Boxes,
+        href: "/product",
+        permission: "view.product",
+      },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    icon: BarChart3,
+    variant: "accordion",
+    placement: "content",
+    items: [
+      {
+        id: "reports-overview",
+        label: "Reports",
+        icon: FileBarChart2,
+        href: "/report",
+        permission: "view.reports",
+      },
+      {
+        id: "reports-z-reading",
+        label: "Z-Reading",
+        icon: Receipt,
+        roles: ["admin", "manager"],
+        disabled: true,
+        badge: "Soon",
+      },
+      {
+        id: "reports-x-reading",
+        label: "X-Reading",
+        icon: ScanSearch,
+        roles: ["admin", "manager"],
+        disabled: true,
+        badge: "Soon",
+      },
+      {
+        id: "reports-sales",
+        label: "Sales Reports",
+        icon: BarChart3,
+        roles: ["admin", "manager"],
+        disabled: true,
+        badge: "Soon",
+      },
+      {
+        id: "reports-audit",
+        label: "Audit Trail",
+        icon: FileClock,
+        roles: ["admin", "manager"],
+        disabled: true,
+        badge: "Soon",
+      },
+      {
+        id: "reports-transactions",
+        label: "Transaction History",
+        icon: ClipboardList,
+        roles: ["admin", "manager", "cashier"],
+        disabled: true,
+        badge: "Soon",
+      },
+    ],
+  },
+  {
+    id: "terminal-configuration",
+    label: "Terminal & Configuration",
+    placement: "content",
+    items: [
+      {
+        id: "terminal-list",
+        label: "Terminal List",
+        icon: Terminal,
+        href: "/companies/[companyId]/terminals",
+        permission: "view.company.terminals",
+      },
+      {
+        id: "terminal-configuration",
+        label: "Terminal Configuration",
+        icon: MonitorCog,
+        href: "/companies/[companyId]/terminals",
+        permission: "view.company.terminals",
+      },
+      {
+        id: "business-info",
+        label: "Business Info",
+        icon: Settings,
+        href: "/companies/[companyId]/settings",
+        permission: "view.company.settings",
+      },
+      {
+        id: "vat-discount",
+        label: "VAT / Discount",
+        icon: BaggageClaimIcon,
+        href: "/companies/[companyId]/settings",
+        permission: "view.company.settings",
+      },
+      {
+        id: "printer",
+        label: "Printer",
+        icon: Settings,
+        roles: ["admin", "manager"],
+        disabled: true,
+        badge: "Soon",
+      },
+    ],
+  },
+  {
+    id: "organization",
+    label: "Organization",
+    placement: "content",
+    items: [
+      {
+        id: "company",
+        label: "Company",
+        icon: Building2,
+        href: "/companies/[companyId]",
+        permission: "view.company",
+        roles: ["manager"],
+      },
+      {
+        id: "branches-centers",
+        label: "Branches / Centers",
+        icon: ChevronRight,
+        roles: ["manager"],
+        disabled: true,
+        badge: "Soon",
+      },
+      {
+        id: "cost-center",
+        label: "Cost Center",
+        icon: ChevronRight,
+        roles: ["manager"],
+        disabled: true,
+        badge: "Soon",
+      },
+      {
+        id: "branch-center",
+        label: "Branch Center",
+        icon: ChevronRight,
+        roles: ["manager"],
+        disabled: true,
+        badge: "Soon",
+      },
+      {
+        id: "use-center",
+        label: "Use Center",
+        icon: ChevronRight,
+        roles: ["manager"],
+        disabled: true,
+        badge: "Soon",
+      },
+    ],
+  },
+  {
+    id: "administration",
+    label: "Administration",
+    icon: Users,
+    variant: "dropdown",
+    placement: "content",
+    items: [
+      {
+        id: "manage-companies",
+        label: "Manage Companies",
+        icon: StoreIcon,
+        href: "/companies",
+        permission: "view.company",
+        roles: ["admin"],
+      },
+      {
+        id: "manage-terminals",
+        label: "Manage Terminals",
+        icon: Terminal,
+        roles: ["admin"],
+        disabled: true,
+        badge: "Soon",
+      },
+      {
+        id: "subscriptions",
+        label: "Subscriptions",
+        icon: CreditCard,
+        href: "/companies/[companyId]/subscription",
+        permission: "view.company.subscription",
+        roles: ["admin"],
+        keepVisibleWithoutHref: true,
+      },
+      {
+        id: "user-management",
+        label: "User Management",
+        icon: Users,
+        href: "/accounts",
+        permission: "view.accounts",
+        roles: ["admin"],
+      },
+    ],
+  },
+  {
+    id: "account",
+    label: "Account",
+    placement: "footer",
+    items: [
+      {
+        id: "profile",
+        label: "Profile",
+        icon: UserRound,
+        href: "/accounts/[profileId]",
+        permission: "view.profile",
+        keepVisibleWithoutHref: true,
+      },
+    ],
   },
 ];
 
@@ -178,6 +495,101 @@ export function getNavByRole(role: UserRole) {
   return routes.filter(
     (route) => route.showInNav && userPermissions.includes(route.permission),
   );
+}
+
+function resolveContextHref(
+  href: string | undefined,
+  context: SidebarNavContext,
+): string | undefined {
+  if (!href) return undefined;
+
+  const replacements: Record<string, string | null | undefined> = {
+    companyId: context.companyId,
+    profileId: context.profileId,
+  };
+
+  let resolvedHref = href;
+
+  for (const [key, value] of Object.entries(replacements)) {
+    const token = `[${key}]`;
+
+    if (!resolvedHref.includes(token)) {
+      continue;
+    }
+
+    if (!value) {
+      return undefined;
+    }
+
+    resolvedHref = resolvedHref.replace(token, value);
+  }
+
+  return resolvedHref;
+}
+
+function buildSidebarItem(
+  role: UserRole,
+  item: SidebarNavItemConfig,
+  userPermissions: Permission[],
+  context: SidebarNavContext,
+): SidebarNavItem | null {
+  if (item.roles && !item.roles.includes(role)) {
+    return null;
+  }
+
+  if (item.permission && !userPermissions.includes(item.permission)) {
+    return null;
+  }
+
+  const children = item.children
+    ?.map((child) => buildSidebarItem(role, child, userPermissions, context))
+    .filter((child): child is SidebarNavItem => child !== null);
+
+  const href = resolveContextHref(item.href, context);
+  const shouldHideForMissingHref =
+    item.href && !href && !item.disabled && !item.keepVisibleWithoutHref;
+
+  if (shouldHideForMissingHref && (!children || children.length === 0)) {
+    return null;
+  }
+
+  if (!href && !item.disabled && (!children || children.length === 0)) {
+    return null;
+  }
+
+  return {
+    id: item.id,
+    label: item.label,
+    icon: item.icon,
+    href,
+    disabled: item.disabled || (Boolean(item.href) && !href),
+    badge: item.badge,
+    children,
+  };
+}
+
+export function getSidebarSections(
+  role: UserRole,
+  context: SidebarNavContext = {},
+): SidebarNavSection[] {
+  const userPermissions = rolePermissions[role] ?? [];
+
+  return sidebarNavConfig
+    .map((section) => {
+      const items = section.items
+        .map((item) => buildSidebarItem(role, item, userPermissions, context))
+        .filter((item): item is SidebarNavItem => item !== null);
+
+      return {
+        id: section.id,
+        label: section.label,
+        icon: section.icon,
+        variant: section.variant ?? "list",
+        placement: section.placement ?? "content",
+        items,
+      } satisfies SidebarNavSection;
+    })
+    .filter((section) => section.items.length > 0);
 }
 
 export function hasPermissionForRoute(

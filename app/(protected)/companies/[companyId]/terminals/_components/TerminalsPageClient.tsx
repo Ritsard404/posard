@@ -19,17 +19,24 @@ import {
   createTerminalAction,
   deleteTerminalAction,
   getTerminalsAction,
+  updateTerminalConfigurationAction,
   updateTerminalAction,
+  updateTerminalTrainingModeAction,
 } from "../../_actions/terminal.actions";
 import TerminalFormModal from "../../_components/TerminalFormModal";
 import { TerminalRequestDialog } from "../../_components/TerminalRequestDialog";
 import { TerminalRequestList } from "../../_components/TerminalRequestList";
 import TerminalTable from "../../_components/TerminalTable";
+import TerminalDetailPanel from "./TerminalDetailPanel";
 import type {
   CreateTerminalRequestInput,
   TerminalRequestDTO,
 } from "../../_services/terminal-request.dto";
-import type { CreateTerminalPayload, TerminalDTO } from "../../_services/terminal.dto";
+import type {
+  CreateTerminalPayload,
+  TerminalConfigurationPayload,
+  TerminalDTO,
+} from "../../_services/terminal.dto";
 
 interface TerminalsPageClientProps {
   companyId: string;
@@ -43,16 +50,30 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRequestSubmitting, setIsRequestSubmitting] = useState(false);
+  const [isConfigurationSubmitting, setIsConfigurationSubmitting] = useState(false);
+  const [isTrainingModeSubmitting, setIsTrainingModeSubmitting] = useState(false);
   const [modalTerminal, setModalTerminal] = useState<TerminalDTO | undefined>(undefined);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [selectedTerminalId, setSelectedTerminalId] = useState<string | null>(null);
 
   const loadTerminals = useCallback(async () => {
     setIsLoadingTerminals(true);
     const result = await getTerminalsAction(companyId);
     if (result.success) {
       setTerminals(result.data);
+      setSelectedTerminalId((current) => {
+        if (result.data.length === 0) {
+          return null;
+        }
+
+        if (current && result.data.some((terminal) => terminal.id === current)) {
+          return current;
+        }
+
+        return result.data[0]?.id ?? null;
+      });
     } else {
       toast.error(result.error);
     }
@@ -83,6 +104,10 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
   const handleEdit = (terminal: TerminalDTO) => {
     setModalTerminal(terminal);
     setIsModalOpen(true);
+  };
+
+  const handleSelect = (terminal: TerminalDTO) => {
+    setSelectedTerminalId(terminal.id);
   };
 
   const handleClose = () => {
@@ -143,6 +168,45 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
     }
   };
 
+  const handleTrainingModeChange = async (terminal: TerminalDTO, nextValue: boolean) => {
+    setIsTrainingModeSubmitting(true);
+    try {
+      const result = await updateTerminalTrainingModeAction(terminal.id, companyId, nextValue);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(`Training mode ${nextValue ? "enabled" : "disabled"}`);
+      setTerminals((current) =>
+        current.map((item) => (item.id === result.data.id ? result.data : item)),
+      );
+    } finally {
+      setIsTrainingModeSubmitting(false);
+    }
+  };
+
+  const handleConfigurationSubmit = async (
+    terminal: TerminalDTO,
+    data: TerminalConfigurationPayload,
+  ) => {
+    setIsConfigurationSubmitting(true);
+    try {
+      const result = await updateTerminalConfigurationAction(terminal.id, companyId, data);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success("Terminal configuration updated");
+      setTerminals((current) =>
+        current.map((item) => (item.id === result.data.id ? result.data : item)),
+      );
+    } finally {
+      setIsConfigurationSubmitting(false);
+    }
+  };
+
   const updateRequestStatus = async (
     requestId: string,
     status: "approved" | "fulfilled" | "rejected",
@@ -157,9 +221,11 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
     await loadRequests();
   };
 
+  const selectedTerminal = terminals.find((terminal) => terminal.id === selectedTerminalId) ?? null;
+
   return (
     <div className="space-y-6">
-      {role === "manager" ? (
+      {role === "manager" ? null : (
         <Card className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Need more terminals?</h2>
@@ -173,7 +239,7 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
             </Button>
           </div>
         </Card>
-      ) : null}
+      )}
 
       <TerminalTable
         terminals={terminals}
@@ -184,19 +250,32 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
             ? "Add a terminal to get started."
             : "No terminals are assigned to this company yet."
         }
+        selectedTerminalId={selectedTerminalId}
         onAdd={role === "admin" ? handleAdd : undefined}
+        onSelect={role === "manager" ? handleSelect : undefined}
         onEdit={role === "admin" ? handleEdit : undefined}
         onDelete={role === "admin" ? (id) => setDeleteTargetId(id) : undefined}
       />
 
-      <TerminalRequestList
-        requests={requests}
-        isLoading={isLoadingRequests}
-        role={role}
-        onApprove={role === "admin" ? (id) => void updateRequestStatus(id, "approved") : undefined}
-        onFulfill={role === "admin" ? (id) => void updateRequestStatus(id, "fulfilled") : undefined}
-        onReject={role === "admin" ? (id) => void updateRequestStatus(id, "rejected") : undefined}
-      />
+      {role === "manager" ? (
+        <TerminalDetailPanel
+          terminal={selectedTerminal}
+          canUpdateConfiguration
+          isSubmittingConfiguration={isConfigurationSubmitting}
+          isTogglingTrainingMode={isTrainingModeSubmitting}
+          onSubmitConfiguration={(terminal, data) => void handleConfigurationSubmit(terminal, data)}
+          onTrainingModeChange={(terminal, nextValue) => void handleTrainingModeChange(terminal, nextValue)}
+        />
+      ) : (
+        <TerminalRequestList
+          requests={requests}
+          isLoading={isLoadingRequests}
+          role={role}
+          onApprove={role === "admin" ? (id) => void updateRequestStatus(id, "approved") : undefined}
+          onFulfill={role === "admin" ? (id) => void updateRequestStatus(id, "fulfilled") : undefined}
+          onReject={role === "admin" ? (id) => void updateRequestStatus(id, "rejected") : undefined}
+        />
+      )}
 
       <TerminalFormModal
         terminal={modalTerminal}
@@ -206,12 +285,14 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
         onSubmit={handleSubmit}
       />
 
-      <TerminalRequestDialog
-        open={isRequestDialogOpen}
-        isSubmitting={isRequestSubmitting}
-        onOpenChange={setIsRequestDialogOpen}
-        onSubmit={handleTerminalRequest}
-      />
+      {role === "admin" ? (
+        <TerminalRequestDialog
+          open={isRequestDialogOpen}
+          isSubmitting={isRequestSubmitting}
+          onOpenChange={setIsRequestDialogOpen}
+          onSubmit={handleTerminalRequest}
+        />
+      ) : null}
 
       <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => (!open ? setDeleteTargetId(null) : null)}>
         <AlertDialogContent>

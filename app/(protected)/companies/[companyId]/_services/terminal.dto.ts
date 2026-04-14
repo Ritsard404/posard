@@ -59,3 +59,23 @@ export const UpdateTerminalSchema = CreateTerminalSchema.partial();
 
 export type UpdateTerminalPayload = z.input<typeof UpdateTerminalSchema>;
 export type UpdateTerminalInput = z.infer<typeof UpdateTerminalSchema>;
+
+const vatTinPattern = /^\d{3}-\d{3}-\d{3}-\d{3,4}$/;
+
+export const TerminalConfigurationSchema = z.object({
+  vat: z.coerce.number().min(0, "VAT rate must be at least 0%").max(100, "VAT rate cannot exceed 100%"),
+  discountMax: z.coerce.number().min(0, "Max discount must be at least 0%").max(100, "Max discount cannot exceed 100%"),
+  vatTinNumber: z
+    .string()
+    .trim()
+    .min(1, "VAT TIN is required")
+    .refine((value) => vatTinPattern.test(value), "Use VAT TIN format ###-###-###-####"),
+  address: z.string().trim().min(1, "Address is required"),
+  costCenter: z.string().trim().max(100, "Cost Center must be 100 characters or fewer"),
+  branchCenter: z.string().trim().max(100, "Branch Center must be 100 characters or fewer"),
+  useCenter: z.string().trim().max(100, "Use Center must be 100 characters or fewer"),
+  printerName: z.string().trim().max(100, "Printer must be 100 characters or fewer"),
+});
+
+export type TerminalConfigurationPayload = z.input<typeof TerminalConfigurationSchema>;
+export type TerminalConfigurationInput = z.infer<typeof TerminalConfigurationSchema>;

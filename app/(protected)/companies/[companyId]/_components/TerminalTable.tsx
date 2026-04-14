@@ -10,7 +10,9 @@ interface TerminalTableProps {
   isLoading?: boolean;
   addLabel?: string;
   emptyDescription?: string;
+  selectedTerminalId?: string | null;
   onAdd?: () => void;
+  onSelect?: (terminal: TerminalDTO) => void;
   onEdit?: (terminal: TerminalDTO) => void;
   onDelete?: (id: string) => void;
 }
@@ -20,7 +22,9 @@ export default function TerminalTable({
   isLoading = false,
   addLabel = "Add Terminal",
   emptyDescription = "Add a terminal to get started",
+  selectedTerminalId,
   onAdd,
+  onSelect,
   onEdit,
   onDelete,
 }: TerminalTableProps) {
@@ -73,7 +77,15 @@ export default function TerminalTable({
               </thead>
               <tbody>
                 {terminals.map((t) => (
-                  <tr key={t.id} className="border-b hover:bg-gray-50 transition-colors text-sm">
+                  <tr
+                    key={t.id}
+                    className={`border-b text-sm transition-colors ${
+                      onSelect
+                        ? "cursor-pointer hover:bg-gray-50"
+                        : "hover:bg-gray-50"
+                    } ${selectedTerminalId === t.id ? "bg-blue-50/70" : ""}`}
+                    onClick={onSelect ? () => onSelect(t) : undefined}
+                  >
                     <td className="px-4 py-3 font-medium text-gray-900">{t.posName}</td>
                     <td className="px-4 py-3 text-gray-600">{t.minNumber}</td>
                     <td className="px-4 py-3 text-gray-600">{t.ptuNumber}</td>
@@ -95,11 +107,27 @@ export default function TerminalTable({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
+                        {onSelect && (
+                          <Button
+                            size="sm"
+                            variant={selectedTerminalId === t.id ? "default" : "outline"}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onSelect(t);
+                            }}
+                            className="text-xs"
+                          >
+                            {selectedTerminalId === t.id ? "Selected" : "View Details"}
+                          </Button>
+                        )}
                         {onEdit && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => onEdit(t)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onEdit(t);
+                            }}
                             className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
                           >
                             <Pencil className="w-3 h-3 mr-1" />
@@ -128,7 +156,10 @@ export default function TerminalTable({
           {/* Mobile cards */}
           <div className="md:hidden p-4 space-y-3">
             {terminals.map((t) => (
-              <Card key={t.id} className="p-4 space-y-3">
+              <Card
+                key={t.id}
+                className={`p-4 space-y-3 ${selectedTerminalId === t.id ? "border-blue-300 bg-blue-50/60" : ""}`}
+              >
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="font-semibold text-gray-900">{t.posName}</div>
@@ -150,6 +181,16 @@ export default function TerminalTable({
                   <div>Valid until: {new Date(t.validUntil).toLocaleDateString()}</div>
                 </div>
                 <div className="flex gap-2 pt-1">
+                  {onSelect && (
+                    <Button
+                      size="sm"
+                      variant={selectedTerminalId === t.id ? "default" : "outline"}
+                      onClick={() => onSelect(t)}
+                      className="flex-1 text-xs"
+                    >
+                      {selectedTerminalId === t.id ? "Selected" : "View Details"}
+                    </Button>
+                  )}
                   {onEdit && (
                     <Button
                       size="sm"

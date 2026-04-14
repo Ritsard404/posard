@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { type TerminalDTO, type CreateTerminalInput, type UpdateTerminalInput } from "./terminal.dto";
+import {
+  type TerminalDTO,
+  type CreateTerminalInput,
+  type UpdateTerminalInput,
+  type TerminalConfigurationInput,
+} from "./terminal.dto";
 
 export const terminalService = {
   async getTerminalsByCompany(companyId: string): Promise<TerminalDTO[]> {
@@ -50,6 +55,59 @@ export const terminalService = {
     const terminal = await prisma.posTerminalInfo.update({
       where: { id },
       data: payload,
+    });
+
+    return {
+      ...terminal,
+      discountMax: Number(terminal.discountMax),
+    };
+  },
+
+  async setTrainingMode(id: string, companyId: string, isTrainMode: boolean): Promise<TerminalDTO> {
+    const existing = await prisma.posTerminalInfo.findFirst({
+      where: { id, companyId },
+    });
+
+    if (!existing) {
+      throw new Error("Terminal not found");
+    }
+
+    const terminal = await prisma.posTerminalInfo.update({
+      where: { id },
+      data: { isTrainMode },
+    });
+
+    return {
+      ...terminal,
+      discountMax: Number(terminal.discountMax),
+    };
+  },
+
+  async updateTerminalConfiguration(
+    id: string,
+    companyId: string,
+    payload: TerminalConfigurationInput,
+  ): Promise<TerminalDTO> {
+    const existing = await prisma.posTerminalInfo.findFirst({
+      where: { id, companyId },
+    });
+
+    if (!existing) {
+      throw new Error("Terminal not found");
+    }
+
+    const terminal = await prisma.posTerminalInfo.update({
+      where: { id },
+      data: {
+        vat: payload.vat,
+        discountMax: payload.discountMax,
+        vatTinNumber: payload.vatTinNumber,
+        address: payload.address,
+        costCenter: payload.costCenter,
+        branchCenter: payload.branchCenter,
+        useCenter: payload.useCenter,
+        printerName: payload.printerName,
+      },
     });
 
     return {
