@@ -98,17 +98,18 @@ export function LoginForm({
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Password</Label>
-                  <Link
+                  {/* <Link
                     href="/auth/forgot-password"
                     className="ml-auto inline-block text-xs font-bold text-accent hover:underline underline-offset-4"
                   >
                     Forgot password?
-                  </Link>
+                  </Link> */}
                 </div>
                 <Input
                   id="password"
                   type="password"
                   required
+                  placeholder="*******"
                   value={password}
                   className="h-12 rounded-xl bg-background/50 border-white/10"
                   onChange={(e) => setPassword(e.target.value)}
@@ -116,7 +117,7 @@ export function LoginForm({
               </div>
               {error && <p className="text-xs font-bold text-destructive text-center">{error}</p>}
               <Button type="submit" className="h-12 w-full rounded-xl font-bold glow-on-hover" disabled={isLoading}>
-                {isLoading ? "Authenticating..." : "Login to Terminal"}
+                {isLoading ? "Authenticating..." : "Login"}
               </Button>
             </div>
             <div className="mt-6 text-center text-sm font-medium text-muted-foreground">

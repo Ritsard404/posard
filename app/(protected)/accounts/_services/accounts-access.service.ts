@@ -30,10 +30,6 @@ async function getCurrentProfile(): Promise<AccountsViewerDto> {
     throw new Error("Profile not found");
   }
 
-  if (profile.role !== "admin" && profile.role !== "manager") {
-    throw new Error("Forbidden");
-  }
-
   return {
     profileId: profile.id,
     userId: profile.userId,
@@ -46,6 +42,16 @@ async function getCurrentProfile(): Promise<AccountsViewerDto> {
 
 export const accountsAccessService = {
   async getViewer(): Promise<AccountsViewerDto> {
+    const profile = await getCurrentProfile();
+
+    if (profile.role !== "admin" && profile.role !== "manager") {
+      throw new Error("Forbidden");
+    }
+
+    return profile;
+  },
+
+  async getProfileViewer(): Promise<AccountsViewerDto> {
     return getCurrentProfile();
   },
 };

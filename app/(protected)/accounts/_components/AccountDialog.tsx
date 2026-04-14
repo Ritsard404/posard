@@ -211,6 +211,7 @@ function EditAccountDialog(props: AccountDialogProps) {
       fullName: props.initialValues?.fullName ?? "",
       companyId:
         props.initialValues?.companyId ?? props.companyOptions[0]?.id ?? "",
+      password: "",
     },
   });
 
@@ -219,6 +220,7 @@ function EditAccountDialog(props: AccountDialogProps) {
       fullName: props.initialValues?.fullName ?? "",
       companyId:
         props.initialValues?.companyId ?? props.companyOptions[0]?.id ?? "",
+      password: "",
     });
   }, [form, props.companyOptions, props.initialValues, props.open]);
 
@@ -239,6 +241,7 @@ function EditAccountDialog(props: AccountDialogProps) {
                 props.viewerRole === "manager"
                   ? props.companyOptions[0]?.id ?? values.companyId
                   : values.companyId,
+              password: values.password,
             }),
           )}
         >
@@ -274,6 +277,26 @@ function EditAccountDialog(props: AccountDialogProps) {
             ) : null}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="edit-password">New Password</Label>
+            <Input
+              id="edit-password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Leave blank to keep current password"
+              {...form.register("password")}
+            />
+            {form.formState.errors.password ? (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.password.message}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Set a new login password for this account if needed.
+              </p>
+            )}
+          </div>
+
           <DialogFooter>
             <Button
               type="button"
@@ -298,12 +321,14 @@ function SelfAccountDialog(props: AccountDialogProps) {
     resolver: zodResolver(UpdateOwnProfileSchema),
     defaultValues: {
       fullName: props.initialValues?.fullName ?? "",
+      password: "",
     },
   });
 
   useEffect(() => {
     form.reset({
       fullName: props.initialValues?.fullName ?? "",
+      password: "",
     });
   }, [form, props.initialValues, props.open]);
 
@@ -318,7 +343,10 @@ function SelfAccountDialog(props: AccountDialogProps) {
         <form
           className="space-y-4"
           onSubmit={form.handleSubmit((values) =>
-            props.onSelfSubmit?.({ fullName: values.fullName }),
+            props.onSelfSubmit?.({
+              fullName: values.fullName,
+              password: values.password,
+            }),
           )}
         >
           <div className="space-y-2">
@@ -329,6 +357,26 @@ function SelfAccountDialog(props: AccountDialogProps) {
                 {form.formState.errors.fullName.message}
               </p>
             ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="self-password">New Password</Label>
+            <Input
+              id="self-password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Leave blank to keep current password"
+              {...form.register("password")}
+            />
+            {form.formState.errors.password ? (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.password.message}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Enter a new password only if you want to change it now.
+              </p>
+            )}
           </div>
 
           <DialogFooter>

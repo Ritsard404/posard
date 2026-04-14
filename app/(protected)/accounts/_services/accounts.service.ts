@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { Prisma, UserStatus } from "@prisma/client";
 import {
   mapCompanyToOption,
@@ -22,6 +23,12 @@ import type {
 type ProfileWithCompany = Prisma.ProfileGetPayload<{
   include: { company: true };
 }>;
+
+function assertViewerCanManageAccounts(viewer: AccountsViewerDto) {
+  if (viewer.role === "cashier") {
+    throw new Error("Forbidden");
+  }
+}
 
 function getInviteRedirectTo() {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -146,6 +153,8 @@ export const accountsService = {
     viewer: AccountsViewerDto,
     filters?: GetAccountsInputDto,
   ): Promise<AccountListItemDto[]> {
+    assertViewerCanManageAccounts(viewer);
+
     const profiles = await prisma.profile.findMany({
       where: buildAccountsWhere(viewer, filters),
       include: { company: true },
@@ -205,6 +214,8 @@ export const accountsService = {
     viewer: AccountsViewerDto,
     input: CreateAccountInputDto,
   ): Promise<AccountDetailDto> {
+    assertViewerCanManageAccounts(viewer);
+
     if (viewer.role === "manager" && input.role !== "cashier") {
       throw new Error("Managers can only create cashier accounts");
     }
@@ -307,6 +318,17 @@ export const accountsService = {
 
     await ensureCompanyExists(nextCompanyId);
 
+    if (input.password) {
+      const adminClient = createAdminClient();
+      const { error } = await adminClient.auth.admin.updateUserById(target.userId, {
+        password: input.password,
+      });
+
+      if (error) {
+        throw new Error(normalizeAuthError(error.message));
+      }
+    }
+
     const profile = await prisma.profile.update({
       where: { id },
       data: {
@@ -387,6 +409,17 @@ export const accountsService = {
     viewer: AccountsViewerDto,
     input: UpdateOwnProfileInputDto,
   ): Promise<AccountDetailDto> {
+    if (input.password) {
+      const supabase = await createClient();
+      const { error } = await supabase.auth.updateUser({
+        password: input.password,
+      });
+
+      if (error) {
+        throw new Error(normalizeAuthError(error.message));
+      }
+    }
+
     const profile = await prisma.profile.update({
       where: { id: viewer.profileId },
       data: {
@@ -401,6 +434,8 @@ export const accountsService = {
   async getAccountStatusSummary(
     viewer: AccountsViewerDto,
   ): Promise<Record<UserStatus, number>> {
+    assertViewerCanManageAccounts(viewer);
+
     const statuses: UserStatus[] = ["pending", "active", "disabled"];
     const where = buildAccountsWhere(viewer);
     const counts = await prisma.profile.groupBy({

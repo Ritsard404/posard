@@ -55,6 +55,7 @@ export function AccountDetailClient({
   const [detail, setDetail] = useState(account);
   const [dialogMode, setDialogMode] = useState<"edit" | "self" | null>(null);
   const [isPending, startTransition] = useTransition();
+  const backHref = viewer.role === "cashier" ? "/dashboard" : "/accounts";
 
   function runMutation(task: () => Promise<{ success: boolean; error?: string }>) {
     startTransition(() => {
@@ -76,9 +77,9 @@ export function AccountDetailClient({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <Button variant="ghost" asChild className="px-0">
-            <Link href="/accounts">
+            <Link href={backHref}>
               <ArrowLeft className="size-4" />
-              Back to Accounts
+              {viewer.role === "cashier" ? "Back to Dashboard" : "Back to Accounts"}
             </Link>
           </Button>
           <h1 className="text-3xl font-heading font-extrabold tracking-tight">
@@ -238,7 +239,7 @@ export function AccountDetailClient({
           mode="edit"
           isPending={isPending}
           title={`Edit ${detail.role} account`}
-          description="Update the account profile and company assignment."
+          description="Update the account profile, company assignment, or login password."
           viewerRole={viewer.role}
           companyOptions={companyOptions}
           initialValues={{
@@ -276,7 +277,7 @@ export function AccountDetailClient({
           mode="self"
           isPending={isPending}
           title="Update My Profile"
-          description="Edit your own profile information."
+          description="Edit your profile information or change your login password."
           viewerRole={viewer.role}
           companyOptions={companyOptions}
           initialValues={{ fullName: detail.fullName }}

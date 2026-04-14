@@ -1,6 +1,6 @@
 import type { UserRole, UserStatus } from "@prisma/client";
 
-export type AccountsViewerRole = Extract<UserRole, "admin" | "manager">;
+export type AccountsViewerRole = UserRole;
 export type ManagedAccountRole = Extract<UserRole, "manager" | "cashier">;
 
 export interface AccountsViewerDto {
@@ -62,8 +62,10 @@ export interface CreateAccountInputDto {
 export interface UpdateAccountInputDto {
   fullName: string | null;
   companyId: string;
+  password?: string | null;
 }
 
 export interface UpdateOwnProfileInputDto {
   fullName: string | null;
+  password?: string | null;
 }

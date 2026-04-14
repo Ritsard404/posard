@@ -53,7 +53,7 @@ export async function getAccountByIdAction(
   accountId: string,
 ): Promise<DataResult<AccountDetailDto>> {
   try {
-    const viewer = await accountsAccessService.getViewer();
+    const viewer = await accountsAccessService.getProfileViewer();
     const validatedId = AccountIdSchema.parse(accountId);
     const data = await accountsService.getAccountById(viewer, validatedId);
 
@@ -182,7 +182,7 @@ export async function updateOwnAccountProfileAction(
   input: unknown,
 ): Promise<DataResult<AccountDetailDto>> {
   try {
-    const viewer = await accountsAccessService.getViewer();
+    const viewer = await accountsAccessService.getProfileViewer();
     const validated = UpdateOwnProfileSchema.parse(input);
     const data = await accountsService.updateOwnProfile(viewer, validated);
     revalidateAccountsPaths(viewer.profileId);

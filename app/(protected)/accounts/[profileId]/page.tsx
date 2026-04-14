@@ -13,7 +13,7 @@ export default async function ProfileDetailPage({
   let viewer;
 
   try {
-    viewer = await accountsAccessService.getViewer();
+    viewer = await accountsAccessService.getProfileViewer();
   } catch {
     redirect("/dashboard");
   }

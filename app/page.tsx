@@ -75,7 +75,7 @@ export default async function Home() {
                 <ShieldCheck className="w-5 h-5 text-accent-foreground" />
               </div>
               <span className="text-xl font-heading font-extrabold tracking-tight text-foreground">
-                Baisard<span className="text-accent">POS</span>
+                <span className="text-accent">POS</span>ard
               </span>
             </div>
             
@@ -214,7 +214,7 @@ export default async function Home() {
                 <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
                   <ShieldCheck className="w-5 h-5 text-accent-foreground" />
                 </div>
-                <span className="text-2xl font-heading font-extrabold tracking-tight">Baisard<span className="text-accent">POS</span></span>
+                <span className="text-2xl font-heading font-extrabold tracking-tight">POSard<span className="text-accent">POS</span></span>
               </div>
               <p className="max-w-xs text-muted-foreground text-sm uppercase tracking-widest font-bold">
                 The future of retail management.

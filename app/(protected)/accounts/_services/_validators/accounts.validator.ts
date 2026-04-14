@@ -56,10 +56,22 @@ export const CreateAccountSchema = z.object({
 export const UpdateAccountSchema = z.object({
   fullName: nullableTextInput,
   companyId: z.string().uuid("A valid company is required"),
+  password: emptyStringToUndefined(
+    z
+      .string()
+      .min(6, "Password must be at least 6 characters")
+      .max(72, "Password must be 72 characters or fewer"),
+  ),
 });
 
 export const UpdateOwnProfileSchema = z.object({
   fullName: nullableTextInput,
+  password: emptyStringToUndefined(
+    z
+      .string()
+      .min(6, "Password must be at least 6 characters")
+      .max(72, "Password must be 72 characters or fewer"),
+  ),
 });
 
 export const AccountIdSchema = z.string().uuid("A valid account is required");

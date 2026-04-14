@@ -210,7 +210,7 @@ export function AccountsPageClient({
           mode="edit"
           isPending={isPending}
           title={`Edit ${dialogState.account.role} account`}
-          description="Update the account profile and company assignment."
+          description="Update the account profile, company assignment, or login password."
           viewerRole={viewer.role}
           companyOptions={companyOptions}
           initialValues={{
@@ -247,7 +247,7 @@ export function AccountsPageClient({
         mode="self"
         isPending={isPending}
         title="Update My Profile"
-        description="Edit your own profile information."
+        description="Edit your profile information or change your login password."
         viewerRole={viewer.role}
         companyOptions={companyOptions}
         initialValues={{ fullName: myAccount.fullName }}
