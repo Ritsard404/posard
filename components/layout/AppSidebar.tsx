@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, LogOut } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import {
@@ -71,21 +71,59 @@ function getInitials(name?: string | null, email?: string): string {
   return email?.[0]?.toUpperCase() ?? "?";
 }
 
-function isActivePath(pathname: string, href?: string): boolean {
+function isActivePath(
+  pathname: string,
+  searchParams: URLSearchParams,
+  href?: string,
+): boolean {
   if (!href) {
     return false;
   }
 
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const [targetPath, targetQuery] = href.split("?");
+
+  if (!(pathname === targetPath || pathname.startsWith(`${targetPath}/`))) {
+    return false;
+  }
+
+  if (!targetQuery) {
+    return true;
+  }
+
+  const targetSearchParams = new URLSearchParams(targetQuery);
+
+  for (const [key, value] of targetSearchParams.entries()) {
+    const currentValue = searchParams.get(key);
+
+    if (key === "view" && value === "overview") {
+      if (currentValue && currentValue !== value) {
+        return false;
+      }
+
+      continue;
+    }
+
+    if (currentValue !== value) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
-function sectionHasActiveItem(pathname: string, items: SidebarNavItem[]): boolean {
+function sectionHasActiveItem(
+  pathname: string,
+  searchParams: URLSearchParams,
+  items: SidebarNavItem[],
+): boolean {
   return items.some((item) => {
-    if (isActivePath(pathname, item.href)) {
+    if (isActivePath(pathname, searchParams, item.href)) {
       return true;
     }
 
-    return item.children ? sectionHasActiveItem(pathname, item.children) : false;
+    return item.children
+      ? sectionHasActiveItem(pathname, searchParams, item.children)
+      : false;
   });
 }
 
@@ -103,11 +141,13 @@ function NavBadge({ children }: { children: string }) {
 function SidebarNavLink({
   item,
   pathname,
+  searchParams,
 }: {
   item: SidebarNavItem;
   pathname: string;
+  searchParams: URLSearchParams;
 }) {
-  const isActive = isActivePath(pathname, item.href);
+  const isActive = isActivePath(pathname, searchParams, item.href);
 
   if (!item.href || item.disabled) {
     return (
@@ -147,11 +187,13 @@ function SidebarNavLink({
 function SidebarNavSubLink({
   item,
   pathname,
+  searchParams,
 }: {
   item: SidebarNavItem;
   pathname: string;
+  searchParams: URLSearchParams;
 }) {
-  const isActive = isActivePath(pathname, item.href);
+  const isActive = isActivePath(pathname, searchParams, item.href);
 
   if (!item.href || item.disabled) {
     return (
@@ -178,6 +220,7 @@ function SidebarNavSubLink({
 
 function AppSidebarInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const params = useParams();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -295,7 +338,7 @@ function AppSidebarInner() {
 
   const renderSection = (section: SidebarNavSection) => {
     if (section.variant === "accordion") {
-      const hasActiveItem = sectionHasActiveItem(pathname, section.items);
+      const hasActiveItem = sectionHasActiveItem(pathname, searchParams, section.items);
       const isExpanded = expandedSections[section.id] ?? hasActiveItem;
 
       return (
@@ -327,7 +370,7 @@ function AppSidebarInner() {
                   <SidebarMenuSub className="mt-1">
                     {section.items.map((item) => (
                       <li key={item.id}>
-                        <SidebarNavSubLink item={item} pathname={pathname} />
+                        <SidebarNavSubLink item={item} pathname={pathname} searchParams={searchParams} />
                       </li>
                     ))}
                   </SidebarMenuSub>
@@ -340,7 +383,7 @@ function AppSidebarInner() {
     }
 
     if (section.variant === "dropdown") {
-      const hasActiveItem = sectionHasActiveItem(pathname, section.items);
+      const hasActiveItem = sectionHasActiveItem(pathname, searchParams, section.items);
 
       return (
         <SidebarGroup key={section.id} className="px-0">
@@ -369,7 +412,7 @@ function AppSidebarInner() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-64 rounded-xl">
                     {section.items.map((item) => {
-                      const isActive = isActivePath(pathname, item.href);
+                      const isActive = isActivePath(pathname, searchParams, item.href);
 
                       if (!item.href || item.disabled) {
                         return (
@@ -413,7 +456,7 @@ function AppSidebarInner() {
           <SidebarMenu className="gap-1.5">
             {section.items.map((item) => (
               <SidebarMenuItem key={item.id}>
-                <SidebarNavLink item={item} pathname={pathname} />
+                <SidebarNavLink item={item} pathname={pathname} searchParams={searchParams} />
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
@@ -487,7 +530,7 @@ function AppSidebarInner() {
           <SidebarMenu key={section.id} className="gap-1.5">
             {section.items.map((item) => (
               <SidebarMenuItem key={item.id}>
-                <SidebarNavLink item={item} pathname={pathname} />
+                <SidebarNavLink item={item} pathname={pathname} searchParams={searchParams} />
               </SidebarMenuItem>
             ))}
           </SidebarMenu>

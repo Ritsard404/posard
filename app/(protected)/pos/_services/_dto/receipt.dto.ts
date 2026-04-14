@@ -6,6 +6,11 @@ export interface ReceiptItemDto {
   status: "CANCELLED" | "RETURNED" | "VOID" | "PENDING" | "PAID";
 }
 
+export interface ReceiptOtherPaymentDto {
+  name: string;
+  amount: number;
+}
+
 export interface ReceiptStockUpdateDto {
   productId: string;
   remainingQuantity: number;
@@ -16,7 +21,20 @@ export interface ReceiptDto {
   invoiceNumber: number;
   createdAt: string;
   posTerminalName: string;
+  printerName: string | null;
+  registeredName: string;
+  address: string;
+  vatTinNumber: string;
+  minNumber: string;
+  terminalVat: number;
+  cashierName: string;
   isTrainMode: boolean;
+  discountType: string | null;
+  discountAmount: number;
+  dueAmount: number;
+  totalTendered: number;
+  eligibleDiscName: string | null;
+  customerName: string | null;
   totalAmount: number;
   cashTendered: number;
   changeAmount: number;
@@ -24,6 +42,7 @@ export interface ReceiptDto {
   vatExempt: number;
   vatZero: number;
   vatAmount: number;
+  otherPayments: ReceiptOtherPaymentDto[];
   items: ReceiptItemDto[];
   stockUpdates: ReceiptStockUpdateDto[];
 }

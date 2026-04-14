@@ -66,8 +66,11 @@ function CreateAccountDialog(props: AccountDialogProps) {
       role: props.initialValues?.role ?? props.allowedRoles?.[0] ?? "cashier",
       companyId:
         props.initialValues?.companyId ?? props.companyOptions[0]?.id ?? "",
+      password: "",
     },
   });
+
+  const selectedRole = form.watch("role");
 
   useEffect(() => {
     form.reset({
@@ -76,6 +79,7 @@ function CreateAccountDialog(props: AccountDialogProps) {
       role: props.initialValues?.role ?? props.allowedRoles?.[0] ?? "cashier",
       companyId:
         props.initialValues?.companyId ?? props.companyOptions[0]?.id ?? "",
+      password: "",
     });
   }, [form, props.companyOptions, props.initialValues, props.allowedRoles, props.open]);
 
@@ -98,6 +102,7 @@ function CreateAccountDialog(props: AccountDialogProps) {
                 props.viewerRole === "manager"
                   ? props.companyOptions[0]?.id ?? values.companyId
                   : values.companyId,
+              password: values.password,
             }),
           )}
         >
@@ -158,6 +163,27 @@ function CreateAccountDialog(props: AccountDialogProps) {
               </p>
             ) : null}
           </div>
+
+          {selectedRole === "cashier" ? (
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                {...form.register("password")}
+              />
+              {form.formState.errors.password ? (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.password.message}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Cashier accounts need a login password at creation.
+                </p>
+              )}
+            </div>
+          ) : null}
 
           <DialogFooter>
             <Button

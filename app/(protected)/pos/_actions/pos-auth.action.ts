@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { auditLogService } from "@/lib/services/audit-log.service";
 
 export async function unlockTerminalAction(pin: string) {
   try {
@@ -15,19 +16,13 @@ export async function unlockTerminalAction(pin: string) {
 
     if (!profile || !profile.companyId) return { success: false, error: "Profile or company not found" };
 
+    const companyId = profile.companyId;
+
     // Since we are verifying the manager/cashier's PIN
     // In our simplified setup, we check if the provided pin matches a profile in the same company
-    const matchingProfile = await prisma.profile.findFirst({
-      where: {
-        companyId: profile.companyId,
-        pin: pin,
-        status: "active" // Wait, 'active'? Default was 'pending', but maybe they approve it. Let's not restrict by 'active' if they just set it up.
-      }
-    });
-
     // We can just find by PIN in the company
     const unlocker = await prisma.profile.findFirst({
-        where: { companyId: profile.companyId, pin: pin }
+        where: { companyId, pin: pin }
     });
 
     if (!unlocker) {
@@ -36,7 +31,7 @@ export async function unlockTerminalAction(pin: string) {
 
     // Get the highest priority terminal, or default one
     const terminal = await prisma.posTerminalInfo.findFirst({
-        where: { companyId: profile.companyId }
+        where: { companyId }
     });
 
     if (!terminal) {
@@ -62,7 +57,7 @@ export async function unlockTerminalAction(pin: string) {
     });
 
     // Create new session
-    const session = await prisma.posSession.create({
+    await prisma.posSession.create({
         data: {
             posTerminalId: terminal.id,
             profileId: unlocker.id,
@@ -104,12 +99,11 @@ export async function authorizeManagerAction(pin: string, actionType: string, re
         }
 
         // Log the approval
-        await prisma.approvalLog.create({
-            data: {
-                managerId: manager.id,
-                actionType,
-                referenceId
-            }
+        await auditLogService.create(prisma, {
+            companyId: currentProfile.companyId!,
+            actorProfileId: manager.id,
+            actionType,
+            referenceId,
         });
 
         return { 

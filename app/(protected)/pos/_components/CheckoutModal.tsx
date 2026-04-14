@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   usePOSStore,
   type DiscountType,
@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { InvoiceStatusType } from "@prisma/client";
 import { toast } from "sonner";
+import { receiptPrintService } from "../_services/receipt-print.service";
+import { ReceiptPrintControls } from "./ReceiptPrintControls";
 
 interface CheckoutModalProps {
   open: boolean;
@@ -193,6 +195,10 @@ export function CheckoutModal({
     ? String(receipt.invoiceNumber).padStart(12, "0")
     : "";
   const shouldShowTaxBreakdown = (receipt?.vatAmount ?? 0) > 0;
+  const receiptPrintPayload = useMemo(
+    () => (receipt ? receiptPrintService.buildPayload(receipt) : null),
+    [receipt],
+  );
 
   if (step === "RECEIPT" && receipt) {
     return (
@@ -347,12 +353,17 @@ export function CheckoutModal({
           </div>
 
           <DialogFooter className="border-t border-white/5 bg-white/[0.02] p-6">
-            <Button
-              onClick={() => handleDialogOpenChange(false)}
-              className="h-14 w-full rounded-2xl bg-accent font-heading text-lg font-black uppercase tracking-widest text-white shadow-xl shadow-accent/20 transition-all hover:bg-accent/90 active:scale-95"
-            >
-              New Checkout
-            </Button>
+            <div className="flex w-full flex-col gap-3">
+              {receiptPrintPayload ? (
+                <ReceiptPrintControls payload={receiptPrintPayload} />
+              ) : null}
+              <Button
+                onClick={() => handleDialogOpenChange(false)}
+                className="h-14 w-full rounded-2xl bg-accent font-heading text-lg font-black uppercase tracking-widest text-white shadow-xl shadow-accent/20 transition-all hover:bg-accent/90 active:scale-95"
+              >
+                New Checkout
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

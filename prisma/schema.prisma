@@ -94,6 +94,7 @@ model Profile {
 
   posSessions  PosSession[]
   approvalLogs ApprovalLog[]
+  auditLogs    AuditLog[] @relation("ActorAuditLog")
   requestedTerminalRequests TerminalRequest[] @relation("RequestedTerminalRequest")
   reviewedTerminalRequests  TerminalRequest[] @relation("ReviewedTerminalRequest")
 
@@ -141,6 +142,7 @@ model Company {
   updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz
   categories Category[]
   products   Product[]
+  auditLogs  AuditLog[]
 
   @@map("company")
   @@schema("public")
@@ -220,6 +222,7 @@ model PosTerminalInfo {
   updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz
   invoices  Invoice[]
   sessions  PosSession[]
+  auditLogs AuditLog[]
 
   @@index([companyId])
   @@map("pos_terminal_info")
@@ -333,6 +336,37 @@ model ApprovalLog {
 
   @@index([managerId])
   @@map("approval_log")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// AUDIT LOG
+/////////////////////////////////////////////////
+
+model AuditLog {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_audit_log") @db.Uuid
+
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  actorProfileId String  @map("actor_profile_id") @db.Uuid
+  actorProfile   Profile @relation("ActorAuditLog", fields: [actorProfileId], references: [id])
+
+  posTerminalId String?         @map("pos_terminal_id") @db.Uuid
+  posTerminal   PosTerminalInfo? @relation(fields: [posTerminalId], references: [id], onDelete: SetNull)
+
+  actionType  String  @map("action_type")
+  referenceId String? @map("reference_id") @db.Uuid
+  changes     String?
+  amount      Decimal? @db.Decimal(15, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([companyId])
+  @@index([actorProfileId])
+  @@index([posTerminalId])
+  @@index([createdAt])
+  @@map("audit_log")
   @@schema("public")
 }
 

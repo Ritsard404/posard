@@ -6,6 +6,12 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
     id: true;
     invoiceNumber: true;
     createdAt: true;
+    dueAmount: true;
+    totalTendered: true;
+    discountType: true;
+    discountAmount: true;
+    eligibleDiscName: true;
+    customerName: true;
     totalAmount: true;
     cashTendered: true;
     changeAmount: true;
@@ -17,6 +23,27 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
     posTerminal: {
       select: {
         posName: true;
+        printerName: true;
+        registeredName: true;
+        address: true;
+        vatTinNumber: true;
+        minNumber: true;
+        vat: true;
+      };
+    };
+    cashier: {
+      select: {
+        fullName: true;
+      };
+    };
+    ePayments: {
+      select: {
+        amount: true;
+        saleType: {
+          select: {
+            name: true;
+          };
+        };
       };
     };
     items: {
@@ -41,7 +68,20 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
     invoiceNumber: invoice.invoiceNumber,
     createdAt: invoice.createdAt.toISOString(),
     posTerminalName: invoice.posTerminal.posName,
+    printerName: invoice.posTerminal.printerName || null,
+    registeredName: invoice.posTerminal.registeredName,
+    address: invoice.posTerminal.address,
+    vatTinNumber: invoice.posTerminal.vatTinNumber,
+    minNumber: invoice.posTerminal.minNumber,
+    terminalVat: Number(invoice.posTerminal.vat),
+    cashierName: invoice.cashier.fullName ?? "Unknown",
     isTrainMode: invoice.isTrainMode,
+    discountType: invoice.discountType ?? null,
+    discountAmount: Number(invoice.discountAmount ?? 0),
+    dueAmount: Number(invoice.dueAmount ?? 0),
+    totalTendered: Number(invoice.totalTendered ?? 0),
+    eligibleDiscName: invoice.eligibleDiscName ?? null,
+    customerName: invoice.customerName ?? null,
     totalAmount: Number(invoice.totalAmount),
     cashTendered: Number(invoice.cashTendered ?? 0),
     changeAmount: Number(invoice.changeAmount ?? 0),
@@ -49,6 +89,10 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
     vatExempt: Number(invoice.vatExempt ?? 0),
     vatZero: Number(invoice.vatZero ?? 0),
     vatAmount: Number(invoice.vatAmount ?? 0),
+    otherPayments: invoice.ePayments.map((payment) => ({
+      name: payment.saleType.name ?? "Other",
+      amount: Number(payment.amount),
+    })),
     stockUpdates: [],
     items: invoice.items.map((item) => ({
       id: item.id,

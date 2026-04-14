@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { auditLogService } from "@/lib/services/audit-log.service";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -57,9 +58,10 @@ export async function getTerminalsAction() {
     const profile = await getCurrentProfile();
     if (!profile.companyId)
       return { success: false, error: "No company associated with user." };
+    const companyId = profile.companyId;
 
     const terminals = await prisma.posTerminalInfo.findMany({
-      where: { companyId: profile.companyId },
+      where: { companyId },
       include: {
         timestamps: {
           where: { timestampOut: null }, // Only active sessions
@@ -187,6 +189,7 @@ export async function withdrawCashAction(
     const profile = await getCurrentProfile();
     if (!profile.companyId)
       return { success: false, error: "No company associated with user." };
+    const companyId = profile.companyId;
 
     if (amount <= 0)
       return { success: false, error: "Amount must be greater than 0" };
@@ -194,7 +197,7 @@ export async function withdrawCashAction(
     // 1. Validate Manager
     const approver = await prisma.profile.findFirst({
       where: {
-        companyId: profile.companyId,
+        companyId,
         pin: managerPin,
         role: { in: ["manager", "admin"] },
       },
@@ -230,12 +233,13 @@ export async function withdrawCashAction(
         },
       });
 
-      await tx.approvalLog.create({
-        data: {
-          managerId: approver.id,
-          actionType: "CASH_WITHDRAWAL",
-          referenceId: timestamp.id,
-        },
+      await auditLogService.create(tx, {
+        companyId,
+        actorProfileId: approver.id,
+        posTerminalId: timestamp.posTerminalId,
+        actionType: "CASH_WITHDRAWAL",
+        referenceId: timestamp.id,
+        amount,
       });
     });
 
@@ -258,11 +262,12 @@ export async function closeSessionAction(
     const profile = await getCurrentProfile();
     if (!profile.companyId)
       return { success: false, error: "No company associated with user." };
+    const companyId = profile.companyId;
 
     // 1. Validate Manager or Authorized Role
     const approver = await prisma.profile.findFirst({
       where: {
-        companyId: profile.companyId,
+        companyId,
         pin: managerPin,
         role: { in: ["manager", "admin"] }, // Must have elevated role
       },
@@ -302,12 +307,13 @@ export async function closeSessionAction(
       });
 
       // Log the action purely for auditing
-      await tx.approvalLog.create({
-        data: {
-          managerId: approver.id,
-          actionType: "CLOSE_SESSION",
-          referenceId: timestamp.id,
-        },
+      await auditLogService.create(tx, {
+        companyId,
+        actorProfileId: approver.id,
+        posTerminalId: timestamp.posTerminalId,
+        actionType: "CLOSE_SESSION",
+        referenceId: timestamp.id,
+        amount: countedCash,
       });
     });
 

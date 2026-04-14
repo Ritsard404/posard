@@ -37,6 +37,20 @@ export const CreateAccountSchema = z.object({
   fullName: nullableTextInput,
   role: z.enum(["manager", "cashier"]),
   companyId: z.string().uuid("A valid company is required"),
+  password: emptyStringToUndefined(
+    z
+      .string()
+      .min(6, "Password must be at least 6 characters")
+      .max(72, "Password must be 72 characters or fewer"),
+  ),
+}).superRefine((value, ctx) => {
+  if (value.role === "cashier" && !value.password) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["password"],
+      message: "A password is required for cashier accounts",
+    });
+  }
 });
 
 export const UpdateAccountSchema = z.object({

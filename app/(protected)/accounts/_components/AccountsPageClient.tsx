@@ -170,7 +170,11 @@ export function AccountsPageClient({
               ? "Create Manager Account"
               : "Create Cashier Account"
           }
-          description="Invite a new user and assign the account to a company."
+          description={
+            dialogState.role === "manager"
+              ? "Invite a new manager and assign the account to a company."
+              : "Create a cashier account with login credentials and assign it to a company."
+          }
           viewerRole={viewer.role}
           companyOptions={companyOptions}
           allowedRoles={[dialogState.role]}

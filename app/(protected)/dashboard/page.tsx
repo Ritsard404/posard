@@ -1,12 +1,18 @@
-export default function POSPage() {
-  return (
-    <div>
-      <div className=" rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
-          POS system coming soon. Connect with your Spring Boot backend to start
-          processing transactions.
-        </p>
+import { DashboardScreen } from "./_components/DashboardScreen";
+import { dashboardService } from "./_services/dashboard.service";
+
+export default async function DashboardPage() {
+  try {
+    const dashboard = await dashboardService.getDashboard();
+    return <DashboardScreen dashboard={dashboard} />;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to load dashboard.";
+
+    return (
+      <div className="rounded-3xl border border-border/60 bg-background p-6">
+        <p className="text-sm text-muted-foreground">{message}</p>
       </div>
-    </div>
-  );
+    );
+  }
 }

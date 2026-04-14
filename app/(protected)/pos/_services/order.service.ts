@@ -43,6 +43,7 @@ async function getTerminalForProfile(companyId: string) {
       isTrainMode: true,
       resetCounterNo: true,
       resetCounterTrainNo: true,
+      printerName: true,
     },
   });
 
@@ -340,6 +341,12 @@ export const orderService = {
           id: true,
           invoiceNumber: true,
           createdAt: true,
+          dueAmount: true,
+          totalTendered: true,
+          discountType: true,
+          discountAmount: true,
+          eligibleDiscName: true,
+          customerName: true,
           totalAmount: true,
           cashTendered: true,
           changeAmount: true,
@@ -351,6 +358,27 @@ export const orderService = {
           posTerminal: {
             select: {
               posName: true,
+              printerName: true,
+              registeredName: true,
+              address: true,
+              vatTinNumber: true,
+              minNumber: true,
+              vat: true,
+            },
+          },
+          cashier: {
+            select: {
+              fullName: true,
+            },
+          },
+          ePayments: {
+            select: {
+              amount: true,
+              saleType: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
           items: {

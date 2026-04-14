@@ -56,6 +56,7 @@ export interface CreateAccountInputDto {
   fullName: string | null;
   role: ManagedAccountRole;
   companyId: string;
+  password?: string | null;
 }
 
 export interface UpdateAccountInputDto {

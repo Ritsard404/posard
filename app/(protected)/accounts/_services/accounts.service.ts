@@ -232,16 +232,24 @@ export const accountsService = {
     }
 
     const adminClient = createAdminClient();
-    const redirectTo = getInviteRedirectTo();
-    const inviteOptions = {
-      ...(redirectTo ? { redirectTo } : {}),
-      ...(input.fullName ? { data: { full_name: input.fullName } } : {}),
-    };
+    const authOptions = input.fullName
+      ? { data: { full_name: input.fullName } }
+      : undefined;
 
-    const { data, error } = await adminClient.auth.admin.inviteUserByEmail(
-      input.email,
-      inviteOptions,
-    );
+    const authResult =
+      input.role === "cashier"
+        ? await adminClient.auth.admin.createUser({
+            email: input.email,
+            password: input.password ?? "",
+            email_confirm: true,
+            ...(authOptions ? { user_metadata: authOptions.data } : {}),
+          })
+        : await adminClient.auth.admin.inviteUserByEmail(input.email, {
+            ...(getInviteRedirectTo() ? { redirectTo: getInviteRedirectTo() } : {}),
+            ...(authOptions ? { data: authOptions.data } : {}),
+          });
+
+    const { data, error } = authResult;
 
     if (error) {
       throw new Error(normalizeAuthError(error.message));
