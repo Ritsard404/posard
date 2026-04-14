@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Minus, ShoppingCart, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 
 export function CartPanel() {
   const {
@@ -55,6 +56,22 @@ export function CartPanel() {
   const discountAmount = paymentSummary.discountAmount;
   const total = paymentSummary.totalAmount;
   const taxDerived = paymentSummary.vatAmount;
+
+  const handleCartQuantityChange = (cartItemId: string, quantity: number) => {
+    const result = updateCartQuantity(cartItemId, quantity);
+
+    if (!result.success) {
+      toast.error(
+        result.reason === "OUT_OF_STOCK"
+          ? "Wala nang stock."
+          : "Naabot na ang stock limit.",
+        {
+          description: "Hindi na puwedeng dagdagan ang tracked item na ito.",
+          duration: 5000,
+        },
+      );
+    }
+  };
 
   return (
     <div className="relative z-10 flex h-full w-full flex-col border-l bg-card/50 shadow-[-20px_0_50px_rgba(0,0,0,0.05)] backdrop-blur-xl animate-in slide-in-from-right-4 duration-500">
@@ -150,7 +167,10 @@ export function CartPanel() {
                         className={`h-9 w-9 rounded-lg ${isVoid ? "opacity-50" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                         onClick={() =>
                           !isVoid &&
-                          updateCartQuantity(item.cartItemId, item.cartQuantity - 1)
+                          handleCartQuantityChange(
+                            item.cartItemId,
+                            item.cartQuantity - 1,
+                          )
                         }
                         disabled={isVoid}
                       >
@@ -167,7 +187,10 @@ export function CartPanel() {
                         className={`h-9 w-9 rounded-lg ${isVoid ? "opacity-50" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                         onClick={() =>
                           !isVoid &&
-                          updateCartQuantity(item.cartItemId, item.cartQuantity + 1)
+                          handleCartQuantityChange(
+                            item.cartItemId,
+                            item.cartQuantity + 1,
+                          )
                         }
                         disabled={isVoid}
                       >

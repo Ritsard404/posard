@@ -2,13 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { CancelOrderDto, OrderDto } from "../_services/_dto/order.dto";
+import type { ReceiptDto } from "../_services/_dto/receipt.dto";
 import { orderService } from "../_services/order.service";
 
-export async function payOrderAction(dto: OrderDto) {
+export async function payOrderAction(
+  dto: OrderDto,
+): Promise<
+  | { success: true; receipt: ReceiptDto }
+  | { success: false; error: string }
+> {
   try {
-    await orderService.payOrder(dto);
+    const receipt = await orderService.payOrder(dto);
     revalidatePath("/pos");
-    return { success: true };
+    return { success: true, receipt };
   } catch (error) {
     return {
       success: false,

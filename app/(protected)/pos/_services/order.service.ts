@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import type { Prisma } from "@prisma/client";
 import type {
   CancelOrderDto,
   DiscountDto,
@@ -9,6 +10,8 @@ import type {
   OrderDto,
 } from "./_dto/order.dto";
 import { InvoiceStatusType } from "@prisma/client";
+import type { ReceiptDto } from "./_dto/receipt.dto";
+import { mapInvoiceToReceipt } from "./_mappers/receipt.mapper";
 import {
   calculatePayment,
   getEffectiveDiscountPercent,
@@ -49,10 +52,11 @@ async function getTerminalForProfile(companyId: string) {
 }
 
 async function generateInvoiceNumber(
+  db: Prisma.TransactionClient | typeof prisma,
   terminalId: string,
   isTrainMode: boolean,
 ): Promise<number> {
-  const last = await prisma.invoice.findFirst({
+  const last = await db.invoice.findFirst({
     where: { posTerminalId: terminalId, isTrainMode },
     orderBy: { invoiceNumber: "desc" },
     select: { invoiceNumber: true },
@@ -63,11 +67,12 @@ async function generateInvoiceNumber(
 }
 
 async function updateTerminalCounter(
+  db: Prisma.TransactionClient | typeof prisma,
   terminalId: string,
   isTrainMode: boolean,
   current: { resetCounterNo: number; resetCounterTrainNo: number },
 ) {
-  await prisma.posTerminalInfo.update({
+  await db.posTerminalInfo.update({
     where: { id: terminalId },
     data: isTrainMode
       ? { resetCounterTrainNo: current.resetCounterTrainNo + 1 }
@@ -109,13 +114,14 @@ function validatePayment(calc: ReturnType<typeof calculatePayment>) {
 }
 
 async function loadAndValidateProducts(
+  db: Prisma.TransactionClient | typeof prisma,
   items: ItemRequestDto[],
   skipStockCheck = false,
 ) {
   const productIds = items.map((i) => i.productId);
   const uniqueProductIds = [...new Set(productIds)];
 
-  const products = await prisma.product.findMany({
+  const products = await db.product.findMany({
     where: { id: { in: uniqueProductIds }, isDeleted: false },
     select: {
       id: true,
@@ -152,10 +158,17 @@ async function loadAndValidateProducts(
 }
 
 async function loadProducts(items: ItemRequestDto[]) {
+  return loadProductsWithDb(prisma, items);
+}
+
+async function loadProductsWithDb(
+  db: Prisma.TransactionClient | typeof prisma,
+  items: ItemRequestDto[],
+) {
   const productIds = items.map((i) => i.productId);
   const uniqueProductIds = [...new Set(productIds)];
 
-  const products = await prisma.product.findMany({
+  const products = await db.product.findMany({
     where: { id: { in: uniqueProductIds }, isDeleted: false },
     select: {
       id: true,
@@ -203,28 +216,36 @@ function buildCalculationItems(
 }
 
 async function deductStock(
+  db: Prisma.TransactionClient,
   items: ItemRequestDto[],
-  productMap: Awaited<ReturnType<typeof loadProducts>>,
+  productMap: Awaited<ReturnType<typeof loadProductsWithDb>>,
 ) {
   const itemsToDeduct = items.filter(
     (item) => productMap.get(item.productId)?.trackInventory,
   );
 
-  await Promise.all(
-    itemsToDeduct.map((item) => {
+  const stockUpdates = await Promise.all(
+    itemsToDeduct.map(async (item) => {
       const product = productMap.get(item.productId)!;
       const newQty = Number(product.quantity ?? 0) - item.qty;
 
-      return prisma.product.update({
+      await db.product.update({
         where: { id: item.productId },
         data: { quantity: newQty },
       });
+
+      return {
+        productId: item.productId,
+        remainingQuantity: Math.max(0, newQty),
+      };
     }),
   );
+
+  return stockUpdates;
 }
 
 export const orderService = {
-  async payOrder(dto: OrderDto): Promise<void> {
+  async payOrder(dto: OrderDto): Promise<ReceiptDto> {
     validateOrderRequest(dto);
     const discount = normalizeDiscount(dto.discount);
 
@@ -233,6 +254,7 @@ export const orderService = {
     const terminal = await getTerminalForProfile(profile.companyId);
 
     const productMap = await loadAndValidateProducts(
+      prisma,
       dto.items,
       !terminal.isRetailType,
     );
@@ -248,68 +270,120 @@ export const orderService = {
 
     validatePayment(calc);
 
-    const invoiceNumber = await generateInvoiceNumber(
-      terminal.id,
-      terminal.isTrainMode,
-    );
+    const ePaymentData = dto.ePayments?.length
+      ? await buildEPaymentData(dto.ePayments)
+      : undefined;
 
-    await prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        posTerminalId: terminal.id,
-        cashierId: profile.id,
+    const receipt = await prisma.$transaction(async (tx) => {
+      const invoiceNumber = await generateInvoiceNumber(
+        tx,
+        terminal.id,
+        terminal.isTrainMode,
+      );
 
-        grossAmount: calc.grossAmount,
-        totalAmount: calc.totalAmount,
-        subTotal: calc.subTotal,
-        cashTendered: calc.cashTendered,
-        dueAmount: calc.dueAmount,
-        totalTendered: calc.totalTendered,
-        changeAmount: calc.changeAmount,
-        vatSales: calc.vatSales,
-        vatExempt: calc.vatExempt,
-        vatAmount: calc.vatAmount,
-        vatZero: calc.vatZero,
-        discountAmount: calc.discountAmount,
+      const transactionProductMap = await loadAndValidateProducts(
+        tx,
+        dto.items,
+        !terminal.isRetailType,
+      );
 
-        ...(discount?.eligibleDiscName
-          ? { customerName: discount.eligibleDiscName }
-          : {}),
+      const invoice = await tx.invoice.create({
+        data: {
+          invoiceNumber,
+          posTerminalId: terminal.id,
+          cashierId: profile.id,
 
-        eligibleDiscName: discount?.eligibleDiscName,
-        oscaIdNum: discount?.oscaIdNum,
-        discountType: discount?.discountType,
-        discountPercent: getEffectiveDiscountPercent(discount),
+          grossAmount: calc.grossAmount,
+          totalAmount: calc.totalAmount,
+          subTotal: calc.subTotal,
+          cashTendered: calc.cashTendered,
+          dueAmount: calc.dueAmount,
+          totalTendered: calc.totalTendered,
+          changeAmount: calc.changeAmount,
+          vatSales: calc.vatSales,
+          vatExempt: calc.vatExempt,
+          vatAmount: calc.vatAmount,
+          vatZero: calc.vatZero,
+          discountAmount: calc.discountAmount,
 
-        status: "PAID" satisfies InvoiceStatusType,
-        isTrainMode: terminal.isTrainMode,
+          ...(discount?.eligibleDiscName
+            ? { customerName: discount.eligibleDiscName }
+            : {}),
 
-        items: {
-          create: dto.items.map((item) => ({
-            productId: item.productId,
-            qty: item.qty,
-            price: item.price,
-            subTotal: item.status === "VOID" ? 0 : item.subTotal,
-            status: item.status || ("PAID" satisfies InvoiceStatusType),
-            isTrainingMode: terminal.isTrainMode,
-          })),
+          eligibleDiscName: discount?.eligibleDiscName,
+          oscaIdNum: discount?.oscaIdNum,
+          discountType: discount?.discountType,
+          discountPercent: getEffectiveDiscountPercent(discount),
+
+          status: "PAID" satisfies InvoiceStatusType,
+          isTrainMode: terminal.isTrainMode,
+
+          items: {
+            create: dto.items.map((item) => ({
+              productId: item.productId,
+              qty: item.qty,
+              price: item.price,
+              subTotal: item.status === "VOID" ? 0 : item.subTotal,
+              status: item.status || ("PAID" satisfies InvoiceStatusType),
+              isTrainingMode: terminal.isTrainMode,
+            })),
+          },
+
+          ...(ePaymentData?.length
+            ? {
+                ePayments: {
+                  create: ePaymentData,
+                },
+              }
+            : {}),
         },
-
-        ...(dto.ePayments?.length
-          ? {
-              ePayments: {
-                create: await buildEPaymentData(dto.ePayments),
+        select: {
+          id: true,
+          invoiceNumber: true,
+          createdAt: true,
+          totalAmount: true,
+          cashTendered: true,
+          changeAmount: true,
+          vatSales: true,
+          vatExempt: true,
+          vatZero: true,
+          vatAmount: true,
+          isTrainMode: true,
+          posTerminal: {
+            select: {
+              posName: true,
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              qty: true,
+              subTotal: true,
+              status: true,
+              product: {
+                select: {
+                  name: true,
+                },
               },
-            }
-          : {}),
-      },
+            },
+          },
+        },
+      });
+
+      const stockUpdates =
+        !terminal.isTrainMode && terminal.isRetailType
+          ? await deductStock(tx, dto.items, transactionProductMap)
+          : [];
+
+      await updateTerminalCounter(tx, terminal.id, terminal.isTrainMode, terminal);
+
+      return {
+        ...mapInvoiceToReceipt(invoice),
+        stockUpdates,
+      };
     });
 
-    if (!terminal.isTrainMode && terminal.isRetailType) {
-      await deductStock(dto.items, productMap);
-    }
-
-    await updateTerminalCounter(terminal.id, terminal.isTrainMode, terminal);
+    return receipt;
   },
 
   async cancelOrder(dto: CancelOrderDto): Promise<void> {
@@ -340,6 +414,7 @@ export const orderService = {
     });
 
     const invoiceNumber = await generateInvoiceNumber(
+      prisma,
       terminal.id,
       terminal.isTrainMode,
     );
@@ -381,7 +456,12 @@ export const orderService = {
       },
     });
 
-    await updateTerminalCounter(terminal.id, terminal.isTrainMode, terminal);
+    await updateTerminalCounter(
+      prisma,
+      terminal.id,
+      terminal.isTrainMode,
+      terminal,
+    );
   },
 };
 

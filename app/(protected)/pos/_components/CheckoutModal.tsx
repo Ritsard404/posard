@@ -6,6 +6,7 @@ import {
 } from "../_store/pos-store";
 import { payOrderAction } from "../_actions/order.action";
 import { OrderDto } from "../_services/_dto/order.dto";
+import type { ReceiptDto } from "../_services/_dto/receipt.dto";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { InvoiceStatusType } from "@prisma/client";
+import { toast } from "sonner";
 
 interface CheckoutModalProps {
   open: boolean;
@@ -39,6 +41,15 @@ const defaultDiscount = {
   eligibleDiscName: "",
   oscaIdNum: "",
 };
+
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function formatCurrency(amount: number) {
+  return currencyFormatter.format(amount);
+}
 
 export function CheckoutModal({
   open,
@@ -56,19 +67,21 @@ export function CheckoutModal({
     amountTendered,
     setAmountTendered,
     clearCart,
+    applyStockUpdates,
   } = usePOSStore();
   const [step, setStep] = useState<"PAYMENT" | "RECEIPT">("PAYMENT");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [receipt, setReceipt] = useState<ReceiptDto | null>(null);
 
   const requiresDiscountMetadata =
     discount.type === "PWD" || discount.type === "SENIOR";
   const trimmedEligibleName = discount.eligibleDiscName.trim();
   const trimmedOscaIdNum = discount.oscaIdNum.trim();
   const isDiscountMetadataValid =
-    !requiresDiscountMetadata &&
-    discount.type === "NONE"
+    !requiresDiscountMetadata && discount.type === "NONE"
       ? true
-      : !requiresDiscountMetadata || !!(trimmedEligibleName && trimmedOscaIdNum);
+      : !requiresDiscountMetadata ||
+        !!(trimmedEligibleName && trimmedOscaIdNum);
   const change = amountTendered - totalAmount;
   const isTenderValid =
     paymentMethod !== "CASH" || amountTendered >= totalAmount;
@@ -87,6 +100,7 @@ export function CheckoutModal({
   const resetCheckoutState = (shouldClearCart: boolean) => {
     setStep("PAYMENT");
     setIsProcessing(false);
+    setReceipt(null);
     setAmountTendered(0);
     setDiscount(defaultDiscount);
     setPaymentMethod("CASH");
@@ -135,10 +149,16 @@ export function CheckoutModal({
     setIsProcessing(false);
 
     if (res.success) {
+      applyStockUpdates(res.receipt.stockUpdates);
+      setReceipt(res.receipt);
       setStep("RECEIPT");
       return;
     }
 
+    toast.error("Hindi natuloy ang checkout.", {
+      description: res.error,
+      duration: 5000,
+    });
     alert("Payment Failed: " + res.error);
   };
 
@@ -159,13 +179,35 @@ export function CheckoutModal({
     { id: "SENIOR", label: "Senior (20% + VAT Exempt)" },
   ];
 
-  if (step === "RECEIPT") {
+  const formattedReceiptDate = receipt
+    ? new Intl.DateTimeFormat(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }).format(new Date(receipt.createdAt))
+    : "";
+  const formattedInvoiceNumber = receipt
+    ? String(receipt.invoiceNumber).padStart(12, "0")
+    : "";
+  const shouldShowTaxBreakdown = (receipt?.vatAmount ?? 0) > 0;
+
+  if (step === "RECEIPT" && receipt) {
     return (
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="glass-card h-[100dvh] max-w-[100vw] overflow-hidden border-white/5 p-0 shadow-2xl backdrop-blur-3xl animate-in zoom-in-95 duration-500 sm:h-auto sm:max-w-[425px]">
           <div className="relative flex flex-col items-center overflow-hidden border-b border-white/5 bg-accent/10 p-8 text-center">
             <div className="pointer-events-none absolute -left-10 top-0 size-32 rounded-full bg-accent/10 blur-2xl" />
             <div className="pointer-events-none absolute -right-10 bottom-0 size-32 rounded-full bg-emerald-500/10 blur-2xl" />
+            {receipt.isTrainMode && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
+                <span className="rotate-[-24deg] text-4xl font-black uppercase tracking-[0.35em] text-foreground/10">
+                  TRAINING MODE
+                </span>
+              </div>
+            )}
 
             <div className="mb-6 flex size-20 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.1)]">
               <CheckCircle2 className="h-10 w-10 text-emerald-500" />
@@ -183,6 +225,9 @@ export function CheckoutModal({
               <h3 className="mb-1 font-heading text-xl font-black uppercase tracking-tighter text-foreground">
                 BAISARD POS
               </h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-accent">
+                {receipt.isTrainMode ? "Training Receipt" : "Official Receipt"}
+              </p>
               <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
                 123 Business Avenue, Metro Suite
               </p>
@@ -191,33 +236,38 @@ export function CheckoutModal({
               </p>
 
               <div className="mt-6 flex items-center justify-between border-y border-dashed border-white/10 py-3 text-[10px] font-bold text-muted-foreground/40">
-                <span>
-                  {new Date().toLocaleDateString()}{" "}
-                  {new Date().toLocaleTimeString()}
-                </span>
-                <span>POS-01 / TXN-8293</span>
+                <span>{formattedReceiptDate}</span>
+                <span>{receipt.posTerminalName}</span>
+              </div>
+              <div className="mt-3 space-y-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                <div className="flex justify-between">
+                  <span>Invoice No.</span>
+                  <span className="text-foreground">{formattedInvoiceNumber}</span>
+                </div>
+                {/* <div className="flex justify-between gap-3">
+                  <span>Invoice ID</span>
+                  <span className="truncate text-foreground">{receipt.id}</span>
+                </div> */}
               </div>
             </div>
 
             <div className="mb-8 space-y-3">
               <div className="flex justify-between border-b border-white/5 pb-2 text-[10px] font-black uppercase tracking-widest text-foreground">
-                <span>DESCRIPTION</span>
-                <span>SUBTOTAL</span>
+                <span>Description</span>
+                <span>Subtotal</span>
               </div>
-              {cart
-                .filter((item) => item.itemStatus !== InvoiceStatusType.VOID)
+              {receipt.items
+                .filter((item) => item.status !== InvoiceStatusType.VOID)
                 .map((item) => (
                   <div
-                    key={item.cartItemId}
+                    key={item.id}
                     className="flex items-start justify-between font-medium italic text-muted-foreground"
                   >
                     <span className="w-2/3">
-                      {item.cartQuantity}x {item.name}
+                      {item.qty}x {item.productName}
                     </span>
                     <span className="font-bold text-foreground/80">
-                      {(
-                        item.customSubtotal ?? item.price * item.cartQuantity
-                      ).toFixed(2)}
+                      {formatCurrency(item.subTotal)}
                     </span>
                   </div>
                 ))}
@@ -226,19 +276,23 @@ export function CheckoutModal({
             <div className="mb-8 space-y-2 rounded-xl border border-white/5 bg-white/[0.02] p-4">
               <div className="flex justify-between font-bold uppercase tracking-widest text-muted-foreground/60">
                 <span>Aggregated Total</span>
-                <span className="text-foreground">₱ {totalAmount.toFixed(2)}</span>
+                <span className="text-foreground">
+                  PHP {formatCurrency(receipt.totalAmount)}
+                </span>
               </div>
               {discount.type !== "NONE" && (
                 <div className="flex justify-between font-bold uppercase tracking-widest text-accent">
                   <span>Applied Adj. ({discount.type})</span>
-                  <span>SUCCESS</span>
+                  <span>Success</span>
                 </div>
               )}
               {requiresDiscountMetadata && (
                 <div className="space-y-1 border-t border-white/5 pt-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
                   <div className="flex justify-between">
                     <span>Discount Name</span>
-                    <span className="text-foreground">{trimmedEligibleName}</span>
+                    <span className="text-foreground">
+                      {trimmedEligibleName}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>ID Number</span>
@@ -249,18 +303,43 @@ export function CheckoutModal({
               <div className="mt-2 flex justify-between border-t border-white/5 pt-2 font-bold uppercase tracking-widest text-muted-foreground/60">
                 <span>Tendered ({paymentMethod})</span>
                 <span className="text-foreground">
-                  {paymentMethod === "CASH"
-                    ? amountTendered.toFixed(2)
-                    : totalAmount.toFixed(2)}
+                  {formatCurrency(receipt.cashTendered)}
                 </span>
               </div>
               {paymentMethod === "CASH" && (
                 <div className="flex justify-between pt-1 font-black uppercase tracking-widest text-emerald-500">
                   <span>Change Due</span>
-                  <span>PHP {Math.max(0, change).toFixed(2)}</span>
+                  <span>PHP {formatCurrency(Math.max(0, receipt.changeAmount))}</span>
                 </div>
               )}
             </div>
+
+            {shouldShowTaxBreakdown && (
+              <div className="mb-8 space-y-2 rounded-xl border border-white/5 bg-white/[0.02] p-4">
+                <div className="flex justify-between border-b border-white/5 pb-2 font-bold uppercase tracking-widest text-muted-foreground/60">
+                  <span>Tax Breakdown</span>
+                  <span className="text-foreground">VAT</span>
+                </div>
+                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                  <span>VATable Sales</span>
+                  <span className="text-foreground">{formatCurrency(receipt.vatSales)}</span>
+                </div>
+                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                  <span>VAT-Exempt Sales</span>
+                  <span className="text-foreground">
+                    {formatCurrency(receipt.vatExempt)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                  <span>Zero-Rated Sales</span>
+                  <span className="text-foreground">{formatCurrency(receipt.vatZero)}</span>
+                </div>
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-accent">
+                  <span>VAT Amount</span>
+                  <span>{formatCurrency(receipt.vatAmount)}</span>
+                </div>
+              </div>
+            )}
 
             <div className="pb-2 text-center font-bold uppercase tracking-[0.3em] text-muted-foreground/30 italic">
               Thank you for trusting us!
@@ -305,10 +384,10 @@ export function CheckoutModal({
               </p>
               <div className="flex items-baseline gap-2">
                 <span className="font-heading text-2xl font-black text-accent opacity-50">
-                  ₱
+                  PHP
                 </span>
                 <p className="font-heading text-5xl font-black tracking-tighter text-foreground drop-shadow-[0_0_15px_rgba(255,255,255,0.05)]">
-                  {totalAmount.toFixed(2)}
+                  {formatCurrency(totalAmount)}
                 </p>
               </div>
             </div>
@@ -321,7 +400,9 @@ export function CheckoutModal({
                 {discounts.map((option) => (
                   <Button
                     key={option.id}
-                    variant={discount.type === option.id ? "default" : "outline"}
+                    variant={
+                      discount.type === option.id ? "default" : "outline"
+                    }
                     className={`h-12 justify-start rounded-xl px-4 text-xs font-bold uppercase tracking-widest transition-all duration-300 ${discount.type === option.id ? "border-accent/40 bg-accent/10 text-accent shadow-[0_0_20px_rgba(var(--accent),0.1)]" : "border-white/5 bg-white/5 text-muted-foreground/60 hover:border-white/10 hover:bg-white/10"}`}
                     onClick={() => setDiscountType(option.id)}
                   >
@@ -345,7 +426,8 @@ export function CheckoutModal({
                     Discount Holder
                   </p>
                   <p className="mt-1 text-xs font-medium text-muted-foreground">
-                    Customer name and ID are required for {discount.type} checkout.
+                    Customer name and ID are required for {discount.type}{" "}
+                    checkout.
                   </p>
                 </div>
 
@@ -440,7 +522,7 @@ export function CheckoutModal({
                   </Label>
                   <div className="group relative">
                     <span className="absolute left-6 top-1/2 -translate-y-1/2 font-heading text-xl font-black text-accent/50 transition-colors group-focus-within:text-accent">
-                      ₱
+                      PHP
                     </span>
                     <Input
                       id="tendered"
@@ -449,7 +531,7 @@ export function CheckoutModal({
                       onChange={(e) =>
                         setAmountTendered(parseFloat(e.target.value) || 0)
                       }
-                      className="h-20 rounded-2xl border-white/5 bg-white/5 pl-12 pr-6 font-heading text-4xl font-black tracking-tighter transition-all focus:bg-white/10"
+                      className="h-20 rounded-2xl border-white/5 bg-white/5 pl-16 pr-6 font-heading text-4xl font-black tracking-tighter transition-all focus:bg-white/10"
                       placeholder="0.00"
                     />
                   </div>
@@ -496,7 +578,7 @@ export function CheckoutModal({
                   <span
                     className={`font-heading text-4xl font-black tracking-tighter ${change < 0 ? "text-red-500 opacity-40" : "text-emerald-500"}`}
                   >
-                    ₱ {Math.max(0, change).toFixed(2)}
+                    PHP {formatCurrency(Math.max(0, change))}
                   </span>
                 </div>
               </div>
@@ -510,12 +592,14 @@ export function CheckoutModal({
                 </p>
                 <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
                   Processing{" "}
-                  {paymentMethods.find((method) => method.id === paymentMethod)
-                    ?.label}{" "}
+                  {
+                    paymentMethods.find((method) => method.id === paymentMethod)
+                      ?.label
+                  }{" "}
                   Transaction...
                 </p>
                 <div className="mt-6 font-heading text-2xl font-black tracking-tighter text-accent/80">
-                  ₱ {totalAmount.toFixed(2)}
+                  PHP {formatCurrency(totalAmount)}
                 </div>
               </div>
             )}

@@ -23,6 +23,17 @@ export interface POSDiscount {
   oscaIdNum: string;
 }
 export type PaymentMethodType = "CASH" | "GCASH" | "MAYA" | "CARD";
+export type CartMutationFailureReason = "OUT_OF_STOCK" | "LIMIT_REACHED";
+
+export interface CartMutationResult {
+  success: boolean;
+  reason?: CartMutationFailureReason;
+}
+
+export interface ProductStockUpdate {
+  productId: string;
+  remainingQuantity: number;
+}
 
 interface ActiveTerminalState {
   id: string;
@@ -73,11 +84,15 @@ interface POSState {
     user: { name: string | null; role: string } | null;
   }) => void;
 
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product) => CartMutationResult;
   removeFromCart: (cartItemId: string) => void;
-  updateCartQuantity: (cartItemId: string, quantity: number) => void;
+  updateCartQuantity: (
+    cartItemId: string,
+    quantity: number,
+  ) => CartMutationResult;
   updateItemSubtotal: (cartItemId: string, subtotal?: number) => void;
   clearCart: () => void;
+  applyStockUpdates: (updates: ProductStockUpdate[]) => void;
 
   setDiscount: (discount: POSDiscount) => void;
   setDiscountType: (type: DiscountType) => void;
@@ -126,6 +141,19 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
   addToCart: (product) => {
     const { cart } = get();
+    const activeQuantityForProduct = cart
+      .filter((item) => item.id === product.id && item.itemStatus !== "VOID")
+      .reduce((sum, item) => sum + item.cartQuantity, 0);
+    const availableQuantity = Math.max(0, Number(product.quantity ?? 0));
+
+    if (product.trackInventory && availableQuantity <= 0) {
+      return { success: false, reason: "OUT_OF_STOCK" };
+    }
+
+    if (product.trackInventory && activeQuantityForProduct >= availableQuantity) {
+      return { success: false, reason: "LIMIT_REACHED" };
+    }
+
     const existingActive = cart.find(
       (item) => item.id === product.id && item.itemStatus !== "VOID",
     );
@@ -150,6 +178,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
         ],
       });
     }
+
+    return { success: true };
   },
 
   removeFromCart: (cartItemId) =>
@@ -162,15 +192,47 @@ export const usePOSStore = create<POSState>((set, get) => ({
   updateCartQuantity: (cartItemId, quantity) => {
     if (quantity <= 0) {
       get().removeFromCart(cartItemId);
-      return;
+      return { success: true };
     }
+    const { cart, products } = get();
+    const targetItem = cart.find((item) => item.cartItemId === cartItemId);
+
+    if (!targetItem || targetItem.itemStatus === "VOID") {
+      return { success: false, reason: "OUT_OF_STOCK" };
+    }
+
+    const sourceProduct =
+      products.find((product) => product.id === targetItem.id) ?? targetItem;
+    const availableQuantity = Math.max(0, Number(sourceProduct.quantity ?? 0));
+    const otherActiveQuantity = cart
+      .filter(
+        (item) =>
+          item.id === targetItem.id &&
+          item.cartItemId !== cartItemId &&
+          item.itemStatus !== "VOID",
+      )
+      .reduce((sum, item) => sum + item.cartQuantity, 0);
+
+    if (sourceProduct.trackInventory && availableQuantity <= 0) {
+      return { success: false, reason: "OUT_OF_STOCK" };
+    }
+
+    if (
+      sourceProduct.trackInventory &&
+      quantity + otherActiveQuantity > availableQuantity
+    ) {
+      return { success: false, reason: "LIMIT_REACHED" };
+    }
+
     set({
-      cart: get().cart.map((item) =>
+      cart: cart.map((item) =>
         item.cartItemId === cartItemId
           ? { ...item, cartQuantity: quantity }
           : item,
       ),
     });
+
+    return { success: true };
   },
 
   updateItemSubtotal: (cartItemId, subtotal) => {
@@ -190,6 +252,26 @@ export const usePOSStore = create<POSState>((set, get) => ({
       discount: defaultDiscount,
       paymentMethod: "CASH",
     }),
+  applyStockUpdates: (updates) => {
+    if (updates.length === 0) return;
+
+    const updateMap = new Map(
+      updates.map((update) => [update.productId, update.remainingQuantity]),
+    );
+
+    set((state) => ({
+      products: state.products.map((product) =>
+        updateMap.has(product.id)
+          ? { ...product, quantity: updateMap.get(product.id)! }
+          : product,
+      ),
+      cart: state.cart.map((item) =>
+        updateMap.has(item.id)
+          ? { ...item, quantity: updateMap.get(item.id)! }
+          : item,
+      ),
+    }));
+  },
 
   setDiscount: (discount) => set({ discount }),
   setDiscountType: (type) =>

@@ -1,9 +1,11 @@
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Product, usePOSStore } from '../_store/pos-store';
 import { Package, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import Image from 'next/image';
 
 interface ProductCardProps {
   product: Product;
@@ -14,13 +16,23 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
   const addToCart = usePOSStore((state) => state.addToCart);
   const categories = usePOSStore((state) => state.categories);
   const categoryName = categories.find(c => c.id === product.categoryId)?.categoryName || 'Uncategorized';
+  const isOutOfStock = product.trackInventory && product.quantity <= 0;
 
   const handleAdd = () => {
-    addToCart(product);
+    const result = addToCart(product);
+
+    if (!result.success) {
+      toast.error(
+        result.reason === 'OUT_OF_STOCK' ? 'Wala nang stock.' : 'Naabot na ang stock limit.',
+        {
+          description: 'Hindi na puwedeng dagdagan ang tracked item na ito.',
+          duration: 5000,
+        },
+      );
+    }
   };
 
   if (viewMode === 'list') {
-    const isOutOfStock = product.quantity <= 0;
     return (
       <Card 
         className={cn(
@@ -32,7 +44,13 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
         <div className="flex items-center gap-4">
           <div className="size-14 bg-muted/50 rounded-lg flex items-center justify-center border border-border overflow-hidden relative">
             {product.productImageUrl ? (
-              <img src={product.productImageUrl} alt={product.name} className="h-full w-full object-cover rounded-lg transition-transform group-hover:scale-110" />
+              <Image
+                src={product.productImageUrl}
+                alt={product.name}
+                fill
+                sizes="56px"
+                className="h-full w-full object-cover rounded-lg transition-transform group-hover:scale-110"
+              />
             ) : (
               <Package className="size-7 text-muted-foreground/30 group-hover:text-primary/60 transition-colors" />
             )}
@@ -50,7 +68,9 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
         <div className="flex items-center gap-4 lg:gap-6 pr-1">
           <div className="text-right">
             <p className="font-heading font-black text-xl text-primary tracking-tighter">₱{product.price.toFixed(2)}</p>
-            <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">{product.quantity} {product.baseUnit || 'PCS'}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">
+              {product.quantity} {product.baseUnit || 'PCS'}
+            </p>
           </div>
           <Button 
             size="icon" 
@@ -65,8 +85,6 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
     );
   }
 
-  const isOutOfStock = product.quantity <= 0;
-
   return (
     <Card 
       className={cn(
@@ -78,7 +96,13 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
       <CardHeader className="p-0 relative">
         <div className="aspect-square bg-muted/20 w-full flex items-center justify-center overflow-hidden relative">
           {product.productImageUrl ? (
-            <img src={product.productImageUrl} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+            <Image
+              src={product.productImageUrl}
+              alt={product.name}
+              fill
+              sizes="(max-width: 767px) 50vw, 25vw"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+            />
           ) : (
             <Package className="size-12 text-muted-foreground/10 transition-transform duration-500 group-hover:scale-110" />
           )}
@@ -108,7 +132,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           <div className="flex justify-between items-end">
              <div className="flex flex-col">
               <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">Stock</span>
-              <span className={`text-xs font-black ${product.quantity <= 10 ? 'text-amber-500' : 'text-muted-foreground'}`}>{product.quantity}</span>
+              <span className={`text-xs font-black ${product.trackInventory && product.quantity <= 10 ? 'text-amber-500' : 'text-muted-foreground'}`}>{product.quantity}</span>
             </div>
             <div className="text-right">
               <p className="font-heading font-black text-xl text-primary tracking-tighter leading-none">₱{product.price.toFixed(2)}</p>

@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 export type ItemType = 'RESALE' | 'WHOLESALE';
 export type VatType = 'VATABLE' | 'EXEMPT' | 'ZERO';
 
@@ -18,6 +16,7 @@ export interface ProductDto {
   cost: number;
   price: number;
   isAvailable: boolean;
+  trackInventory: boolean;
   itemType: ItemType;
   vatType: VatType;
   categoryId: string;
@@ -52,4 +51,3 @@ export interface CashTrackReportDto {
   // Reference (Non-cash)
   totalEPaymentSales: number;
 }
-
