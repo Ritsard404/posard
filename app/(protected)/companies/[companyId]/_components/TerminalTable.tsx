@@ -8,6 +8,8 @@ import type { TerminalDTO } from "../_services/terminal.dto";
 interface TerminalTableProps {
   terminals: TerminalDTO[];
   isLoading?: boolean;
+  addLabel?: string;
+  emptyDescription?: string;
   onAdd?: () => void;
   onEdit?: (terminal: TerminalDTO) => void;
   onDelete?: (id: string) => void;
@@ -16,6 +18,8 @@ interface TerminalTableProps {
 export default function TerminalTable({
   terminals,
   isLoading = false,
+  addLabel = "Add Terminal",
+  emptyDescription = "Add a terminal to get started",
   onAdd,
   onEdit,
   onDelete,
@@ -39,7 +43,7 @@ export default function TerminalTable({
         {onAdd && (
           <Button size="sm" onClick={onAdd} className="gap-2">
             <PlusCircle className="w-4 h-4" />
-            Add Terminal
+            {addLabel}
           </Button>
         )}
       </div>
@@ -49,7 +53,7 @@ export default function TerminalTable({
         <div className="p-12 text-center">
           <Terminal className="w-12 h-12 mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">No terminals found</p>
-          <p className="text-gray-400 text-sm mt-1">Add a terminal to get started</p>
+          <p className="text-gray-400 text-sm mt-1">{emptyDescription}</p>
         </div>
       ) : (
         <>

@@ -24,7 +24,7 @@ export const TerminalSchema = z.object({
   zCounterNo: z.number().int().min(0),
   zCounterTrainNo: z.number().int().min(0),
   isTrainMode: z.boolean(),
-  isRetailType: z.boolean(),
+  isActive: z.boolean(),
   companyId: z.string().uuid(),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -52,8 +52,10 @@ export const CreateTerminalSchema = z.object({
   printerName: z.string().min(1, "Printer Name is required"),
 });
 
+export type CreateTerminalPayload = z.input<typeof CreateTerminalSchema>;
 export type CreateTerminalInput = z.infer<typeof CreateTerminalSchema>;
 
 export const UpdateTerminalSchema = CreateTerminalSchema.partial();
 
+export type UpdateTerminalPayload = z.input<typeof UpdateTerminalSchema>;
 export type UpdateTerminalInput = z.infer<typeof UpdateTerminalSchema>;

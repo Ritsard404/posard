@@ -520,7 +520,7 @@ export function CheckoutModal({
                   >
                     Currency Tendered
                   </Label>
-                  <div className="group relative">
+                  <div className="group relative space-x-1.5">
                     <span className="absolute left-6 top-1/2 -translate-y-1/2 font-heading text-xl font-black text-accent/50 transition-colors group-focus-within:text-accent">
                       PHP
                     </span>

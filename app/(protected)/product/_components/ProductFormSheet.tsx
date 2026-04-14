@@ -39,6 +39,7 @@ const productSchema = z.object({
   cost: z.string().optional(),
   price: z.string().min(1, "Price is required."),
   isAvailable: z.boolean().optional(),
+  trackInventory: z.boolean().optional(),
   itemType: z.enum(["RESALE", "WHOLESALE"]).optional(),
   vatType: z.enum(["VATABLE", "EXEMPT", "ZERO"]).optional(),
   categoryId: z.string().optional(),
@@ -90,6 +91,7 @@ export function ProductFormSheet({
       cost: "0",
       price: "",
       isAvailable: true,
+      trackInventory: false,
       itemType: "RESALE",
       vatType: "VATABLE",
       categoryId: "",
@@ -108,6 +110,7 @@ export function ProductFormSheet({
         cost: String(product.cost ?? 0),
         price: String(product.price),
         isAvailable: product.isAvailable,
+        trackInventory: product.trackInventory,
         itemType: product.itemType,
         vatType: product.vatType,
         categoryId: product.categoryId ?? "",
@@ -122,6 +125,7 @@ export function ProductFormSheet({
         cost: "0",
         price: "",
         isAvailable: true,
+        trackInventory: false,
         itemType: "RESALE",
         vatType: "VATABLE",
         categoryId: "",
@@ -132,6 +136,7 @@ export function ProductFormSheet({
   }, [open, product, reset]);
 
   const isAvailableValue = watch("isAvailable");
+  const trackInventoryValue = watch("trackInventory");
 
   // Convertir strings a números y enviar al servidor
   async function onSubmit(values: ProductFormValues) {
@@ -151,6 +156,7 @@ export function ProductFormSheet({
       cost: values.cost ? parseFloat(values.cost) : undefined,
       price: priceNum,
       isAvailable: values.isAvailable,
+      trackInventory: values.trackInventory,
       itemType: values.itemType,
       vatType: values.vatType,
       categoryId: values.categoryId || undefined,
@@ -265,8 +271,14 @@ export function ProductFormSheet({
                 type="number"
                 min="0"
                 placeholder="0"
+                disabled={!trackInventoryValue}
                 {...register("quantity")}
               />
+              <p className="text-xs text-muted-foreground">
+                {trackInventoryValue
+                  ? "Use this for bottles, packs, and other stock-managed goods."
+                  : "Turn on inventory tracking first for stock-managed items."}
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="product-base-unit">Base Unit</Label>
@@ -327,6 +339,29 @@ export function ProductFormSheet({
             <Label htmlFor="product-available" className="cursor-pointer">
               Available for sale
             </Label>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="product-track-inventory"
+              checked={trackInventoryValue}
+              onCheckedChange={(checked) => {
+                const shouldTrack = checked === true;
+                setValue("trackInventory", shouldTrack);
+                if (!shouldTrack) {
+                  setValue("quantity", "0");
+                }
+              }}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="product-track-inventory" className="cursor-pointer">
+                Track inventory
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Enable this for bottles and packed items. Leave it off for
+                burgers, fries, and other prepared food unless sold by pack.
+              </p>
+            </div>
           </div>
 
           {/* Botones */}

@@ -49,6 +49,9 @@ export const inventoryService = {
       where: { id: productId, isDeleted: false },
     });
     if (!product) throw new Error("Product not found.");
+    if (!product.trackInventory) {
+      throw new Error("This product does not use inventory tracking.");
+    }
 
     await prisma.product.update({
       where: { id: productId },
@@ -82,6 +85,9 @@ export const inventoryService = {
       where: { id: dto.productId, isDeleted: false },
     });
     if (!product) throw new Error("Product not found.");
+    if (!product.trackInventory) {
+      throw new Error("This product does not use inventory tracking.");
+    }
 
     const currentQty = Number(product.quantity ?? 0);
     let newQty: number;

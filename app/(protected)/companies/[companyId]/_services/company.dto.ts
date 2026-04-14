@@ -1,5 +1,23 @@
 import { z } from "zod";
 
+const nullableTextInput = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value ?? null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}, z.string().nullable());
+
+const nullableEmailInput = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value ?? null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}, z.string().email("Invalid email").nullable());
+
 export const CompanySchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1, "Name is required"),
@@ -14,12 +32,29 @@ export const CompanySchema = z.object({
 
 export type CompanyDTO = z.infer<typeof CompanySchema>;
 
+export const CompanyListItemSchema = CompanySchema.extend({
+  terminalCount: z.number().int().min(0),
+  pendingTerminalRequestCount: z.number().int().min(0),
+});
+
+export type CompanyListItemDTO = z.infer<typeof CompanyListItemSchema>;
+
+export const CompanyDetailSchema = CompanySchema.extend({
+  terminalCount: z.number().int().min(0),
+  activeTerminalCount: z.number().int().min(0),
+  activeSubscriptionCount: z.number().int().min(0),
+  pendingTerminalRequestCount: z.number().int().min(0),
+});
+
+export type CompanyDetailDTO = z.infer<typeof CompanyDetailSchema>;
+
 export const UpdateCompanySchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
-  code: z.string().nullable().optional(),
-  email: z.string().email("Invalid email").nullable().optional(),
-  phone: z.string().nullable().optional(),
-  logoImageUrl: z.string().nullable().optional(),
+  code: nullableTextInput.optional(),
+  email: nullableEmailInput.optional(),
+  phone: nullableTextInput.optional(),
+  logoImageUrl: nullableTextInput.optional(),
+  isApproved: z.boolean().optional(),
 });
 
 export type UpdateCompanyInput = z.infer<typeof UpdateCompanySchema>;

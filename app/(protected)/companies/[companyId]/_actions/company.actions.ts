@@ -1,37 +1,21 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
 import { companyService } from "../_services/company.service";
-import { UpdateCompanySchema, type UpdateCompanyInput, type CompanyDTO } from "../_services/company.dto";
+import {
+  UpdateCompanySchema,
+  type UpdateCompanyInput,
+  type CompanyDetailDTO,
+  type CompanyListItemDTO,
+  CompanyDTO,
+} from "../_services/company.dto";
+import { companyAccessService } from "../_services/company-access.service";
 import { revalidatePath } from "next/cache";
 
-async function verifyAccess(targetCompanyId?: string) {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("Unauthorized");
-
-  const profile = await prisma.profile.findFirst({
-    where: { userId: data.user.id },
-    select: { id: true, companyId: true, role: true },
-  });
-
-  if (!profile) throw new Error("Profile not found");
-
-  if (profile.role === "admin") return profile; // Admin can do anything
-  
-  // Manager can only access their own company
-  if (targetCompanyId && profile.companyId !== targetCompanyId) {
-    throw new Error("Forbidden: You do not have access to this company");
-  }
-
-  return profile;
-}
-
-export async function getCompaniesAction(): Promise<{ success: true; data: CompanyDTO[] } | { success: false; error: string }> {
+export async function getCompaniesAction(): Promise<
+  { success: true; data: CompanyListItemDTO[] } | { success: false; error: string }
+> {
   try {
-    const profile = await verifyAccess();
-    if (profile.role !== "admin") throw new Error("Forbidden: Only admins can view all companies");
+    await companyAccessService.assertAdminAccess();
 
     const data = await companyService.getCompanies();
     return { success: true, data };
@@ -40,9 +24,11 @@ export async function getCompaniesAction(): Promise<{ success: true; data: Compa
   }
 }
 
-export async function getCompanyAction(companyId: string): Promise<{ success: true; data: CompanyDTO } | { success: false; error: string }> {
+export async function getCompanyAction(companyId: string): Promise<
+  { success: true; data: CompanyDetailDTO } | { success: false; error: string }
+> {
   try {
-    await verifyAccess(companyId);
+    await companyAccessService.assertCompanyAccess(companyId);
     const data = await companyService.getCompanyById(companyId);
     if (!data) throw new Error("Company not found");
     return { success: true, data };
@@ -53,11 +39,16 @@ export async function getCompanyAction(companyId: string): Promise<{ success: tr
 
 export async function updateCompanyAction(companyId: string, payload: UpdateCompanyInput): Promise<{ success: true; data: CompanyDTO } | { success: false; error: string }> {
   try {
-    await verifyAccess(companyId);
+    const viewer = await companyAccessService.assertCompanyAccess(companyId);
     
     const validated = UpdateCompanySchema.parse(payload);
+    if (viewer.role !== "admin" && typeof validated.isApproved !== "undefined") {
+      throw new Error("Forbidden");
+    }
+
     const data = await companyService.updateCompany(companyId, validated);
     
+    revalidatePath("/companies");
     revalidatePath(`/companies/${companyId}`);
     revalidatePath(`/companies/${companyId}/settings`);
     

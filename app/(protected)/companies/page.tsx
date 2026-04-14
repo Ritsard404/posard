@@ -1,31 +1,19 @@
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { companyService } from "./[companyId]/_services/company.service";
-import { Card } from "@/components/ui/card";
-import { Building2, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
 import { CompanyListClient } from "./_components/CompanyListClient";
+import { companyAccessService } from "./[companyId]/_services/company-access.service";
 
-// Solo administradores pueden ver el listado completo de empresas
 export default async function CompaniesPage() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect("/auth/login");
+  let viewer;
 
-  const profile = await prisma.profile.findFirst({
-    where: { userId: data.user.id },
-    select: { role: true, companyId: true },
-  });
-
-  if (!profile) redirect("/auth/login");
-
-  // El manager se redirige a su propia empresa
-  if (profile.role !== "admin") {
-    if (profile.companyId) {
-      redirect(`/companies/${profile.companyId}`);
-    }
+  try {
+    viewer = await companyAccessService.getViewer();
+  } catch {
     redirect("/dashboard");
+  }
+
+  if (viewer.role !== "admin") {
+    redirect(viewer.companyId ? `/companies/${viewer.companyId}` : "/dashboard");
   }
 
   const companies = await companyService.getCompanies();

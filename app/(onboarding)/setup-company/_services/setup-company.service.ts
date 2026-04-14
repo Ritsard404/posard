@@ -74,7 +74,6 @@ export async function createCompany(data: SetupCompanyInput) {
         useCenter: "",
         printerName: "",
         isTrainMode: false,
-        isRetailType: false,
       },
     }),
   ]);

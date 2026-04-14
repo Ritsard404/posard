@@ -104,7 +104,6 @@ export interface PosTerminalDto {
   zCounterNo: number;
   zCounterTrainNo: number;
   isTrainMode: boolean;
-  isRetailType: boolean;
   companyId: string;
   companyName?: string;
 }

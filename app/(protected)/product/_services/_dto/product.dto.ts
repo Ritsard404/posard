@@ -14,6 +14,7 @@ export interface ProductDto {
   cost: number;
   price: number;
   isAvailable: boolean;
+  trackInventory: boolean;
   itemType: ItemType;
   vatType: VatType;
   categoryId: string;
@@ -34,6 +35,7 @@ export interface ProductSaveDto {
   cost?: number;
   price: number;
   isAvailable?: boolean;
+  trackInventory?: boolean;
   itemType?: ItemType;
   vatType?: VatType;
   productImageUrl?: string;

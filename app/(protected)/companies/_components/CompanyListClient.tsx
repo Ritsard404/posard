@@ -13,6 +13,8 @@ interface Company {
   code: string | null;
   email: string | null;
   isApproved: boolean;
+  terminalCount: number;
+  pendingTerminalRequestCount: number;
 }
 
 interface CompanyListClientProps {
@@ -79,6 +81,12 @@ export function CompanyListClient({ initialCompanies }: CompanyListClientProps) 
                     </p>
                     <p className="text-xs font-medium text-muted-foreground truncate uppercase tracking-widest mt-0.5">
                       {company.code ?? company.email ?? "No Ref Code"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {company.terminalCount} terminal{company.terminalCount === 1 ? "" : "s"}
+                      {company.pendingTerminalRequestCount > 0
+                        ? ` • ${company.pendingTerminalRequestCount} pending request${company.pendingTerminalRequestCount === 1 ? "" : "s"}`
+                        : ""}
                     </p>
                   </div>
                 </div>

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Nunito_Sans, Rubik } from "next/font/google";
-import { ThemeProvider } from "next-themes";
-import { Toaster } from "sonner";
+import { AppProviders } from "./providers";
 import "./globals.css";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -48,15 +47,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${nunitoSans.variable} ${rubik.variable} font-sans antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <AppProviders>
           {children}
-          <Toaster richColors position="top-right" />
-        </ThemeProvider>
+        </AppProviders>
       </body>
     </html>
   );

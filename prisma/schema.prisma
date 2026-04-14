@@ -29,6 +29,37 @@ enum UserStatus {
   @@schema("public")
 }
 
+enum TerminalRequestStatus {
+  pending
+  approved
+  fulfilled
+  rejected
+  cancelled
+
+  @@map("terminal_request_status")
+  @@schema("public")
+}
+
+enum SubscriptionBillingCycle {
+  monthly
+  quarterly
+  annually
+
+  @@map("subscription_billing_cycle")
+  @@schema("public")
+}
+
+enum SubscriptionStatus {
+  pending
+  active
+  expired
+  suspended
+  cancelled
+
+  @@map("subscription_status")
+  @@schema("public")
+}
+
 /////////////////////////////////////////////////
 // PROFILE (Single User Source)
 /////////////////////////////////////////////////
@@ -63,6 +94,8 @@ model Profile {
 
   posSessions  PosSession[]
   approvalLogs ApprovalLog[]
+  requestedTerminalRequests TerminalRequest[] @relation("RequestedTerminalRequest")
+  reviewedTerminalRequests  TerminalRequest[] @relation("ReviewedTerminalRequest")
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -98,6 +131,7 @@ model Company {
   users        Profile[]
   images       CompanyImage[]
   posTerminals PosTerminalInfo[]
+  terminalRequests TerminalRequest[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -166,7 +200,6 @@ model PosTerminalInfo {
 
   // Modes
   isTrainMode  Boolean @default(false) @map("is_train_mode")
-  isRetailType Boolean @default(false) @map("is_retail_type")
   isActive     Boolean @default(false) @map("is_active")
 
   //////////////////////////////////////////////////
@@ -177,6 +210,7 @@ model PosTerminalInfo {
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   timestamps Timestamp[]
+  subscription TerminalSubscription?
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -189,6 +223,65 @@ model PosTerminalInfo {
 
   @@index([companyId])
   @@map("pos_terminal_info")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// TERMINAL SUBSCRIPTION
+/////////////////////////////////////////////////
+
+model TerminalSubscription {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_terminal_subscription") @db.Uuid
+
+  terminalId String          @unique @map("terminal_id") @db.Uuid
+  terminal   PosTerminalInfo @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+
+  billingCycle SubscriptionBillingCycle @map("billing_cycle")
+  status       SubscriptionStatus       @default(pending)
+
+  startsAt  DateTime? @map("starts_at") @db.Date
+  expiresAt DateTime? @map("expires_at") @db.Date
+  renewedAt DateTime? @map("renewed_at") @db.Date
+
+  autoRenew Boolean  @default(false) @map("auto_renew")
+  price     Decimal? @db.Decimal(12, 2)
+  notes     String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("terminal_subscription")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// TERMINAL REQUEST
+/////////////////////////////////////////////////
+
+model TerminalRequest {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_terminal_request") @db.Uuid
+
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  requestedById String  @map("requested_by_id") @db.Uuid
+  requestedBy   Profile @relation("RequestedTerminalRequest", fields: [requestedById], references: [id])
+
+  reviewedById String?  @map("reviewed_by_id") @db.Uuid
+  reviewedBy   Profile? @relation("ReviewedTerminalRequest", fields: [reviewedById], references: [id])
+
+  requestedTerminals Int                  @default(1) @map("requested_terminals")
+  status             TerminalRequestStatus @default(pending)
+  notes              String?
+
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId])
+  @@index([requestedById])
+  @@index([reviewedById])
+  @@map("terminal_request")
   @@schema("public")
 }
 
@@ -363,7 +456,7 @@ model Product {
   cost            Decimal  @default(0) @db.Decimal(19, 4)
   price           Decimal  @db.Decimal(19, 4)
   isAvailable     Boolean  @default(true) @map("is_available")
-  trackInventory  Boolean  @default(true) @map("track_inventory")
+  trackInventory  Boolean  @default(false) @map("track_inventory")
   itemType        ItemType @default(RESALE) @map("item_type")
   vatType         VatType  @default(VATABLE) @map("vat_type")
 

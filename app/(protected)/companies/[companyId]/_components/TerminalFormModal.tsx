@@ -1,26 +1,32 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm, type Resolver } from "react-hook-form";
+import { type Resolver, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
-import { Loader2, X } from "lucide-react";
 import {
   CreateTerminalSchema,
-  type CreateTerminalInput,
+  type CreateTerminalPayload,
   type TerminalDTO,
 } from "../_services/terminal.dto";
 
 interface TerminalFormModalProps {
-  // Si se pasa un terminal, es modo edición; si no, es modo creación
   terminal?: TerminalDTO;
   isOpen: boolean;
   isSubmitting?: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateTerminalInput) => void;
+  onSubmit: (data: CreateTerminalPayload) => void;
 }
 
 export default function TerminalFormModal({
@@ -37,219 +43,152 @@ export default function TerminalFormModal({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<CreateTerminalInput>({
-    resolver: zodResolver(
-      CreateTerminalSchema,
-    ) as Resolver<CreateTerminalInput>,
-    defaultValues: terminal
-      ? {
-          ...terminal,
-          dateIssued: new Date(terminal.dateIssued),
-          validUntil: new Date(terminal.validUntil),
-          discountMax: terminal.discountMax,
-          dbName: terminal.dbName ?? undefined,
-        }
-      : undefined,
+  } = useForm<CreateTerminalPayload>({
+    resolver: zodResolver(CreateTerminalSchema) as Resolver<CreateTerminalPayload>,
   });
 
-  // Sincronizar el formulario cuando cambia el terminal seleccionado
   useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     if (terminal) {
       reset({
-        ...terminal,
-        dateIssued: new Date(terminal.dateIssued),
-        validUntil: new Date(terminal.validUntil),
+        minNumber: terminal.minNumber,
+        accreditationNumber: terminal.accreditationNumber,
+        ptuNumber: terminal.ptuNumber,
+        dateIssued: toDateInputValue(terminal.dateIssued),
+        validUntil: toDateInputValue(terminal.validUntil),
+        posName: terminal.posName,
+        registeredName: terminal.registeredName,
+        operatedBy: terminal.operatedBy,
+        address: terminal.address,
+        vatTinNumber: terminal.vatTinNumber,
+        vat: terminal.vat,
         discountMax: terminal.discountMax,
+        costCenter: terminal.costCenter,
+        branchCenter: terminal.branchCenter,
+        useCenter: terminal.useCenter,
         dbName: terminal.dbName ?? undefined,
+        printerName: terminal.printerName,
       });
-    } else {
-      reset({});
+      return;
     }
-  }, [terminal, reset]);
 
-  if (!isOpen) return null;
-
-  const toDateInputValue = (val: Date | string | undefined) => {
-    if (!val) return "";
-    return new Date(val).toISOString().split("T")[0];
-  };
+    reset({
+      minNumber: "",
+      accreditationNumber: "",
+      ptuNumber: "",
+      dateIssued: "",
+      validUntil: "",
+      posName: "",
+      registeredName: "",
+      operatedBy: "",
+      address: "",
+      vatTinNumber: "",
+      vat: 0,
+      discountMax: 0,
+      costCenter: "",
+      branchCenter: "",
+      useCenter: "",
+      dbName: undefined,
+      printerName: "",
+    });
+  }, [isOpen, terminal, reset]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Modal header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {isEditMode ? "Edit Terminal" : "Add Terminal"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md hover:bg-gray-100 transition-colors"
-            type="button"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : null)}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{isEditMode ? "Edit Terminal" : "Add Terminal"}</DialogTitle>
+          <DialogDescription>
+            {isEditMode
+              ? "Update terminal registration, business, and system fields."
+              : "Register a new terminal for this company."}
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-          {/* Sección: Información regulatoria */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <section className="space-y-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Regulatory Information
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FieldGroup label="MIN Number" error={errors.minNumber?.message}>
                 <Input {...register("minNumber")} placeholder="MIN-0000" />
               </FieldGroup>
-              <FieldGroup
-                label="Accreditation Number"
-                error={errors.accreditationNumber?.message}
-              >
-                <Input
-                  {...register("accreditationNumber")}
-                  placeholder="ACCR-0000"
-                />
+              <FieldGroup label="Accreditation Number" error={errors.accreditationNumber?.message}>
+                <Input {...register("accreditationNumber")} placeholder="ACCR-0000" />
               </FieldGroup>
               <FieldGroup label="PTU Number" error={errors.ptuNumber?.message}>
                 <Input {...register("ptuNumber")} placeholder="PTU-0000" />
               </FieldGroup>
-              <FieldGroup
-                label="Date Issued"
-                error={errors.dateIssued?.message}
-              >
-                <Input
-                  type="date"
-                  {...register("dateIssued")}
-                  defaultValue={toDateInputValue(terminal?.dateIssued)}
-                />
+              <FieldGroup label="Date Issued" error={errors.dateIssued?.message}>
+                <Input type="date" {...register("dateIssued")} />
               </FieldGroup>
-              <FieldGroup
-                label="Valid Until"
-                error={errors.validUntil?.message}
-              >
-                <Input
-                  type="date"
-                  {...register("validUntil")}
-                  defaultValue={toDateInputValue(terminal?.validUntil)}
-                />
+              <FieldGroup label="Valid Until" error={errors.validUntil?.message}>
+                <Input type="date" {...register("validUntil")} />
               </FieldGroup>
             </div>
-          </div>
+          </section>
 
-          {/* Sección: Información del negocio */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-4">
+          <section className="space-y-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Business Information
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FieldGroup label="POS Name" error={errors.posName?.message}>
                 <Input {...register("posName")} placeholder="POS-001" />
               </FieldGroup>
-              <FieldGroup
-                label="Registered Name"
-                error={errors.registeredName?.message}
-              >
-                <Input
-                  {...register("registeredName")}
-                  placeholder="Business Name Inc."
-                />
+              <FieldGroup label="Registered Name" error={errors.registeredName?.message}>
+                <Input {...register("registeredName")} placeholder="Business Name Inc." />
               </FieldGroup>
-              <FieldGroup
-                label="Operated By"
-                error={errors.operatedBy?.message}
-              >
-                <Input
-                  {...register("operatedBy")}
-                  placeholder="Operator name"
-                />
+              <FieldGroup label="Operated By" error={errors.operatedBy?.message}>
+                <Input {...register("operatedBy")} placeholder="Operator name" />
               </FieldGroup>
-              <FieldGroup
-                label="VAT TIN Number"
-                error={errors.vatTinNumber?.message}
-              >
-                <Input
-                  {...register("vatTinNumber")}
-                  placeholder="000-000-000-000"
-                />
+              <FieldGroup label="VAT TIN Number" error={errors.vatTinNumber?.message}>
+                <Input {...register("vatTinNumber")} placeholder="000-000-000-000" />
               </FieldGroup>
               <FieldGroup label="VAT (%)" error={errors.vat?.message}>
                 <Input type="number" {...register("vat")} placeholder="12" />
               </FieldGroup>
-              <FieldGroup
-                label="Max Discount"
-                error={errors.discountMax?.message}
-              >
-                <Input
-                  type="number"
-                  step="0.01"
-                  {...register("discountMax")}
-                  placeholder="20"
-                />
+              <FieldGroup label="Max Discount" error={errors.discountMax?.message}>
+                <Input type="number" step="0.01" {...register("discountMax")} placeholder="20" />
               </FieldGroup>
-              <FieldGroup
-                label="Address"
-                error={errors.address?.message}
-                className="sm:col-span-2"
-              >
-                <Input
-                  {...register("address")}
-                  placeholder="Street, City, Province"
-                />
+              <FieldGroup label="Address" error={errors.address?.message} className="sm:col-span-2">
+                <Input {...register("address")} placeholder="Street, City, Province" />
               </FieldGroup>
             </div>
-          </div>
+          </section>
 
-          {/* Sección: Configuración del sistema */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-4">
+          <section className="space-y-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               System Configuration
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FieldGroup
-                label="Cost Center"
-                error={errors.costCenter?.message}
-              >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldGroup label="Cost Center" error={errors.costCenter?.message}>
                 <Input {...register("costCenter")} placeholder="COST-001" />
               </FieldGroup>
-              <FieldGroup
-                label="Branch Center"
-                error={errors.branchCenter?.message}
-              >
+              <FieldGroup label="Branch Center" error={errors.branchCenter?.message}>
                 <Input {...register("branchCenter")} placeholder="BRANCH-001" />
               </FieldGroup>
               <FieldGroup label="Use Center" error={errors.useCenter?.message}>
                 <Input {...register("useCenter")} placeholder="USE-001" />
               </FieldGroup>
-              <FieldGroup
-                label="DB Name (optional)"
-                error={errors.dbName?.message}
-              >
+              <FieldGroup label="DB Name" error={errors.dbName?.message}>
                 <Input {...register("dbName")} placeholder="db_pos_001" />
               </FieldGroup>
-              <FieldGroup
-                label="Printer Name"
-                error={errors.printerName?.message}
-              >
+              <FieldGroup label="Printer Name" error={errors.printerName?.message}>
                 <Input {...register("printerName")} placeholder="EPSON-TM20" />
               </FieldGroup>
             </div>
-          </div>
+          </section>
 
-          {/* Botones de acción */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="min-w-[100px]"
-            >
+            <Button type="submit" disabled={isSubmitting} className="min-w-[120px]">
               {isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : isEditMode ? (
@@ -258,14 +197,17 @@ export default function TerminalFormModal({
                 "Create Terminal"
               )}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </Card>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// Componente auxiliar para agrupar campo y su error
+function toDateInputValue(value: Date | string) {
+  return new Date(value).toISOString().split("T")[0];
+}
+
 function FieldGroup({
   label,
   error,
@@ -281,7 +223,7 @@ function FieldGroup({
     <div className={`space-y-1.5 ${className}`}>
       <Label className="text-sm font-medium text-gray-700">{label}</Label>
       {children}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error ? <p className="text-xs text-red-500">{error}</p> : null}
     </div>
   );
 }

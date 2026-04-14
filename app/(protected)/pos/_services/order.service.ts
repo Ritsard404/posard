@@ -43,7 +43,6 @@ async function getTerminalForProfile(companyId: string) {
       isTrainMode: true,
       resetCounterNo: true,
       resetCounterTrainNo: true,
-      isRetailType: true,
     },
   });
 
@@ -256,7 +255,7 @@ export const orderService = {
     const productMap = await loadAndValidateProducts(
       prisma,
       dto.items,
-      !terminal.isRetailType,
+      false,
     );
 
     const calc = calculatePayment({
@@ -284,7 +283,7 @@ export const orderService = {
       const transactionProductMap = await loadAndValidateProducts(
         tx,
         dto.items,
-        !terminal.isRetailType,
+        false,
       );
 
       const invoice = await tx.invoice.create({
@@ -371,7 +370,7 @@ export const orderService = {
       });
 
       const stockUpdates =
-        !terminal.isTrainMode && terminal.isRetailType
+        !terminal.isTrainMode
           ? await deductStock(tx, dto.items, transactionProductMap)
           : [];
 

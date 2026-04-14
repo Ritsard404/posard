@@ -103,7 +103,7 @@ export async function updateSession(request: NextRequest) {
   // Logged in but no permission → redirect to their first accessible route
   if (!hasPermissionForRoute(userRole, pathname)) {
     const dest = getFirstAccessibleRoute(userRole);
-    if (dest === "/auth/login") {
+    if (dest === "/auth/login" || dest === pathname) {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
     if (dest !== pathname) {

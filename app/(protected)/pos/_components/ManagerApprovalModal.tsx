@@ -1,7 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useEffect, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { authorizeManagerAction } from "../_actions/pos-auth.action";
@@ -12,66 +18,135 @@ interface ManagerApprovalModalProps {
   onOpenChange: (open: boolean) => void;
   actionType: string;
   referenceId: string;
-  onSuccess: (manager: { email: string, name: string }) => void;
+  onSuccess: (manager: { email: string; name: string }) => void;
 }
 
-export function ManagerApprovalModal({ open, onOpenChange, actionType, referenceId, onSuccess }: ManagerApprovalModalProps) {
+export function ManagerApprovalModal({
+  open,
+  onOpenChange,
+  actionType,
+  referenceId,
+  onSuccess,
+}: ManagerApprovalModalProps) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleApprove = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!open) {
+      setPin("");
+      setError(null);
+      setIsLoading(false);
+    }
+  }, [open]);
+
+  const handleApprove = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+
     if (pin.length < 4) {
-      setError("PIN must be at least 4 digits");
+      setError("PIN must be at least 4 digits.");
       return;
     }
 
-    setIsLoading(true);
-    const result = await authorizeManagerAction(pin, actionType, referenceId);
-    setIsLoading(false);
+    try {
+      setIsLoading(true);
 
-    if (result.success) {
+      const result = await authorizeManagerAction(pin, actionType, referenceId);
+
+      if (result.success) {
+        setPin("");
+        setError(null);
+        onSuccess(result.manager);
+        onOpenChange(false);
+        return;
+      }
+
+      setError(result.error || "Invalid manager PIN.");
       setPin("");
-      onSuccess(result.manager);
-      onOpenChange(false);
-    } else {
-      setError(result.error || "Invalid Manager PIN");
+    } catch {
+      setError("Unable to authorize manager action.");
       setPin("");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(val) => {
-        if (!val) {
-            setPin("");
-            setError(null);
-        }
-        onOpenChange(val);
-    }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-center text-xl font-bold">Manager Approval Required</DialogTitle>
+          <DialogTitle className="text-center text-xl font-bold">
+            Manager Approval Required
+          </DialogTitle>
           <DialogDescription className="text-center">
-            Enter Manager PIN to authorize this action.
+            Enter manager PIN to authorize this action.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleApprove} className="flex flex-col space-y-4 py-4">
+
+        <form
+          onSubmit={handleApprove}
+          autoComplete="off"
+          className="flex flex-col space-y-4 py-4"
+        >
+          {/* Decoy fields to reduce Chrome password manager suggestions */}
+          <input
+            type="text"
+            name="fake-username"
+            autoComplete="username"
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+          <input
+            type="password"
+            name="fake-password"
+            autoComplete="current-password"
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+
           <Input
             id="managerPin"
-            type="password"
+            name="mgr-auth-code"
+            type="text"
+            inputMode="numeric"
             maxLength={6}
             autoFocus
-            inputMode="numeric"
+            autoComplete="off"
             placeholder="••••••"
-            className="text-center text-2xl tracking-widest h-14"
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            className="h-14 text-center text-2xl tracking-widest"
+            value={"•".repeat(pin.length)}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/\D/g, "");
+              setPin((prev) => (raw.length >= prev.length ? raw : raw));
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Backspace") {
+                setPin((prev) => prev.slice(0, -1));
+                e.preventDefault();
+              }
+            }}
           />
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
-          <Button type="submit" disabled={isLoading || pin.length < 4} className="h-12 text-lg">
-            {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Authorize"}
+
+          {error ? (
+            <p className="text-center text-sm text-destructive">{error}</p>
+          ) : null}
+
+          <Button
+            type="submit"
+            disabled={isLoading || pin.length < 4}
+            className="h-12 text-lg"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Authorizing...
+              </>
+            ) : (
+              "Authorize"
+            )}
           </Button>
         </form>
       </DialogContent>
