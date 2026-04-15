@@ -10,16 +10,16 @@ const defaultUrl = process.env.VERCEL_URL
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: {
-    default: "Baisard POS | Professional Retail Solutions",
-    template: "%s | Baisard POS",
+    default: "POSard | Professional Retail Solutions",
+    template: "%s | POSard",
   },
   description:
-    "Baisard POS is a premium, all-in-one point-of-sale system designed for modern retail. Manage sales, inventory, and analytics with ease and style.",
-  applicationName: "Baisard POS",
-  keywords: ["POS", "Point of Sale", "Retail Management", "Inventory Control", "Business Analytics", "Baisard"],
+    "POSard is a premium, all-in-one point-of-sale system designed for modern retail. Manage sales, inventory, and analytics with ease and style.",
+  applicationName: "POSard",
+  keywords: ["POS", "Point of Sale", "Retail Management", "Inventory Control", "Business Analytics", "POSard"],
   authors: [{ name: "Ritsard" }],
   openGraph: {
-    title: "Baisard POS | Professional Retail Solutions",
+    title: "POSard | Professional Retail Solutions",
     description: "Steamline your business with our modern point-of-sale system.",
     type: "website",
   },

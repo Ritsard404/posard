@@ -21,7 +21,7 @@ export default function OnboardingLayout({
               <ShieldCheck className="w-5 h-5 text-accent-foreground" />
             </div>
             <span className="text-xl font-heading font-extrabold tracking-tight text-foreground">
-              Baisard<span className="text-accent">POS</span>
+              POS<span className="text-accent">ard</span>
             </span>
           </Link>
 

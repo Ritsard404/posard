@@ -229,7 +229,7 @@ export function CheckoutModal({
           <div className="relative max-h-[50vh] overflow-y-auto p-8 font-mono text-[11px] leading-relaxed">
             <div className="mb-8 text-center">
               <h3 className="mb-1 font-heading text-xl font-black uppercase tracking-tighter text-foreground">
-                BAISARD POS
+                POSard
               </h3>
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-accent">
                 {receipt.isTrainMode ? "Training Receipt" : "Official Receipt"}
