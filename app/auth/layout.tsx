@@ -21,7 +21,7 @@ export default function AuthLayout({
               <ShieldCheck className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="text-xl font-heading font-extrabold tracking-tight text-foreground">
-              POSard<span className="text-primary italic">.suite</span>
+              POS<span className="text-primary italic">ard</span>
             </span>
           </Link>
 
@@ -39,7 +39,7 @@ export default function AuthLayout({
 
       <footer className="absolute bottom-8 w-full text-center">
         <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">
-          © 2026 Baisard. All rights reserved.
+          © 2026 POSard. All rights reserved.
         </p>
       </footer>
     </div>

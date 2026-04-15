@@ -38,7 +38,6 @@ let mockCompany: CompanyDto = {
   email: "admin@techcorp.com",
   phone: "555-0100",
   logoImageUrl: null,
-  isApproved: true,
 };
 
 let mockCashiers: MyCashiersDto[] = [];
@@ -284,7 +283,6 @@ export const adminService = {
       email: company.email,
       phone: company.phone,
       logoImageUrl: company.logoImageUrl,
-      isApproved: company.isApproved,
     };
   },
 

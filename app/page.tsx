@@ -231,7 +231,7 @@ export default async function Home() {
             <div className="flex flex-col items-center md:items-end gap-4">
               <ThemeSwitcher />
               <p className="text-xs text-muted-foreground">
-                © 2026 Baisard. Built with ❤️ by Ritsard.
+                © 2026 POSard. Built with ❤️ by Ritsard.
               </p>
             </div>
           </div>

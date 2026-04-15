@@ -26,6 +26,11 @@ export const TerminalSchema = z.object({
   isTrainMode: z.boolean(),
   isActive: z.boolean(),
   companyId: z.string().uuid(),
+  companyName: z.string().nullable().optional(),
+  subscriptionStatus: z.enum(["pending", "active", "expired", "suspended", "cancelled"]).nullable().optional(),
+  subscriptionExpiresAt: z.date().nullable().optional(),
+  assignedUserName: z.string().nullable().optional(),
+  isInUse: z.boolean().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -79,3 +84,9 @@ export const TerminalConfigurationSchema = z.object({
 
 export type TerminalConfigurationPayload = z.input<typeof TerminalConfigurationSchema>;
 export type TerminalConfigurationInput = z.infer<typeof TerminalConfigurationSchema>;
+
+export const SetTerminalActiveSchema = z.object({
+  isActive: z.boolean(),
+});
+
+export type SetTerminalActiveInput = z.infer<typeof SetTerminalActiveSchema>;

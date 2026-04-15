@@ -14,6 +14,7 @@ interface TerminalTableProps {
   onAdd?: () => void;
   onSelect?: (terminal: TerminalDTO) => void;
   onEdit?: (terminal: TerminalDTO) => void;
+  onToggleActive?: (terminal: TerminalDTO) => void;
   onDelete?: (id: string) => void;
 }
 
@@ -26,6 +27,7 @@ export default function TerminalTable({
   onAdd,
   onSelect,
   onEdit,
+  onToggleActive,
   onDelete,
 }: TerminalTableProps) {
   if (isLoading) {
@@ -71,7 +73,7 @@ export default function TerminalTable({
                   <th className="px-4 py-3">PTU Number</th>
                   <th className="px-4 py-3">Registered Name</th>
                   <th className="px-4 py-3">Valid Until</th>
-                  <th className="px-4 py-3">Mode</th>
+                  <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -94,16 +96,29 @@ export default function TerminalTable({
                       {new Date(t.validUntil).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                          t.isTrainMode
-                            ? "bg-amber-100 text-amber-700 border border-amber-200"
-                            : "bg-green-100 text-green-700 border border-green-200"
-                        }`}
-                      >
-                        <ShieldCheck className="w-3 h-3" />
-                        {t.isTrainMode ? "Training" : "Live"}
-                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${
+                            t.isInUse
+                              ? "border-sky-200 bg-sky-50 text-sky-700"
+                              : t.isActive
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "border-zinc-200 bg-zinc-100 text-zinc-700"
+                          }`}
+                        >
+                          {t.isInUse ? "In Use" : t.isActive ? "Active" : "Inactive"}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                            t.isTrainMode
+                              ? "bg-amber-100 text-amber-700 border border-amber-200"
+                              : "bg-green-100 text-green-700 border border-green-200"
+                          }`}
+                        >
+                          <ShieldCheck className="w-3 h-3" />
+                          {t.isTrainMode ? "Training" : "Live"}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
@@ -132,6 +147,19 @@ export default function TerminalTable({
                           >
                             <Pencil className="w-3 h-3 mr-1" />
                             Edit
+                          </Button>
+                        )}
+                        {onToggleActive && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onToggleActive(t);
+                            }}
+                            className="text-xs"
+                          >
+                            {t.isActive ? "Disable" : "Enable"}
                           </Button>
                         )}
                         {onDelete && (
@@ -167,12 +195,14 @@ export default function TerminalTable({
                   </div>
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      t.isTrainMode
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-green-100 text-green-700"
+                      t.isInUse
+                        ? "bg-sky-100 text-sky-700"
+                        : t.isActive
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-zinc-100 text-zinc-700"
                     }`}
                   >
-                    {t.isTrainMode ? "Training" : "Live"}
+                    {t.isInUse ? "In Use" : t.isActive ? "Active" : "Inactive"}
                   </span>
                 </div>
                 <div className="text-xs text-gray-500 space-y-1">
@@ -199,6 +229,16 @@ export default function TerminalTable({
                       className="flex-1 text-xs text-blue-600 border-blue-200"
                     >
                       Edit
+                    </Button>
+                  )}
+                  {onToggleActive && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onToggleActive(t)}
+                      className="flex-1 text-xs"
+                    >
+                      {t.isActive ? "Disable" : "Enable"}
                     </Button>
                   )}
                   {onDelete && (

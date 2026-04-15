@@ -11,10 +11,9 @@ import CompanySettingsForm from "../../_components/CompanySettingsForm";
 
 interface SettingsPageClientProps {
   company: CompanyDetailDTO;
-  canManageApproval: boolean;
 }
 
-export default function SettingsPageClient({ company, canManageApproval }: SettingsPageClientProps) {
+export default function SettingsPageClient({ company }: SettingsPageClientProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (data: UpdateCompanyInput) => {
@@ -41,14 +40,11 @@ export default function SettingsPageClient({ company, canManageApproval }: Setti
           <h2 className="font-semibold text-gray-900">General Settings</h2>
           <p className="text-xs text-gray-500">Update your company profile information</p>
         </div>
-        <Badge variant="outline" className={company.isApproved ? "border-emerald-200 text-emerald-700" : "border-amber-200 text-amber-700"}>
-          {company.isApproved ? "Approved" : "Pending Approval"}
-        </Badge>
+        <Badge variant="outline">Operational Settings</Badge>
       </div>
 
       <CompanySettingsForm  
         company={company}
-        canManageApproval={canManageApproval}
         isSubmitting={isSubmitting}
         onSubmit={handleSubmit}
       />

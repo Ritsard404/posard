@@ -18,6 +18,7 @@ import { createTerminalRequestAction, getTerminalRequestsAction, updateTerminalR
 import {
   createTerminalAction,
   deleteTerminalAction,
+  setTerminalActiveAction,
   getTerminalsAction,
   updateTerminalConfigurationAction,
   updateTerminalAction,
@@ -151,6 +152,22 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
     toast.error(result.error);
   };
 
+  const handleToggleActive = async (terminal: TerminalDTO) => {
+    const result = await setTerminalActiveAction(terminal.id, companyId, {
+      isActive: !terminal.isActive,
+    });
+
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+
+    toast.success(result.data.isActive ? "Terminal enabled" : "Terminal disabled");
+    setTerminals((current) =>
+      current.map((item) => (item.id === result.data.id ? result.data : item)),
+    );
+  };
+
   const handleTerminalRequest = async (data: CreateTerminalRequestInput) => {
     setIsRequestSubmitting(true);
     try {
@@ -254,6 +271,7 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
         onAdd={role === "admin" ? handleAdd : undefined}
         onSelect={role === "manager" ? handleSelect : undefined}
         onEdit={role === "admin" ? handleEdit : undefined}
+        onToggleActive={role === "admin" ? (terminal) => void handleToggleActive(terminal) : undefined}
         onDelete={role === "admin" ? (id) => setDeleteTargetId(id) : undefined}
       />
 

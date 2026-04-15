@@ -73,6 +73,33 @@ export const subscriptionService = {
     return subscriptions.map(mapSubscription);
   },
 
+  async getSubscriptionByTerminal(
+    companyId: string,
+    terminalId: string,
+  ): Promise<TerminalSubscriptionDTO | null> {
+    const subscription = await prisma.terminalSubscription.findFirst({
+      where: {
+        terminalId,
+        terminal: {
+          companyId,
+        },
+      },
+      include: {
+        terminal: {
+          select: {
+            id: true,
+            posName: true,
+            registeredName: true,
+            isActive: true,
+            isTrainMode: true,
+          },
+        },
+      },
+    });
+
+    return subscription ? mapSubscription(subscription) : null;
+  },
+
   async upsertSubscription(
     companyId: string,
     terminalId: string,
@@ -92,6 +119,13 @@ export const subscriptionService = {
       throw new Error("Terminal not found");
     }
 
+    const normalizedStatus =
+      payload.status === "active" &&
+      payload.expiresAt &&
+      payload.expiresAt < new Date()
+        ? "expired"
+        : payload.status;
+
     const subscription = await prisma.terminalSubscription.upsert({
       where: {
         terminalId,
@@ -99,7 +133,7 @@ export const subscriptionService = {
       create: {
         terminalId,
         billingCycle: payload.billingCycle,
-        status: payload.status,
+        status: normalizedStatus,
         startsAt: payload.startsAt ?? null,
         expiresAt: payload.expiresAt ?? null,
         renewedAt: payload.renewedAt ?? null,
@@ -109,7 +143,7 @@ export const subscriptionService = {
       },
       update: {
         billingCycle: payload.billingCycle,
-        status: payload.status,
+        status: normalizedStatus,
         startsAt: payload.startsAt ?? null,
         expiresAt: payload.expiresAt ?? null,
         renewedAt: payload.renewedAt ?? null,
@@ -128,6 +162,59 @@ export const subscriptionService = {
           },
         },
       },
+    });
+
+    return mapSubscription(subscription);
+  },
+
+  async cancelSubscription(
+    companyId: string,
+    terminalId: string,
+  ): Promise<TerminalSubscriptionDTO> {
+    const terminal = await prisma.posTerminalInfo.findFirst({
+      where: {
+        id: terminalId,
+        companyId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!terminal) {
+      throw new Error("Terminal not found");
+    }
+
+    const subscription = await prisma.$transaction(async (tx) => {
+      const updatedSubscription = await tx.terminalSubscription.update({
+        where: {
+          terminalId,
+        },
+        data: {
+          status: "cancelled",
+          autoRenew: false,
+        },
+        include: {
+          terminal: {
+            select: {
+              id: true,
+              posName: true,
+              registeredName: true,
+              isActive: true,
+              isTrainMode: true,
+            },
+          },
+        },
+      });
+
+      await tx.posTerminalInfo.update({
+        where: { id: terminalId },
+        data: {
+          isActive: false,
+        },
+      });
+
+      return updatedSubscription;
     });
 
     return mapSubscription(subscription);

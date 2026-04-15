@@ -51,7 +51,6 @@ export interface CompanyDto {
   email: string | null;
   phone: string | null;
   logoImageUrl: string | null;
-  isApproved: boolean;
 }
 
 export interface UpdateCompanyDto {

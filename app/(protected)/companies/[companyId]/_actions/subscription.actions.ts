@@ -35,6 +35,8 @@ export async function upsertSubscriptionAction(
     const data = await subscriptionService.upsertSubscription(companyId, terminalId, validated);
 
     revalidatePath("/companies");
+    revalidatePath("/subscriptions");
+    revalidatePath("/terminals");
     revalidatePath(`/companies/${companyId}`);
     revalidatePath(`/companies/${companyId}/subscription`);
 
@@ -43,6 +45,30 @@ export async function upsertSubscriptionAction(
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to save subscription",
+    };
+  }
+}
+
+export async function cancelSubscriptionAction(
+  companyId: string,
+  terminalId: string,
+): Promise<{ success: true; data: TerminalSubscriptionDTO } | { success: false; error: string }> {
+  try {
+    await companyAccessService.assertAdminAccess(companyId);
+    const data = await subscriptionService.cancelSubscription(companyId, terminalId);
+
+    revalidatePath("/companies");
+    revalidatePath(`/companies/${companyId}`);
+    revalidatePath(`/companies/${companyId}/terminals`);
+    revalidatePath(`/companies/${companyId}/subscription`);
+    revalidatePath("/terminals");
+    revalidatePath("/subscriptions");
+
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to cancel subscription",
     };
   }
 }

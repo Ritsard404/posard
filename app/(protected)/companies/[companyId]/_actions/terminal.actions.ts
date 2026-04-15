@@ -3,9 +3,11 @@
 import { terminalService } from "../_services/terminal.service";
 import {
   CreateTerminalSchema,
+  SetTerminalActiveSchema,
   TerminalConfigurationSchema,
   UpdateTerminalSchema,
   type CreateTerminalPayload,
+  type SetTerminalActiveInput,
   type TerminalConfigurationPayload,
   type UpdateTerminalPayload,
   type TerminalDTO,
@@ -23,6 +25,19 @@ export async function getTerminalsAction(companyId: string): Promise<{ success: 
   }
 }
 
+export async function getTerminalAction(id: string, companyId: string): Promise<{ success: true; data: TerminalDTO } | { success: false; error: string }> {
+  try {
+    await companyAccessService.assertCompanyAccess(companyId);
+    const data = await terminalService.getTerminalById(id, companyId);
+    if (!data) {
+      throw new Error("Terminal not found");
+    }
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Failed to load terminal" };
+  }
+}
+
 export async function createTerminalAction(companyId: string, payload: CreateTerminalPayload): Promise<{ success: true; data: TerminalDTO } | { success: false; error: string }> {
   try {
     await companyAccessService.assertAdminAccess(companyId);
@@ -30,6 +45,8 @@ export async function createTerminalAction(companyId: string, payload: CreateTer
     const data = await terminalService.createTerminal(companyId, validated);
     
     revalidatePath("/companies");
+    revalidatePath("/terminals");
+    revalidatePath("/subscriptions");
     revalidatePath(`/companies/${companyId}`);
     revalidatePath(`/companies/${companyId}/terminals`);
     revalidatePath(`/companies/${companyId}/subscription`);
@@ -46,6 +63,8 @@ export async function updateTerminalAction(id: string, companyId: string, payloa
     const data = await terminalService.updateTerminal(id, companyId, validated);
     
     revalidatePath("/companies");
+    revalidatePath("/terminals");
+    revalidatePath("/subscriptions");
     revalidatePath(`/companies/${companyId}`);
     revalidatePath(`/companies/${companyId}/terminals`);
     revalidatePath(`/companies/${companyId}/subscription`);
@@ -66,6 +85,8 @@ export async function updateTerminalConfigurationAction(
     const data = await terminalService.updateTerminalConfiguration(id, companyId, validated);
 
     revalidatePath("/companies");
+    revalidatePath("/terminals");
+    revalidatePath("/subscriptions");
     revalidatePath(`/companies/${companyId}`);
     revalidatePath(`/companies/${companyId}/terminals`);
     revalidatePath(`/companies/${companyId}/subscription`);
@@ -88,6 +109,8 @@ export async function updateTerminalTrainingModeAction(
     const data = await terminalService.setTrainingMode(id, companyId, isTrainMode);
 
     revalidatePath("/companies");
+    revalidatePath("/terminals");
+    revalidatePath("/subscriptions");
     revalidatePath(`/companies/${companyId}`);
     revalidatePath(`/companies/${companyId}/terminals`);
     revalidatePath(`/companies/${companyId}/subscription`);
@@ -106,11 +129,38 @@ export async function deleteTerminalAction(id: string, companyId: string): Promi
     await terminalService.deleteTerminal(id, companyId);
     
     revalidatePath("/companies");
+    revalidatePath("/terminals");
+    revalidatePath("/subscriptions");
     revalidatePath(`/companies/${companyId}`);
     revalidatePath(`/companies/${companyId}/terminals`);
     revalidatePath(`/companies/${companyId}/subscription`);
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Failed to delete terminal" };
+  }
+}
+
+export async function setTerminalActiveAction(
+  id: string,
+  companyId: string,
+  payload: SetTerminalActiveInput,
+): Promise<{ success: true; data: TerminalDTO } | { success: false; error: string }> {
+  try {
+    await companyAccessService.assertAdminAccess(companyId);
+    const validated = SetTerminalActiveSchema.parse(payload);
+    const data = await terminalService.setTerminalActive(id, companyId, validated);
+
+    revalidatePath("/companies");
+    revalidatePath(`/companies/${companyId}`);
+    revalidatePath(`/companies/${companyId}/terminals`);
+    revalidatePath(`/companies/${companyId}/subscription`);
+    revalidatePath("/terminals");
+    revalidatePath("/subscriptions");
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update terminal status",
+    };
   }
 }

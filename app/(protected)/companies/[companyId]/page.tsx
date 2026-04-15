@@ -7,7 +7,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Building2,
-  CheckCircle2,
   Clock3,
   CreditCard,
   Hash,
@@ -15,7 +14,6 @@ import {
   Phone,
   Settings,
   Terminal,
-  XCircle,
 } from "lucide-react";
 import { CompanyBackLink } from "./_components/CompanyBackLink";
 import { companyAccessService } from "./_services/company-access.service";
@@ -92,19 +90,6 @@ export default async function CompanyOverviewPage({ params }: CompanyOverviewPag
                   {viewer.role}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2">
-                {company.isApproved ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Approved
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                    <XCircle className="w-3 h-3" />
-                    Pending Approval
-                  </span>
-                )}
-              </div>
               <p className="text-sm text-muted-foreground">
                 {viewer.role === "admin"
                   ? "Company detail view with terminal, settings, and subscription management."
@@ -160,11 +145,7 @@ export default async function CompanyOverviewPage({ params }: CompanyOverviewPag
           <DetailRow icon={Hash} label="Code" value={company.code ?? "Not set"} />
           <DetailRow icon={Mail} label="Email" value={company.email ?? "Not set"} />
           <DetailRow icon={Phone} label="Phone" value={company.phone ?? "Not set"} />
-          <DetailRow
-            icon={Building2}
-            label="Approval"
-            value={company.isApproved ? "Approved" : "Pending approval"}
-          />
+          <DetailRow icon={Building2} label="Workspace" value="Operational company record" />
         </div>
       </Card>
 

@@ -123,7 +123,6 @@ model Company {
   phone String?
 
   logoImageUrl String? @map("logo_img_url") @db.VarChar(500)
-  isApproved   Boolean @default(false) @map("is_approved")
 
   //////////////////////////////////////////////////
   // RELATIONS

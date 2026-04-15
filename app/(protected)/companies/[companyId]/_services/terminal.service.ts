@@ -4,32 +4,132 @@ import {
   type CreateTerminalInput,
   type UpdateTerminalInput,
   type TerminalConfigurationInput,
+  type SetTerminalActiveInput,
 } from "./terminal.dto";
+
+function mapTerminal(terminal: {
+  id: string;
+  minNumber: string;
+  accreditationNumber: string;
+  ptuNumber: string;
+  dateIssued: Date;
+  validUntil: Date;
+  posName: string;
+  registeredName: string;
+  operatedBy: string;
+  address: string;
+  vatTinNumber: string;
+  vat: number;
+  discountMax: { toNumber(): number };
+  costCenter: string;
+  branchCenter: string;
+  useCenter: string;
+  dbName: string | null;
+  printerName: string;
+  resetCounterNo: number;
+  resetCounterTrainNo: number;
+  zCounterNo: number;
+  zCounterTrainNo: number;
+  isTrainMode: boolean;
+  isActive: boolean;
+  companyId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  company?: { name: string } | null;
+  subscription?: { status: "pending" | "active" | "expired" | "suspended" | "cancelled"; expiresAt: Date | null } | null;
+  sessions?: Array<{ profile: { fullName: string | null; email: string } }>;
+}): TerminalDTO {
+  const activeSession = terminal.sessions?.[0];
+
+  return {
+    ...terminal,
+    discountMax: terminal.discountMax.toNumber(),
+    companyName: terminal.company?.name ?? null,
+    subscriptionStatus: terminal.subscription?.status ?? null,
+    subscriptionExpiresAt: terminal.subscription?.expiresAt ?? null,
+    assignedUserName: activeSession?.profile.fullName ?? activeSession?.profile.email ?? null,
+    isInUse: Boolean(activeSession),
+  };
+}
 
 export const terminalService = {
   async getTerminalsByCompany(companyId: string): Promise<TerminalDTO[]> {
     const terminals = await prisma.posTerminalInfo.findMany({
       where: { companyId },
+      include: {
+        company: {
+          select: {
+            name: true,
+          },
+        },
+        subscription: {
+          select: {
+            status: true,
+            expiresAt: true,
+          },
+        },
+        sessions: {
+          where: {
+            isActive: true,
+          },
+          take: 1,
+          orderBy: {
+            loginTime: "desc",
+          },
+          select: {
+            profile: {
+              select: {
+                fullName: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
-    return terminals.map((t) => ({
-      ...t,
-      discountMax: Number(t.discountMax),
-    }));
+    return terminals.map(mapTerminal);
   },
 
   async getTerminalById(id: string, companyId: string): Promise<TerminalDTO | null> {
     const terminal = await prisma.posTerminalInfo.findFirst({
       where: { id, companyId },
+      include: {
+        company: {
+          select: {
+            name: true,
+          },
+        },
+        subscription: {
+          select: {
+            status: true,
+            expiresAt: true,
+          },
+        },
+        sessions: {
+          where: {
+            isActive: true,
+          },
+          take: 1,
+          orderBy: {
+            loginTime: "desc",
+          },
+          select: {
+            profile: {
+              select: {
+                fullName: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!terminal) return null;
 
-    return {
-      ...terminal,
-      discountMax: Number(terminal.discountMax),
-    };
+    return mapTerminal(terminal);
   },
 
   async createTerminal(companyId: string, payload: CreateTerminalInput): Promise<TerminalDTO> {
@@ -40,10 +140,13 @@ export const terminalService = {
       },
     });
 
-    return {
-      ...terminal,
-      discountMax: Number(terminal.discountMax),
-    };
+    return this.getTerminalById(terminal.id, companyId).then((item) => {
+      if (!item) {
+        throw new Error("Terminal not found");
+      }
+
+      return item;
+    });
   },
 
   async updateTerminal(id: string, companyId: string, payload: UpdateTerminalInput): Promise<TerminalDTO> {
@@ -57,10 +160,13 @@ export const terminalService = {
       data: payload,
     });
 
-    return {
-      ...terminal,
-      discountMax: Number(terminal.discountMax),
-    };
+    return this.getTerminalById(terminal.id, companyId).then((item) => {
+      if (!item) {
+        throw new Error("Terminal not found");
+      }
+
+      return item;
+    });
   },
 
   async setTrainingMode(id: string, companyId: string, isTrainMode: boolean): Promise<TerminalDTO> {
@@ -77,10 +183,13 @@ export const terminalService = {
       data: { isTrainMode },
     });
 
-    return {
-      ...terminal,
-      discountMax: Number(terminal.discountMax),
-    };
+    return this.getTerminalById(terminal.id, companyId).then((item) => {
+      if (!item) {
+        throw new Error("Terminal not found");
+      }
+
+      return item;
+    });
   },
 
   async updateTerminalConfiguration(
@@ -110,10 +219,64 @@ export const terminalService = {
       },
     });
 
-    return {
-      ...terminal,
-      discountMax: Number(terminal.discountMax),
-    };
+    return this.getTerminalById(terminal.id, companyId).then((item) => {
+      if (!item) {
+        throw new Error("Terminal not found");
+      }
+
+      return item;
+    });
+  },
+
+  async setTerminalActive(
+    id: string,
+    companyId: string,
+    payload: SetTerminalActiveInput,
+  ): Promise<TerminalDTO> {
+    const terminal = await prisma.posTerminalInfo.findFirst({
+      where: { id, companyId },
+      select: {
+        id: true,
+        isActive: true,
+        subscription: {
+          select: {
+            status: true,
+            expiresAt: true,
+          },
+        },
+      },
+    });
+
+    if (!terminal) {
+      throw new Error("Terminal not found");
+    }
+
+    if (payload.isActive) {
+      const now = new Date();
+      const subscription = terminal.subscription;
+      const hasActiveSubscription =
+        subscription?.status === "active" &&
+        (!subscription.expiresAt || subscription.expiresAt >= now);
+
+      if (!hasActiveSubscription) {
+        throw new Error("A terminal requires an active subscription before it can be enabled");
+      }
+    }
+
+    await prisma.posTerminalInfo.update({
+      where: { id },
+      data: {
+        isActive: payload.isActive,
+      },
+    });
+
+    const updated = await this.getTerminalById(id, companyId);
+
+    if (!updated) {
+      throw new Error("Terminal not found");
+    }
+
+    return updated;
   },
 
   async deleteTerminal(id: string, companyId: string): Promise<void> {

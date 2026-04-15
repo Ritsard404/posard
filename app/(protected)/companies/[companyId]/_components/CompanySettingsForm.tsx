@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -18,22 +17,18 @@ type UpdateCompanyFormValues = z.input<typeof UpdateCompanySchema>;
 
 interface CompanySettingsFormProps {
   company: CompanyDetailDTO;
-  canManageApproval: boolean;
   isSubmitting?: boolean;
   onSubmit: (data: UpdateCompanyInput) => void;
 }
 
 export default function CompanySettingsForm({
   company,
-  canManageApproval,
   isSubmitting = false,
   onSubmit,
 }: CompanySettingsFormProps) {
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     formState: { errors, isDirty },
   } = useForm<UpdateCompanyFormValues, unknown, UpdateCompanyInput>({
     resolver: zodResolver(UpdateCompanySchema),
@@ -43,25 +38,11 @@ export default function CompanySettingsForm({
       email: company.email ?? "",
       phone: company.phone ?? "",
       logoImageUrl: company.logoImageUrl ?? "",
-      isApproved: canManageApproval ? company.isApproved : undefined,
     },
   });
 
-  const isApproved = watch("isApproved") ?? false;
-
-  const handleFormSubmit = (data: UpdateCompanyInput) => {
-    if (!canManageApproval) {
-      const safeData = { ...data };
-      delete safeData.isApproved;
-      onSubmit(safeData);
-      return;
-    }
-
-    onSubmit(data);
-  };
-
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <FieldGroup label="Company Name" error={errors.name?.message} required>
           <Input {...register("name")} placeholder="Acme Corp" className="focus:border-blue-500" />
@@ -99,28 +80,6 @@ export default function CompanySettingsForm({
             className="focus:border-blue-500"
           />
         </FieldGroup>
-
-        {canManageApproval ? (
-          <div className="rounded-2xl border p-4 sm:col-span-2">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="company-approved"
-                checked={isApproved}
-                onCheckedChange={(checked) =>
-                  setValue("isApproved", checked === true, { shouldDirty: true })
-                }
-              />
-              <div className="space-y-1">
-                <Label htmlFor="company-approved" className="text-sm font-medium text-gray-700">
-                  Company Approved
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Admins can approve or pause the company status from here.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <div className="flex justify-end pt-2">

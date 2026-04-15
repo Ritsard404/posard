@@ -38,7 +38,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         </div>
       </div>
 
-      <SettingsPageClient company={company} canManageApproval={viewer.role === "admin"} />
+      <SettingsPageClient company={company} />
     </div>
   );
 }

@@ -56,7 +56,10 @@ export type Permission =
   | "view.company.terminals"
   | "view.company.subscription"
   | "view.product"
-  | "view.admin";
+  | "view.admin"
+  | "view.admin.terminals"
+  | "view.admin.subscriptions"
+  | "view.admin.approvals";
 
 export const rolePermissions: Record<UserRole, Permission[]> = {
   admin: [
@@ -69,6 +72,9 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "view.company.settings",
     "view.company.terminals",
     "view.company.subscription",
+    "view.admin.terminals",
+    "view.admin.subscriptions",
+    "view.admin.approvals",
   ],
   manager: [
     "view.dashboard",
@@ -156,6 +162,27 @@ export const routes: RouteConfig[] = [
     permission: "view.company.subscription",
     label: "Subscriptions",
     icon: CreditCard,
+    showInNav: false,
+  },
+  {
+    href: "/terminals",
+    permission: "view.admin.terminals",
+    label: "Terminals",
+    icon: Terminal,
+    showInNav: false,
+  },
+  {
+    href: "/subscriptions",
+    permission: "view.admin.subscriptions",
+    label: "Subscriptions",
+    icon: CreditCard,
+    showInNav: false,
+  },
+  {
+    href: "/approvals",
+    permission: "view.admin.approvals",
+    label: "Pending Manager Approvals",
+    icon: FileClock,
     showInNav: false,
   },
   {
@@ -498,34 +525,39 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
   {
     id: "administration",
     label: "Administration",
-    icon: Users,
-    variant: "dropdown",
     placement: "content",
     items: [
       {
-        id: "manage-companies",
-        label: "Manage Companies",
+        id: "companies",
+        label: "Companies",
         icon: StoreIcon,
         href: "/companies",
         permission: "view.company",
         roles: ["admin"],
       },
       {
-        id: "manage-terminals",
-        label: "Manage Terminals",
+        id: "terminals",
+        label: "Terminals",
         icon: Terminal,
+        href: "/terminals",
+        permission: "view.admin.terminals",
         roles: ["admin"],
-        disabled: true,
-        badge: "Soon",
       },
       {
         id: "subscriptions",
         label: "Subscriptions",
         icon: CreditCard,
-        href: "/companies/[companyId]/subscription",
-        permission: "view.company.subscription",
+        href: "/subscriptions",
+        permission: "view.admin.subscriptions",
         roles: ["admin"],
-        keepVisibleWithoutHref: true,
+      },
+      {
+        id: "pending-approvals",
+        label: "Pending Manager Approvals",
+        icon: FileClock,
+        href: "/approvals",
+        permission: "view.admin.approvals",
+        roles: ["admin"],
       },
       {
         id: "user-management",

@@ -25,7 +25,6 @@ export const CompanySchema = z.object({
   email: z.string().email("Invalid email").nullable(),
   phone: z.string().nullable(),
   logoImageUrl: z.string().nullable(),
-  isApproved: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -54,7 +53,6 @@ export const UpdateCompanySchema = z.object({
   email: nullableEmailInput.optional(),
   phone: nullableTextInput.optional(),
   logoImageUrl: nullableTextInput.optional(),
-  isApproved: z.boolean().optional(),
 });
 
 export type UpdateCompanyInput = z.infer<typeof UpdateCompanySchema>;

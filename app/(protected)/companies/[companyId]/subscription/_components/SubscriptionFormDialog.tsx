@@ -21,11 +21,15 @@ import {
   type UpsertTerminalSubscriptionPayload,
   type TerminalSubscriptionDTO,
 } from "../../_services/subscription.dto";
-import type { TerminalDTO } from "../../_services/terminal.dto";
+
+interface SubscriptionTerminalOption {
+  id: string;
+  posName: string;
+}
 
 interface SubscriptionFormDialogProps {
   open: boolean;
-  terminal: TerminalDTO | null;
+  terminal: SubscriptionTerminalOption | null;
   subscription?: TerminalSubscriptionDTO;
   isSubmitting?: boolean;
   onOpenChange: (open: boolean) => void;

@@ -14,7 +14,6 @@ function mapCompanyBase(company: {
   email: string | null;
   phone: string | null;
   logoImageUrl: string | null;
-  isApproved: boolean;
   createdAt: Date;
   updatedAt: Date;
 }): CompanyDTO {
@@ -25,7 +24,6 @@ function mapCompanyBase(company: {
     email: company.email,
     phone: company.phone,
     logoImageUrl: company.logoImageUrl,
-    isApproved: company.isApproved,
     createdAt: company.createdAt,
     updatedAt: company.updatedAt,
   };
@@ -43,7 +41,6 @@ export const companyService = {
             email: true,
             phone: true,
             logoImageUrl: true,
-            isApproved: true,
             createdAt: true,
             updatedAt: true,
             _count: {
@@ -67,7 +64,6 @@ export const companyService = {
           email: true,
           phone: true,
           logoImageUrl: true,
-          isApproved: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -108,7 +104,6 @@ export const companyService = {
             email: true,
             phone: true,
             logoImageUrl: true,
-            isApproved: true,
             createdAt: true,
             updatedAt: true,
             posTerminals: {
@@ -138,7 +133,6 @@ export const companyService = {
           email: true,
           phone: true,
           logoImageUrl: true,
-          isApproved: true,
           createdAt: true,
           updatedAt: true,
           posTerminals: {
@@ -199,7 +193,6 @@ export const companyService = {
       email: updated.email,
       phone: updated.phone,
       logoImageUrl: updated.logoImageUrl,
-      isApproved: updated.isApproved,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
     };

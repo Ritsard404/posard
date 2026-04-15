@@ -39,13 +39,9 @@ export async function getCompanyAction(companyId: string): Promise<
 
 export async function updateCompanyAction(companyId: string, payload: UpdateCompanyInput): Promise<{ success: true; data: CompanyDTO } | { success: false; error: string }> {
   try {
-    const viewer = await companyAccessService.assertCompanyAccess(companyId);
-    
-    const validated = UpdateCompanySchema.parse(payload);
-    if (viewer.role !== "admin" && typeof validated.isApproved !== "undefined") {
-      throw new Error("Forbidden");
-    }
+    await companyAccessService.assertCompanyAccess(companyId);
 
+    const validated = UpdateCompanySchema.parse(payload);
     const data = await companyService.updateCompany(companyId, validated);
     
     revalidatePath("/companies");
