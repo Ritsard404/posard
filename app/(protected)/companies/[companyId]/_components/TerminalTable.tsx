@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Terminal, Pencil, Trash2, PlusCircle, ShieldCheck } from "lucide-react";
+import { BarChart3, Loader2, Terminal, Pencil, Trash2, PlusCircle, ShieldCheck } from "lucide-react";
 import type { TerminalDTO } from "../_services/terminal.dto";
 
 interface TerminalTableProps {
@@ -16,6 +17,7 @@ interface TerminalTableProps {
   onEdit?: (terminal: TerminalDTO) => void;
   onToggleActive?: (terminal: TerminalDTO) => void;
   onDelete?: (id: string) => void;
+  getReportHref?: (terminal: TerminalDTO) => string;
 }
 
 export default function TerminalTable({
@@ -29,6 +31,7 @@ export default function TerminalTable({
   onEdit,
   onToggleActive,
   onDelete,
+  getReportHref,
 }: TerminalTableProps) {
   if (isLoading) {
     return (
@@ -173,6 +176,17 @@ export default function TerminalTable({
                             Delete
                           </Button>
                         )}
+                        {getReportHref ? (
+                          <Button asChild size="sm" variant="outline" className="text-xs">
+                            <Link
+                              href={getReportHref(t)}
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <BarChart3 className="w-3 h-3 mr-1" />
+                              Reports
+                            </Link>
+                          </Button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -251,6 +265,14 @@ export default function TerminalTable({
                       Delete
                     </Button>
                   )}
+                  {getReportHref ? (
+                    <Button size="sm" variant="outline" asChild className="flex-1 text-xs">
+                      <Link href={getReportHref(t)}>
+                        <BarChart3 className="w-3 h-3 mr-1" />
+                        Reports
+                      </Link>
+                    </Button>
+                  ) : null}
                 </div>
               </Card>
             ))}

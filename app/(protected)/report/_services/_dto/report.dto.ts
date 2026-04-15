@@ -14,7 +14,47 @@ export interface ReportTerminalOptionDto {
 
 export interface ReportWorkspaceDto {
   companyId: string | null;
+  companyName?: string | null;
   terminals: ReportTerminalOptionDto[];
+}
+
+export interface ReportCompanyListItemDto {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  ownerManagerName: string | null;
+  createdAt: Date;
+  terminalCount: number;
+  activeTerminalCount: number;
+}
+
+export interface ReportCompaniesWorkspaceDto {
+  items: ReportCompanyListItemDto[];
+  totalCount: number;
+  page: number;
+  size: number;
+  totalPages: number;
+  keyword: string;
+}
+
+export interface ReportCompanyContextDto {
+  companyId: string;
+  companyName: string;
+  companyCode: string | null;
+  companyEmail: string | null;
+  companyPhone: string | null;
+  terminalCount: number;
+  activeTerminalCount: number;
+}
+
+export interface ReportTerminalContextDto {
+  companyId: string;
+  companyName: string;
+  terminalId: string;
+  terminalName: string;
+  printerName: string | null;
+  isActive: boolean;
 }
 
 export interface ReportDateRangeDto {

@@ -11,11 +11,15 @@ import type {
   DiscountReportDto,
   RefundInvoiceItemDto,
   RefundInvoicesDto,
+  ReportCompaniesWorkspaceDto,
+  ReportCompanyContextDto,
+  ReportCompanyListItemDto,
   ReportDateRangeDto,
   ReportInvoicePrintPayloadDto,
   ReportOverviewDto,
   ReportPaginationDto,
   ReportPaymentBreakdownDto,
+  ReportTerminalContextDto,
   ReportWorkspaceDto,
   ReportViewerDto,
   ReturnedInvoiceRecordItemDto,
@@ -53,6 +57,12 @@ interface ReportPaginationInput {
 }
 
 interface ReportPagedRangeInput extends ReportRangeInput, ReportPaginationInput {}
+
+interface ReportCompaniesQueryInput {
+  page: number;
+  size: number;
+  keyword: string;
+}
 
 function toNumber(value: unknown) {
   return Number(value ?? 0);
@@ -166,6 +176,39 @@ async function resolveCompanyScope(
   }
 
   return { companyId, terminalId: input.terminalId ?? null };
+}
+
+async function getCompanySummary(companyId: string): Promise<ReportCompanyContextDto> {
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      email: true,
+      phone: true,
+      posTerminals: {
+        select: {
+          isActive: true,
+        },
+      },
+    },
+  });
+
+  if (!company) {
+    throw new Error("Company not found.");
+  }
+
+  return {
+    companyId: company.id,
+    companyName: company.name,
+    companyCode: company.code,
+    companyEmail: company.email,
+    companyPhone: company.phone,
+    terminalCount: company.posTerminals.length,
+    activeTerminalCount: company.posTerminals.filter((terminal) => terminal.isActive)
+      .length,
+  };
 }
 
 async function getInvoicesForRange(
@@ -316,6 +359,128 @@ function updateTransactionListTotals(
 }
 
 export const reportService = {
+  async getAdminCompaniesWorkspace(
+    viewer: ReportViewerDto,
+    query: ReportCompaniesQueryInput,
+  ): Promise<ReportCompaniesWorkspaceDto> {
+    if (viewer.role !== "admin") {
+      throw new Error("You do not have access to global reports.");
+    }
+
+    const where = query.keyword
+      ? {
+          OR: [
+            { name: { contains: query.keyword, mode: "insensitive" as const } },
+            { email: { contains: query.keyword, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
+
+    const skip = query.page * query.size;
+
+    const [totalCount, companies] = await Promise.all([
+      prisma.company.count({ where }),
+      prisma.company.findMany({
+        where,
+        skip,
+        take: query.size,
+        orderBy: [{ createdAt: "desc" }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          createdAt: true,
+          users: {
+            where: {
+              role: "manager",
+              status: "active",
+            },
+            select: {
+              fullName: true,
+            },
+            orderBy: [{ approvedAt: "asc" }, { createdAt: "asc" }],
+            take: 1,
+          },
+          posTerminals: {
+            select: {
+              isActive: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const items: ReportCompanyListItemDto[] = companies.map((company) => ({
+      id: company.id,
+      name: company.name,
+      email: company.email,
+      phone: company.phone,
+      ownerManagerName: company.users[0]?.fullName ?? null,
+      createdAt: company.createdAt,
+      terminalCount: company.posTerminals.length,
+      activeTerminalCount: company.posTerminals.filter((terminal) => terminal.isActive)
+        .length,
+    }));
+
+    return {
+      items,
+      totalCount,
+      page: query.page,
+      size: query.size,
+      totalPages: Math.max(1, Math.ceil(totalCount / query.size)),
+      keyword: query.keyword,
+    };
+  },
+
+  async getCompanyContext(
+    viewer: ReportViewerDto,
+    companyId: string,
+  ): Promise<ReportCompanyContextDto> {
+    await resolveCompanyScope(viewer, { companyId });
+    return getCompanySummary(companyId);
+  },
+
+  async getTerminalContext(
+    viewer: ReportViewerDto,
+    companyId: string,
+    terminalId: string,
+  ): Promise<ReportTerminalContextDto> {
+    await resolveCompanyScope(viewer, { companyId, terminalId });
+
+    const terminal = await prisma.posTerminalInfo.findFirst({
+      where: {
+        id: terminalId,
+        companyId,
+      },
+      select: {
+        id: true,
+        posName: true,
+        printerName: true,
+        isActive: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!terminal) {
+      throw new Error("Terminal not found for the selected company.");
+    }
+
+    return {
+      companyId: terminal.company.id,
+      companyName: terminal.company.name,
+      terminalId: terminal.id,
+      terminalName: terminal.posName,
+      printerName: terminal.printerName || null,
+      isActive: terminal.isActive,
+    };
+  },
+
   async getWorkspace(
     viewer: ReportViewerDto,
     input: ReportScopeInput = {},
@@ -325,6 +490,7 @@ export const reportService = {
     if (!companyId) {
       return {
         companyId: null,
+        companyName: null,
         terminals: [],
       };
     }
@@ -333,23 +499,36 @@ export const reportService = {
       throw new Error("You do not have access to this company.");
     }
 
-    const terminals = await prisma.posTerminalInfo.findMany({
-      where: {
-        companyId,
-      },
-      select: {
-        id: true,
-        posName: true,
-        isActive: true,
-        printerName: true,
-      },
-      orderBy: {
-        posName: "asc",
-      },
-    });
+    const [company, terminals] = await Promise.all([
+      prisma.company.findUnique({
+        where: { id: companyId },
+        select: {
+          name: true,
+        },
+      }),
+      prisma.posTerminalInfo.findMany({
+        where: {
+          companyId,
+        },
+        select: {
+          id: true,
+          posName: true,
+          isActive: true,
+          printerName: true,
+        },
+        orderBy: {
+          posName: "asc",
+        },
+      }),
+    ]);
+
+    if (!company) {
+      throw new Error("Company not found.");
+    }
 
     return {
       companyId,
+      companyName: company.name,
       terminals: terminals.map((terminal) => ({
         id: terminal.id,
         name: terminal.posName,
@@ -1710,18 +1889,20 @@ export const reportService = {
     viewer: ReportViewerDto,
     invoiceId: string,
   ): Promise<ReportInvoicePrintPayloadDto> {
-    const companyId = viewer.companyId;
-
-    if (!companyId) {
+    if (viewer.role !== "admin" && !viewer.companyId) {
       throw new Error("No company selected for reports.");
     }
 
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
-        posTerminal: {
-          companyId,
-        },
+        ...(viewer.role === "admin"
+          ? {}
+          : {
+              posTerminal: {
+                companyId: viewer.companyId!,
+              },
+            }),
       },
       select: {
         id: true,

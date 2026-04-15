@@ -273,6 +273,11 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
         onEdit={role === "admin" ? handleEdit : undefined}
         onToggleActive={role === "admin" ? (terminal) => void handleToggleActive(terminal) : undefined}
         onDelete={role === "admin" ? (id) => setDeleteTargetId(id) : undefined}
+        getReportHref={
+          role === "admin"
+            ? (terminal) => `/companies/${companyId}/terminals/${terminal.id}/report`
+            : undefined
+        }
       />
 
       {role === "manager" ? (

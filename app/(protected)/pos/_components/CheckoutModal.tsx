@@ -180,6 +180,9 @@ export function CheckoutModal({
     { id: "PWD", label: "PWD (20% + VAT Exempt)" },
     { id: "SENIOR", label: "Senior (20% + VAT Exempt)" },
   ];
+  const activePaymentMethodLabel =
+    paymentMethods.find((method) => method.id === paymentMethod)?.label ??
+    paymentMethod;
 
   const formattedReceiptDate = receipt
     ? new Intl.DateTimeFormat(undefined, {
@@ -203,8 +206,8 @@ export function CheckoutModal({
   if (step === "RECEIPT" && receipt) {
     return (
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="glass-card h-[100dvh] max-w-[100vw] overflow-hidden border-white/5 p-0 shadow-2xl backdrop-blur-3xl animate-in zoom-in-95 duration-500 sm:h-auto sm:max-w-[425px]">
-          <div className="relative flex flex-col items-center overflow-hidden border-b border-white/5 bg-accent/10 p-8 text-center">
+        <DialogContent className="glass-card flex h-[100dvh] max-w-[100vw] flex-col overflow-hidden border-white/5 p-0 shadow-2xl backdrop-blur-3xl animate-in zoom-in-95 duration-500 sm:h-auto sm:max-w-[425px]">
+          <div className="relative flex flex-col items-center overflow-hidden border-b border-white/5 bg-accent/10 px-5 py-6 text-center sm:p-8">
             <div className="pointer-events-none absolute -left-10 top-0 size-32 rounded-full bg-accent/10 blur-2xl" />
             <div className="pointer-events-none absolute -right-10 bottom-0 size-32 rounded-full bg-emerald-500/10 blur-2xl" />
             {receipt.isTrainMode && (
@@ -215,10 +218,10 @@ export function CheckoutModal({
               </div>
             )}
 
-            <div className="mb-6 flex size-20 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.1)]">
-              <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+            <div className="mb-4 flex size-16 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.1)] sm:mb-6 sm:size-20">
+              <CheckCircle2 className="h-8 w-8 text-emerald-500 sm:h-10 sm:w-10" />
             </div>
-            <h2 className="font-heading text-3xl font-black tracking-tight text-foreground">
+            <h2 className="font-heading text-2xl font-black tracking-tight text-foreground sm:text-3xl">
               Transaction Done
             </h2>
             <p className="mt-2 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
@@ -226,7 +229,7 @@ export function CheckoutModal({
             </p>
           </div>
 
-          <div className="relative max-h-[50vh] overflow-y-auto p-8 font-mono text-[11px] leading-relaxed">
+          <div className="relative flex-1 overflow-y-auto px-5 py-6 font-mono text-[11px] leading-relaxed sm:max-h-[50vh] sm:p-8">
             <div className="mb-8 text-center">
               <h3 className="mb-1 font-heading text-xl font-black uppercase tracking-tighter text-foreground">
                 POSard
@@ -352,14 +355,14 @@ export function CheckoutModal({
             </div>
           </div>
 
-          <DialogFooter className="border-t border-white/5 bg-white/[0.02] p-6">
+          <DialogFooter className="border-t border-white/5 bg-white/[0.02] p-4 sm:p-6">
             <div className="flex w-full flex-col gap-3">
               {receiptPrintPayload ? (
                 <ReceiptPrintControls payload={receiptPrintPayload} />
               ) : null}
               <Button
                 onClick={() => handleDialogOpenChange(false)}
-                className="h-14 w-full rounded-2xl bg-accent font-heading text-lg font-black uppercase tracking-widest text-white shadow-xl shadow-accent/20 transition-all hover:bg-accent/90 active:scale-95"
+                className="h-14 w-full rounded-2xl bg-accent px-4 font-heading text-base font-black uppercase tracking-widest text-white shadow-xl shadow-accent/20 transition-all hover:bg-accent/90 active:scale-95 sm:text-lg"
               >
                 New Checkout
               </Button>
@@ -372,269 +375,297 @@ export function CheckoutModal({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="glass-card flex h-[100dvh] max-w-[100vw] flex-col overflow-hidden border-white/5 p-0 backdrop-blur-3xl animate-in fade-in zoom-in-95 duration-500 sm:h-auto sm:max-w-[800px] md:flex-row">
-        <div className="relative flex w-full flex-col overflow-hidden border-b border-white/5 bg-white/[0.02] p-8 md:w-[45%] md:border-b-0 md:border-r">
-          <div className="pointer-events-none absolute -left-10 top-0 size-48 rounded-full bg-accent/5 blur-3xl" />
-
-          <DialogHeader className="relative z-10 mb-8">
-            <DialogTitle className="flex items-center gap-3 font-heading text-3xl font-black tracking-tight">
-              <div className="flex size-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10">
+      <DialogContent className="glass-card flex h-[100dvh] max-w-[100vw] flex-col overflow-hidden border-white/5 p-0 backdrop-blur-3xl animate-in fade-in zoom-in-95 duration-500 sm:max-w-[820px] lg:h-[min(92vh,820px)]">
+        <div className="relative border-b border-white/5 bg-white/[0.02] px-5 py-4 sm:px-6 sm:py-5">
+          <div className="pointer-events-none absolute -left-10 top-0 size-40 rounded-full bg-accent/5 blur-3xl" />
+          <DialogHeader className="relative z-10 space-y-2 text-left">
+            <DialogTitle className="flex items-center gap-3 font-heading text-2xl font-black tracking-tight sm:text-3xl">
+              <div className="flex size-11 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10">
                 <Receipt className="h-5 w-5 text-accent" />
               </div>
-              Billing Details
+              Checkout
             </DialogTitle>
-            <DialogDescription className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/60">
-              Review order subtotal and adjust pricing
+            <DialogDescription className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
+              Review totals, choose a payment method, and complete the sale.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="relative z-10 flex-grow space-y-8">
-            <div className="group rounded-2xl border border-white/5 bg-white/5 p-6 shadow-inner backdrop-blur-sm transition-colors hover:border-accent/20">
-              <p className="mb-3 ml-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">
-                Final Amount Due
-              </p>
-              <div className="flex items-baseline gap-2">
-                <span className="font-heading text-2xl font-black text-accent opacity-50">
-                  PHP
-                </span>
-                <p className="font-heading text-5xl font-black tracking-tighter text-foreground drop-shadow-[0_0_15px_rgba(255,255,255,0.05)]">
-                  {formatCurrency(totalAmount)}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <Label className="ml-1 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40">
-                Discount Preference
-              </Label>
-              <div className="flex flex-col gap-3">
-                {discounts.map((option) => (
-                  <Button
-                    key={option.id}
-                    variant={
-                      discount.type === option.id ? "default" : "outline"
-                    }
-                    className={`h-12 justify-start rounded-xl px-4 text-xs font-bold uppercase tracking-widest transition-all duration-300 ${discount.type === option.id ? "border-accent/40 bg-accent/10 text-accent shadow-[0_0_20px_rgba(var(--accent),0.1)]" : "border-white/5 bg-white/5 text-muted-foreground/60 hover:border-white/10 hover:bg-white/10"}`}
-                    onClick={() => setDiscountType(option.id)}
-                  >
-                    <div className="relative mr-3 flex size-5 items-center justify-center">
-                      {discount.type === option.id ? (
-                        <CheckCircle2 className="h-5 w-5 text-accent animate-in zoom-in duration-300" />
-                      ) : (
-                        <div className="size-4 rounded-full border-2 border-white/10" />
-                      )}
-                    </div>
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {requiresDiscountMetadata && (
-              <div className="space-y-4 rounded-2xl border border-accent/15 bg-accent/5 p-5">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/70">
-                    Discount Holder
-                  </p>
-                  <p className="mt-1 text-xs font-medium text-muted-foreground">
-                    Customer name and ID are required for {discount.type}{" "}
-                    checkout.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="discount-customer-name"
-                    className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground/60"
-                  >
-                    Customer Name
-                  </Label>
-                  <Input
-                    id="discount-customer-name"
-                    value={discount.eligibleDiscName}
-                    onChange={(e) =>
-                      updateDiscountDetails({
-                        eligibleDiscName: e.target.value,
-                      })
-                    }
-                    className="h-12 rounded-xl border-white/10 bg-white/5 font-semibold"
-                    placeholder="Enter customer name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="discount-id-number"
-                    className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground/60"
-                  >
-                    OSCA / PWD ID Number
-                  </Label>
-                  <Input
-                    id="discount-id-number"
-                    value={discount.oscaIdNum}
-                    onChange={(e) =>
-                      updateDiscountDetails({
-                        oscaIdNum: e.target.value,
-                      })
-                    }
-                    className="h-12 rounded-xl border-white/10 bg-white/5 font-semibold"
-                    placeholder="Enter ID number"
-                  />
-                </div>
-
-                {!isDiscountMetadataValid && (
-                  <p className="text-xs font-semibold text-destructive">
-                    Customer name and ID number are required before checkout.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
         </div>
 
-        <div className="relative flex w-full flex-col overflow-hidden bg-transparent p-8 md:w-[55%]">
-          <div className="pointer-events-none absolute -right-10 bottom-0 size-48 rounded-full bg-emerald-500/5 blur-3xl" />
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <div className="min-h-0 overflow-y-auto border-b border-white/5 bg-white/[0.02] px-5 py-5 sm:px-6 lg:border-b-0 lg:border-r">
+            <div className="space-y-5">
+              <div className="rounded-3xl border border-white/5 bg-white/5 p-5 shadow-inner backdrop-blur-sm">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground/40">
+                  Final Amount Due
+                </p>
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <div className="font-heading text-xs font-black uppercase tracking-[0.3em] text-accent/60">
+                      PHP
+                    </div>
+                    <p className="font-heading text-4xl font-black tracking-tighter text-foreground sm:text-5xl">
+                      {formatCurrency(totalAmount)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/5 bg-background/40 px-3 py-2 text-right">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">
+                      Method
+                    </p>
+                    <p className="text-sm font-bold text-foreground">
+                      {activePaymentMethodLabel}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          <div className="relative z-10 mb-8 space-y-4">
-            <Label className="ml-1 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40">
-              Select Payment Method
-            </Label>
-            <div className="grid grid-cols-2 gap-3">
-              {paymentMethods.map((pm) => (
-                <Button
-                  key={pm.id}
-                  variant={paymentMethod === pm.id ? "default" : "outline"}
-                  className={`h-20 flex-col gap-2 rounded-2xl border shadow-lg transition-all duration-300 ${paymentMethod === pm.id ? "scale-[1.02] border-transparent bg-accent text-white shadow-xl shadow-accent/20" : "border-white/5 bg-white/5 text-muted-foreground/60 opacity-70 hover:scale-[1.01] hover:border-white/10 hover:bg-white/10 hover:opacity-100"}`}
-                  onClick={() => {
-                    setPaymentMethod(pm.id);
-                    if (pm.id !== "CASH") {
-                      setAmountTendered(totalAmount);
-                    }
-                  }}
-                >
-                  <pm.icon className="h-6 w-6" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">
-                    {pm.label}
-                  </span>
-                </Button>
-              ))}
+              <div className="space-y-3">
+                <Label className="ml-1 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40">
+                  Discount Preference
+                </Label>
+                <div className="grid gap-3">
+                  {discounts.map((option) => (
+                    <Button
+                      key={option.id}
+                      variant={
+                        discount.type === option.id ? "default" : "outline"
+                      }
+                      className={`min-h-14 justify-start rounded-2xl px-4 py-3 text-left text-xs font-bold uppercase tracking-widest transition-all duration-300 ${discount.type === option.id ? "border-accent/40 bg-accent/10 text-accent shadow-[0_0_20px_rgba(var(--accent),0.1)]" : "border-white/5 bg-white/5 text-muted-foreground/70 hover:border-white/10 hover:bg-white/10"}`}
+                      onClick={() => setDiscountType(option.id)}
+                    >
+                      <div className="relative mr-3 flex size-5 items-center justify-center">
+                        {discount.type === option.id ? (
+                          <CheckCircle2 className="h-5 w-5 text-accent animate-in zoom-in duration-300" />
+                        ) : (
+                          <div className="size-4 rounded-full border-2 border-white/10" />
+                        )}
+                      </div>
+                      <span className="whitespace-normal text-left leading-tight">
+                        {option.label}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {requiresDiscountMetadata && (
+                <div className="space-y-4 rounded-3xl border border-accent/15 bg-accent/5 p-4 sm:p-5">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/70">
+                      Discount Holder
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-muted-foreground">
+                      Customer name and ID are required for {discount.type} checkout.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="discount-customer-name"
+                      className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground/60"
+                    >
+                      Customer Name
+                    </Label>
+                    <Input
+                      id="discount-customer-name"
+                      value={discount.eligibleDiscName}
+                      onChange={(e) =>
+                        updateDiscountDetails({
+                          eligibleDiscName: e.target.value,
+                        })
+                      }
+                      className="h-12 rounded-2xl border-white/10 bg-white/5 font-semibold"
+                      placeholder="Enter customer name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="discount-id-number"
+                      className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground/60"
+                    >
+                      OSCA / PWD ID Number
+                    </Label>
+                    <Input
+                      id="discount-id-number"
+                      value={discount.oscaIdNum}
+                      onChange={(e) =>
+                        updateDiscountDetails({
+                          oscaIdNum: e.target.value,
+                        })
+                      }
+                      className="h-12 rounded-2xl border-white/10 bg-white/5 font-semibold"
+                      placeholder="Enter ID number"
+                    />
+                  </div>
+
+                  {!isDiscountMetadataValid && (
+                    <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
+                      Customer name and ID number are required before checkout.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="relative z-10 flex flex-grow flex-col">
-            {paymentMethod === "CASH" ? (
-              <div className="flex h-full flex-col space-y-6">
+          <div className="flex min-h-0 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="space-y-5">
                 <div className="space-y-3">
-                  <Label
-                    htmlFor="tendered"
-                    className="ml-1 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40"
-                  >
-                    Currency Tendered
+                  <Label className="ml-1 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40">
+                    Select Payment Method
                   </Label>
-                  <div className="group relative space-x-1.5">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 font-heading text-xl font-black text-accent/50 transition-colors group-focus-within:text-accent">
-                      PHP
-                    </span>
-                    <Input
-                      id="tendered"
-                      type="number"
-                      value={amountTendered || ""}
-                      onChange={(e) =>
-                        setAmountTendered(parseFloat(e.target.value) || 0)
-                      }
-                      className="h-20 rounded-2xl border-white/5 bg-white/5 pl-16 pr-6 font-heading text-4xl font-black tracking-tighter transition-all focus:bg-white/10"
-                      placeholder="0.00"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    {paymentMethods.map((pm) => (
+                      <Button
+                        key={pm.id}
+                        variant={paymentMethod === pm.id ? "default" : "outline"}
+                        className={`min-h-16 flex-col gap-2 rounded-2xl px-3 py-3 shadow-lg transition-all duration-300 sm:min-h-20 ${paymentMethod === pm.id ? "scale-[1.02] border-transparent bg-accent text-white shadow-xl shadow-accent/20" : "border-white/5 bg-white/5 text-muted-foreground/70 hover:border-white/10 hover:bg-white/10"}`}
+                        onClick={() => {
+                          setPaymentMethod(pm.id);
+                          if (pm.id !== "CASH") {
+                            setAmountTendered(totalAmount);
+                          }
+                        }}
+                      >
+                        <pm.icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">
+                          {pm.label}
+                        </span>
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-2">
-                  {[100, 500, 1000].map((amount) => (
+                {paymentMethod === "CASH" ? (
+                  <div className="space-y-5">
+                    <div className="space-y-3">
+                      <Label
+                        htmlFor="tendered"
+                        className="ml-1 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40"
+                      >
+                        Currency Tendered
+                      </Label>
+                      <div className="group relative">
+                        <span className="absolute left-5 top-1/2 -translate-y-1/2 font-heading text-lg font-black text-accent/50 transition-colors group-focus-within:text-accent sm:left-6 sm:text-xl">
+                          PHP
+                        </span>
+                        <Input
+                          id="tendered"
+                          type="number"
+                          value={amountTendered || ""}
+                          onChange={(e) =>
+                            setAmountTendered(parseFloat(e.target.value) || 0)
+                          }
+                          className="h-16 rounded-3xl border-white/5 bg-white/5 pl-14 pr-5 font-heading text-3xl font-black tracking-tighter transition-all focus:bg-white/10 sm:h-20 sm:pl-16 sm:pr-6 sm:text-4xl"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {[100, 500, 1000].map((amount) => (
+                        <Button
+                          key={amount}
+                          variant="outline"
+                          className="h-12 rounded-2xl border-white/5 bg-white/5 text-sm font-bold transition-colors hover:bg-white/10"
+                          onClick={() => handleQuickCash(amount)}
+                        >
+                          + {amount}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        className="h-12 rounded-2xl border-accent/20 bg-accent/5 text-[10px] font-black uppercase tracking-widest text-accent transition-all hover:bg-accent/10"
+                        onClick={() => setAmountTendered(totalAmount)}
+                      >
+                        Exact Amount
+                      </Button>
+                    </div>
+
                     <Button
-                      key={amount}
-                      variant="outline"
-                      className="h-12 rounded-xl border-white/5 bg-white/5 text-xs font-bold transition-colors hover:bg-white/10"
-                      onClick={() => handleQuickCash(amount)}
+                      variant="ghost"
+                      className="h-12 w-full rounded-2xl border border-red-500/10 bg-red-500/5 text-[10px] font-bold uppercase tracking-[0.24em] text-red-500/70 transition-all hover:bg-red-500/10 hover:text-red-500"
+                      onClick={() => setAmountTendered(0)}
                     >
-                      + {amount}
+                      Clear Tendered Amount
                     </Button>
-                  ))}
-                  <Button
-                    variant="outline"
-                    className="h-12 rounded-xl border-accent/20 bg-accent/5 text-[10px] font-black uppercase tracking-widest text-accent transition-all hover:bg-accent/10"
-                    onClick={() => setAmountTendered(totalAmount)}
-                  >
-                    Exact
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="col-span-4 mt-1 h-10 rounded-xl text-[9px] font-bold uppercase tracking-[0.3em] text-red-500/50 transition-all hover:bg-red-500/5 hover:text-red-500"
-                    onClick={() => setAmountTendered(0)}
-                  >
-                    Clear Transaction Amount
-                  </Button>
-                </div>
 
-                <div
-                  className={`mt-auto flex items-center justify-between rounded-2xl p-6 transition-all duration-500 ${change >= 0 ? "border border-emerald-500/20 bg-emerald-500/10 shadow-xl shadow-emerald-500/5" : "border border-red-500/10 bg-red-500/5 opacity-60"}`}
-                >
-                  <div className="flex flex-col">
-                    <span className="mb-1 text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
-                      Return Change
-                    </span>
-                    <span className="text-[10px] font-bold uppercase text-emerald-500">
-                      Calculation Ready
-                    </span>
+                    <div
+                      className={`rounded-3xl p-5 transition-all duration-500 ${change >= 0 ? "border border-emerald-500/20 bg-emerald-500/10 shadow-xl shadow-emerald-500/5" : "border border-red-500/10 bg-red-500/5 opacity-80"}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
+                            Return Change
+                          </span>
+                          <span
+                            className={`text-xs font-bold uppercase tracking-wider ${change < 0 ? "text-red-500/80" : "text-emerald-500"}`}
+                          >
+                            {change < 0 ? "Insufficient cash received" : "Calculation ready"}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-right font-heading text-3xl font-black tracking-tighter sm:text-4xl ${change < 0 ? "text-red-500 opacity-50" : "text-emerald-500"}`}
+                        >
+                          PHP {formatCurrency(Math.max(0, change))}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <span
-                    className={`font-heading text-4xl font-black tracking-tighter ${change < 0 ? "text-red-500 opacity-40" : "text-emerald-500"}`}
-                  >
-                    PHP {formatCurrency(Math.max(0, change))}
-                  </span>
-                </div>
+                ) : (
+                  <div className="flex min-h-[260px] flex-col items-center justify-center rounded-3xl border-2 border-dashed border-white/5 bg-white/[0.02] p-6 text-center animate-in fade-in zoom-in-95 duration-700 sm:min-h-[320px] sm:p-8">
+                    <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-white/5 shadow-inner sm:mb-6 sm:size-20">
+                      <FileText className="h-8 w-8 text-accent/40 sm:h-10 sm:w-10" />
+                    </div>
+                    <p className="font-heading text-lg font-bold text-foreground">
+                      Waiting for Gateway
+                    </p>
+                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                      Processing {activePaymentMethodLabel} transaction...
+                    </p>
+                    <div className="mt-6 font-heading text-2xl font-black tracking-tighter text-accent/80">
+                      PHP {formatCurrency(totalAmount)}
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="mb-6 flex flex-grow flex-col items-center justify-center rounded-3xl border-2 border-dashed border-white/5 bg-white/[0.02] p-8 text-center animate-in fade-in zoom-in-95 duration-700">
-                <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-white/5 shadow-inner">
-                  <FileText className="h-10 w-10 text-accent/40" />
-                </div>
-                <p className="font-heading text-lg font-bold text-foreground">
-                  Waiting for Gateway
-                </p>
-                <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
-                  Processing{" "}
-                  {
-                    paymentMethods.find((method) => method.id === paymentMethod)
-                      ?.label
-                  }{" "}
-                  Transaction...
-                </p>
-                <div className="mt-6 font-heading text-2xl font-black tracking-tighter text-accent/80">
-                  PHP {formatCurrency(totalAmount)}
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
 
-          <div className="relative z-10 mt-8">
-            <Button
-              className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-accent font-heading text-lg font-black uppercase tracking-widest text-white shadow-2xl shadow-accent/20 transition-all hover:bg-accent/90 active:scale-[0.98] disabled:opacity-20"
-              size="lg"
-              disabled={!canComplete || isProcessing}
-              onClick={handleComplete}
-            >
-              {isProcessing ? (
-                <>
-                  <div className="size-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Complete & Render
-                  <Check className="size-6" />
-                </>
-              )}
-            </Button>
+            <div className="border-t border-white/5 bg-background/80 px-5 py-4 backdrop-blur-2xl sm:px-6">
+              <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-3">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-muted-foreground/40">
+                    Ready to Charge
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {activePaymentMethodLabel}
+                  </p>
+                </div>
+                <p className="font-heading text-2xl font-black tracking-tighter text-foreground">
+                  PHP {formatCurrency(totalAmount)}
+                </p>
+              </div>
+
+              <Button
+                className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-accent px-4 font-heading text-base font-black uppercase tracking-widest text-white shadow-2xl shadow-accent/20 transition-all hover:bg-accent/90 active:scale-[0.98] disabled:opacity-20 sm:h-16 sm:text-lg"
+                size="lg"
+                disabled={!canComplete || isProcessing}
+                onClick={handleComplete}
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="size-5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Complete & Render
+                    <Check className="size-5 sm:size-6" />
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

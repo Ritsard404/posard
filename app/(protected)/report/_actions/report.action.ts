@@ -1,18 +1,19 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 import { reportService } from "../_services/report.service";
+import { reportAccessService } from "../_services/report-access.service";
 import type {
   AuditTrailDto,
   DailyTransactionsDto,
   DiscountReportDto,
   RefundInvoicesDto,
+  ReportCompaniesWorkspaceDto,
+  ReportCompanyContextDto,
   ReportInvoicePrintPayloadDto,
   ReportOverviewDto,
+  ReportTerminalContextDto,
   ReportWorkspaceDto,
-  ReportViewerDto,
   ReturnedInvoiceRecordsDto,
   ReturnedItemsDto,
   SalesReportDto,
@@ -37,40 +38,27 @@ const ReportInputSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });
 
+const ReportWorkspaceInputSchema = ReportInputSchema.pick({
+  companyId: true,
+});
+
+const ReportCompanyContextInputSchema = z.object({
+  companyId: z.string().uuid(),
+});
+
+const ReportTerminalContextInputSchema = z.object({
+  companyId: z.string().uuid(),
+  terminalId: z.string().uuid(),
+});
+
+const ReportCompaniesQuerySchema = z.object({
+  page: z.coerce.number().int().min(0).optional(),
+  size: z.coerce.number().int().min(1).max(100).optional(),
+  keyword: z.string().trim().optional(),
+});
+
 function toErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
-}
-
-async function getReportViewer(): Promise<ReportViewerDto> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-
-  if (!data.user) {
-    throw new Error("Unauthorized");
-  }
-
-  const profile = await prisma.profile.findFirst({
-    where: {
-      userId: data.user.id,
-    },
-    select: {
-      id: true,
-      companyId: true,
-      role: true,
-      fullName: true,
-    },
-  });
-
-  if (!profile) {
-    throw new Error("Profile not found");
-  }
-
-  return {
-    profileId: profile.id,
-    companyId: profile.companyId,
-    role: profile.role,
-    fullName: profile.fullName,
-  };
 }
 
 function resolveRange(input: z.infer<typeof ReportInputSchema>) {
@@ -97,7 +85,7 @@ export async function getReportOverviewAction(
   input?: unknown,
 ): Promise<DataResult<ReportOverviewDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const data = await reportService.getOverview(viewer, {
@@ -117,10 +105,8 @@ export async function getReportWorkspaceAction(
   input?: unknown,
 ): Promise<DataResult<ReportWorkspaceDto>> {
   try {
-    const viewer = await getReportViewer();
-    const validated = ReportInputSchema.pick({
-      companyId: true,
-    }).parse(input ?? {});
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportWorkspaceInputSchema.parse(input ?? {});
     const data = await reportService.getWorkspace(viewer, validated);
     return { success: true, data };
   } catch (error) {
@@ -135,7 +121,7 @@ export async function getXReadingAction(
   input?: unknown,
 ): Promise<DataResult<XReadingDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.pick({
       companyId: true,
       terminalId: true,
@@ -154,7 +140,7 @@ export async function getZReadingAction(
   input?: unknown,
 ): Promise<DataResult<ZReadingDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const data = await reportService.getZReading(viewer, {
@@ -174,7 +160,7 @@ export async function getTransactionHistoryAction(
   input?: unknown,
 ): Promise<DataResult<TransactionHistoryDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -196,7 +182,7 @@ export async function getAuditTrailAction(
   input?: unknown,
 ): Promise<DataResult<AuditTrailDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -218,7 +204,7 @@ export async function getDailyTransactionsAction(
   input?: unknown,
 ): Promise<DataResult<DailyTransactionsDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -240,7 +226,7 @@ export async function getTransactionListAction(
   input?: unknown,
 ): Promise<DataResult<TransactionListDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -262,7 +248,7 @@ export async function getVoidedListAction(
   input?: unknown,
 ): Promise<DataResult<VoidedListDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -284,7 +270,7 @@ export async function getPwdDiscountReportAction(
   input?: unknown,
 ): Promise<DataResult<DiscountReportDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -307,7 +293,7 @@ export async function getSeniorDiscountReportAction(
   input?: unknown,
 ): Promise<DataResult<DiscountReportDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -330,7 +316,7 @@ export async function getSalesReportAction(
   input?: unknown,
 ): Promise<DataResult<SalesReportDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -352,7 +338,7 @@ export async function getSalesBookAction(
   input?: unknown,
 ): Promise<DataResult<SalesBookDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -374,7 +360,7 @@ export async function getRefundInvoicesAction(
   input?: unknown,
 ): Promise<DataResult<RefundInvoicesDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -396,7 +382,7 @@ export async function getReturnedItemsAction(
   input?: unknown,
 ): Promise<DataResult<ReturnedItemsDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -418,7 +404,7 @@ export async function getReturnedInvoiceRecordsAction(
   input?: unknown,
 ): Promise<DataResult<ReturnedInvoiceRecordsDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = ReportInputSchema.parse(input ?? {});
     const range = resolveRange(validated);
     const pagination = resolvePagination(validated);
@@ -440,13 +426,69 @@ export async function getReportInvoicePrintPayloadAction(
   invoiceId: string,
 ): Promise<DataResult<ReportInvoicePrintPayloadDto>> {
   try {
-    const viewer = await getReportViewer();
+    const viewer = await reportAccessService.getViewer();
     const data = await reportService.getInvoicePrintPayload(viewer, invoiceId);
     return { success: true, data };
   } catch (error) {
     return {
       success: false,
       error: toErrorMessage(error, "Failed to load invoice print preview"),
+    };
+  }
+}
+
+export async function getAdminReportCompaniesAction(
+  input?: unknown,
+): Promise<DataResult<ReportCompaniesWorkspaceDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportCompaniesQuerySchema.parse(input ?? {});
+    const data = await reportService.getAdminCompaniesWorkspace(viewer, {
+      page: validated.page ?? 0,
+      size: validated.size ?? 10,
+      keyword: validated.keyword ?? "",
+    });
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load report companies"),
+    };
+  }
+}
+
+export async function getReportCompanyContextAction(
+  input: unknown,
+): Promise<DataResult<ReportCompanyContextDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportCompanyContextInputSchema.parse(input);
+    const data = await reportService.getCompanyContext(viewer, validated.companyId);
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load company report context"),
+    };
+  }
+}
+
+export async function getReportTerminalContextAction(
+  input: unknown,
+): Promise<DataResult<ReportTerminalContextDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportTerminalContextInputSchema.parse(input);
+    const data = await reportService.getTerminalContext(
+      viewer,
+      validated.companyId,
+      validated.terminalId,
+    );
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load terminal report context"),
     };
   }
 }

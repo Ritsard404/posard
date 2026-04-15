@@ -12,6 +12,7 @@ import {
   Hash,
   Mail,
   Phone,
+  BarChart3,
   Settings,
   Terminal,
 } from "lucide-react";
@@ -44,6 +45,16 @@ export default async function CompanyOverviewPage({ params }: CompanyOverviewPag
   const latestRequests = requests.slice(0, 3);
 
   const navCards = [
+    {
+      href: `/companies/${companyId}/report`,
+      icon: BarChart3,
+      label: viewer.role === "admin" ? "Reports" : "My Reports",
+      description:
+        viewer.role === "admin"
+          ? "Review company-wide sales and terminal drill-down reports."
+          : "Open your company-scoped reporting workspace.",
+      color: "bg-amber-50 text-amber-600",
+    },
     {
       href: `/companies/${companyId}/terminals`,
       icon: Terminal,
@@ -107,6 +118,12 @@ export default async function CompanyOverviewPage({ params }: CompanyOverviewPag
         </div>
 
         <div className="flex flex-wrap gap-3">
+          <Button asChild variant="outline">
+            <Link href={`/companies/${companyId}/report`}>
+              <BarChart3 className="size-4" />
+              {viewer.role === "admin" ? "Open Reports" : "View Reports"}
+            </Link>
+          </Button>
           <Button asChild>
             <Link href={`/companies/${companyId}/terminals`}>
               <Terminal className="size-4" />
@@ -149,7 +166,11 @@ export default async function CompanyOverviewPage({ params }: CompanyOverviewPag
         </div>
       </Card>
 
-      <div className={`grid grid-cols-1 gap-4 ${navCards.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+      <div
+        className={`grid grid-cols-1 gap-4 ${
+          navCards.length >= 4 ? "sm:grid-cols-2 xl:grid-cols-4" : navCards.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"
+        }`}
+      >
         {navCards.map((item) => (
           <Link key={item.href} href={item.href}>
             <Card className="group h-full cursor-pointer p-5 transition-all hover:border-blue-300 hover:shadow-md">
