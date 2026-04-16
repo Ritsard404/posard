@@ -2,7 +2,6 @@ import { useState } from "react";
 import { usePOSStore } from "../_store/pos-store";
 import { cancelOrderAction } from "../_actions/order.action";
 import { OrderDto } from "../_services/_dto/order.dto";
-import { calculatePayment } from "../_services/payment-calculation.service";
 import { ManagerApprovalModal } from "./ManagerApprovalModal";
 import { CheckoutModal } from "./CheckoutModal";
 import { Button } from "@/components/ui/button";
@@ -10,16 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Minus, ShoppingCart, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { usePOSPaymentSummary } from "./checkout-shared";
 
 export function CartPanel() {
+  const isMobile = useIsMobile();
   const {
     cart,
+    discount,
     updateCartQuantity,
     removeFromCart,
     clearCart,
-    discount,
     updateItemSubtotal,
-    activeTerminal,
+    setActiveMobileTab,
   } = usePOSStore();
   const { activeTimestampId } = usePOSStore();
 
@@ -33,29 +35,8 @@ export function CartPanel() {
     (manager: { email: string; name: string }) => void
   ) | null>(null);
 
-  const activeCart = cart.filter((item) => item.itemStatus !== "VOID");
-  const paymentSummary = calculatePayment({
-    items: activeCart.map((item) => ({
-      productId: item.id,
-      subTotal: item.customSubtotal ?? item.price * item.cartQuantity,
-      vatType: item.vatType,
-    })),
-    discount:
-      discount.type !== "NONE"
-        ? {
-            discountType: discount.type,
-            eligibleDiscName: discount.eligibleDiscName,
-            oscaIdNum: discount.oscaIdNum,
-          }
-        : undefined,
-    vatRate: activeTerminal?.vat ?? 12,
-    maxDiscount: activeTerminal?.discountMax ?? Number.MAX_SAFE_INTEGER,
-  });
-
-  const subtotal = paymentSummary.grossAmount;
-  const discountAmount = paymentSummary.discountAmount;
-  const total = paymentSummary.totalAmount;
-  const taxDerived = paymentSummary.vatAmount;
+  const { activeCart, subtotal, discountAmount, total, taxDerived } =
+    usePOSPaymentSummary();
 
   const handleCartQuantityChange = (cartItemId: string, quantity: number) => {
     const result = updateCartQuantity(cartItemId, quantity);
@@ -74,10 +55,10 @@ export function CartPanel() {
   };
 
   return (
-    <div className="relative z-10 flex h-full w-full flex-col border-l bg-card/50 shadow-[-20px_0_50px_rgba(0,0,0,0.05)] backdrop-blur-xl animate-in slide-in-from-right-4 duration-500">
-      <div className="flex items-center justify-between border-b bg-muted/20 p-4 lg:p-6">
+    <div className="relative z-10 flex h-full w-full flex-col bg-card animate-in slide-in-from-right-4 duration-300">
+      <div className="flex items-center justify-between border-b p-4 lg:p-6">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 shadow-sm">
+          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
             <ShoppingCart className="size-5 text-primary" />
           </div>
           <h2 className="font-heading text-xl font-black tracking-tight text-foreground">
@@ -111,7 +92,7 @@ export function CartPanel() {
               return (
                 <div
                   key={item.cartItemId}
-                  className={`glass-card flex flex-col p-4 transition-all animate-in fade-in slide-in-from-right-2 ${isVoid ? "grayscale blur-[0.5px] opacity-40" : "hover:border-primary/20"}`}
+                  className={`flex flex-col rounded-2xl border bg-background p-4 transition-all animate-in fade-in slide-in-from-right-2 ${isVoid ? "grayscale opacity-40" : ""}`}
                   style={{ animationDelay: `${idx * 50}ms` }}
                 >
                   <div className="mb-4 flex items-start justify-between">
@@ -229,7 +210,7 @@ export function CartPanel() {
         )}
       </div>
 
-      <div className="border-t bg-card/80 p-4 backdrop-blur-2xl lg:p-6">
+      <div className="border-t bg-card p-4 lg:p-6">
         <div className="mb-6 space-y-3">
           <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
             <span>Aggregated Subtotal</span>
@@ -249,12 +230,12 @@ export function CartPanel() {
 
           {discount.type === "NONE" && taxDerived > 0 && (
             <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest italic text-muted-foreground/40">
-              <span>VAT (Int. {activeTerminal?.vat ?? 12}%)</span>
+              <span>VAT Included</span>
               <span className="font-sans">₱ {taxDerived.toFixed(2)}</span>
             </div>
           )}
 
-          <div className="my-4 h-px w-full bg-gradient-to-r from-transparent via-border to-transparent" />
+          <div className="my-4 h-px w-full bg-border" />
 
           <div className="flex items-end justify-between">
             <div className="flex flex-col gap-1">
@@ -274,7 +255,7 @@ export function CartPanel() {
         <div className="flex gap-3">
           <Button
             variant="outline"
-            className="group h-14 w-1/4 rounded-xl border-border bg-background text-[10px] font-bold uppercase tracking-wider text-destructive shadow-sm transition-all hover:bg-destructive hover:text-destructive-foreground active:scale-95"
+            className="group h-14 w-1/4 rounded-xl text-[10px] font-bold uppercase tracking-wider text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground active:scale-95"
             onClick={async () => {
               if (cart.length === 0) return;
 
@@ -324,21 +305,29 @@ export function CartPanel() {
           </Button>
 
           <Button
-            className="group h-14 flex-1 rounded-xl bg-primary text-lg font-black uppercase tracking-widest text-primary-foreground shadow-lg transition-all hover:bg-primary/90 active:scale-95 lg:h-16 lg:text-xl"
-            onClick={() => setCheckoutOpen(true)}
+            className="group h-14 flex-1 rounded-xl bg-primary text-lg font-black uppercase tracking-widest text-primary-foreground transition-all hover:bg-primary/90 active:scale-95 lg:h-16 lg:text-xl"
+            onClick={() => {
+              if (isMobile) {
+                setActiveMobileTab("tender");
+                return;
+              }
+              setCheckoutOpen(true);
+            }}
             disabled={activeCart.length === 0}
           >
-            Checkout
+            {isMobile ? "Go to Tender" : "Checkout"}
             <ChevronRight className="ml-2 size-6 transition-transform group-hover:translate-x-1" />
           </Button>
         </div>
       </div>
 
-      <CheckoutModal
-        open={checkoutOpen}
-        onOpenChange={setCheckoutOpen}
-        totalAmount={total}
-      />
+      {!isMobile && (
+        <CheckoutModal
+          open={checkoutOpen}
+          onOpenChange={setCheckoutOpen}
+          totalAmount={total}
+        />
+      )}
 
       <ManagerApprovalModal
         open={approvalOpen}

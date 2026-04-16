@@ -6,6 +6,7 @@ import { Package, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ProductCardProps {
   product: Product;
@@ -13,6 +14,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, viewMode }: ProductCardProps) {
+  const isMobile = useIsMobile();
   const addToCart = usePOSStore((state) => state.addToCart);
   const categories = usePOSStore((state) => state.categories);
   const categoryName = categories.find(c => c.id === product.categoryId)?.categoryName || 'Uncategorized';
@@ -36,23 +38,26 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
     return (
       <Card 
         className={cn(
-          "flex flex-row items-center justify-between p-3 glass-card border-border transition-all group shadow-sm bg-card/50",
-          isOutOfStock ? "opacity-60 grayscale-[0.5] cursor-not-allowed" : "cursor-pointer hover:border-primary/40 hover:scale-[1.01] active:scale-[0.99]"
+          "flex flex-row items-center justify-between p-3 border transition-all group bg-card",
+          isOutOfStock ? "opacity-60 grayscale-[0.5] cursor-not-allowed" : "cursor-pointer border-border active:scale-[0.99]"
         )} 
         onClick={() => !isOutOfStock && handleAdd()}
       >
-        <div className="flex items-center gap-4">
-          <div className="size-14 bg-muted/50 rounded-lg flex items-center justify-center border border-border overflow-hidden relative">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className={cn(
+            "rounded-lg flex items-center justify-center border border-border overflow-hidden relative",
+            isMobile ? "size-16" : "size-14 bg-muted/50",
+          )}>
             {product.productImageUrl ? (
               <Image
                 src={product.productImageUrl}
                 alt={product.name}
                 fill
-                sizes="56px"
-                className="h-full w-full object-cover rounded-lg transition-transform group-hover:scale-110"
+                sizes={isMobile ? "64px" : "56px"}
+                className="h-full w-full object-cover rounded-lg"
               />
             ) : (
-              <Package className="size-7 text-muted-foreground/30 group-hover:text-primary/60 transition-colors" />
+              <Package className="size-7 text-muted-foreground/30" />
             )}
             {isOutOfStock && (
               <div className="absolute inset-0 bg-destructive/60 flex items-center justify-center">
@@ -60,12 +65,12 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
               </div>
             )}
           </div>
-          <div className="min-w-0">
-            <h3 className="font-heading font-bold text-sm lg:text-base leading-tight group-hover:text-primary transition-colors truncate max-w-[150px] lg:max-w-none">{product.name}</h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-heading font-bold text-sm lg:text-base leading-tight truncate">{product.name}</h3>
             <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mt-0.5">{categoryName}</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 lg:gap-6 pr-1">
+        <div className="flex items-center gap-3 lg:gap-6 pr-1">
           <div className="text-right">
             <p className="font-heading font-black text-xl text-primary tracking-tighter">₱{product.price.toFixed(2)}</p>
             <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">
@@ -73,12 +78,13 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
             </p>
           </div>
           <Button 
-            size="icon" 
+            size="sm" 
             variant="outline" 
             disabled={isOutOfStock}
-            className="size-9 rounded-lg border-primary/20 bg-primary/5 text-primary shadow-sm hover:bg-primary hover:text-primary-foreground disabled:opacity-50"
+            className="h-10 rounded-lg border-primary/20 bg-primary/5 text-primary disabled:opacity-50"
           >
-            <Plus className="size-5" />
+            <Plus className="size-4" />
+            Add
           </Button>
         </div>
       </Card>
@@ -88,8 +94,8 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
   return (
     <Card 
       className={cn(
-        "flex flex-col overflow-hidden group glass-card border-border transition-all duration-300 h-full bg-card/50",
-        isOutOfStock ? "opacity-60 grayscale-[0.5] cursor-not-allowed" : "cursor-pointer hover:border-primary/40 hover:shadow-lg"
+        "flex flex-col overflow-hidden group border-border transition-all duration-300 h-full bg-card",
+        isOutOfStock ? "opacity-60 grayscale-[0.5] cursor-not-allowed" : "cursor-pointer hover:border-primary/40"
       )} 
       onClick={() => !isOutOfStock && handleAdd()}
     >
@@ -101,10 +107,10 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
               alt={product.name}
               fill
               sizes="(max-width: 767px) 50vw, 25vw"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              className="h-full w-full object-cover"
             />
           ) : (
-            <Package className="size-12 text-muted-foreground/10 transition-transform duration-500 group-hover:scale-110" />
+            <Package className="size-12 text-muted-foreground/10" />
           )}
           
           {isOutOfStock && (
@@ -114,8 +120,6 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
                </div>
             </div>
           )}
-          
-          <div className="absolute inset-0 bg-gradient-to-t from-background/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           
           <Badge className="absolute top-2 right-2 bg-background/80 text-foreground backdrop-blur-md border shadow-sm font-bold text-[8px] uppercase tracking-wider px-2 py-0.5" variant="secondary">
             {categoryName}

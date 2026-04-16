@@ -30,6 +30,8 @@ export interface CartMutationResult {
   reason?: CartMutationFailureReason;
 }
 
+export type POSMobileTab = "menu" | "cart" | "tender";
+
 export interface ProductStockUpdate {
   productId: string;
   remainingQuantity: number;
@@ -59,6 +61,8 @@ interface POSState {
   searchQuery: string;
   selectedCategoryId: string | null;
   viewMode: "grid" | "list";
+  mobileProductView: "grid" | "list";
+  activeMobileTab: POSMobileTab;
 
   // Pagination (For future backend integration)
   currentPage: number;
@@ -105,6 +109,8 @@ interface POSState {
   setSearchQuery: (query: string) => void;
   setSelectedCategoryId: (id: string | null) => void;
   setViewMode: (mode: "grid" | "list") => void;
+  setMobileProductView: (mode: "grid" | "list") => void;
+  setActiveMobileTab: (tab: POSMobileTab) => void;
   setPage: (page: number) => void;
 }
 
@@ -125,6 +131,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
   searchQuery: "",
   selectedCategoryId: null,
   viewMode: "grid",
+  mobileProductView: "list",
+  activeMobileTab: "menu",
 
   currentPage: 1,
   itemsPerPage: 12,
@@ -296,5 +304,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setSelectedCategoryId: (selectedCategoryId) =>
     set({ selectedCategoryId, currentPage: 1 }),
   setViewMode: (viewMode) => set({ viewMode }),
+  setMobileProductView: (mobileProductView) => set({ mobileProductView }),
+  setActiveMobileTab: (activeMobileTab) => set({ activeMobileTab }),
   setPage: (currentPage) => set({ currentPage }),
 }));

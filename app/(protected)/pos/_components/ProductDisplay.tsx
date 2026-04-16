@@ -5,15 +5,21 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, LayoutGrid, List } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export function ProductDisplay() {
+  const isMobile = useIsMobile();
   const { 
     searchQuery, setSearchQuery, 
     selectedCategoryId, setSelectedCategoryId,
     viewMode, setViewMode,
+    mobileProductView, setMobileProductView,
     currentPage, setPage, itemsPerPage,
     products, categories
   } = usePOSStore();
+
+  const activeViewMode = isMobile ? mobileProductView : viewMode;
+  const setActiveViewMode = isMobile ? setMobileProductView : setViewMode;
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -28,45 +34,45 @@ export function ProductDisplay() {
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="flex flex-col h-full bg-transparent border-r animate-in fade-in duration-700">
-      {/* Header & Controls */}
-      <div className="p-4 lg:p-6 border-b space-y-4 bg-card/30 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
+    <div className="flex flex-col h-full bg-background border-r animate-in fade-in duration-300">
+      <div className="border-b bg-background p-4 lg:p-6 space-y-4">
+        <div className="flex items-center gap-3">
           <div className="relative flex-grow group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input 
               placeholder="Search products..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 w-full bg-background/50 rounded-xl h-12 text-base border-border focus:border-primary/50 focus:ring-0 transition-all font-medium"
+              className="pl-12 w-full rounded-xl h-12 text-base transition-all font-medium"
             />
           </div>
-          <div className="flex bg-muted/50 p-1 rounded-xl border">
+          <div className="flex rounded-xl border bg-card p-1">
             <Button 
-              variant={viewMode === 'grid' ? "default" : "ghost"} 
-              size="icon" 
-              onClick={() => setViewMode('grid')}
-              className={`h-10 w-10 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
+              variant={activeViewMode === 'grid' ? "default" : "ghost"} 
+              size="sm" 
+              onClick={() => setActiveViewMode('grid')}
+              className="h-10 rounded-lg px-3"
             >
               <LayoutGrid className="size-5" />
+              Grid
             </Button>
             <Button 
-              variant={viewMode === 'list' ? "default" : "ghost"} 
-              size="icon" 
-              onClick={() => setViewMode('list')}
-              className={`h-10 w-10 rounded-lg transition-all ${viewMode === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
+              variant={activeViewMode === 'list' ? "default" : "ghost"} 
+              size="sm" 
+              onClick={() => setActiveViewMode('list')}
+              className="h-10 rounded-lg px-3"
             >
               <List className="size-5" />
+              List
             </Button>
           </div>
         </div>
 
-        {/* Categories */}
         <ScrollArea className="w-full whitespace-nowrap">
           <div className="flex w-max space-x-2 pb-2">
             <Button
               variant={selectedCategoryId === null ? 'default' : 'outline'}
-              className={`rounded-full px-5 h-9 font-bold text-[10px] uppercase tracking-wider transition-all ${selectedCategoryId === null ? 'bg-primary text-primary-foreground border-transparent' : 'bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+              className="rounded-full px-5 h-9 font-bold text-[10px] uppercase tracking-wider"
               onClick={() => setSelectedCategoryId(null)}
             >
               All Items
@@ -75,7 +81,7 @@ export function ProductDisplay() {
               <Button
                 key={cat.id}
                 variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                className={`rounded-full px-5 h-9 font-bold text-[10px] uppercase tracking-wider transition-all ${selectedCategoryId === cat.id ? 'bg-primary text-primary-foreground border-transparent' : 'bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                className="rounded-full px-5 h-9 font-bold text-[10px] uppercase tracking-wider"
                 onClick={() => setSelectedCategoryId(cat.id)}
               >
                 {cat.categoryName}
@@ -85,8 +91,7 @@ export function ProductDisplay() {
         </ScrollArea>
       </div>
 
-      {/* Main Grid/List */}
-      <ScrollArea className="flex-1 p-4 lg:p-6 bg-background/30">
+      <ScrollArea className="flex-1 p-4 lg:p-6">
         {paginatedProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20 animate-in fade-in zoom-in-95">
             <div className="size-20 rounded-full bg-muted flex items-center justify-center mb-6">
@@ -97,26 +102,25 @@ export function ProductDisplay() {
           </div>
         ) : (
           <div className={
-            viewMode === 'grid' 
+            activeViewMode === 'grid' 
               ? "grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-10" 
               : "flex flex-col gap-3 pb-10"
           }>
             {paginatedProducts.map((product, idx) => (
               <div 
                 key={product.id} 
-                className="animate-in fade-in slide-in-from-bottom-2 duration-500"
-                style={{ animationDelay: `${idx * 50}ms` }}
+                className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+                style={{ animationDelay: `${idx * 25}ms` }}
               >
-                <ProductCard product={product} viewMode={viewMode} />
+                <ProductCard product={product} viewMode={activeViewMode} />
               </div>
             ))}
           </div>
         )}
       </ScrollArea>
 
-      {/* Pagination Footer */}
       {totalPages > 1 && (
-        <div className="p-4 border-t flex items-center justify-between bg-card/50 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        <div className="p-4 border-t flex items-center justify-between bg-card text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           <span>
             Showing <span className="text-foreground">{(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> of {filteredProducts.length}
           </span>
@@ -124,7 +128,7 @@ export function ProductDisplay() {
             <Button 
               variant="outline" 
               size="sm"
-              className="h-8 px-3 rounded-lg border-border bg-background hover:bg-muted disabled:opacity-20 transition-all font-bold"
+              className="h-8 px-3 rounded-lg font-bold"
               disabled={currentPage === 1}
               onClick={() => setPage(currentPage - 1)}
             >
@@ -136,7 +140,7 @@ export function ProductDisplay() {
             <Button 
               variant="outline" 
               size="sm"
-              className="h-8 px-3 rounded-lg border-border bg-background hover:bg-muted disabled:opacity-20 transition-all font-bold"
+              className="h-8 px-3 rounded-lg font-bold"
               disabled={currentPage === totalPages}
               onClick={() => setPage(currentPage + 1)}
             >

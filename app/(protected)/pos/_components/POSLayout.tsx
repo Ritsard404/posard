@@ -2,123 +2,197 @@
 
 import React, { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Package, ShoppingCart, Wallet, LogOut, LayoutGrid } from "lucide-react";
+import {
+  LayoutGrid,
+  LogOut,
+  MoreHorizontal,
+  ShoppingCart,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeaderActions } from "@/components/layout/HeaderActions";
 import { CashTrackTrigger } from "@/components/layout/CashTrackTrigger";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { usePOSStore } from "../_store/pos-store";
 import { cn } from "@/lib/utils";
 import { WithdrawModal } from "./WithdrawModal";
 import { CloseSessionModal } from "./CloseSessionModal";
+import { formatCurrency, usePOSPaymentSummary } from "./checkout-shared";
 
 interface POSLayoutProps {
   children: React.ReactNode;
   cart: React.ReactNode;
+  tender: React.ReactNode;
 }
 
-export function POSLayout({ children, cart }: POSLayoutProps) {
+export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState<"products" | "cart">("products");
-  
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showCloseSession, setShowCloseSession] = useState(false);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
 
-  const activeTerminal = usePOSStore(state => state.activeTerminal);
-  const activeUser = usePOSStore(state => state.activeUser);
-  const activeTimestampId = usePOSStore(state => state.activeTimestampId);
-  const activeSessionId = usePOSStore(state => state.activeSessionId);
-  const setSession = usePOSStore(state => state.setSession);
+  const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
+  const activeSessionId = usePOSStore((state) => state.activeSessionId);
+  const setSession = usePOSStore((state) => state.setSession);
+  const activeMobileTab = usePOSStore((state) => state.activeMobileTab);
+  const setActiveMobileTab = usePOSStore((state) => state.setActiveMobileTab);
+  const { activeItemCount, total } = usePOSPaymentSummary();
+
+  const mobileTabs: Array<{
+    id: "menu" | "cart" | "tender";
+    label: string;
+    icon: typeof LayoutGrid;
+  }> = [
+    { id: "menu", label: "Menu", icon: LayoutGrid },
+    { id: "cart", label: "Cart", icon: ShoppingCart },
+    { id: "tender", label: "Tender", icon: Wallet },
+  ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] w-full overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-4rem)] w-full flex-col overflow-hidden bg-background">
       <HeaderActions>
         <div className="flex items-center gap-2">
           <CashTrackTrigger />
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowWithdraw(true)}
-            className="hidden sm:flex h-9 rounded-lg border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-bold"
-          >
-            <Wallet className="size-4 mr-2" />
-            Withdraw
-          </Button>
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            onClick={() => setShowCloseSession(true)}
-            className="hidden sm:flex h-9 rounded-lg font-bold"
-          >
-            <LogOut className="size-4 mr-2" />
-            Close
-          </Button>
+          {isMobile ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMobileActionsOpen(true)}
+              className="h-9 rounded-lg"
+            >
+              <MoreHorizontal className="size-4" />
+              More
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowWithdraw(true)}
+                className="hidden h-9 rounded-lg sm:flex"
+              >
+                <Wallet className="size-4 mr-2" />
+                Withdraw
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowCloseSession(true)}
+                className="hidden h-9 rounded-lg sm:flex"
+              >
+                <LogOut className="size-4 mr-2" />
+                Close
+              </Button>
+            </>
+          )}
         </div>
       </HeaderActions>
 
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Products Section */}
-        <div className={cn(
-          "flex-1 h-full overflow-hidden transition-all duration-300",
-          isMobile && activeTab !== "products" && "hidden",
-          !isMobile && "block"
-        )}>
-          {children}
-        </div>
+      <div className="flex flex-1 overflow-hidden">
+        {isMobile ? (
+          <div className="flex h-full w-full flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-hidden">
+              {activeMobileTab === "menu" ? children : null}
+              {activeMobileTab === "cart" ? cart : null}
+              {activeMobileTab === "tender" ? tender : null}
+            </div>
 
-        {/* Desktop Cart Sidebar */}
-        {!isMobile && (
-          <div className="w-[380px] xl:w-[420px] h-full border-l bg-card/50 backdrop-blur-sm">
-            {cart}
-          </div>
-        )}
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab("cart")}
+              className="flex items-center justify-between border-t bg-card px-4 py-3 text-left"
+            >
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                  Active Order
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {activeItemCount} {activeItemCount === 1 ? "item" : "items"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                  Running Total
+                </p>
+                <p className="mt-1 font-heading text-2xl font-black tracking-tight text-foreground">
+                  ₱ {formatCurrency(total)}
+                </p>
+              </div>
+            </button>
 
-        {/* Mobile Cart Tab */}
-        {isMobile && activeTab === "cart" && (
-          <div className="absolute inset-0 z-10 bg-background">
-            {cart}
+            <div className="grid h-16 grid-cols-3 border-t bg-background">
+              {mobileTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeMobileTab === tab.id;
+
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveMobileTab(tab.id)}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                      isActive ? "text-primary" : "text-muted-foreground",
+                    )}
+                  >
+                    <Icon className="size-5" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="flex-1 h-full overflow-hidden">{children}</div>
+            <div className="w-[380px] xl:w-[420px] h-full border-l bg-card">
+              {cart}
+            </div>
+          </>
         )}
       </div>
 
-      {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <div className="flex h-16 border-t bg-card/80 backdrop-blur-lg items-center px-4">
-          <button
-            onClick={() => setActiveTab("products")}
-            className={cn(
-              "flex-1 flex flex-col items-center justify-center gap-1 transition-colors",
-              activeTab === "products" ? "text-primary" : "text-muted-foreground"
-            )}
-          >
-            <LayoutGrid className="size-5" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Items</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab("cart")}
-            className={cn(
-              "flex-1 flex flex-col items-center justify-center gap-1 transition-colors",
-              activeTab === "cart" ? "text-primary" : "text-muted-foreground"
-            )}
-          >
-            <div className="relative">
-              <ShoppingCart className="size-5" />
-              {/* Badge can be added here if needed */}
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-wider">Cart</span>
-          </button>
+      <Sheet open={mobileActionsOpen} onOpenChange={setMobileActionsOpen}>
+        <SheetContent side="bottom" className="rounded-t-[2rem]">
+          <SheetHeader>
+            <SheetTitle>Session Actions</SheetTitle>
+            <SheetDescription>
+              Manage register-level actions without leaving the cashier flow.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-3 px-4 pb-6">
+            <Button
+              variant="outline"
+              className="h-12 justify-start rounded-xl"
+              onClick={() => {
+                setMobileActionsOpen(false);
+                setShowWithdraw(true);
+              }}
+            >
+              <Wallet className="size-4 mr-2" />
+              Withdraw Cash
+            </Button>
+            <Button
+              variant="destructive"
+              className="h-12 justify-start rounded-xl"
+              onClick={() => {
+                setMobileActionsOpen(false);
+                setShowCloseSession(true);
+              }}
+            >
+              <LogOut className="size-4 mr-2" />
+              Close Session
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
-          <button
-            onClick={() => setShowCloseSession(true)}
-            className="flex-1 flex flex-col items-center justify-center gap-1 text-destructive"
-          >
-            <LogOut className="size-5" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Exit</span>
-          </button>
-        </div>
-      )}
-
-      {/* Modals */}
       {showWithdraw && activeTimestampId && (
         <WithdrawModal
           timestampId={activeTimestampId}

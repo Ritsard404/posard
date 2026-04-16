@@ -9,6 +9,7 @@ import { OpenSessionModal } from './OpenSessionModal';
 import { POSLayout } from './POSLayout';
 import { ProductDisplay } from './ProductDisplay';
 import { CartPanel } from './CartPanel';
+import { TenderPanel } from './TenderPanel';
 import { Monitor } from 'lucide-react';
 
 export function POSTerminalManager() {
@@ -108,7 +109,7 @@ export function POSTerminalManager() {
 
   // Active Session
   return (
-    <POSLayout cart={<CartPanel />}>
+    <POSLayout cart={<CartPanel />} tender={<TenderPanel />}>
       <ProductDisplay />
     </POSLayout>
   );
