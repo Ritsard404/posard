@@ -1,6 +1,8 @@
 "use server";
 
 import type {
+  ProductBatchPreviewDto,
+  ProductBatchRowDto,
   ProductDto,
   ProductSaveDto,
   PageResponse,
@@ -45,10 +47,10 @@ export async function createProduct(
 }
 
 export async function createManyProducts(
-  dtos: ProductSaveDto[],
+  rows: ProductBatchRowDto[],
 ): Promise<{ error?: string }> {
   try {
-    await productService.createMany(dtos);
+    await productService.createMany(rows);
     return {};
   } catch (err) {
     return { error: (err as Error).message };
@@ -81,13 +83,21 @@ export async function deleteProduct(id: string): Promise<{ error?: string }> {
  * then bulk-creates them. Mirrors batchUploadNewProducts().
  */
 export async function batchUploadProducts(
-  csvText: string,
+  rows: ProductBatchRowDto[],
 ): Promise<{ error?: string }> {
   try {
-    if (!csvText.trim()) throw new Error("Uploaded file is empty.");
-    const dtos = productService.parseCsv(csvText);
-    await productService.createMany(dtos);
+    await productService.createMany(rows);
     return {};
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
+}
+
+export async function previewBatchUploadProducts(
+  csvText: string,
+): Promise<ProductBatchPreviewDto | { error: string }> {
+  try {
+    return productService.previewBatch(csvText);
   } catch (err) {
     return { error: (err as Error).message };
   }

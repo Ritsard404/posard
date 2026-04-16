@@ -61,10 +61,16 @@ export function ChartContainer({
   return (
     <ChartContext.Provider value={config}>
       <div
-        className={cn("h-[320px] w-full", className)}
+        className={cn("h-[320px] w-full min-w-0 min-h-[240px]", className)}
         style={style as React.CSSProperties}
       >
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer
+          width="100%"
+          height="100%"
+          minWidth={0}
+          minHeight={240}
+          debounce={50}
+        >
           {children as React.ReactElement}
         </ResponsiveContainer>
       </div>

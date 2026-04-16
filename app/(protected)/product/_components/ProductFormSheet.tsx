@@ -1,56 +1,82 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Package2, Tags, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
-  SheetTitle,
   SheetDescription,
   SheetFooter,
+  SheetHeader,
+  SheetTitle,
 } from "@/components/ui/sheet";
 
 import {
   createProduct,
   updateProduct,
 } from "@/app/(protected)/product/_actions/product.actions";
-import type { ProductDto } from "@/app/(protected)/product/_services/_dto/product.dto";
 import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
+import type { ProductDto } from "@/app/(protected)/product/_services/_dto/product.dto";
 
-// ─────────────────────────────────────────────
-// Esquema de validación con Zod (strings para campos numéricos,
-// se convierten a números al enviar)
-// ─────────────────────────────────────────────
+const productSchema = z
+  .object({
+    name: z.string().trim().min(1, "Product name is required."),
+    categoryId: z.string().optional(),
+    categoryName: z.string().optional(),
+    barcode: z.string().optional(),
+    baseUnit: z.string().trim().optional(),
+    quantity: z.string().optional(),
+    cost: z.string().optional(),
+    price: z.string().min(1, "Price is required."),
+    itemType: z.enum(["RESALE", "WHOLESALE"]),
+    vatType: z.enum(["VATABLE", "EXEMPT", "ZERO"]),
+    isAvailable: z.boolean(),
+    trackInventory: z.boolean(),
+    productImageUrl: z.string().optional(),
+  })
+  .superRefine((value, ctx) => {
+    const price = Number(value.price);
+    if (!Number.isFinite(price) || price < 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["price"],
+        message: "Price must be zero or greater.",
+      });
+    }
 
-const productSchema = z.object({
-  name: z.string().min(1, "Product name is required."),
-  barcode: z.string().optional(),
-  baseUnit: z.string().optional(),
-  quantity: z.string().optional(),
-  cost: z.string().optional(),
-  price: z.string().min(1, "Price is required."),
-  isAvailable: z.boolean().optional(),
-  trackInventory: z.boolean().optional(),
-  itemType: z.enum(["RESALE", "WHOLESALE"]).optional(),
-  vatType: z.enum(["VATABLE", "EXEMPT", "ZERO"]).optional(),
-  categoryId: z.string().optional(),
-  categoryName: z.string().optional(),
-});
+    if (value.cost) {
+      const cost = Number(value.cost);
+      if (!Number.isFinite(cost) || cost < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["cost"],
+          message: "Cost must be zero or greater.",
+        });
+      }
+    }
+
+    if (value.trackInventory && value.quantity) {
+      const quantity = Number(value.quantity);
+      if (!Number.isFinite(quantity) || quantity < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["quantity"],
+          message: "Quantity must be zero or greater.",
+        });
+      }
+    }
+  });
 
 type ProductFormValues = z.infer<typeof productSchema>;
-
-// ─────────────────────────────────────────────
-// Props del formulario de producto
-// ─────────────────────────────────────────────
 
 interface ProductFormSheetProps {
   open: boolean;
@@ -60,9 +86,27 @@ interface ProductFormSheetProps {
   onSuccess: () => void;
 }
 
-// ─────────────────────────────────────────────
-// Panel lateral para crear/editar productos
-// ─────────────────────────────────────────────
+function SectionHeader({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex size-9 items-center justify-center rounded-xl border border-border/70 bg-muted/40">
+        {icon}
+      </div>
+      <div className="space-y-1">
+        <p className="font-medium leading-none">{title}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
 
 export function ProductFormSheet({
   open,
@@ -71,8 +115,27 @@ export function ProductFormSheet({
   categories,
   onSuccess,
 }: ProductFormSheetProps) {
-  const isEditing = product !== null;
   const [serverError, setServerError] = useState<string | null>(null);
+  const isEditing = product !== null;
+
+  const defaultValues = useMemo<ProductFormValues>(
+    () => ({
+      name: "",
+      categoryId: "",
+      categoryName: "",
+      barcode: "",
+      baseUnit: "UNIT",
+      quantity: "",
+      cost: "0",
+      price: "",
+      itemType: "RESALE",
+      vatType: "VATABLE",
+      isAvailable: true,
+      trackInventory: false,
+      productImageUrl: "",
+    }),
+    [],
+  );
 
   const {
     register,
@@ -83,88 +146,60 @@ export function ProductFormSheet({
     formState: { errors, isSubmitting },
   } = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
-    defaultValues: {
-      name: "",
-      barcode: "",
-      baseUnit: "UNIT",
-      quantity: "0",
-      cost: "0",
-      price: "",
-      isAvailable: true,
-      trackInventory: false,
-      itemType: "RESALE",
-      vatType: "VATABLE",
-      categoryId: "",
-      categoryName: "",
-    },
+    defaultValues,
   });
 
-  // Rellenar el formulario cuando se abre con un producto existente
+  const trackInventory = watch("trackInventory");
+  const isAvailable = watch("isAvailable");
+  const selectedCategoryId = watch("categoryId");
+
   useEffect(() => {
-    if (open && product) {
+    if (!open) return;
+
+    if (product) {
       reset({
         name: product.name,
+        categoryId: product.categoryId,
+        categoryName: "",
         barcode: product.barcode ?? "",
-        baseUnit: product.baseUnit ?? "UNIT",
-        quantity: String(product.quantity ?? 0),
+        baseUnit: product.baseUnit || "UNIT",
+        quantity: product.trackInventory ? String(product.quantity ?? 0) : "",
         cost: String(product.cost ?? 0),
         price: String(product.price),
-        isAvailable: product.isAvailable,
-        trackInventory: product.trackInventory,
         itemType: product.itemType,
         vatType: product.vatType,
-        categoryId: product.categoryId ?? "",
-        categoryName: "",
+        isAvailable: product.isAvailable,
+        trackInventory: product.trackInventory,
+        productImageUrl: product.productImageUrl ?? "",
       });
-    } else if (open) {
-      reset({
-        name: "",
-        barcode: "",
-        baseUnit: "UNIT",
-        quantity: "0",
-        cost: "0",
-        price: "",
-        isAvailable: true,
-        trackInventory: false,
-        itemType: "RESALE",
-        vatType: "VATABLE",
-        categoryId: "",
-        categoryName: "",
-      });
+    } else {
+      reset(defaultValues);
     }
+
     setServerError(null);
-  }, [open, product, reset]);
+  }, [defaultValues, open, product, reset]);
 
-  const isAvailableValue = watch("isAvailable");
-  const trackInventoryValue = watch("trackInventory");
-
-  // Convertir strings a números y enviar al servidor
   async function onSubmit(values: ProductFormValues) {
     setServerError(null);
 
-    const priceNum = parseFloat(values.price);
-    if (isNaN(priceNum) || priceNum < 0) {
-      setServerError("Price must be a valid positive number.");
-      return;
-    }
-
     const dto = {
-      name: values.name,
-      barcode: values.barcode || undefined,
-      baseUnit: values.baseUnit || "UNIT",
-      quantity: values.quantity ? parseFloat(values.quantity) : undefined,
-      cost: values.cost ? parseFloat(values.cost) : undefined,
-      price: priceNum,
-      isAvailable: values.isAvailable,
-      trackInventory: values.trackInventory,
+      name: values.name.trim(),
+      categoryId: values.categoryId?.trim() || undefined,
+      categoryName: values.categoryName?.trim() || undefined,
+      barcode: values.barcode?.trim() || undefined,
+      baseUnit: values.baseUnit?.trim() || "UNIT",
+      quantity: values.trackInventory ? (values.quantity?.trim() ? Number(values.quantity) : 0) : null,
+      cost: values.cost?.trim() ? Number(values.cost) : 0,
+      price: Number(values.price),
       itemType: values.itemType,
       vatType: values.vatType,
-      categoryId: values.categoryId || undefined,
-      categoryName: values.categoryName || undefined,
+      isAvailable: values.isAvailable,
+      trackInventory: values.trackInventory,
+      productImageUrl: values.productImageUrl?.trim() || undefined,
     };
 
     const result = isEditing
-      ? await updateProduct(product!.id, dto)
+      ? await updateProduct(product.id, dto)
       : await createProduct(dto);
 
     if (result.error) {
@@ -178,204 +213,206 @@ export function ProductFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>
-            {isEditing ? "Edit Product" : "New Product"}
-          </SheetTitle>
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+        <SheetHeader className="px-1">
+          <SheetTitle>{isEditing ? "Edit Product" : "New Product"}</SheetTitle>
           <SheetDescription>
-            {isEditing
-              ? "Update the product fields below."
-              : "Fill in the details to create a new product."}
+            Capture pricing, inventory, and tax settings in one place. Inventory-off products are saved with `quantity = null`.
           </SheetDescription>
         </SheetHeader>
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-1 flex-col gap-5 px-4 py-2"
-        >
-          {/* Error del servidor */}
-          {serverError && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-6 px-1 pb-6">
+          {serverError ? (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               {serverError}
             </div>
-          )}
+          ) : null}
 
-          {/* Nombre */}
-          <div className="space-y-1.5">
-            <Label htmlFor="product-name">Name *</Label>
-            <Input
-              id="product-name"
-              placeholder="e.g. Bottled Water 500ml"
-              {...register("name")}
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <SectionHeader
+              icon={<Tags className="size-4 text-primary" />}
+              title="Core details"
+              description="Name, category, barcode, and image metadata."
             />
-            {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
-            )}
-          </div>
 
-          {/* Categoría */}
-          <div className="space-y-1.5">
-            <Label htmlFor="product-category">Category</Label>
-            <select
-              id="product-category"
-              {...register("categoryId")}
-              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">Select a category</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.categoryName}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="product-name">Product Name</Label>
+                <Input id="product-name" placeholder="Bottled Water 500ml" {...register("name")} />
+                {errors.name ? <p className="text-xs text-destructive">{errors.name.message}</p> : null}
+              </div>
 
-          {/* Precio y Costo en una fila */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="product-price">Price *</Label>
-              <Input
-                id="product-price"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                {...register("price")}
-              />
-              {errors.price && (
-                <p className="text-xs text-destructive">
-                  {errors.price.message}
+              <div className="space-y-1.5">
+                <Label htmlFor="product-category">Existing Category</Label>
+                <select
+                  id="product-category"
+                  {...register("categoryId")}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring"
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.categoryName}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  {selectedCategoryId ? "Using the selected existing category." : "Leave blank if you want to create a new category below."}
                 </p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="product-cost">Cost</Label>
-              <Input
-                id="product-cost"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                {...register("cost")}
-              />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-category-name">New Category Name</Label>
+                <Input
+                  id="product-category-name"
+                  placeholder="Optional new category"
+                  {...register("categoryName")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  If provided, the service will resolve or create this category.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-barcode">Barcode</Label>
+                <Input id="product-barcode" placeholder="Optional barcode" {...register("barcode")} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-image-url">Product Image URL</Label>
+                <Input
+                  id="product-image-url"
+                  placeholder="https://example.com/image.png"
+                  {...register("productImageUrl")}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Cantidad y Unidad base */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="product-quantity">Quantity</Label>
-              <Input
-                id="product-quantity"
-                type="number"
-                min="0"
-                placeholder="0"
-                disabled={!trackInventoryValue}
-                {...register("quantity")}
-              />
-              <p className="text-xs text-muted-foreground">
-                {trackInventoryValue
-                  ? "Use this for bottles, packs, and other stock-managed goods."
-                  : "Turn on inventory tracking first for stock-managed items."}
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="product-base-unit">Base Unit</Label>
-              <Input
-                id="product-base-unit"
-                placeholder="UNIT"
-                {...register("baseUnit")}
-              />
-            </div>
-          </div>
-
-          {/* Código de barras */}
-          <div className="space-y-1.5">
-            <Label htmlFor="product-barcode">Barcode</Label>
-            <Input
-              id="product-barcode"
-              placeholder="Optional barcode"
-              {...register("barcode")}
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <SectionHeader
+              icon={<Wallet className="size-4 text-emerald-600" />}
+              title="Pricing and tax"
+              description="Set pricing, cost baseline, item classification, and VAT handling."
             />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="product-price">Price</Label>
+                <Input id="product-price" type="number" min="0" step="0.01" placeholder="0.00" {...register("price")} />
+                {errors.price ? <p className="text-xs text-destructive">{errors.price.message}</p> : null}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-cost">Cost</Label>
+                <Input id="product-cost" type="number" min="0" step="0.01" placeholder="0.00" {...register("cost")} />
+                {errors.cost ? <p className="text-xs text-destructive">{errors.cost.message}</p> : null}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-item-type">Item Type</Label>
+                <select
+                  id="product-item-type"
+                  {...register("itemType")}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring"
+                >
+                  <option value="RESALE">Resale</option>
+                  <option value="WHOLESALE">Wholesale</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-vat-type">VAT Type</Label>
+                <select
+                  id="product-vat-type"
+                  {...register("vatType")}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring"
+                >
+                  <option value="VATABLE">Vatable</option>
+                  <option value="EXEMPT">Exempt</option>
+                  <option value="ZERO">Zero-rated</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          {/* Tipo de artículo y IVA */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="product-item-type">Item Type</Label>
-              <select
-                id="product-item-type"
-                {...register("itemType")}
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="RESALE">Resale</option>
-                <option value="WHOLESALE">Wholesale</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="product-vat-type">VAT Type</Label>
-              <select
-                id="product-vat-type"
-                {...register("vatType")}
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="VATABLE">Vatable</option>
-                <option value="EXEMPT">Exempt</option>
-                <option value="ZERO">Zero-rated</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Disponible */}
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="product-available"
-              checked={isAvailableValue}
-              onCheckedChange={(checked) =>
-                setValue("isAvailable", checked === true)
-              }
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <SectionHeader
+              icon={<Package2 className="size-4 text-amber-600" />}
+              title="Inventory behavior"
+              description="Use quantity only when inventory tracking is enabled."
             />
-            <Label htmlFor="product-available" className="cursor-pointer">
-              Available for sale
-            </Label>
-          </div>
 
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="product-track-inventory"
-              checked={trackInventoryValue}
-              onCheckedChange={(checked) => {
-                const shouldTrack = checked === true;
-                setValue("trackInventory", shouldTrack);
-                if (!shouldTrack) {
-                  setValue("quantity", "0");
-                }
-              }}
-            />
-            <div className="space-y-1">
-              <Label htmlFor="product-track-inventory" className="cursor-pointer">
-                Track inventory
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Enable this for bottles and packed items. Leave it off for
-                burgers, fries, and other prepared food unless sold by pack.
-              </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="product-base-unit">Base Unit</Label>
+                <Input id="product-base-unit" placeholder="UNIT" {...register("baseUnit")} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-quantity">Quantity</Label>
+                <Input
+                  id="product-quantity"
+                  type="number"
+                  min="0"
+                  step="0.0001"
+                  placeholder={trackInventory ? "0" : "Disabled while inventory is off"}
+                  disabled={!trackInventory}
+                  {...register("quantity")}
+                />
+                {errors.quantity ? <p className="text-xs text-destructive">{errors.quantity.message}</p> : null}
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-border/70 bg-background px-3 py-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="product-track-inventory"
+                  checked={trackInventory}
+                  onCheckedChange={(checked) => {
+                    const next = checked === true;
+                    setValue("trackInventory", next);
+                    if (!next) {
+                      setValue("quantity", "");
+                    }
+                  }}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="product-track-inventory" className="cursor-pointer">
+                    Track inventory
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Turn this on for packaged or counted products. If it stays off, the saved quantity becomes null.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="product-available"
+                  checked={isAvailable}
+                  onCheckedChange={(checked) => setValue("isAvailable", checked === true)}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="product-available" className="cursor-pointer">
+                    Available for sale
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Disable this to keep the product in inventory but hide it from active selling workflows.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Botones */}
-          <SheetFooter className="mt-auto px-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
+          <SheetFooter className="mt-auto gap-2 px-0 sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+              {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
               {isEditing ? "Save Changes" : "Create Product"}
             </Button>
           </SheetFooter>

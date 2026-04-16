@@ -102,28 +102,160 @@ type DetailResult =
   | XReadingDto
   | ZReadingDto;
 
-const REPORT_VIEWS: Array<{
+type ReportCategory =
+  | "Overview"
+  | "Sales Activity"
+  | "Discounts & Returns"
+  | "Compliance & Audit"
+  | "Readings";
+
+type ReportViewMeta = {
   id: ReportPrintableView;
+  category: ReportCategory;
   label: string;
   description: string;
+  supportingCopy: string;
   icon: typeof BarChart3;
-}> = [
-  { id: "overview", label: "Overview", description: "Snapshot of sales and operations.", icon: BarChart3 },
-  { id: "daily-transactions", label: "Daily Transactions", description: "Daily rollups by date and terminal.", icon: CalendarDays },
-  { id: "transaction-list", label: "Transaction List", description: "Ledger view with base, void, and refund entries.", icon: ClipboardList },
-  { id: "transactions", label: "Sales History", description: "Invoice-level sales and payment history.", icon: ShoppingBag },
-  { id: "voided-list", label: "Voided List", description: "Cancelled and voided invoice records.", icon: ListX },
-  { id: "pwd-list", label: "PWD List", description: "Transactions with PWD discount application.", icon: ShieldAlert },
-  { id: "senior-list", label: "Senior List", description: "Transactions with senior discount application.", icon: ShieldAlert },
-  { id: "sales", label: "Sales Report", description: "Item-level sales and profitability.", icon: CreditCard },
-  { id: "sales-book", label: "Sales Book", description: "Daily summarized sales book.", icon: Receipt },
-  { id: "refund-invoices", label: "Refund Invoices", description: "Fully and partially refunded invoices.", icon: RotateCcw },
-  { id: "returned-items", label: "Returned Items", description: "Returned line items across invoices.", icon: RotateCcw },
-  { id: "returned-records", label: "Returned Records", description: "Returned invoice records with transaction context.", icon: FileClock },
-  { id: "audit", label: "Audit Trail", description: "Manager approvals and session events.", icon: FileClock },
-  { id: "x-reading", label: "X-Reading", description: "Latest session summary.", icon: ScanSearch },
-  { id: "z-reading", label: "Z-Reading", description: "End-of-day totals and taxes.", icon: Receipt },
+};
+
+const REPORT_VIEWS: ReportViewMeta[] = [
+  {
+    id: "overview",
+    category: "Overview",
+    label: "Overview",
+    description: "Snapshot of sales and operations.",
+    supportingCopy: "Start here for a high-level picture before opening a detailed report.",
+    icon: BarChart3,
+  },
+  {
+    id: "daily-transactions",
+    category: "Sales Activity",
+    label: "Daily Transactions",
+    description: "Daily rollups by date and terminal.",
+    supportingCopy: "Scan daily totals and invoice counts without opening the full ledger.",
+    icon: CalendarDays,
+  },
+  {
+    id: "transaction-list",
+    category: "Sales Activity",
+    label: "Transaction List",
+    description: "Ledger view with base, void, and refund entries.",
+    supportingCopy: "Review mixed transaction activity in posting order.",
+    icon: ClipboardList,
+  },
+  {
+    id: "transactions",
+    category: "Sales Activity",
+    label: "Sales History",
+    description: "Invoice-level sales and payment history.",
+    supportingCopy: "Inspect invoice records with payment and cashier context.",
+    icon: ShoppingBag,
+  },
+  {
+    id: "voided-list",
+    category: "Discounts & Returns",
+    label: "Voided List",
+    description: "Cancelled and voided invoice records.",
+    supportingCopy: "Review sales that were cancelled before settlement.",
+    icon: ListX,
+  },
+  {
+    id: "pwd-list",
+    category: "Discounts & Returns",
+    label: "PWD List",
+    description: "Transactions with PWD discount application.",
+    supportingCopy: "Filter discount usage for PWD-qualified invoices.",
+    icon: ShieldAlert,
+  },
+  {
+    id: "senior-list",
+    category: "Discounts & Returns",
+    label: "Senior List",
+    description: "Transactions with senior discount application.",
+    supportingCopy: "Review senior discount transactions and amounts applied.",
+    icon: ShieldAlert,
+  },
+  {
+    id: "sales",
+    category: "Sales Activity",
+    label: "Sales Report",
+    description: "Item-level sales and profitability.",
+    supportingCopy: "Break down sold items by revenue and profit contribution.",
+    icon: CreditCard,
+  },
+  {
+    id: "sales-book",
+    category: "Sales Activity",
+    label: "Sales Book",
+    description: "Daily summarized sales book.",
+    supportingCopy: "Use the day-by-day book when you need summarized reporting.",
+    icon: Receipt,
+  },
+  {
+    id: "refund-invoices",
+    category: "Discounts & Returns",
+    label: "Refund Invoices",
+    description: "Fully and partially refunded invoices.",
+    supportingCopy: "Trace refunded invoices without mixing them into normal sales views.",
+    icon: RotateCcw,
+  },
+  {
+    id: "returned-items",
+    category: "Discounts & Returns",
+    label: "Returned Items",
+    description: "Returned line items across invoices.",
+    supportingCopy: "Inspect item-level returns across the selected report range.",
+    icon: RotateCcw,
+  },
+  {
+    id: "returned-records",
+    category: "Discounts & Returns",
+    label: "Returned Records",
+    description: "Returned invoice records with transaction context.",
+    supportingCopy: "Open return history with the original transaction details attached.",
+    icon: FileClock,
+  },
+  {
+    id: "audit",
+    category: "Compliance & Audit",
+    label: "Audit Trail",
+    description: "Manager approvals and session events.",
+    supportingCopy: "Track approvals, role actions, and other control-sensitive events.",
+    icon: FileClock,
+  },
+  {
+    id: "x-reading",
+    category: "Readings",
+    label: "X-Reading",
+    description: "Latest session summary.",
+    supportingCopy: "Check the current session totals before end-of-day close.",
+    icon: ScanSearch,
+  },
+  {
+    id: "z-reading",
+    category: "Readings",
+    label: "Z-Reading",
+    description: "End-of-day totals and taxes.",
+    supportingCopy: "Use the final day-close report for totals, taxes, and closures.",
+    icon: Receipt,
+  },
 ];
+
+const REPORT_CATEGORY_ORDER: ReportCategory[] = [
+  "Overview",
+  "Sales Activity",
+  "Discounts & Returns",
+  "Compliance & Audit",
+  "Readings",
+];
+
+const REPORT_CATEGORY_DESCRIPTIONS: Record<ReportCategory, string> = {
+  Overview: "Quick summary before drilling into a detailed report.",
+  "Sales Activity": "Sales movement, invoice history, and item-level performance.",
+  "Discounts & Returns": "Exceptions, discounts, voids, and after-sale adjustments.",
+  "Compliance & Audit": "Operational checks and approval-sensitive activity.",
+  Readings: "Shift and day-close readings for terminal control.",
+};
 
 function getParam(searchParams: SearchParams, key: string) {
   const value = searchParams[key];
@@ -169,6 +301,14 @@ function buildReportHref(input: {
   }
 
   return `${input.basePath}?${params.toString()}`;
+}
+
+function getReportViewGroups() {
+  return REPORT_CATEGORY_ORDER.map((category) => ({
+    category,
+    description: REPORT_CATEGORY_DESCRIPTIONS[category],
+    views: REPORT_VIEWS.filter((view) => view.category === category),
+  })).filter((group) => group.views.length > 0);
 }
 
 async function getDetailData(
@@ -346,6 +486,7 @@ export async function ReportDetailWorkspace({
 
   const selectedViewMeta =
     REPORT_VIEWS.find((view) => view.id === selectedView) ?? REPORT_VIEWS[0];
+  const reportViewGroups = getReportViewGroups();
   const printPayload = reportPrintService.buildPayload({
     view: selectedView,
     overview: overviewResult.success ? overviewResult.data : null,
@@ -367,10 +508,10 @@ export async function ReportDetailWorkspace({
 
   return (
     <div className="space-y-6">
-      <Card className="rounded-3xl border-border/60 bg-gradient-to-br from-background via-background to-muted/40 shadow-sm">
-        <CardHeader className="space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
+      <Card className="rounded-3xl border-border/60 shadow-sm">
+        <CardHeader className="space-y-5">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full px-3 py-1 uppercase tracking-[0.16em]">
                   {workspaceLabel}
@@ -386,15 +527,15 @@ export async function ReportDetailWorkspace({
               </div>
               <div>
                 <CardTitle className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-                  {selectedViewMeta.label}
+                  {workspaceLabel}
                 </CardTitle>
                 <CardDescription className="mt-2 max-w-2xl text-sm">
-                  {workspaceDescription ?? selectedViewMeta.description}
+                  {workspaceDescription ?? "Review the right report without wading through a crowded selector."}
                 </CardDescription>
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-col gap-2 lg:items-end">
               <div className="flex items-center gap-2 rounded-2xl border bg-background px-4 py-3 text-sm">
                 <CalendarDays className="size-4 text-muted-foreground" />
                 <span>{formatDate(fromDate)} to {formatDate(toDate)}</span>
@@ -403,34 +544,112 @@ export async function ReportDetailWorkspace({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {REPORT_VIEWS.map((view) => (
-              <Button key={view.id} asChild variant={view.id === selectedView ? "default" : "outline"} className="h-10 rounded-xl">
-                <Link
-                  href={buildReportHref({
-                    basePath,
-                    view: view.id,
-                    from: formatDateInput(fromDate),
-                    to: formatDateInput(toDate),
-                    terminalId: terminalId ? undefined : activeTerminalId,
-                    page: view.id === selectedView ? page : 1,
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+            <div className="rounded-3xl border bg-muted/20 p-5">
+              <div className="flex items-start gap-4">
+                <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                  <selectedViewMeta.icon className="size-5" />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="rounded-full">
+                      Active report
+                    </Badge>
+                    <Badge variant="secondary" className="rounded-full">
+                      {selectedViewMeta.category}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xl font-semibold tracking-tight">{selectedViewMeta.label}</div>
+                    <p className="text-sm text-muted-foreground">{selectedViewMeta.description}</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{selectedViewMeta.supportingCopy}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border bg-background p-5">
+              <div className="space-y-1">
+                <div className="text-sm font-semibold tracking-tight">Choose another report</div>
+                <p className="text-sm text-muted-foreground">
+                  Reports are grouped by task so the list is easier to scan.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            {reportViewGroups.map((group) => (
+              <div key={group.category} className="space-y-3">
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold tracking-tight">{group.category}</div>
+                  <p className="text-sm text-muted-foreground">{group.description}</p>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {group.views.map((view) => {
+                    const isActive = view.id === selectedView;
+
+                    return (
+                      <Button
+                        key={view.id}
+                        asChild
+                        variant="ghost"
+                        className={cn(
+                          "h-auto min-h-28 justify-start rounded-2xl border px-4 py-4 text-left transition-colors",
+                          isActive
+                            ? "border-primary bg-primary text-primary-foreground hover:bg-primary/95 hover:text-primary-foreground"
+                            : "border-border bg-background hover:bg-muted/40",
+                        )}
+                      >
+                        <Link
+                          href={buildReportHref({
+                            basePath,
+                            view: view.id,
+                            from: formatDateInput(fromDate),
+                            to: formatDateInput(toDate),
+                            terminalId: terminalId ? undefined : activeTerminalId,
+                            page: view.id === selectedView ? page : 1,
+                          })}
+                          className="flex h-full w-full items-start gap-3"
+                        >
+                          <div
+                            className={cn(
+                              "rounded-2xl p-2.5",
+                              isActive
+                                ? "bg-primary-foreground/15 text-primary-foreground"
+                                : "bg-muted text-foreground",
+                            )}
+                          >
+                            <view.icon className="size-4" />
+                          </div>
+                          <div className="min-w-0 space-y-1">
+                            <div className="font-semibold leading-none">{view.label}</div>
+                            {/* <div
+                              className={cn(
+                                "text-xs leading-5",
+                                isActive ? "text-primary-foreground/85" : "text-muted-foreground",
+                              )}
+                            >
+                              {view.supportingCopy}
+                            </div> */}
+                          </div>
+                        </Link>
+                      </Button>
+                    );
                   })}
-                >
-                  <view.icon className="size-4" />
-                  {view.label}
-                </Link>
-              </Button>
+                </div>
+              </div>
             ))}
           </div>
         </CardHeader>
       </Card>
 
-      <Card className="rounded-3xl">
+      <Card className="rounded-3xl border-border/60">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Filters</CardTitle>
           <CardDescription>
             {showTerminalScopeSwitcher
-              ? "Switch between all terminals and a single terminal without resetting the report view."
+              ? "Adjust dates or terminal scope without changing the selected report."
               : "Adjust the date range without changing the selected reporting scope."}
           </CardDescription>
         </CardHeader>

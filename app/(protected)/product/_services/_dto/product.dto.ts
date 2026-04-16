@@ -31,7 +31,7 @@ export interface ProductSaveDto {
   categoryName?: string;
   barcode?: string;
   baseUnit?: string;
-  quantity?: number;
+  quantity?: number | null;
   cost?: number;
   price: number;
   isAvailable?: boolean;
@@ -39,6 +39,34 @@ export interface ProductSaveDto {
   itemType?: ItemType;
   vatType?: VatType;
   productImageUrl?: string;
+}
+
+export interface ProductBatchRowDto {
+  rowNumber: number;
+  name: string;
+  categoryName: string;
+  barcode: string | null;
+  baseUnit: string;
+  trackInventory: boolean;
+  quantity: number | null;
+  cost: number;
+  price: number;
+  itemType: ItemType;
+  vatType: VatType;
+  isAvailable: boolean;
+  productImageUrl: string | null;
+}
+
+export interface ProductBatchPreviewRowDto extends ProductBatchRowDto {
+  errors: string[];
+}
+
+export interface ProductBatchPreviewDto {
+  rows: ProductBatchPreviewRowDto[];
+  validRows: ProductBatchRowDto[];
+  totalRows: number;
+  validRowCount: number;
+  invalidRowCount: number;
 }
 
 // ─────────────────────────────────────────────

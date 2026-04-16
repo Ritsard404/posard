@@ -1,21 +1,25 @@
 import "server-only";
+
+import Papa from "papaparse";
+
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { auditLogService } from "@/lib/services/audit-log.service";
+import { mutationContextService } from "@/lib/services/mutation-context.service";
 import type { Prisma, ItemType, VatType } from "@prisma/client";
 import type {
+  ProductBatchPreviewDto,
+  ProductBatchPreviewRowDto,
+  ProductBatchRowDto,
   ProductDto,
   ProductSaveDto,
   PageResponse,
 } from "@/app/(protected)/product/_services/_dto/product.dto";
 
-// ─────────────────────────────────────────────
-// Sortable fields whitelist
-// ─────────────────────────────────────────────
+type ProductWithCategory = Prisma.ProductGetPayload<{ include: { category: true } }>;
+type DbClient = typeof prisma | Prisma.TransactionClient;
 
-const SORTABLE_FIELDS: Record<
-  string,
-  keyof Prisma.ProductOrderByWithRelationInput
-> = {
+const SORTABLE_FIELDS: Record<string, keyof Prisma.ProductOrderByWithRelationInput> = {
   name: "name",
   price: "price",
   cost: "cost",
@@ -23,9 +27,39 @@ const SORTABLE_FIELDS: Record<
   createdAt: "createdAt",
 };
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
+const ITEM_TYPES = new Set<ItemType>(["RESALE", "WHOLESALE"]);
+const VAT_TYPES = new Set<VatType>(["VATABLE", "EXEMPT", "ZERO"]);
+const CSV_HEADERS = [
+  "Product Name",
+  "Category Name",
+  "Barcode",
+  "Base Unit",
+  "Track Inventory",
+  "Quantity",
+  "Cost",
+  "Price",
+  "Item Type",
+  "VAT Type",
+  "Available",
+  "Product Image URL",
+] as const;
+
+type CsvRow = Record<string, string | undefined>;
+
+interface NormalizedProductInput {
+  name: string;
+  categoryName: string;
+  barcode: string | null;
+  baseUnit: string;
+  quantity: number | null;
+  cost: number;
+  price: number;
+  isAvailable: boolean;
+  trackInventory: boolean;
+  itemType: ItemType;
+  vatType: VatType;
+  productImageUrl: string | null;
+}
 
 async function getCompanyId(): Promise<string | null> {
   const supabase = await createClient();
@@ -40,36 +74,304 @@ async function getCompanyId(): Promise<string | null> {
   return profile?.companyId ?? null;
 }
 
-function toProductDto(
-  p: Prisma.ProductGetPayload<{ include: { category: true } }>,
-): ProductDto {
+function toProductDto(product: ProductWithCategory): ProductDto {
   return {
-    id: p.id,
-    name: p.name,
-    productImageUrl: p.productImageUrl,
-    barcode: p.barcode,
-    baseUnit: p.baseUnit,
-    quantity: p.quantity ? Number(p.quantity) : null,
-    cost: Number(p.cost),
-    price: Number(p.price),
-    isAvailable: p.isAvailable,
-    trackInventory: p.trackInventory,
-    itemType: p.itemType,
-    vatType: p.vatType,
-    categoryId: p.categoryId,
-    categoryName: p.category?.categoryName ?? null,
+    id: product.id,
+    name: product.name,
+    productImageUrl: product.productImageUrl,
+    barcode: product.barcode,
+    baseUnit: product.baseUnit,
+    quantity: product.quantity === null ? null : Number(product.quantity),
+    cost: Number(product.cost),
+    price: Number(product.price),
+    isAvailable: product.isAvailable,
+    trackInventory: product.trackInventory,
+    itemType: product.itemType,
+    vatType: product.vatType,
+    categoryId: product.categoryId,
+    categoryName: product.category?.categoryName ?? null,
   };
 }
 
-// ─────────────────────────────────────────────
-// Service
-// ─────────────────────────────────────────────
+function asOptionalString(value?: string | null): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function parseOptionalNumber(value?: number | string | null): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseBooleanValue(value?: string | boolean | null, fallback = false): boolean {
+  if (typeof value === "boolean") return value;
+
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return fallback;
+
+  return ["true", "1", "yes", "y"].includes(normalized);
+}
+
+function normalizeCategoryName(value?: string): string {
+  return (value?.trim() || "Uncategorized").toUpperCase();
+}
+
+function normalizeProductInput(dto: ProductSaveDto): NormalizedProductInput {
+  const name = dto.name.trim();
+  if (!name) {
+    throw new Error("Product name is required.");
+  }
+
+  const price = parseOptionalNumber(dto.price);
+  if (price === null || price < 0) {
+    throw new Error("Price must be a valid positive number.");
+  }
+
+  const cost = parseOptionalNumber(dto.cost) ?? 0;
+  if (cost < 0) {
+    throw new Error("Cost must be zero or greater.");
+  }
+
+  const trackInventory = dto.trackInventory ?? false;
+  const parsedQuantity = parseOptionalNumber(dto.quantity);
+  const quantity = trackInventory ? parsedQuantity ?? 0 : null;
+
+  if (quantity !== null && quantity < 0) {
+    throw new Error("Quantity must be zero or greater.");
+  }
+
+  const itemType = dto.itemType ?? "RESALE";
+  if (!ITEM_TYPES.has(itemType)) {
+    throw new Error("Item type is invalid.");
+  }
+
+  const vatType = dto.vatType ?? "VATABLE";
+  if (!VAT_TYPES.has(vatType)) {
+    throw new Error("VAT type is invalid.");
+  }
+
+  return {
+    name,
+    categoryName: normalizeCategoryName(dto.categoryName),
+    barcode: asOptionalString(dto.barcode),
+    baseUnit: dto.baseUnit?.trim() || "UNIT",
+    quantity,
+    cost,
+    price,
+    isAvailable: dto.isAvailable ?? true,
+    trackInventory,
+    itemType,
+    vatType,
+    productImageUrl: asOptionalString(dto.productImageUrl),
+  };
+}
+
+function createFieldChange(label: string, before: string, after: string): string | null {
+  return before === after ? null : `${label}: ${before} -> ${after}`;
+}
+
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "empty";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+}
+
+function buildCreateSummary(input: NormalizedProductInput, categoryName: string): string {
+  return [
+    `Created ${input.name}`,
+    `Category ${categoryName}`,
+    `Price ${input.price.toFixed(2)}`,
+    `Track inventory ${input.trackInventory ? "Yes" : "No"}`,
+    input.quantity === null ? "Quantity not tracked" : `Quantity ${input.quantity}`,
+    `VAT ${input.vatType}`,
+  ].join(" | ");
+}
+
+function buildDeleteSummary(product: ProductWithCategory): string {
+  return [
+    `Deleted ${product.name}`,
+    `Category ${product.category?.categoryName ?? "Uncategorized"}`,
+    `Price ${Number(product.price).toFixed(2)}`,
+    product.quantity === null ? "Quantity not tracked" : `Quantity ${Number(product.quantity)}`,
+  ].join(" | ");
+}
+
+function buildUpdateSummary(
+  existing: ProductWithCategory,
+  categoryName: string,
+  next: NormalizedProductInput,
+): string {
+  const fields = [
+    createFieldChange("Name", existing.name, next.name),
+    createFieldChange("Category", existing.category?.categoryName ?? "Uncategorized", categoryName),
+    createFieldChange("Barcode", formatValue(existing.barcode), formatValue(next.barcode)),
+    createFieldChange("Base unit", existing.baseUnit, next.baseUnit),
+    createFieldChange("Quantity", formatValue(existing.quantity === null ? null : Number(existing.quantity)), formatValue(next.quantity)),
+    createFieldChange("Cost", Number(existing.cost).toFixed(2), next.cost.toFixed(2)),
+    createFieldChange("Price", Number(existing.price).toFixed(2), next.price.toFixed(2)),
+    createFieldChange("Available", formatValue(existing.isAvailable), formatValue(next.isAvailable)),
+    createFieldChange("Track inventory", formatValue(existing.trackInventory), formatValue(next.trackInventory)),
+    createFieldChange("Item type", existing.itemType, next.itemType),
+    createFieldChange("VAT type", existing.vatType, next.vatType),
+    createFieldChange("Image URL", formatValue(existing.productImageUrl), formatValue(next.productImageUrl)),
+  ].filter(Boolean);
+
+  return fields.length > 0 ? fields.join(" | ") : `Updated ${existing.name} with no field changes`;
+}
+
+function toBatchRow(dto: ProductSaveDto, rowNumber: number): ProductBatchRowDto {
+  const normalized = normalizeProductInput(dto);
+
+  return {
+    rowNumber,
+    name: normalized.name,
+    categoryName: normalized.categoryName,
+    barcode: normalized.barcode,
+    baseUnit: normalized.baseUnit,
+    trackInventory: normalized.trackInventory,
+    quantity: normalized.quantity,
+    cost: normalized.cost,
+    price: normalized.price,
+    itemType: normalized.itemType,
+    vatType: normalized.vatType,
+    isAvailable: normalized.isAvailable,
+    productImageUrl: normalized.productImageUrl,
+  };
+}
+
+function makeDuplicateKey(name: string, categoryName: string): string {
+  return `${name.trim().toUpperCase()}::${normalizeCategoryName(categoryName)}`;
+}
+
+function parseCsvRow(rawRow: CsvRow, rowNumber: number): ProductBatchPreviewRowDto {
+  const errors: string[] = [];
+
+  const itemType = (rawRow["item type"]?.trim().toUpperCase() || "RESALE") as ItemType;
+  if (!ITEM_TYPES.has(itemType)) {
+    errors.push("Item Type must be RESALE or WHOLESALE.");
+  }
+
+  const vatType = (rawRow["vat type"]?.trim().toUpperCase() || "VATABLE") as VatType;
+  if (!VAT_TYPES.has(vatType)) {
+    errors.push("VAT Type must be VATABLE, EXEMPT, or ZERO.");
+  }
+
+  const trackInventory = parseBooleanValue(rawRow["track inventory"], false);
+  const quantityValue = parseOptionalNumber(rawRow["quantity"]);
+  const costValue = parseOptionalNumber(rawRow["cost"]);
+  const priceValue = parseOptionalNumber(rawRow["price"]);
+
+  const name = rawRow["product name"]?.trim() || "";
+  if (!name) {
+    errors.push("Product Name is required.");
+  }
+
+  if (priceValue === null || priceValue < 0) {
+    errors.push("Price must be zero or greater.");
+  }
+
+  if (costValue !== null && costValue < 0) {
+    errors.push("Cost must be zero or greater.");
+  }
+
+  if (trackInventory && quantityValue !== null && quantityValue < 0) {
+    errors.push("Quantity must be zero or greater.");
+  }
+
+  const row: ProductBatchPreviewRowDto = {
+    rowNumber,
+    name,
+    categoryName: normalizeCategoryName(rawRow["category name"]),
+    barcode: asOptionalString(rawRow["barcode"]),
+    baseUnit: rawRow["base unit"]?.trim() || "UNIT",
+    trackInventory,
+    quantity: trackInventory ? quantityValue ?? 0 : null,
+    cost: costValue ?? 0,
+    price: priceValue ?? 0,
+    itemType: ITEM_TYPES.has(itemType) ? itemType : "RESALE",
+    vatType: VAT_TYPES.has(vatType) ? vatType : "VATABLE",
+    isAvailable: parseBooleanValue(rawRow["available"], true),
+    productImageUrl: asOptionalString(rawRow["product image url"]),
+    errors,
+  };
+
+  return row;
+}
+
+async function resolveCategory(
+  client: DbClient,
+  params: { categoryId?: string; categoryName?: string; companyId: string },
+): Promise<{ id: string; categoryName: string }> {
+  const { categoryId, categoryName, companyId } = params;
+
+  if (categoryId) {
+    const byId = await client.category.findFirst({
+      where: { id: categoryId, companyId, isDeleted: false },
+      select: { id: true, categoryName: true },
+    });
+
+    if (byId) {
+      return {
+        id: byId.id,
+        categoryName: byId.categoryName ?? "Uncategorized",
+      };
+    }
+  }
+
+  const normalizedName = normalizeCategoryName(categoryName);
+  const byName = await client.category.findFirst({
+    where: {
+      categoryName: { equals: normalizedName, mode: "insensitive" },
+      companyId,
+      isDeleted: false,
+    },
+    select: { id: true, categoryName: true },
+  });
+
+  if (byName) {
+    return {
+      id: byName.id,
+      categoryName: byName.categoryName ?? normalizedName,
+    };
+  }
+
+  const created = await client.category.create({
+    data: {
+      categoryName: normalizedName,
+      companyId,
+    },
+    select: { id: true, categoryName: true },
+  });
+
+  return {
+    id: created.id,
+    categoryName: created.categoryName ?? normalizedName,
+  };
+}
+
+async function ensureUniqueProduct(
+  client: DbClient,
+  productId: string | null,
+  name: string,
+  categoryId: string,
+): Promise<void> {
+  const duplicate = await client.product.findFirst({
+    where: {
+      name: { equals: name, mode: "insensitive" },
+      categoryId,
+      isDeleted: false,
+      ...(productId ? { NOT: { id: productId } } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (duplicate) {
+    throw new Error("Product name already exists in this category.");
+  }
+}
 
 export const productService = {
-  /**
-   * GET /products — paginated, filtered list
-   * Mirrors ProductServiceImpl.getProducts()
-   */
   async findAll(params?: {
     keyword?: string;
     barcode?: string;
@@ -80,13 +382,11 @@ export const productService = {
     direction?: "asc" | "desc";
   }): Promise<PageResponse<ProductDto>> {
     const companyId = await getCompanyId();
-
     const page = params?.page ?? 0;
     const size = params?.size ?? 10;
     const sortField = SORTABLE_FIELDS[params?.sortBy ?? ""] ?? "name";
     const direction = params?.direction === "desc" ? "desc" : "asc";
 
-    // Construir las condiciones AND para evitar colisión de claves OR
     const andConditions: Prisma.ProductWhereInput[] = [];
 
     if (params?.keyword) {
@@ -106,8 +406,8 @@ export const productService = {
 
     const where: Prisma.ProductWhereInput = {
       isDeleted: false,
-      ...(params?.barcode && { barcode: params.barcode }),
-      ...(params?.categoryId && { categoryId: params.categoryId }),
+      ...(params?.barcode ? { barcode: params.barcode } : {}),
+      ...(params?.categoryId ? { categoryId: params.categoryId } : {}),
       ...(andConditions.length > 0 ? { AND: andConditions } : {}),
     };
 
@@ -135,25 +435,15 @@ export const productService = {
     };
   },
 
-  /**
-   * GET /products/:id
-   * Mirrors ProductServiceImpl.getProduct()
-   */
   async findById(id: string): Promise<ProductDto | null> {
     const product = await prisma.product.findFirst({
       where: { id, isDeleted: false },
       include: { category: true },
     });
 
-    if (!product) return null;
-    return toProductDto(product);
+    return product ? toProductDto(product) : null;
   },
 
-  /**
-   * GET /products/by-category/:categoryId — for POS screen
-   * Mirrors ProductServiceImpl.getProductsByCategory()
-   * Only returns available (isAvailable = true) products.
-   */
   async findByCategory(params: {
     categoryId: string;
     page?: number;
@@ -162,7 +452,6 @@ export const productService = {
     direction?: "asc" | "desc";
   }): Promise<ProductDto[]> {
     const companyId = await getCompanyId();
-
     const page = params?.page ?? 0;
     const size = params?.size ?? 10;
     const sortField = SORTABLE_FIELDS[params?.sortBy ?? ""] ?? "name";
@@ -184,274 +473,312 @@ export const productService = {
     return products.map(toProductDto);
   },
 
-  /**
-   * POST /products
-   * Mirrors ProductServiceImpl.newProduct()
-   * Finds or creates the category, then saves the product.
-   */
   async create(dto: ProductSaveDto): Promise<void> {
-    const companyId = await getCompanyId();
-    if (!companyId) throw new Error("No company associated with this account.");
+    const context = await mutationContextService.getContext();
+    const normalized = normalizeProductInput(dto);
 
-    const category = await resolveCategory({
-      categoryId: dto.categoryId,
-      categoryName: dto.categoryName,
-      companyId,
-    });
+    await prisma.$transaction(async (tx) => {
+      const category = await resolveCategory(tx, {
+        categoryId: dto.categoryId,
+        categoryName: dto.categoryName ?? normalized.categoryName,
+        companyId: context.companyId,
+      });
 
-    const duplicate = await prisma.product.findFirst({
-      where: {
-        name: { equals: dto.name, mode: "insensitive" },
-        categoryId: category.id,
-        isDeleted: false,
-      },
-    });
+      await ensureUniqueProduct(tx, null, normalized.name, category.id);
 
-    if (duplicate) {
-      throw new Error("Product name already exists in this category.");
-    }
-
-    await prisma.product.create({
-      data: {
-        name: dto.name.trim(),
-        barcode: dto.barcode ?? null,
-        baseUnit: dto.baseUnit ?? "UNIT",
-        quantity: dto.quantity ?? null,
-        cost: dto.cost ?? 0,
-        price: dto.price,
-        isAvailable: dto.isAvailable ?? true,
-        trackInventory: dto.trackInventory ?? false,
-        itemType: (dto.itemType as ItemType) ?? "RESALE",
-        vatType: (dto.vatType as VatType) ?? "VATABLE",
-        productImageUrl: dto.productImageUrl ?? null,
-        categoryId: category.id,
-        companyId,
-      },
-    });
-  },
-
-  /**
-   * POST /products/batch — bulk create from CSV parse result
-   * Mirrors ProductServiceImpl.newProducts()
-   */
-  async createMany(dtos: ProductSaveDto[]): Promise<void> {
-    const companyId = await getCompanyId();
-    if (!companyId) throw new Error("No company associated with this account.");
-
-    // Cache categories (case-insensitive) — mirrors Java categoryCache map
-    const existingCategories = await prisma.category.findMany({
-      where: { companyId, isDeleted: false },
-      select: { id: true, categoryName: true },
-    });
-
-    const categoryCache = new Map(
-      existingCategories.map((c) => [
-        c.categoryName?.toUpperCase() ?? "",
-        c.id,
-      ]),
-    );
-
-    const productsToCreate: Prisma.ProductCreateManyInput[] = [];
-
-    for (let i = 0; i < dtos.length; i++) {
-      const dto = dtos[i];
-
-      if (!dto.name || dto.price == null) {
-        throw new Error(
-          `Row ${i + 1} is invalid: name and price are required.`,
-        );
-      }
-
-      const catName = (dto.categoryName ?? "Uncategorized")
-        .trim()
-        .toUpperCase();
-      let categoryId = categoryCache.get(catName);
-
-      if (!categoryId) {
-        const newCat = await prisma.category.create({
-          data: { categoryName: catName, companyId },
-        });
-        categoryCache.set(catName, newCat.id);
-        categoryId = newCat.id;
-      }
-
-      const duplicate = await prisma.product.findFirst({
-        where: {
-          name: { equals: dto.name, mode: "insensitive" },
-          categoryId,
-          isDeleted: false,
+      const created = await tx.product.create({
+        data: {
+          name: normalized.name,
+          barcode: normalized.barcode,
+          baseUnit: normalized.baseUnit,
+          quantity: normalized.quantity,
+          cost: normalized.cost,
+          price: normalized.price,
+          isAvailable: normalized.isAvailable,
+          trackInventory: normalized.trackInventory,
+          itemType: normalized.itemType,
+          vatType: normalized.vatType,
+          productImageUrl: normalized.productImageUrl,
+          categoryId: category.id,
+          companyId: context.companyId,
         },
-        select: { id: true },
       });
 
-      if (duplicate) {
-        throw new Error(
-          `Row ${i + 1}: Product '${dto.name}' already exists in ${catName}.`,
-        );
+      await auditLogService.create(tx, {
+        companyId: context.companyId,
+        actorProfileId: context.profileId,
+        actionType: "PRODUCT_CREATED",
+        referenceId: created.id,
+        changes: buildCreateSummary(normalized, category.categoryName),
+      });
+    });
+  },
+
+  async createMany(rows: ProductBatchRowDto[]): Promise<{ count: number }> {
+    const context = await mutationContextService.getContext();
+
+    if (rows.length === 0) {
+      throw new Error("No valid products found to import.");
+    }
+
+    const duplicateKeys = new Set<string>();
+    for (const row of rows) {
+      const key = makeDuplicateKey(row.name, row.categoryName);
+      if (duplicateKeys.has(key)) {
+        throw new Error(`CSV contains duplicate product '${row.name}' in category '${row.categoryName}'.`);
+      }
+      duplicateKeys.add(key);
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const categoryNames = Array.from(new Set(rows.map((row) => normalizeCategoryName(row.categoryName))));
+      const existingCategories = await tx.category.findMany({
+        where: {
+          companyId: context.companyId,
+          isDeleted: false,
+          categoryName: { in: categoryNames },
+        },
+        select: { id: true, categoryName: true },
+      });
+
+      const categoryMap = new Map(existingCategories.map((category) => [normalizeCategoryName(category.categoryName ?? ""), category.id]));
+
+      for (const categoryName of categoryNames) {
+        if (!categoryMap.has(categoryName)) {
+          const createdCategory = await tx.category.create({
+            data: {
+              categoryName,
+              companyId: context.companyId,
+            },
+            select: { id: true, categoryName: true },
+          });
+          categoryMap.set(categoryName, createdCategory.id);
+        }
       }
 
-      productsToCreate.push({
-        name: dto.name.trim(),
-        barcode: dto.barcode ?? null,
-        baseUnit: dto.baseUnit ?? "UNIT",
-        quantity: dto.quantity ?? null,
-        cost: dto.cost ?? 0,
-        price: dto.price,
-        isAvailable: dto.isAvailable ?? true,
-        trackInventory: dto.trackInventory ?? false,
-        itemType: (dto.itemType as ItemType) ?? "RESALE",
-        vatType: (dto.vatType as VatType) ?? "VATABLE",
-        categoryId,
-        companyId,
+      const existingProducts = await tx.product.findMany({
+        where: {
+          isDeleted: false,
+          categoryId: { in: Array.from(categoryMap.values()) },
+        },
+        select: { name: true, categoryId: true },
       });
-    }
 
-    await prisma.product.createMany({ data: productsToCreate });
+      const existingProductKeys = new Set(
+        existingProducts.map((product) => `${product.name.trim().toUpperCase()}::${product.categoryId}`),
+      );
+
+      const data: Prisma.ProductCreateManyInput[] = rows.map((row) => {
+        const categoryId = categoryMap.get(normalizeCategoryName(row.categoryName));
+        if (!categoryId) {
+          throw new Error(`Category '${row.categoryName}' could not be resolved.`);
+        }
+
+        const productKey = `${row.name.trim().toUpperCase()}::${categoryId}`;
+        if (existingProductKeys.has(productKey)) {
+          throw new Error(`Product '${row.name}' already exists in category '${row.categoryName}'.`);
+        }
+
+        return {
+          name: row.name,
+          barcode: row.barcode,
+          baseUnit: row.baseUnit,
+          quantity: row.quantity,
+          cost: row.cost,
+          price: row.price,
+          isAvailable: row.isAvailable,
+          trackInventory: row.trackInventory,
+          itemType: row.itemType,
+          vatType: row.vatType,
+          productImageUrl: row.productImageUrl,
+          categoryId,
+          companyId: context.companyId,
+        };
+      });
+
+      const created = await tx.product.createMany({ data });
+
+      await auditLogService.create(tx, {
+        companyId: context.companyId,
+        actorProfileId: context.profileId,
+        actionType: "PRODUCT_BATCH_CREATED",
+        changes: `Imported ${created.count} products via CSV | Categories ${categoryNames.join(", ")} | Products ${rows
+          .slice(0, 5)
+          .map((row) => row.name)
+          .join(", ")}${rows.length > 5 ? ", ..." : ""}`,
+      });
+
+      return created;
+    });
+
+    return { count: result.count };
   },
 
-  /**
-   * PUT /products/:id
-   * Mirrors ProductServiceImpl.editProduct()
-   */
   async update(id: string, dto: ProductSaveDto): Promise<void> {
-    const companyId = await getCompanyId();
-    if (!companyId) throw new Error("No company associated with this account.");
+    const context = await mutationContextService.getContext();
+    const normalized = normalizeProductInput(dto);
 
-    const existing = await prisma.product.findFirst({
-      where: { id, isDeleted: false },
-    });
-    if (!existing) throw new Error("Product not found.");
-
-    const category = await resolveCategory({
-      categoryId: dto.categoryId,
-      categoryName: dto.categoryName,
-      companyId,
-    });
-
-    const duplicate = await prisma.product.findFirst({
-      where: {
-        name: { equals: dto.name, mode: "insensitive" },
-        categoryId: category.id,
-        isDeleted: false,
-        NOT: { id },
-      },
-    });
-
-    if (duplicate) {
-      throw new Error("Product name already exists in this category.");
-    }
-
-    await prisma.product.update({
-      where: { id },
-      data: {
-        name: dto.name.trim(),
-        barcode: dto.barcode ?? null,
-        baseUnit: dto.baseUnit ?? existing.baseUnit,
-        quantity: dto.quantity ?? existing.quantity,
-        cost: dto.cost ?? existing.cost,
-        price: dto.price,
-        isAvailable: dto.isAvailable ?? existing.isAvailable,
-        trackInventory: dto.trackInventory ?? existing.trackInventory,
-        itemType: (dto.itemType as ItemType) ?? existing.itemType,
-        vatType: (dto.vatType as VatType) ?? existing.vatType,
-        productImageUrl: dto.productImageUrl ?? existing.productImageUrl,
-        categoryId: category.id,
-      },
-    });
-  },
-
-  /**
-   * DELETE /products/:id — soft delete
-   * Mirrors ProductServiceImpl.deleteProduct()
-   */
-  async delete(id: string): Promise<void> {
-    const existing = await prisma.product.findFirst({
-      where: { id, isDeleted: false },
-    });
-    if (!existing) throw new Error("Product not found.");
-
-    await prisma.product.update({
-      where: { id },
-      data: { isDeleted: true, deletedAt: new Date() },
-    });
-  },
-
-  /**
-   * Parses a CSV text string into ProductSaveDto[]
-   * Mirrors ProductServiceImpl.parseCsv()
-   * CSV columns: Product Name, Category Name, Price, Quantity, Cost, Base Unit
-   */
-  parseCsv(csvText: string): ProductSaveDto[] {
-    const lines = csvText.split("\n").filter((l) => l.trim().length > 0);
-    const result: ProductSaveDto[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(",");
-      if (cols.length < 4) continue;
-
-      result.push({
-        name: cols[0]?.trim() ?? "",
-        categoryName: cols[1]?.trim() ?? "",
-        price: parseFloat(cols[2]?.trim() ?? "0") || 0,
-        quantity: parseFloat(cols[3]?.trim() ?? "0") || 0,
-        cost: parseFloat(cols[4]?.trim() ?? "0") || 0,
-        baseUnit: cols[5]?.trim() || "UNIT",
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.product.findFirst({
+        where: { id, isDeleted: false },
+        include: { category: true },
       });
-    }
 
-    return result;
+      if (!existing) {
+        throw new Error("Product not found.");
+      }
+
+      const category = await resolveCategory(tx, {
+        categoryId: dto.categoryId,
+        categoryName: dto.categoryName ?? normalized.categoryName,
+        companyId: context.companyId,
+      });
+
+      await ensureUniqueProduct(tx, id, normalized.name, category.id);
+
+      await tx.product.update({
+        where: { id },
+        data: {
+          name: normalized.name,
+          barcode: normalized.barcode,
+          baseUnit: normalized.baseUnit,
+          quantity: normalized.quantity,
+          cost: normalized.cost,
+          price: normalized.price,
+          isAvailable: normalized.isAvailable,
+          trackInventory: normalized.trackInventory,
+          itemType: normalized.itemType,
+          vatType: normalized.vatType,
+          productImageUrl: normalized.productImageUrl,
+          categoryId: category.id,
+        },
+      });
+
+      await auditLogService.create(tx, {
+        companyId: context.companyId,
+        actorProfileId: context.profileId,
+        actionType: "PRODUCT_UPDATED",
+        referenceId: existing.id,
+        changes: buildUpdateSummary(existing, category.categoryName, normalized),
+      });
+    });
   },
 
-  /**
-   * Generates a CSV template string (mirrors generateCsvTemplate)
-   */
+  async delete(id: string): Promise<void> {
+    const context = await mutationContextService.getContext();
+
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.product.findFirst({
+        where: { id, isDeleted: false },
+        include: { category: true },
+      });
+
+      if (!existing) {
+        throw new Error("Product not found.");
+      }
+
+      await tx.product.update({
+        where: { id },
+        data: { isDeleted: true, deletedAt: new Date() },
+      });
+
+      await auditLogService.create(tx, {
+        companyId: context.companyId,
+        actorProfileId: context.profileId,
+        actionType: "PRODUCT_DELETED",
+        referenceId: existing.id,
+        changes: buildDeleteSummary(existing),
+      });
+    });
+  },
+
+  previewBatch(csvText: string): ProductBatchPreviewDto {
+    const trimmedCsv = csvText.trim();
+    if (!trimmedCsv) {
+      throw new Error("Uploaded file is empty.");
+    }
+
+    const parsed = Papa.parse<CsvRow>(trimmedCsv, {
+      header: true,
+      skipEmptyLines: "greedy",
+      transformHeader: (header) => header.trim().toLowerCase(),
+    });
+
+    if (parsed.errors.length > 0) {
+      throw new Error(parsed.errors[0]?.message || "CSV parsing failed.");
+    }
+
+    const rows = parsed.data.map((row, index) => parseCsvRow(row, index + 2));
+    const seenKeys = new Map<string, number>();
+
+    for (const row of rows) {
+      const duplicateKey = makeDuplicateKey(row.name, row.categoryName);
+      const firstSeen = seenKeys.get(duplicateKey);
+      if (row.name && firstSeen) {
+        row.errors.push(`Duplicate product/category combination. First seen on row ${firstSeen}.`);
+      } else if (row.name) {
+        seenKeys.set(duplicateKey, row.rowNumber);
+      }
+    }
+
+    const validRows = rows
+      .filter((row) => row.errors.length === 0)
+      .map((row) => ({
+        rowNumber: row.rowNumber,
+        name: row.name,
+        categoryName: row.categoryName,
+        barcode: row.barcode,
+        baseUnit: row.baseUnit,
+        trackInventory: row.trackInventory,
+        quantity: row.quantity,
+        cost: row.cost,
+        price: row.price,
+        itemType: row.itemType,
+        vatType: row.vatType,
+        isAvailable: row.isAvailable,
+        productImageUrl: row.productImageUrl,
+      }));
+
+    return {
+      rows,
+      validRows,
+      totalRows: rows.length,
+      validRowCount: validRows.length,
+      invalidRowCount: rows.length - validRows.length,
+    };
+  },
+
+  parseCsv(csvText: string): ProductSaveDto[] {
+    const preview = this.previewBatch(csvText);
+
+    if (preview.invalidRowCount > 0) {
+      throw new Error("CSV contains invalid rows. Fix the preview errors before importing.");
+    }
+
+    return preview.validRows.map((row) => ({
+      name: row.name,
+      categoryName: row.categoryName,
+      barcode: row.barcode ?? undefined,
+      baseUnit: row.baseUnit,
+      trackInventory: row.trackInventory,
+      quantity: row.quantity,
+      cost: row.cost,
+      price: row.price,
+      itemType: row.itemType,
+      vatType: row.vatType,
+      isAvailable: row.isAvailable,
+      productImageUrl: row.productImageUrl ?? undefined,
+    }));
+  },
+
   generateCsvTemplate(): string {
     return [
-      "Product Name,Category Name,Price,Quantity,Cost,Base Unit",
-      "Sample Item,Category A,100.00,5,80.00,UNIT",
+      CSV_HEADERS.join(","),
+      'Sample Item,BEVERAGES,SKU-001,UNIT,true,24,80,100,RESALE,VATABLE,true,https://example.com/product.png',
     ].join("\n");
   },
+
+  toBatchRows(dtos: ProductSaveDto[]): ProductBatchRowDto[] {
+    return dtos.map((dto, index) => toBatchRow(dto, index + 2));
+  },
 };
-
-// ─────────────────────────────────────────────
-// Internal: resolves or creates a category
-// Mirrors the Optional.ofNullable().flatMap()...orElseGet() chain in Java
-// ─────────────────────────────────────────────
-
-async function resolveCategory(params: {
-  categoryId?: string;
-  categoryName?: string;
-  companyId: string;
-}): Promise<{ id: string }> {
-  const { categoryId, categoryName, companyId } = params;
-
-  // 1. Try by ID first
-  if (categoryId) {
-    const byId = await prisma.category.findFirst({
-      where: { id: categoryId, companyId, isDeleted: false },
-      select: { id: true },
-    });
-    if (byId) return byId;
-  }
-
-  // 2. Try by name (case-insensitive)
-  if (categoryName) {
-    const byName = await prisma.category.findFirst({
-      where: {
-        categoryName: { equals: categoryName.trim(), mode: "insensitive" },
-        companyId,
-        isDeleted: false,
-      },
-      select: { id: true },
-    });
-    if (byName) return byName;
-  }
-
-  // 3. Create if not found
-  const name = (categoryName ?? "Uncategorized").trim().toUpperCase();
-  const created = await prisma.category.create({
-    data: { categoryName: name, companyId },
-    select: { id: true },
-  });
-  return created;
-}

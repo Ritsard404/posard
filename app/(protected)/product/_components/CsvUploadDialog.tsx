@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Upload, Download, FileSpreadsheet, Loader2 } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import {
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  TriangleAlert,
+  Upload,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -13,15 +21,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 import {
   batchUploadProducts,
   getProductCsvTemplate,
+  previewBatchUploadProducts,
 } from "@/app/(protected)/product/_actions/product.actions";
-
-// ─────────────────────────────────────────────
-// Props del diálogo de carga CSV
-// ─────────────────────────────────────────────
+import type {
+  ProductBatchPreviewDto,
+  ProductBatchPreviewRowDto,
+} from "@/app/(protected)/product/_services/_dto/product.dto";
 
 interface CsvUploadDialogProps {
   open: boolean;
@@ -29,9 +41,78 @@ interface CsvUploadDialogProps {
   onSuccess: () => void;
 }
 
-// ─────────────────────────────────────────────
-// Diálogo para subir productos en lote via CSV
-// ─────────────────────────────────────────────
+function UploadSummary({
+  preview,
+}: {
+  preview: ProductBatchPreviewDto;
+}) {
+  const stats = [
+    { label: "Rows", value: preview.totalRows },
+    { label: "Ready", value: preview.validRowCount },
+    { label: "Errors", value: preview.invalidRowCount },
+  ];
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {stats.map((stat) => (
+        <Card key={stat.label} className="border-border/70 bg-muted/30">
+          <CardContent className="p-3">
+            <div className="text-lg font-semibold leading-none">{stat.value}</div>
+            <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+              {stat.label}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function PreviewRow({ row }: { row: ProductBatchPreviewRowDto }) {
+  return (
+    <div className="rounded-xl border border-border/70 bg-background p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground">
+              Row {row.rowNumber}
+            </span>
+            {row.errors.length > 0 ? (
+              <Badge variant="outline" className="border-destructive/40 text-destructive">
+                Needs fixes
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="border-emerald-500/40 text-emerald-600">
+                Ready
+              </Badge>
+            )}
+          </div>
+          <p className="mt-2 font-medium text-foreground">{row.name || "Missing product name"}</p>
+          <p className="text-sm text-muted-foreground">
+            {row.categoryName} • {row.baseUnit} • {row.trackInventory ? `${row.quantity ?? 0} in stock` : "Inventory off"}
+          </p>
+        </div>
+        <div className="text-right text-sm">
+          <div className="font-semibold">₱ {row.price.toFixed(2)}</div>
+          <div className="text-muted-foreground">Cost ₱ {row.cost.toFixed(2)}</div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+        <span>Type {row.itemType}</span>
+        <span>VAT {row.vatType}</span>
+        <span>{row.isAvailable ? "Available" : "Unavailable"}</span>
+        {row.barcode ? <span>Barcode {row.barcode}</span> : null}
+      </div>
+
+      {row.errors.length > 0 ? (
+        <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/5 p-2 text-sm text-destructive">
+          {row.errors.join(" ")}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function CsvUploadDialog({
   open,
@@ -40,173 +121,195 @@ export function CsvUploadDialog({
 }: CsvUploadDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [csvText, setCsvText] = useState<string | null>(null);
-  const [previewRows, setPreviewRows] = useState<string[][]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [csvText, setCsvText] = useState<string>("");
+  const [preview, setPreview] = useState<ProductBatchPreviewDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isPreviewPending, startPreviewTransition] = useTransition();
+  const [isUploadPending, startUploadTransition] = useTransition();
 
-  // Limpiar estado al abrir/cerrar
+  function resetState() {
+    setFileName(null);
+    setCsvText("");
+    setPreview(null);
+    setError(null);
+  }
+
   function handleOpenChange(next: boolean) {
     if (!next) {
-      setFileName(null);
-      setCsvText(null);
-      setPreviewRows([]);
-      setError(null);
+      resetState();
     }
     onOpenChange(next);
   }
 
-  // Leer el archivo CSV seleccionado
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
-    const file = e.target.files?.[0];
+
+    const file = event.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
+    reader.onload = (loadEvent) => {
+      const text = String(loadEvent.target?.result ?? "");
       setCsvText(text);
-
-      // Generar previsualización de las primeras 5 filas de datos
-      const lines = text
-        .split("\n")
-        .filter((l) => l.trim().length > 0);
-      const rows = lines.slice(0, 6).map((l) => l.split(","));
-      setPreviewRows(rows);
+      setPreview(null);
     };
     reader.readAsText(file);
   }
 
-  // Descargar la plantilla CSV
   async function handleDownloadTemplate() {
     const template = await getProductCsvTemplate();
     const blob = new Blob([template], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "product_template.csv";
-    a.click();
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "product_template.csv";
+    link.click();
     URL.revokeObjectURL(url);
   }
 
-  // Enviar el CSV al servidor
-  async function handleUpload() {
-    if (!csvText) return;
-    setIsUploading(true);
-    setError(null);
-
-    const result = await batchUploadProducts(csvText);
-
-    if (result.error) {
-      setError(result.error);
-      setIsUploading(false);
+  function handleGeneratePreview() {
+    if (!csvText.trim()) {
+      setError("Upload a CSV file before generating a preview.");
       return;
     }
 
-    setIsUploading(false);
-    handleOpenChange(false);
-    onSuccess();
+    startPreviewTransition(async () => {
+      setError(null);
+      const result = await previewBatchUploadProducts(csvText);
+      if ("error" in result) {
+        setPreview(null);
+        setError(result.error);
+        return;
+      }
+
+      setPreview(result);
+      if (result.invalidRowCount > 0) {
+        toast.error("Preview generated with row errors.");
+      } else {
+        toast.success("Preview is ready to import.");
+      }
+    });
+  }
+
+  function handleUpload() {
+    if (!preview || preview.validRowCount === 0 || preview.invalidRowCount > 0) {
+      setError("Fix all preview errors before importing.");
+      return;
+    }
+
+    startUploadTransition(async () => {
+      setError(null);
+      const result = await batchUploadProducts(preview.validRows);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      toast.success(`Imported ${preview.validRowCount} product${preview.validRowCount === 1 ? "" : "s"}.`);
+      handleOpenChange(false);
+      onSuccess();
+    });
   }
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
-      <AlertDialogContent className="max-w-lg">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="size-5" />
-            Bulk Upload Products
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            Upload a CSV file to create multiple products at once.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+      <AlertDialogContent className="max-h-[90vh] max-w-4xl gap-0 overflow-hidden p-0">
+        <div className="flex flex-col">
+          <AlertDialogHeader className="space-y-3 border-b px-4 py-4 sm:px-6">
+            <AlertDialogTitle className="flex items-center gap-2 text-left">
+              <FileSpreadsheet className="size-5" />
+              Batch Create Products
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left">
+              Upload the standardized CSV template, review normalized rows, then confirm the import once every row is valid.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-        <div className="flex flex-col gap-4">
-          {/* Error */}
-          {error && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
+          <div className="flex flex-col gap-4 px-4 py-4 sm:px-6">
+            {error ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Button type="button" variant="outline" size="sm" onClick={handleDownloadTemplate} className="w-full sm:w-auto">
+                <Download className="size-4" />
+                Download Template
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Columns: Product Name, Category Name, Barcode, Base Unit, Track Inventory, Quantity, Cost, Price, Item Type, VAT Type, Available, Product Image URL
+              </p>
             </div>
-          )}
 
-          {/* Descargar plantilla */}
-          <Button
-            id="btn-download-csv-template"
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadTemplate}
-            className="w-fit"
-          >
-            <Download className="size-4" />
-            Download Template
-          </Button>
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="cursor-pointer rounded-2xl border-2 border-dashed border-border bg-muted/20 px-4 py-8 text-center transition-colors hover:border-primary/40 hover:bg-muted/40"
+            >
+              <Upload className="mx-auto size-7 text-muted-foreground" />
+              <p className="mt-3 font-medium">{fileName ?? "Tap to choose a CSV file"}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Quoted values and commas inside fields are supported.
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
 
-          {/* Zona de carga de archivo */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-8 text-center transition-colors hover:border-primary/50 hover:bg-muted/30"
-          >
-            <Upload className="size-6 text-muted-foreground" />
-            <p className="text-sm font-medium">
-              {fileName ?? "Click to select a CSV file"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Columns: Product Name, Category Name, Price, Quantity, Cost, Base
-              Unit
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleFileChange}
-              className="hidden"
-            />
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGeneratePreview}
+                disabled={!csvText.trim() || isPreviewPending || isUploadPending}
+                className="w-full sm:w-auto"
+              >
+                {isPreviewPending ? <Loader2 className="size-4 animate-spin" /> : <TriangleAlert className="size-4" />}
+                Preview Import
+              </Button>
+              {preview ? <UploadSummary preview={preview} /> : null}
+            </div>
+
+            {preview ? (
+              <>
+                <Separator />
+                <ScrollArea className="h-[320px] pr-4">
+                  <div className="space-y-3">
+                    {preview.rows.map((row) => (
+                      <PreviewRow key={`${row.rowNumber}-${row.name}`} row={row} />
+                    ))}
+                  </div>
+                </ScrollArea>
+              </>
+            ) : null}
           </div>
 
-          {/* Previsualización de datos */}
-          {previewRows.length > 0 && (
-            <div className="overflow-x-auto rounded-md border border-border">
-              <table className="w-full text-xs">
-                <tbody>
-                  {previewRows.map((row, i) => (
-                    <tr
-                      key={i}
-                      className={
-                        i === 0
-                          ? "bg-muted/50 font-medium"
-                          : "border-t border-border"
-                      }
-                    >
-                      {row.map((cell, j) => (
-                        <td key={j} className="px-2 py-1.5 whitespace-nowrap">
-                          {cell.trim()}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {previewRows.length > 5 && (
-                <p className="px-2 py-1 text-[10px] text-muted-foreground">
-                  Showing first 5 data rows...
-                </p>
-              )}
-            </div>
-          )}
+          <AlertDialogFooter className="border-t px-4 py-4 sm:px-6">
+            <AlertDialogCancel disabled={isPreviewPending || isUploadPending}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              onClick={handleUpload}
+              disabled={
+                !preview ||
+                preview.validRowCount === 0 ||
+                preview.invalidRowCount > 0 ||
+                isPreviewPending ||
+                isUploadPending
+              }
+            >
+              {isUploadPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Import Products
+            </Button>
+          </AlertDialogFooter>
         </div>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isUploading}>Cancel</AlertDialogCancel>
-          <Button
-            onClick={handleUpload}
-            disabled={!csvText || isUploading}
-          >
-            {isUploading && <Loader2 className="size-4 animate-spin" />}
-            Upload Products
-          </Button>
-        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
