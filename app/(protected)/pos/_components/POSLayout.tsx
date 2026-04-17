@@ -39,6 +39,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
 
   const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
   const activeSessionId = usePOSStore((state) => state.activeSessionId);
+  const activeTerminalId = usePOSStore((state) => state.activeTerminal?.id ?? null);
   const setSession = usePOSStore((state) => state.setSession);
   const activeMobileTab = usePOSStore((state) => state.activeMobileTab);
   const setActiveMobileTab = usePOSStore((state) => state.setActiveMobileTab);
@@ -205,6 +206,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
         <CloseSessionModal
           sessionId={activeSessionId}
           timestampId={activeTimestampId}
+          terminalId={activeTerminalId}
           onSuccess={() => {
             setShowCloseSession(false);
             setSession({ sessionId: null, timestampId: null, terminal: null, user: null });

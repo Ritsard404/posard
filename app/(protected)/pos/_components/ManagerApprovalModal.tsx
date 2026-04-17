@@ -119,8 +119,14 @@ export function ManagerApprovalModal({
             className="h-14 text-center text-2xl tracking-widest"
             value={"•".repeat(pin.length)}
             onChange={(e) => {
-              const raw = e.target.value.replace(/\D/g, "");
-              setPin((prev) => (raw.length >= prev.length ? raw : raw));
+              const newValue = e.target.value;
+              if (newValue.length > pin.length) {
+                // A character was added — grab the last character typed
+                const addedChar = newValue[newValue.length - 1];
+                if (/\d/.test(addedChar)) {
+                  setPin((prev) => (prev + addedChar).slice(0, 6));
+                }
+              }
             }}
             onKeyDown={(e) => {
               if (e.key === "Backspace") {

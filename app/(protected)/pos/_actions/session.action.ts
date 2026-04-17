@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { printConfigService } from "../_services/print-config.service";
+import { reportService as posReportService } from "../_services/report.service";
+import { reportPrintService } from "@/app/(protected)/report/_services/report-print.service";
+import { reportService as reportFeatureService } from "@/app/(protected)/report/_services/report.service";
+import type { ReportPrintPayloadDto } from "@/app/(protected)/report/_services/_dto/report.dto";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -227,7 +231,7 @@ export async function withdrawCashAction(
       // But reportService.getTimestampCashTrack is async and uses prisma (not tx)
       // So we'll do a quick manual check or trust the pre-fetch if we use locks
 
-      const reportData = await reportService.getTimestampCashTrack(timestampId);
+      const reportData = await posReportService.getTimestampCashTrack(timestampId);
       if (amount > reportData.expectedDrawerAmount) {
         throw new Error(
           `Insufficient cash in drawer. Available: ₱${reportData.expectedDrawerAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -259,6 +263,52 @@ export async function withdrawCashAction(
       error: error instanceof Error ? error.message : "Internal Error",
     };
   }
+}
+
+async function buildSessionXReadingPrintPayload(
+  timestampId: string,
+): Promise<ReportPrintPayloadDto | null> {
+  const timestamp = await prisma.timestamp.findUnique({
+    where: { id: timestampId },
+    select: {
+      posTerminalId: true,
+      posTerminal: {
+        select: {
+          id: true,
+          posName: true,
+          isActive: true,
+          printerName: true,
+          printerDisplayName: true,
+          printerConnectionType: true,
+          printerVendorId: true,
+          printerProductId: true,
+          printerDeviceId: true,
+          printerServiceUuid: true,
+          printerCharacteristicUuid: true,
+          autoPrintEnabled: true,
+        },
+      },
+    },
+  });
+
+  if (!timestamp) {
+    return null;
+  }
+
+  const detail = await reportFeatureService.getXReadingByTimestampId(timestampId);
+
+  return reportPrintService.buildPayload({
+    view: "x-reading",
+    overview: null,
+    detail,
+    selectedTerminal: {
+      id: timestamp.posTerminal.id,
+      name: timestamp.posTerminal.posName,
+      isActive: timestamp.posTerminal.isActive,
+      printerName: timestamp.posTerminal.printerName,
+      printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
+    },
+  });
 }
 
 export async function closeSessionAction(
@@ -326,7 +376,16 @@ export async function closeSessionAction(
       });
     });
 
-    return { success: true };
+    const xReadingPayload = await buildSessionXReadingPrintPayload(timestampId);
+
+    return {
+      success: true as const,
+      data: {
+        sessionId,
+        timestampId,
+        xReadingPayload,
+      },
+    };
   } catch (error) {
     return {
       success: false,
@@ -335,12 +394,35 @@ export async function closeSessionAction(
   }
 }
 
-import { reportService } from "../_services/report.service";
-
 export async function getSessionCashTrackAction(timestampId: string) {
   try {
-    const data = await reportService.getTimestampCashTrack(timestampId);
+    const data = await posReportService.getTimestampCashTrack(timestampId);
     return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Internal Error",
+    };
+  }
+}
+
+export async function getSessionXReadingPrintPayloadAction(timestampId: string) {
+  try {
+    const profile = await getCurrentProfile();
+    if (!profile.companyId) {
+      return { success: false, error: "No company associated with user." };
+    }
+
+    const payload = await buildSessionXReadingPrintPayload(timestampId);
+
+    if (!payload) {
+      return {
+        success: false,
+        error: "Unable to build X-reading print payload.",
+      };
+    }
+
+    return { success: true, data: payload };
   } catch (error) {
     return {
       success: false,
@@ -355,7 +437,7 @@ export async function getAvailableCashAction(
   { success: true; availableCash: number } | { success: false; error: string }
 > {
   try {
-    const data = await reportService.getTimestampCashTrack(timestampId);
+    const data = await posReportService.getTimestampCashTrack(timestampId);
     return { success: true, availableCash: data.expectedDrawerAmount };
   } catch (error) {
     return {

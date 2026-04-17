@@ -20,6 +20,11 @@ import type {
   XReadingDto,
   ZReadingDto,
 } from "./_dto/report.dto";
+import {
+  buildXReadingPrintContent,
+  formatInvoiceNumber,
+  buildZReadingPrintContent,
+} from "@/app/(protected)/pos/_services/print-format.service";
 
 const LINE_WIDTH = 42;
 
@@ -176,58 +181,6 @@ function buildOverviewLines(overview: ReportOverviewDto) {
   ];
 }
 
-function buildXReadingLines(reading: XReadingDto) {
-  return [
-    labelValue("Range", `${formatDateTime(reading.range.from)} - ${formatDateTime(reading.range.to)}`),
-    labelValue("Cashier", reading.cashierName),
-    divider(),
-    labelValue("Invoice Count", String(reading.invoiceCount)),
-    labelValue("Opening Fund", formatCurrency(reading.openingFund)),
-    labelValue("Cash Sales", formatCurrency(reading.cashSales)),
-    labelValue("Withdrawals", formatCurrency(reading.withdrawalAmount)),
-    labelValue("Refunds", formatCurrency(reading.refundAmount)),
-    labelValue("Refund Count", String(reading.refundCount)),
-    labelValue("Voids", formatCurrency(reading.voidAmount)),
-    labelValue("Void Count", String(reading.voidCount)),
-    labelValue("Expected Cash", formatCurrency(reading.expectedCash)),
-    labelValue("Actual Cash", formatCurrency(reading.actualCash)),
-    labelValue("Short / Over", formatCurrency(reading.shortOver)),
-    labelValue("Payments", formatCurrency(reading.paymentsReceived)),
-    divider(),
-    "OTHER PAYMENTS",
-    ...formatPaymentLines(reading.otherPayments),
-  ];
-}
-
-function buildZReadingLines(reading: ZReadingDto) {
-  return [
-    labelValue("Range", `${formatDate(reading.range.from)} - ${formatDate(reading.range.to)}`),
-    divider(),
-    labelValue("Invoice Count", String(reading.invoiceCount)),
-    labelValue("Gross Sales", formatCurrency(reading.grossSales)),
-    labelValue("Net Sales", formatCurrency(reading.netSales)),
-    labelValue("Cash Sales", formatCurrency(reading.cashSales)),
-    labelValue("E-Payments", formatCurrency(reading.ePaymentSales)),
-    labelValue("Returns", formatCurrency(reading.totalReturns)),
-    labelValue("Voids", formatCurrency(reading.totalVoids)),
-    labelValue("Discounts", formatCurrency(reading.totalDiscounts)),
-    divider(),
-    labelValue("VATable Sales", formatCurrency(reading.vatableSales)),
-    labelValue("VAT Amount", formatCurrency(reading.vatAmount)),
-    labelValue("VAT Exempt", formatCurrency(reading.vatExemptSales)),
-    labelValue("VAT Zero", formatCurrency(reading.vatZeroSales)),
-    divider(),
-    labelValue("Opening Fund", formatCurrency(reading.openingFund)),
-    labelValue("Drawer Cash", formatCurrency(reading.drawerCash)),
-    labelValue("Withdrawals", formatCurrency(reading.withdrawalAmount)),
-    labelValue("Short / Over", formatCurrency(reading.shortOver)),
-    labelValue("Accum Sales", formatCurrency(reading.presentAccumulatedSales)),
-    divider(),
-    "PAYMENT BREAKDOWN",
-    ...formatPaymentLines(reading.paymentBreakdown),
-  ];
-}
-
 function buildTransactionLines(history: TransactionHistoryDto) {
   return [
     labelValue("Range", `${formatDate(history.range.from)} - ${formatDate(history.range.to)}`),
@@ -331,7 +284,7 @@ function buildSalesLines(report: SalesReportDto) {
     "SALES LINES",
     ...report.items.flatMap((item) => [
       item.itemName,
-      labelValue("Invoice", String(item.invoiceNumber)),
+      labelValue("Invoice", formatInvoiceNumber(item.invoiceNumber)),
       labelValue("Qty", String(item.quantity)),
       labelValue("Revenue", formatCurrency(item.revenue)),
       labelValue("Profit", formatCurrency(item.profit)),
@@ -379,7 +332,7 @@ function buildReturnedItemLines(report: ReturnedItemsDto) {
     "RETURNED ITEMS",
     ...report.items.flatMap((item) => [
       item.itemName,
-      labelValue("Invoice", String(item.invoiceNumber)),
+      labelValue("Invoice", formatInvoiceNumber(item.invoiceNumber)),
       labelValue("Returned", formatCurrency(item.returnAmount)),
       divider(),
     ]),
@@ -406,9 +359,8 @@ function buildBody(view: ReportPrintableView, overview: ReportOverviewDto | null
     case "overview":
       return overview ? buildOverviewLines(overview) : null;
     case "x-reading":
-      return detail ? buildXReadingLines(detail as XReadingDto) : null;
     case "z-reading":
-      return detail ? buildZReadingLines(detail as ZReadingDto) : null;
+      return detail ? [] : null;
     case "daily-transactions":
       return detail ? buildDailyTransactionLines(detail as DailyTransactionsDto) : null;
     case "transaction-list":
@@ -492,17 +444,22 @@ export const reportPrintService = {
     const terminalName = getTerminalName(input.selectedTerminal);
     const generatedAtLabel = formatDateTime(new Date());
     const title = getTitle(input.view);
-    const previewContent = [
-      ...buildHeader({
-        title,
-        terminalName,
-        generatedAtLabel,
-        printerName,
-      }),
-      ...body,
-      divider("="),
-      center("END OF REPORT"),
-    ].join("\n");
+    const previewContent =
+      input.view === "x-reading"
+        ? buildXReadingPrintContent(input.detail as XReadingDto)
+        : input.view === "z-reading"
+          ? buildZReadingPrintContent(input.detail as ZReadingDto)
+          : [
+              ...buildHeader({
+                title,
+                terminalName,
+                generatedAtLabel,
+                printerName,
+              }),
+              ...body,
+              divider("="),
+              center("END OF REPORT"),
+            ].join("\n");
 
     return {
       title,
@@ -514,6 +471,18 @@ export const reportPrintService = {
       generatedAtLabel,
       message,
       previewContent,
+      printSegments: [previewContent],
+      archiveContent: previewContent,
+      archiveType:
+        input.view === "x-reading"
+          ? "XREPORT"
+          : input.view === "z-reading"
+            ? "ZREPORT"
+            : null,
+      isTrainMode:
+        input.view === "x-reading" || input.view === "z-reading"
+          ? Boolean((input.detail as XReadingDto | ZReadingDto)?.isTrainMode)
+          : false,
     };
   },
 };

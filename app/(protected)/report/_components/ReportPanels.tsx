@@ -24,6 +24,7 @@ import type {
   ZReadingDto,
 } from "../_services/_dto/report.dto";
 import { ReportInvoicePrintButton } from "./ReportInvoicePrintButton";
+import { formatInvoiceNumber } from "@/app/(protected)/pos/_services/print-format.service";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -252,7 +253,7 @@ export function TransactionsPanel({ history }: { history: TransactionHistoryDto 
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <div className="font-semibold">#{item.invoiceNumber}</div>
+                <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
                 <Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>
               </div>
               <div className="text-sm text-muted-foreground">
@@ -285,7 +286,7 @@ export function TransactionListPanel({ report }: { report: TransactionListDto })
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <div className="font-semibold">#{item.invoiceNumber}</div>
+                <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
                 <Badge variant="outline" className="rounded-full uppercase">{item.source}</Badge>
                 <Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>
               </div>
@@ -348,7 +349,7 @@ export function SalesPanel({ report }: { report: SalesReportDto }) {
             <div className="space-y-1">
               <div className="font-semibold">{item.itemName}</div>
               <div className="text-sm text-muted-foreground">
-                Invoice #{item.invoiceNumber} / {formatDate(item.invoiceDate)} / {item.itemGroup || "Uncategorized"}
+                Invoice #{formatInvoiceNumber(item.invoiceNumber)} / {formatDate(item.invoiceDate)} / {item.itemGroup || "Uncategorized"}
               </div>
             </div>
             <div className="text-right">
@@ -398,7 +399,7 @@ export function VoidedListPanel({ report }: { report: VoidedListDto }) {
         <div key={item.invoiceId} className="rounded-2xl border p-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
-              <div className="font-semibold">#{item.invoiceNumber}</div>
+              <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
               <div className="text-sm text-muted-foreground">
                 {formatDateTime(item.voidedDate)} / {item.terminalName} / {item.cashierName}
               </div>
@@ -426,7 +427,7 @@ export function DiscountReportPanel({ report }: { report: DiscountReportDto }) {
         <div key={`${item.invoiceId}-${index}`} className="rounded-2xl border p-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
-              <div className="font-semibold">#{item.invoiceNumber}</div>
+              <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
               <div className="text-sm text-muted-foreground">
                 {formatDateTime(item.entryDate)} / {item.customerName}
               </div>
@@ -454,7 +455,7 @@ export function RefundInvoicesPanel({ report }: { report: RefundInvoicesDto }) {
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <div className="font-semibold">#{item.invoiceNumber}</div>
+                <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
                 <Badge variant={item.isFullRefund ? "secondary" : "outline"} className="rounded-full uppercase">
                   {item.isFullRefund ? "Full Return" : "Partial Return"}
                 </Badge>
@@ -490,7 +491,7 @@ export function ReturnedItemsPanel({ report }: { report: ReturnedItemsDto }) {
             <div>
               <div className="font-semibold">{item.itemName}</div>
               <div className="text-sm text-muted-foreground">
-                #{item.invoiceNumber} / Txn {formatDateTime(item.transactionDate)} / Return {formatDateTime(item.returnDate)}
+                #{formatInvoiceNumber(item.invoiceNumber)} / Txn {formatDateTime(item.transactionDate)} / Return {formatDateTime(item.returnDate)}
               </div>
             </div>
             <div className="text-right">
@@ -516,7 +517,7 @@ export function ReturnedInvoiceRecordsPanel({ report }: { report: ReturnedInvoic
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <div className="font-semibold">#{item.invoiceNumber}</div>
+                <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
                 <Badge variant="outline" className="rounded-full uppercase">{item.recordType.replace("_", " ")}</Badge>
               </div>
               <div className="text-sm text-muted-foreground">

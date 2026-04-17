@@ -74,9 +74,11 @@ export const routes: RouteConfig[] = appRoutes.map((route) => ({
             ? BarChart3
             : route.href === "/accounts"
               ? Users
-              : route.href === "/companies" || route.href === "/companies/[companyId]"
+              : route.href === "/companies" ||
+                  route.href === "/companies/[companyId]"
                 ? Building2
-                : route.href === "/companies/[companyId]/terminals" || route.href === "/terminals"
+                : route.href === "/companies/[companyId]/terminals" ||
+                    route.href === "/terminals"
                   ? Terminal
                   : route.href === "/companies/[companyId]/subscription" ||
                       route.href === "/subscriptions"

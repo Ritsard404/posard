@@ -13,9 +13,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { saveReportTerminalPrinterConfigAction } from "../_actions/report.action";
+import {
+  createReportPrintArchiveAction,
+  reprintReportPrintArchiveAction,
+  saveReportTerminalPrinterConfigAction,
+} from "../_actions/report.action";
 import type { ReportPrintPayloadDto } from "../_services/_dto/report.dto";
-import type { PrintJobDto, PrinterConfigDto } from "@/app/(protected)/pos/_services/_dto/print.dto";
+import type {
+  PrintJobDto,
+  PrinterConfigDto,
+} from "@/app/(protected)/pos/_services/_dto/print.dto";
 import { printClientService } from "@/app/(protected)/pos/_services/print-client.service";
 
 interface ReportPrintControlsProps {
@@ -37,6 +44,7 @@ function buildJob(
           ? "z-reading"
           : "report",
     previewContent: payload.previewContent,
+    printSegments: payload.printSegments,
     printerConfig,
   };
 }
@@ -52,10 +60,14 @@ export function ReportPrintControls({
   const [isChoiceOpen, setIsChoiceOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [archiveDocumentId, setArchiveDocumentId] = useState<string | null>(
+    null,
+  );
   const autoPrintKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     setPrinterConfig(payload?.printerConfig ?? null);
+    setArchiveDocumentId(null);
   }, [payload?.printerConfig]);
 
   const printerStatus = useMemo(
@@ -90,7 +102,31 @@ export function ReportPrintControls({
 
     void (async () => {
       try {
-        const result = await printClientService.print(job);
+        let printJob = job;
+
+        if (payload.archiveType) {
+          const archiveResult = await createReportPrintArchiveAction({
+            type: payload.archiveType,
+            content: payload.archiveContent,
+            isTrainMode: payload.isTrainMode,
+          });
+
+          if (!archiveResult.success) {
+            toast.error(archiveResult.error);
+            return;
+          }
+
+          setArchiveDocumentId(archiveResult.data.documentId);
+          printJob = {
+            ...job,
+            previewContent: archiveResult.data.content,
+            printSegments: [archiveResult.data.content],
+          };
+        }
+
+        const result = await printClientService.print(printJob, {
+          fallbackToPreview: false,
+        });
 
         if (result.status === "printed") {
           toast.success(`${payload.title} sent to printer.`, {
@@ -99,12 +135,12 @@ export function ReportPrintControls({
           return;
         }
 
-        setIsPreviewOpen(true);
-        toast.info(result.message);
+        toast.error(result.message);
       } catch (error) {
-        setIsPreviewOpen(true);
         toast.error(
-          error instanceof Error ? error.message : `Unable to print ${payload.title}.`,
+          error instanceof Error
+            ? error.message
+            : `Unable to print ${payload.title}.`,
         );
       }
     })();
@@ -118,7 +154,36 @@ export function ReportPrintControls({
 
   const handlePrint = async () => {
     try {
-      const result = await printClientService.print(job);
+      let printJob = job;
+
+      if (payload.archiveType) {
+        const archiveResult = archiveDocumentId
+          ? await reprintReportPrintArchiveAction({
+              documentId: archiveDocumentId,
+              type: payload.archiveType,
+            })
+          : await createReportPrintArchiveAction({
+              type: payload.archiveType,
+              content: payload.archiveContent,
+              isTrainMode: payload.isTrainMode,
+            });
+
+        if (!archiveResult.success) {
+          toast.error(archiveResult.error);
+          return;
+        }
+
+        setArchiveDocumentId(archiveResult.data.documentId);
+        printJob = {
+          ...job,
+          previewContent: archiveResult.data.content,
+          printSegments: [archiveResult.data.content],
+        };
+      }
+
+      const result = await printClientService.print(printJob, {
+        fallbackToPreview: false,
+      });
       setIsChoiceOpen(false);
 
       if (result.status === "printed") {
@@ -128,14 +193,10 @@ export function ReportPrintControls({
         return;
       }
 
-      setIsPreviewOpen(true);
-      toast.info(result.message);
+      toast.error(result.message);
     } catch (error) {
       setIsChoiceOpen(false);
-      setIsPreviewOpen(true);
-      toast.error(
-        error instanceof Error ? error.message : "Printing failed. Showing preview instead.",
-      );
+      toast.error(error instanceof Error ? error.message : "Printing failed.");
     }
   };
 
@@ -192,7 +253,10 @@ export function ReportPrintControls({
         >
           {printerStatus.label}
         </Badge>
-        <Button onClick={() => setIsChoiceOpen(true)} className="h-11 rounded-xl">
+        <Button
+          onClick={() => setIsChoiceOpen(true)}
+          className="h-11 rounded-xl"
+        >
           {printerStatus.tone === "ready" ? (
             <Printer className="size-4" />
           ) : (
@@ -252,7 +316,11 @@ export function ReportPrintControls({
                 <ScanSearch className="size-4" />
                 Preview
               </Button>
-              <Button type="button" className="rounded-xl" onClick={() => void handlePrint()}>
+              <Button
+                type="button"
+                className="rounded-xl"
+                onClick={() => void handlePrint()}
+              >
                 <Printer className="size-4" />
                 Print Now
               </Button>
@@ -283,7 +351,11 @@ export function ReportPrintControls({
             >
               Close
             </Button>
-            <Button type="button" className="rounded-xl" onClick={() => void handlePrint()}>
+            <Button
+              type="button"
+              className="rounded-xl"
+              onClick={() => void handlePrint()}
+            >
               <Printer className="size-4" />
               Print from Preview
             </Button>

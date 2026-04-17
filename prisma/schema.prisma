@@ -734,6 +734,7 @@ model Invoice {
 
   items     Item[]
   ePayments EPayment[]
+  documents InvoiceDocument[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -747,6 +748,26 @@ model Invoice {
   @@index([voidedById])
   @@unique([posTerminalId, invoiceNumber], name: "uk_invoice_terminal_invoice_number")
   @@map("invoice")
+  @@schema("public")
+}
+
+model InvoiceDocument {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_invoice_document") @db.Uuid
+
+  invoiceBlob  Bytes               @map("invoice_blob")
+  type         InvoiceDocumentType
+  reprintCount Int                 @default(0) @map("reprint_count")
+  isTrainMode  Boolean             @default(false) @map("is_train_mode")
+
+  invoiceId String?  @map("invoice_id") @db.Uuid
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([invoiceId])
+  @@index([type, createdAt])
+  @@map("invoice_document")
   @@schema("public")
 }
 

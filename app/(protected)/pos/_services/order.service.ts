@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import type { Prisma } from "@prisma/client";
+import { InvoiceDocumentType, InvoiceStatusType } from "@prisma/client";
 import type {
   CancelOrderDto,
   DiscountDto,
@@ -9,7 +10,6 @@ import type {
   ItemRequestDto,
   OrderDto,
 } from "./_dto/order.dto";
-import { InvoiceStatusType } from "@prisma/client";
 import type { ReceiptDto } from "./_dto/receipt.dto";
 import { mapInvoiceToReceipt } from "./_mappers/receipt.mapper";
 import {
@@ -18,6 +18,8 @@ import {
   isDiscountWithRequiredMetadata,
   type PaymentCalculationItem,
 } from "./payment-calculation.service";
+import { receiptPrintService } from "./receipt-print.service";
+import { printArchiveService } from "./print-archive.service";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -424,6 +426,15 @@ export const orderService = {
         ...mapInvoiceToReceipt(invoice),
         stockUpdates,
       };
+    });
+
+    const printPayload = receiptPrintService.buildPayload(receipt);
+
+    await printArchiveService.createArchive({
+      type: InvoiceDocumentType.INVOICE,
+      content: printPayload.archiveContent,
+      invoiceId: receipt.id,
+      isTrainMode: receipt.isTrainMode,
     });
 
     return receipt;

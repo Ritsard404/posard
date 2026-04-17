@@ -85,7 +85,8 @@ export default function TerminalDetailPanel({
             ["Cost Center", terminal.costCenter],
             ["Branch Center", terminal.branchCenter],
             ["Use Center", terminal.useCenter],
-            ["Printer", terminal.printerName],
+            ["Printer", terminal.printerDisplayName ?? terminal.printerName],
+            ["Printer Transport", terminal.printerConnectionType ?? "Not paired"],
           ]}
         />
         <Card className="border-dashed p-5">

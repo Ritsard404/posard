@@ -9,11 +9,24 @@ import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cashTrackPrintService } from "../_services/cash-track-print.service";
 import { printClientService } from "../_services/print-client.service";
+import { toast } from "sonner";
 
 interface OpenSessionModalProps {
   terminalId: string;
   terminalName: string;
-  onSuccess: (sessionData: any) => void;
+  onSuccess: (sessionData: {
+    success: true;
+    user: { name: string | null; role: string };
+    sessionId: string;
+    timestampId: string;
+    terminal: {
+      id: string;
+      name: string;
+      vat: number;
+      discountMax: number;
+      printerConfig: import("../_services/_dto/print.dto").PrinterConfigDto | null;
+    };
+  }) => void;
   onCancel: () => void;
 }
 
@@ -43,29 +56,44 @@ export function OpenSessionModal({ terminalId, terminalName, onSuccess, onCancel
     setIsLoading(false);
 
     if (result.success && result.user) {
-      void (async () => {
+      try {
         const reportResult = await getSessionCashTrackAction(result.timestampId);
-        if (!reportResult.success || !reportResult.data) {
-          return;
-        }
+        if (reportResult.success && reportResult.data) {
+          const payload = cashTrackPrintService.buildPayload(
+            reportResult.data,
+            "cash-in",
+          );
 
-        const payload = cashTrackPrintService.buildPayload(
-          reportResult.data,
-          "cash-in",
-        );
+          const printResult = await printClientService.print(
+            {
+              title: payload.title,
+              intent: "cash-in",
+              previewContent: payload.previewContent,
+              printerConfig: payload.printerConfig,
+            },
+            {
+              fallbackToPreview: false,
+            },
+          );
 
-        try {
-          await printClientService.print({
-            title: payload.title,
-            intent: "cash-in",
-            previewContent: payload.previewContent,
-            printerConfig: payload.printerConfig,
-          });
-        } catch {
-          // Keep session flow moving even if printing fails.
+          if (printResult.status === "printed") {
+            toast.success("Cash-in slip sent to printer.", {
+              description: printResult.message,
+            });
+          } else {
+            toast.error(printResult.message);
+          }
         }
-      })();
-      onSuccess(result);
+      } catch {
+        // Keep session flow moving even if printing fails.
+      }
+      onSuccess({
+        success: true,
+        user: result.user,
+        sessionId: result.sessionId,
+        timestampId: result.timestampId,
+        terminal: result.terminal,
+      });
     } else {
       setError(result.error || "Failed to open session. Invalid PIN or terminal in use.");
       setPin("");

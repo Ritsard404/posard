@@ -1,128 +1,219 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { closeSessionAction, getSessionCashTrackAction } from "../_actions/session.action";
-import { cashTrackPrintService } from "../_services/cash-track-print.service";
-import { printClientService } from "../_services/print-client.service";
+import { closeSessionAction } from "../_actions/session.action";
+import { ReportPrintControls } from "@/app/(protected)/report/_components/ReportPrintControls";
+import type { ReportPrintPayloadDto } from "@/app/(protected)/report/_services/_dto/report.dto";
 
 interface CloseSessionModalProps {
   sessionId: string;
   timestampId: string;
+  terminalId: string | null;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function CloseSessionModal({ sessionId, timestampId, onSuccess, onCancel }: CloseSessionModalProps) {
+export function CloseSessionModal({
+  sessionId,
+  timestampId,
+  terminalId,
+  onSuccess,
+  onCancel,
+}: CloseSessionModalProps) {
   const [countedCash, setCountedCash] = useState<number>(0);
   const [managerPin, setManagerPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [xReadingPayload, setXReadingPayload] =
+    useState<ReportPrintPayloadDto | null>(null);
+  const [didCloseSession, setDidCloseSession] = useState(false);
 
-  const handleClose = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleDialogChange = (open: boolean) => {
+    if (open) {
+      return;
+    }
+
+    if (didCloseSession) {
+      onSuccess();
+      return;
+    }
+
+    onCancel();
+  };
+
+  const handleClose = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError(null);
-    
+
     if (countedCash < 0) {
-      setError("Counted cash cannot be negative");
+      setError("Counted cash cannot be negative.");
       return;
     }
 
     if (managerPin.length < 4) {
-      setError("Manager PIN must be at least 4 digits");
+      setError("Manager PIN must be at least 4 digits.");
       return;
     }
 
     setIsLoading(true);
-    const result = await closeSessionAction(sessionId, timestampId, countedCash, managerPin);
+
+    const result = await closeSessionAction(
+      sessionId,
+      timestampId,
+      countedCash,
+      managerPin,
+    );
+
     setIsLoading(false);
 
-    if (result.success) {
-      void (async () => {
-        const reportResult = await getSessionCashTrackAction(timestampId);
-        if (!reportResult.success || !reportResult.data) {
-          return;
-        }
-
-        const payload = cashTrackPrintService.buildPayload(
-          reportResult.data,
-          "cash-out",
-        );
-
-        try {
-          await printClientService.print({
-            title: payload.title,
-            intent: "cash-out",
-            previewContent: payload.previewContent,
-            printerConfig: payload.printerConfig,
-          });
-        } catch {
-          // Do not block session close if printing fails.
-        }
-      })();
-      onSuccess();
-    } else {
-      setError(result.error || "Failed to close session. Invalid Manager PIN.");
+    if (!result.success) {
+      setError(result.error || "Failed to close session.");
       setManagerPin("");
+      return;
     }
+
+    setDidCloseSession(true);
+    setXReadingPayload(result.data?.xReadingPayload ?? null);
+    setManagerPin("");
   };
 
   return (
-    <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-destructive">Close Session (Cash Out)</DialogTitle>
-          <DialogDescription>
-            Enter the final counted cash in drawer and the Manager PIN to securely close this session.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleClose} className="flex flex-col space-y-6 py-4">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="countedCash">Counted Cash Amount</Label>
-              <Input
-                id="countedCash"
-                type="number"
-                min="0"
-                step="0.01"
-                autoFocus
-                placeholder="0.00"
-                className="text-right text-lg h-12 font-medium"
-                value={countedCash || ""}
-                onChange={(e) => setCountedCash(Number(e.target.value))}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="managerPin">Approving Manager PIN</Label>
-              <Input
-                id="managerPin"
-                type="password"
-                maxLength={6}
-                inputMode="numeric"
-                placeholder="••••••"
-                className="text-center text-xl tracking-widest h-12"
-                value={managerPin}
-                onChange={(e) => setManagerPin(e.target.value.replace(/\D/g, ""))}
-              />
-            </div>
-          </div>
+    <Dialog open onOpenChange={handleDialogChange}>
+      <DialogContent className="sm:max-w-2xl">
+        {!didCloseSession ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-destructive">
+                Close Session
+              </DialogTitle>
+              <DialogDescription>
+                Enter the final counted cash in drawer and manager PIN to close
+                the register.
+              </DialogDescription>
+            </DialogHeader>
 
-          {error && <p className="text-sm text-destructive font-medium bg-destructive/10 p-2 rounded-md">{error}</p>}
-          
-          <div className="flex justify-end gap-3 pt-2 w-full">
-            <Button type="button" variant="outline" className="flex-1 h-12" onClick={onCancel} disabled={isLoading}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="destructive" className="flex-1 h-12 text-lg" disabled={isLoading || managerPin.length < 4 || countedCash < 0}>
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Close Session"}
-            </Button>
-          </div>
-        </form>
+            <form onSubmit={handleClose} className="flex flex-col gap-6 py-4">
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="countedCash">Counted Cash Amount</Label>
+                  <Input
+                    id="countedCash"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    autoFocus
+                    placeholder="0.00"
+                    className="h-12 text-right text-lg font-medium"
+                    value={countedCash || ""}
+                    onChange={(event) =>
+                      setCountedCash(Number(event.target.value))
+                    }
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="managerPin">Approving Manager PIN</Label>
+                  <Input
+                    id="managerPin"
+                    type="password"
+                    maxLength={6}
+                    inputMode="numeric"
+                    placeholder="••••••"
+                    className="h-12 text-center text-xl tracking-widest"
+                    value={managerPin}
+                    onChange={(event) =>
+                      setManagerPin(
+                        event.target.value.replace(/\D/g, "").slice(0, 6),
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              {error ? (
+                <p className="rounded-md bg-destructive/10 p-3 text-sm font-medium text-destructive">
+                  {error}
+                </p>
+              ) : null}
+
+              <DialogFooter className="gap-3 sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12"
+                  onClick={onCancel}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  className="h-12"
+                  disabled={isLoading || managerPin.length < 4 || countedCash < 0}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Closing
+                    </>
+                  ) : (
+                    "Close Session"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold">
+                Session Closed
+              </DialogTitle>
+              <DialogDescription>
+                The session is closed. Print the X-reading now or use the
+                preview below.
+              </DialogDescription>
+            </DialogHeader>
+
+            {xReadingPayload ? (
+              <div className="grid gap-4 py-4">
+                <ReportPrintControls
+                  payload={xReadingPayload}
+                  terminalId={terminalId}
+                />
+                <div className="rounded-2xl border bg-muted/20 p-4">
+                  <pre className="max-h-[48vh] overflow-auto whitespace-pre-wrap font-mono text-xs leading-6 text-foreground">
+                    {xReadingPayload.previewContent}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border bg-muted/20 p-4 text-sm text-muted-foreground">
+                X-reading could not be generated for this close action. The
+                session was still closed successfully.
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button type="button" className="h-12" onClick={onSuccess}>
+                Done
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

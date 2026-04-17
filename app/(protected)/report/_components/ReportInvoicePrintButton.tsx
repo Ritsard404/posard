@@ -15,6 +15,7 @@ import {
 import { getReportInvoicePrintPayloadAction } from "../_actions/report.action";
 import type { ReportInvoicePrintPayloadDto } from "../_services/_dto/report.dto";
 import { printClientService } from "@/app/(protected)/pos/_services/print-client.service";
+import { formatInvoiceNumber } from "@/app/(protected)/pos/_services/print-format.service";
 
 interface ReportInvoicePrintButtonProps {
   invoiceId: string;
@@ -40,21 +41,23 @@ export function ReportInvoicePrintButton({
     void (async () => {
       try {
         const result = await printClientService.print({
-          title: `Invoice ${payload.invoiceNumber}`,
+          title: `Invoice ${formatInvoiceNumber(payload.invoiceNumber)}`,
           intent: "report-invoice",
           previewContent: payload.previewContent,
+          printSegments: payload.printSegments,
           printerConfig: payload.printerConfig,
+        }, {
+          fallbackToPreview: false,
         });
 
         if (result.status === "printed") {
-          toast.success(`Invoice #${payload.invoiceNumber} sent to printer.`, {
+          toast.success(`Invoice #${formatInvoiceNumber(payload.invoiceNumber)} sent to printer.`, {
             description: result.message,
           });
           return;
         }
 
-        setIsPreviewOpen(true);
-        toast.info(result.message);
+        toast.error(result.message);
       } catch (error) {
         setIsPreviewOpen(true);
         toast.error(
@@ -86,10 +89,13 @@ export function ReportInvoicePrintButton({
 
     try {
       const result = await printClientService.print({
-        title: `Invoice ${payload.invoiceNumber}`,
+        title: `Invoice ${formatInvoiceNumber(payload.invoiceNumber)}`,
         intent: "report-invoice",
         previewContent: payload.previewContent,
+        printSegments: payload.printSegments,
         printerConfig: payload.printerConfig,
+      }, {
+        fallbackToPreview: false,
       });
 
       if (result.status === "printed") {
@@ -99,11 +105,10 @@ export function ReportInvoicePrintButton({
         return;
       }
 
-      setIsPreviewOpen(true);
-      toast.info(result.message);
+      toast.error(result.message);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Unable to open the print window.",
+        error instanceof Error ? error.message : "Unable to print invoice.",
       );
     }
   };
@@ -119,13 +124,13 @@ export function ReportInvoicePrintButton({
         disabled={isPending}
       >
         {isPending ? <Monitor className="size-4" /> : <Printer className="size-4" />}
-        Reprint #{invoiceNumber}
+        Reprint #{formatInvoiceNumber(invoiceNumber)}
       </Button>
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-h-[85vh] rounded-3xl sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Invoice #{invoiceNumber}</DialogTitle>
+            <DialogTitle>Invoice #{formatInvoiceNumber(invoiceNumber)}</DialogTitle>
             <DialogDescription>{payload?.message ?? "Loading print preview..."}</DialogDescription>
           </DialogHeader>
           <div className="rounded-2xl border bg-muted/20 p-4">

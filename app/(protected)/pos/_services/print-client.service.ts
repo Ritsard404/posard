@@ -71,24 +71,61 @@ export const printClientService = {
     return printDeviceService.pair(connectionType);
   },
 
-  async print(job: PrintJobDto): Promise<PrintJobResultDto> {
+  async print(
+    job: PrintJobDto,
+    options?: {
+      fallbackToPreview?: boolean;
+    },
+  ): Promise<PrintJobResultDto> {
+    const fallbackToPreview = options?.fallbackToPreview ?? true;
+
     if (!job.printerConfig || !printDeviceService.isLikelyConfigured(job.printerConfig)) {
-      printPreviewService.open(job, false);
+      if (fallbackToPreview) {
+        printPreviewService.open(job, false);
+      }
+
       return {
-        status: "previewed",
-        message: "No paired printer was available. Opened preview instead.",
+        status: fallbackToPreview ? "previewed" : "unsupported",
+        message: fallbackToPreview
+          ? "No paired printer was available. Opened preview instead."
+          : "No paired printer was available for this terminal.",
       };
     }
 
-    const result = await printDeviceService.print(job, job.printerConfig);
+    let result: PrintJobResultDto;
+
+    try {
+      result = await printDeviceService.print(job, job.printerConfig);
+    } catch (error) {
+      if (fallbackToPreview) {
+        printPreviewService.open(job, false);
+      }
+
+      return {
+        status: fallbackToPreview ? "previewed" : "failed",
+        message:
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : fallbackToPreview
+              ? "Printing failed. Opened preview instead."
+              : "Printing failed.",
+      };
+    }
 
     if (result.status === "printed") {
       return result;
     }
 
-    printPreviewService.open(job, false);
+    if (fallbackToPreview) {
+      printPreviewService.open(job, false);
+      return {
+        status: "previewed",
+        message: result.message,
+      };
+    }
+
     return {
-      status: "previewed",
+      status: result.status,
       message: result.message,
     };
   },

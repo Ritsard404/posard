@@ -55,28 +55,37 @@ export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModa
 
     if (result.success) {
       toast.success("Cash withdrawn successfully");
-      void (async () => {
+      try {
         const reportResult = await getSessionCashTrackAction(timestampId);
-        if (!reportResult.success || !reportResult.data) {
-          return;
-        }
+        if (reportResult.success && reportResult.data) {
+          const payload = cashTrackPrintService.buildPayload(
+            reportResult.data,
+            "cash-out",
+          );
 
-        const payload = cashTrackPrintService.buildPayload(
-          reportResult.data,
-          "cash-out",
-        );
+          const printResult = await printClientService.print(
+            {
+              title: payload.title,
+              intent: "cash-out",
+              previewContent: payload.previewContent,
+              printerConfig: payload.printerConfig,
+            },
+            {
+              fallbackToPreview: false,
+            },
+          );
 
-        try {
-          await printClientService.print({
-            title: payload.title,
-            intent: "cash-out",
-            previewContent: payload.previewContent,
-            printerConfig: payload.printerConfig,
-          });
-        } catch {
-          // Keep cashier flow moving even if printer access fails.
+          if (printResult.status === "printed") {
+            toast.success("Cash withdrawal slip sent to printer.", {
+              description: printResult.message,
+            });
+          } else {
+            toast.error(printResult.message);
+          }
         }
-      })();
+      } catch {
+        // Keep cashier flow moving even if printer access fails.
+      }
       onSuccess();
     } else {
       setError(result.error || "Failed to withdraw cash.");

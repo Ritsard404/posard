@@ -1,10 +1,12 @@
 "use server";
 
+import { InvoiceDocumentType } from "@prisma/client";
 import { z } from "zod";
 import { reportService } from "../_services/report.service";
 import { reportAccessService } from "../_services/report-access.service";
 import type { PrinterConfigDto } from "@/app/(protected)/pos/_services/_dto/print.dto";
 import { terminalPrinterConfigService } from "@/app/(protected)/pos/_services/terminal-printer-config.service";
+import { printArchiveService } from "@/app/(protected)/pos/_services/print-archive.service";
 import { revalidatePath } from "next/cache";
 import type {
   AuditTrailDto,
@@ -70,6 +72,11 @@ const PrinterConfigSchema = z.object({
   characteristicUuid: z.string().trim().nullable(),
   autoPrintEnabled: z.boolean(),
 });
+
+const PrintArchiveTypeSchema = z.nativeEnum(InvoiceDocumentType).refine(
+  (value) => value === InvoiceDocumentType.XREPORT || value === InvoiceDocumentType.ZREPORT,
+  "Unsupported archive type",
+);
 
 function toErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -447,6 +454,77 @@ export async function getReportInvoicePrintPayloadAction(
     return {
       success: false,
       error: toErrorMessage(error, "Failed to load invoice print preview"),
+    };
+  }
+}
+
+export async function createReportPrintArchiveAction(input: {
+  type: "XREPORT" | "ZREPORT";
+  content: string;
+  isTrainMode: boolean;
+}): Promise<
+  | { success: true; data: { documentId: string; content: string } }
+  | { success: false; error: string }
+> {
+  try {
+    await reportAccessService.getViewer();
+    const validated = z.object({
+      type: PrintArchiveTypeSchema,
+      content: z.string().min(1),
+      isTrainMode: z.boolean(),
+    }).parse(input);
+
+    const archive = await printArchiveService.createArchive({
+      type: validated.type,
+      content: validated.content,
+      isTrainMode: validated.isTrainMode,
+    });
+
+    return {
+      success: true,
+      data: {
+        documentId: archive.id,
+        content: archive.content,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to create print archive"),
+    };
+  }
+}
+
+export async function reprintReportPrintArchiveAction(input: {
+  documentId: string;
+  type: "XREPORT" | "ZREPORT";
+}): Promise<
+  | { success: true; data: { documentId: string; content: string } }
+  | { success: false; error: string }
+> {
+  try {
+    await reportAccessService.getViewer();
+    const validated = z.object({
+      documentId: z.string().uuid(),
+      type: PrintArchiveTypeSchema,
+    }).parse(input);
+
+    const archive = await printArchiveService.createReprint(
+      validated.documentId,
+      validated.type,
+    );
+
+    return {
+      success: true,
+      data: {
+        documentId: archive.id,
+        content: archive.content,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to reprint archived report"),
     };
   }
 }

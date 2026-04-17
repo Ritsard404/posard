@@ -225,7 +225,18 @@ export const terminalService = {
         costCenter: payload.costCenter,
         branchCenter: payload.branchCenter,
         useCenter: payload.useCenter,
-        printerName: payload.printerName,
+        printerName:
+          payload.printerConfig?.displayName?.trim() ||
+          payload.printerName,
+        printerDisplayName: payload.printerConfig?.displayName ?? null,
+        printerConnectionType: payload.printerConfig?.connectionType ?? null,
+        printerVendorId: payload.printerConfig?.vendorId ?? null,
+        printerProductId: payload.printerConfig?.productId ?? null,
+        printerDeviceId: payload.printerConfig?.deviceId ?? null,
+        printerServiceUuid: payload.printerConfig?.serviceUuid ?? null,
+        printerCharacteristicUuid:
+          payload.printerConfig?.characteristicUuid ?? null,
+        autoPrintEnabled: payload.printerConfig?.autoPrintEnabled ?? true,
       },
     });
 

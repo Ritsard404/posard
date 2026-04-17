@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type Resolver, useForm } from "react-hook-form";
-import { Loader2 } from "lucide-react";
+import { Bluetooth, Loader2, Printer, RotateCcw, Usb } from "lucide-react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type {
+  PrintJobDto,
+  PrinterConfigDto,
+} from "@/app/(protected)/pos/_services/_dto/print.dto";
+import { printClientService } from "@/app/(protected)/pos/_services/print-client.service";
 import {
   TerminalConfigurationSchema,
   type TerminalConfigurationPayload,
@@ -25,10 +32,16 @@ export default function TerminalConfigurationForm({
   isSubmitting = false,
   onSubmit,
 }: TerminalConfigurationFormProps) {
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfigDto | null>(
+    terminal?.printerConfig ?? null,
+  );
+  const [isPairing, setIsPairing] = useState(false);
+  const [isTestingPrinter, setIsTestingPrinter] = useState(false);
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<TerminalConfigurationPayload>({
     resolver: zodResolver(TerminalConfigurationSchema) as Resolver<TerminalConfigurationPayload>,
@@ -45,7 +58,9 @@ export default function TerminalConfigurationForm({
         branchCenter: "",
         useCenter: "",
         printerName: "",
+        printerConfig: null,
       });
+      setPrinterConfig(null);
       return;
     }
 
@@ -58,15 +73,122 @@ export default function TerminalConfigurationForm({
       branchCenter: terminal.branchCenter,
       useCenter: terminal.useCenter,
       printerName: terminal.printerName ?? "",
+      printerConfig: terminal.printerConfig ?? null,
     });
+    setPrinterConfig(terminal.printerConfig ?? null);
   }, [terminal, reset]);
+
+  const printerStatus = useMemo(
+    () => printClientService.getStatus(printerConfig),
+    [printerConfig],
+  );
 
   if (!terminal) {
     return null;
   }
 
+  const buildTestJob = (config: PrinterConfigDto | null): PrintJobDto => ({
+    title: "Printer Test",
+    intent: "receipt",
+    previewContent: [
+      "POSARD PRINTER TEST",
+      `Terminal: ${terminal.posName}`,
+      `Printer: ${(config?.displayName ?? terminal.printerName) || "PB-58H"}`,
+      `Transport: ${config?.connectionType ?? "preview"}`,
+      new Date().toLocaleString(),
+      "",
+      "Connection successful.",
+      "",
+      "",
+      "",
+    ].join("\n"),
+    printerConfig: config,
+  });
+
+  const runTestPrint = async (config: PrinterConfigDto | null) => {
+    if (!config?.connectionType) {
+      toast.error("Pair a printer before running a test print.");
+      return false;
+    }
+
+    setIsTestingPrinter(true);
+
+    try {
+      const result = await printClientService.print(buildTestJob(config));
+
+      if (result.status !== "printed") {
+        toast.error(result.message);
+        return false;
+      }
+
+      toast.success("Test print sent.", {
+        description: result.message,
+      });
+      return true;
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send a printer test.",
+      );
+      return false;
+    } finally {
+      setIsTestingPrinter(false);
+    }
+  };
+
+  const handlePair = async (connectionType: "usb" | "bluetooth") => {
+    setIsPairing(true);
+
+    try {
+      const paired = await printClientService.pair(connectionType);
+      const nextConfig: PrinterConfigDto = {
+        displayName: paired.displayName,
+        connectionType: paired.connectionType,
+        vendorId: paired.vendorId,
+        productId: paired.productId,
+        deviceId: paired.deviceId,
+        serviceUuid: paired.serviceUuid,
+        characteristicUuid: paired.characteristicUuid,
+        autoPrintEnabled: true,
+      };
+
+      const didPrint = await runTestPrint(nextConfig);
+
+      if (!didPrint) {
+        return;
+      }
+
+      setPrinterConfig(nextConfig);
+      setValue("printerConfig", nextConfig, { shouldDirty: true, shouldValidate: true });
+      setValue("printerName", paired.displayName, { shouldDirty: true, shouldValidate: true });
+
+      toast.success("Printer paired.", {
+        description: `${paired.displayName} is ready for this terminal.`,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to pair printer.",
+      );
+    } finally {
+      setIsPairing(false);
+    }
+  };
+
+  const handleClearPrinter = () => {
+    setPrinterConfig(null);
+    setValue("printerConfig", null, { shouldDirty: true, shouldValidate: true });
+    setValue("printerName", "", { shouldDirty: true, shouldValidate: true });
+  };
+
   return (
-    <form onSubmit={handleSubmit((data) => onSubmit(terminal, data))} className="space-y-4">
+    <form
+      onSubmit={handleSubmit((data) =>
+        onSubmit(terminal, {
+          ...data,
+          printerConfig,
+        }),
+      )}
+      className="space-y-4"
+    >
       <SectionCard
         title="Financial"
         description="Set the VAT rate and maximum discount allowed on this terminal."
@@ -114,12 +236,77 @@ export default function TerminalConfigurationForm({
 
       <SectionCard
         title="Device"
-        description="Store the receipt printer value now and keep the field ready for a future printer picker."
+        description="Pair the terminal's thermal printer over USB or Bluetooth and confirm the connection with a test print."
       >
-        <div className="grid gap-4 md:grid-cols-2">
-          <FieldGroup label="Printer" error={errors.printerName?.message}>
-            <Input {...register("printerName")} placeholder="Printer not assigned" />
-          </FieldGroup>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={printerStatus.tone === "ready" ? "secondary" : "outline"}>
+              {printerStatus.label}
+            </Badge>
+            <span className="text-sm text-muted-foreground">{printerStatus.description}</span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <FieldGroup label="Printer" error={errors.printerName?.message}>
+              <Input {...register("printerName")} placeholder="PB-58H" />
+            </FieldGroup>
+            <FieldGroup label="Connection">
+              <Input
+                value={printerConfig?.connectionType ?? "Not paired"}
+                readOnly
+                className="capitalize"
+              />
+            </FieldGroup>
+          </div>
+
+          <div className="rounded-2xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <div>Device: {printerConfig?.displayName ?? "No paired device"}</div>
+            <div>Transport: {printerConfig?.connectionType ?? "Preview only"}</div>
+            <div>Device ID: {printerConfig?.deviceId ?? "Not available"}</div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSubmitting || isPairing || isTestingPrinter}
+              onClick={() => void handlePair("usb")}
+            >
+              {isPairing ? <Loader2 className="size-4 animate-spin" /> : <Usb className="size-4" />}
+              Pair USB
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSubmitting || isPairing || isTestingPrinter}
+              onClick={() => void handlePair("bluetooth")}
+            >
+              {isPairing ? <Loader2 className="size-4 animate-spin" /> : <Bluetooth className="size-4" />}
+              Pair Bluetooth
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSubmitting || isPairing || isTestingPrinter || !printerConfig?.connectionType}
+              onClick={() => void runTestPrint(printerConfig)}
+            >
+              {isTestingPrinter ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
+              Test Print
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isSubmitting || isPairing || isTestingPrinter}
+              onClick={handleClearPrinter}
+            >
+              <RotateCcw className="size-4" />
+              Clear Pairing
+            </Button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Pairing is only kept after the terminal successfully sends a test receipt to the selected device.
+          </p>
         </div>
       </SectionCard>
 

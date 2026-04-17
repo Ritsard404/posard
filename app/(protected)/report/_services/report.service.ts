@@ -4,6 +4,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { receiptPrintService } from "@/app/(protected)/pos/_services/receipt-print.service";
 import { printConfigService } from "@/app/(protected)/pos/_services/print-config.service";
+import { formatInvoiceNumber } from "@/app/(protected)/pos/_services/print-format.service";
+import { printArchiveService } from "@/app/(protected)/pos/_services/print-archive.service";
 import type {
   AuditTrailDto,
   AuditTrailItemDto,
@@ -337,6 +339,120 @@ function createTransactionListTotals(): TransactionListTotalsDto {
   };
 }
 
+function getTerminalSerialNumber(terminal: {
+  ptuNumber?: string | null;
+  accreditationNumber?: string | null;
+}) {
+  return terminal.ptuNumber?.trim() || terminal.accreditationNumber?.trim() || "N/A";
+}
+
+async function buildXReadingFromTimestamp(timestamp: {
+  timestampIn: Date | null;
+  timestampOut: Date | null;
+  cashInDrawerAmount: unknown;
+  withdrawnDrawerAmount: unknown;
+  cashOutDrawerAmount: unknown;
+  posTerminalId: string;
+  cashier: {
+    fullName: string | null;
+  };
+  posTerminal: {
+    id: string;
+    posName: string;
+    registeredName: string | null;
+    operatedBy: string | null;
+    address: string | null;
+    vatTinNumber: string | null;
+    minNumber: string | null;
+    ptuNumber: string | null;
+    accreditationNumber: string | null;
+    isTrainMode: boolean;
+    vat: Prisma.Decimal | number;
+  };
+}, companyId: string): Promise<XReadingDto> {
+  if (!timestamp.timestampIn) {
+    throw new Error("No terminal session available for X-reading.");
+  }
+
+  const readingEnd = timestamp.timestampOut ?? new Date();
+  const invoices = await getInvoicesForRange(
+    companyId,
+    timestamp.timestampIn,
+    readingEnd,
+    timestamp.posTerminalId,
+  );
+  const unreadInvoices = invoices.filter((invoice) => !invoice.isRead);
+  const paidInvoices = unreadInvoices.filter((invoice) => invoice.status === "PAID");
+  const voidInvoices = unreadInvoices.filter((invoice) => invoice.status === "VOID");
+  const returnedInvoices = unreadInvoices.filter(
+    (invoice) => invoice.status === "RETURNED",
+  );
+
+  const openingFund = toNumber(timestamp.cashInDrawerAmount);
+  const withdrawalAmount = toNumber(timestamp.withdrawnDrawerAmount);
+  const refundAmount = returnedInvoices.reduce(
+    (sum, invoice) => sum + toNumber(invoice.returnedAmount),
+    0,
+  );
+  const cashSales = paidInvoices.reduce(
+    (sum, invoice) => sum + calculateCashCollected(invoice),
+    0,
+  );
+  const expectedCash = openingFund + cashSales - withdrawalAmount;
+  const actualCash = toNumber(timestamp.cashOutDrawerAmount);
+  const sortedInvoiceNumbers = unreadInvoices
+    .map((invoice) => invoice.invoiceNumber)
+    .sort((a, b) => a - b);
+
+  return {
+    generatedAt: new Date(),
+    range: createRange(timestamp.timestampIn, readingEnd),
+    terminalId: timestamp.posTerminal.id,
+    terminalName: timestamp.posTerminal.posName,
+    businessName: timestamp.posTerminal.registeredName ?? "N/A",
+    operatorName: timestamp.posTerminal.operatedBy ?? "N/A",
+    addressLine: timestamp.posTerminal.address ?? "N/A",
+    vatRegTin: timestamp.posTerminal.vatTinNumber ?? "",
+    minNumber: timestamp.posTerminal.minNumber ?? "",
+    serialNumber: getTerminalSerialNumber(timestamp.posTerminal),
+    isTrainMode: timestamp.posTerminal.isTrainMode,
+    isAcknowledgement: toNumber(timestamp.posTerminal.vat) <= 0,
+    cashierName: timestamp.cashier.fullName ?? "Unknown",
+    invoiceCount: unreadInvoices.length,
+    beginningOrNumber: sortedInvoiceNumbers.length
+      ? formatInvoiceNumber(sortedInvoiceNumbers[0]!)
+      : "N/A",
+    endingOrNumber: sortedInvoiceNumbers.length
+      ? formatInvoiceNumber(sortedInvoiceNumbers[sortedInvoiceNumbers.length - 1]!)
+      : "N/A",
+    openingFund,
+    withdrawalAmount,
+    refundAmount,
+    refundCount: returnedInvoices.length,
+    voidAmount: voidInvoices.reduce(
+      (sum, invoice) => sum + toNumber(invoice.totalAmount),
+      0,
+    ),
+    voidCount: voidInvoices.length,
+    expectedCash,
+    actualCash,
+    shortOver: actualCash - expectedCash - refundAmount,
+    cashSales,
+    otherPayments: buildPaymentBreakdown(unreadInvoices),
+    paymentsReceived:
+      cashSales +
+      unreadInvoices.reduce(
+        (sum, invoice) =>
+          sum +
+          invoice.ePayments.reduce(
+            (paymentTotal, payment) => paymentTotal + toNumber(payment.amount),
+            0,
+          ),
+        0,
+      ),
+  };
+}
+
 function updateTransactionListTotals(
   totals: TransactionListTotalsDto,
   input: {
@@ -664,6 +780,15 @@ export const reportService = {
           select: {
             id: true,
             posName: true,
+            registeredName: true,
+            operatedBy: true,
+            address: true,
+            vatTinNumber: true,
+            minNumber: true,
+            ptuNumber: true,
+            accreditationNumber: true,
+            isTrainMode: true,
+            vat: true,
           },
         },
       },
@@ -676,66 +801,7 @@ export const reportService = {
       throw new Error("No terminal session available for X-reading.");
     }
 
-    const readingEnd = timestamp.timestampOut ?? new Date();
-    const invoices = await getInvoicesForRange(
-      companyId,
-      timestamp.timestampIn,
-      readingEnd,
-      timestamp.posTerminalId,
-    );
-    const unreadInvoices = invoices.filter((invoice) => !invoice.isRead);
-    const paidInvoices = unreadInvoices.filter((invoice) => invoice.status === "PAID");
-    const voidInvoices = unreadInvoices.filter((invoice) => invoice.status === "VOID");
-    const returnedInvoices = unreadInvoices.filter(
-      (invoice) => invoice.status === "RETURNED",
-    );
-
-    const openingFund = toNumber(timestamp.cashInDrawerAmount);
-    const withdrawalAmount = toNumber(timestamp.withdrawnDrawerAmount);
-    const refundAmount = returnedInvoices.reduce(
-      (sum, invoice) => sum + toNumber(invoice.returnedAmount),
-      0,
-    );
-    const cashSales = paidInvoices.reduce(
-      (sum, invoice) => sum + calculateCashCollected(invoice),
-      0,
-    );
-    const expectedCash = openingFund + cashSales - withdrawalAmount;
-    const actualCash = toNumber(timestamp.cashOutDrawerAmount);
-
-    return {
-      generatedAt: new Date(),
-      range: createRange(timestamp.timestampIn, readingEnd),
-      terminalId: timestamp.posTerminal.id,
-      terminalName: timestamp.posTerminal.posName,
-      cashierName: timestamp.cashier.fullName ?? "Unknown",
-      invoiceCount: unreadInvoices.length,
-      openingFund,
-      withdrawalAmount,
-      refundAmount,
-      refundCount: returnedInvoices.length,
-      voidAmount: voidInvoices.reduce(
-        (sum, invoice) => sum + toNumber(invoice.totalAmount),
-        0,
-      ),
-      voidCount: voidInvoices.length,
-      expectedCash,
-      actualCash,
-      shortOver: actualCash - expectedCash - refundAmount,
-      cashSales,
-      otherPayments: buildPaymentBreakdown(unreadInvoices),
-      paymentsReceived:
-        cashSales +
-        unreadInvoices.reduce(
-          (sum, invoice) =>
-            sum +
-            invoice.ePayments.reduce(
-              (paymentTotal, payment) => paymentTotal + toNumber(payment.amount),
-              0,
-            ),
-          0,
-        ),
-    };
+    return buildXReadingFromTimestamp(timestamp, companyId);
   },
 
   async getZReading(
@@ -770,6 +836,19 @@ export const reportService = {
           select: {
             id: true,
             posName: true,
+            registeredName: true,
+            operatedBy: true,
+            address: true,
+            vatTinNumber: true,
+            minNumber: true,
+            ptuNumber: true,
+            accreditationNumber: true,
+            isTrainMode: true,
+            vat: true,
+            resetCounterNo: true,
+            resetCounterTrainNo: true,
+            zCounterNo: true,
+            zCounterTrainNo: true,
           },
         },
       },
@@ -860,9 +939,20 @@ export const reportService = {
       0,
     );
 
+    const sortedInvoiceNumbers = invoices
+      .map((invoice) => invoice.invoiceNumber)
+      .sort((a, b) => a - b);
+    const voidInvoiceNumbers = voidInvoices
+      .map((invoice) => invoice.invoiceNumber)
+      .sort((a, b) => a - b);
+    const returnInvoiceNumbers = returnedInvoices
+      .map((invoice) => invoice.invoiceNumber)
+      .sort((a, b) => a - b);
+
     const terminalName =
       timestamps[0]?.posTerminal.posName ??
       (terminalId ? "Selected Terminal" : "All Terminals");
+    const terminalInfo = timestamps[0]?.posTerminal ?? null;
 
     const discountBreakdown = paidInvoices.reduce(
       (acc, invoice) => {
@@ -897,7 +987,22 @@ export const reportService = {
       range: createRange(input.from, input.to),
       terminalId,
       terminalName,
+      businessName: terminalInfo?.registeredName ?? "N/A",
+      operatorName: terminalInfo?.operatedBy ?? "N/A",
+      addressLine: terminalInfo?.address ?? "N/A",
+      vatRegTin: terminalInfo?.vatTinNumber ?? "N/A",
+      minNumber: terminalInfo?.minNumber ?? "N/A",
+      serialNumber: terminalInfo ? getTerminalSerialNumber(terminalInfo) : "N/A",
+      isTrainMode: terminalInfo?.isTrainMode ?? false,
+      isAcknowledgement: (terminalInfo?.vat ?? 0) <= 0,
+      beginningSI: sortedInvoiceNumbers.length ? formatInvoiceNumber(sortedInvoiceNumbers[0]!) : "N/A",
+      endingSI: sortedInvoiceNumbers.length ? formatInvoiceNumber(sortedInvoiceNumbers[sortedInvoiceNumbers.length - 1]!) : "N/A",
+      beginningVoid: voidInvoiceNumbers.length ? formatInvoiceNumber(voidInvoiceNumbers[0]!) : "N/A",
+      endingVoid: voidInvoiceNumbers.length ? formatInvoiceNumber(voidInvoiceNumbers[voidInvoiceNumbers.length - 1]!) : "N/A",
+      beginningReturn: returnInvoiceNumbers.length ? formatInvoiceNumber(returnInvoiceNumbers[0]!) : "N/A",
+      endingReturn: returnInvoiceNumbers.length ? formatInvoiceNumber(returnInvoiceNumbers[returnInvoiceNumbers.length - 1]!) : "N/A",
       invoiceCount: invoices.length,
+      returnCount: returnedInvoices.length,
       grossSales,
       netSales: grossSales - totalReturns - totalVoids - totalDiscounts,
       totalReturns,
@@ -925,6 +1030,22 @@ export const reportService = {
       drawerCash,
       withdrawalAmount,
       shortOver: drawerCash + withdrawalAmount - expectedCash - totalReturns,
+      resetCounter: terminalInfo
+        ? terminalInfo.isTrainMode
+          ? terminalInfo.resetCounterTrainNo
+          : terminalInfo.resetCounterNo
+        : 0,
+      zCounter: terminalInfo
+        ? terminalInfo.isTrainMode
+          ? terminalInfo.zCounterTrainNo
+          : terminalInfo.zCounterNo
+        : 0,
+      previousAccumulatedSales,
+      salesForTheDay,
+      lessVatAdjustment: 0,
+      vatOnReturn: 0,
+      otherVatAdjustments: 0,
+      paymentsReceived: cashSales + ePaymentSales,
       presentAccumulatedSales: previousAccumulatedSales + salesForTheDay,
       seniorDiscount: discountBreakdown.seniorDiscount,
       seniorCount: discountBreakdown.seniorCount,
@@ -1995,7 +2116,7 @@ export const reportService = {
       throw new Error("Invoice not found for report printing.");
     }
 
-    const payload = receiptPrintService.buildPayload({
+    const receiptPayload = receiptPrintService.buildPayload({
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
       createdAt: invoice.createdAt.toISOString(),
@@ -2036,15 +2157,77 @@ export const reportService = {
       stockUpdates: [],
     });
 
+    const archivedDocument = await printArchiveService.getLatestInvoiceArchive(invoice.id);
+
+    if (archivedDocument) {
+      const reprintDocument = await printArchiveService.createReprint(
+        archivedDocument.id,
+        archivedDocument.type,
+      );
+
+      return {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        printerAvailable: receiptPayload.printerAvailable,
+        printerName: receiptPayload.printerName,
+        printerConfig: receiptPayload.printerConfig,
+        message: receiptPayload.message,
+        previewContent: reprintDocument.content,
+        printSegments: [reprintDocument.content],
+        archiveContent: archivedDocument.content,
+        archiveDocumentId: archivedDocument.id,
+        isTrainMode: archivedDocument.isTrainMode,
+      };
+    }
+
     return {
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      printerAvailable: payload.printerAvailable,
-      printerName: payload.printerName,
-      printerConfig: payload.printerConfig,
-      message: payload.message,
-      previewContent: payload.previewContent,
+      printerAvailable: receiptPayload.printerAvailable,
+      printerName: receiptPayload.printerName,
+      printerConfig: receiptPayload.printerConfig,
+      message: receiptPayload.message,
+      previewContent: receiptPayload.previewContent,
+      printSegments: receiptPayload.printSegments,
+      archiveContent: receiptPayload.archiveContent,
+      archiveDocumentId: null,
+      isTrainMode: invoice.isTrainMode,
     };
+  },
+
+  async getXReadingByTimestampId(timestampId: string): Promise<XReadingDto> {
+    const timestamp = await prisma.timestamp.findUnique({
+      where: { id: timestampId },
+      include: {
+        cashier: {
+          select: {
+            fullName: true,
+          },
+        },
+        posTerminal: {
+          select: {
+            companyId: true,
+            id: true,
+            posName: true,
+            registeredName: true,
+            operatedBy: true,
+            address: true,
+            vatTinNumber: true,
+            minNumber: true,
+            ptuNumber: true,
+            accreditationNumber: true,
+            isTrainMode: true,
+            vat: true,
+          },
+        },
+      },
+    });
+
+    if (!timestamp) {
+      throw new Error("Session not found for X-reading.");
+    }
+
+    return buildXReadingFromTimestamp(timestamp, timestamp.posTerminal.companyId);
   },
 
   normalizeStartOfDay,

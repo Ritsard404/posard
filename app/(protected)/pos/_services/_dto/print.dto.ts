@@ -34,6 +34,7 @@ export interface PrintJobDto {
   title: string;
   intent: PrintIntent;
   previewContent: string;
+  printSegments?: string[];
   printerConfig: PrinterConfigDto | null;
 }
 

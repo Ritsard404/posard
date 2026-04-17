@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { PrinterConfigDto } from "@/app/(protected)/pos/_services/_dto/print.dto";
 
-const PrinterConfigSchema = z.object({
+export const PrinterConfigSchema = z.object({
   displayName: z.string().nullable(),
   connectionType: z.enum(["usb", "bluetooth"]).nullable(),
   vendorId: z.number().int().nullable(),
@@ -105,6 +105,7 @@ export const TerminalConfigurationSchema = z.object({
   branchCenter: z.string().trim().max(100, "Branch Center must be 100 characters or fewer"),
   useCenter: z.string().trim().max(100, "Use Center must be 100 characters or fewer"),
   printerName: z.string().trim().max(100, "Printer must be 100 characters or fewer"),
+  printerConfig: PrinterConfigSchema.nullable().optional(),
 });
 
 export type TerminalConfigurationPayload = z.input<typeof TerminalConfigurationSchema>;

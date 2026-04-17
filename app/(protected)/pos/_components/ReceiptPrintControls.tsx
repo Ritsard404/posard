@@ -31,6 +31,7 @@ function buildJob(
     title: "Receipt",
     intent: "receipt",
     previewContent: payload.previewContent,
+    printSegments: payload.printSegments,
     printerConfig,
   };
 }
@@ -74,7 +75,9 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
 
     void (async () => {
       try {
-        const result = await printClientService.print(job);
+        const result = await printClientService.print(job, {
+          fallbackToPreview: false,
+        });
         if (result.status === "printed") {
           toast.success("Receipt sent to printer.", {
             description: result.message,
@@ -82,10 +85,8 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
           return;
         }
 
-        setIsPreviewOpen(true);
-        toast.info(result.message);
+        toast.error(result.message);
       } catch (error) {
-        setIsPreviewOpen(true);
         toast.error(
           error instanceof Error ? error.message : "Unable to print receipt.",
         );
@@ -99,7 +100,9 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
 
   const handlePrint = async () => {
     try {
-      const result = await printClientService.print(job);
+      const result = await printClientService.print(job, {
+        fallbackToPreview: false,
+      });
       setIsChoiceOpen(false);
 
       if (result.status === "printed") {
@@ -109,13 +112,11 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
         return;
       }
 
-      setIsPreviewOpen(true);
-      toast.info(result.message);
+      toast.error(result.message);
     } catch (error) {
       setIsChoiceOpen(false);
-      setIsPreviewOpen(true);
       toast.error(
-        error instanceof Error ? error.message : "Printing failed. Showing preview instead.",
+        error instanceof Error ? error.message : "Printing failed.",
       );
     }
   };

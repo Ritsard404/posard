@@ -101,8 +101,18 @@ export interface XReadingDto {
   range: ReportDateRangeDto;
   terminalId: string | null;
   terminalName: string;
+  businessName: string;
+  operatorName: string;
+  addressLine: string;
+  vatRegTin: string;
+  minNumber: string;
+  serialNumber: string;
+  isTrainMode: boolean;
+  isAcknowledgement: boolean;
   cashierName: string;
   invoiceCount: number;
+  beginningOrNumber: string;
+  endingOrNumber: string;
   openingFund: number;
   withdrawalAmount: number;
   refundAmount: number;
@@ -122,7 +132,22 @@ export interface ZReadingDto {
   range: ReportDateRangeDto;
   terminalId: string | null;
   terminalName: string;
+  businessName: string;
+  operatorName: string;
+  addressLine: string;
+  vatRegTin: string;
+  minNumber: string;
+  serialNumber: string;
+  isTrainMode: boolean;
+  isAcknowledgement: boolean;
+  beginningSI: string;
+  endingSI: string;
+  beginningVoid: string;
+  endingVoid: string;
+  beginningReturn: string;
+  endingReturn: string;
   invoiceCount: number;
+  returnCount: number;
   grossSales: number;
   netSales: number;
   totalReturns: number;
@@ -138,6 +163,14 @@ export interface ZReadingDto {
   drawerCash: number;
   withdrawalAmount: number;
   shortOver: number;
+  resetCounter: number;
+  zCounter: number;
+  previousAccumulatedSales: number;
+  salesForTheDay: number;
+  lessVatAdjustment: number;
+  vatOnReturn: number;
+  otherVatAdjustments: number;
+  paymentsReceived: number;
   presentAccumulatedSales: number;
   seniorDiscount: number;
   seniorCount: number;
@@ -476,6 +509,10 @@ export interface ReportPrintPayloadDto {
   generatedAtLabel: string;
   message: string;
   previewContent: string;
+  printSegments: string[];
+  archiveContent: string;
+  archiveType: "XREPORT" | "ZREPORT" | null;
+  isTrainMode: boolean;
 }
 
 export interface ReportInvoicePrintPayloadDto {
@@ -486,4 +523,8 @@ export interface ReportInvoicePrintPayloadDto {
   printerConfig: PrinterConfigDto | null;
   message: string;
   previewContent: string;
+  printSegments: string[];
+  archiveContent: string;
+  archiveDocumentId: string | null;
+  isTrainMode: boolean;
 }
