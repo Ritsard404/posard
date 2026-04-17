@@ -33,64 +33,25 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
+import {
+  appRoutes,
+  getFirstAccessibleRoute,
+  getPermissionsForRole,
+  hasPermissionForRoute,
+  isValidUserRole,
+  rolePermissions,
+  type Permission,
+  type UserRole,
+} from "@/lib/access-control-core";
 
-export type UserRole = "admin" | "manager" | "cashier";
-
-export const roles: UserRole[] = ["admin", "manager", "cashier"];
-
-export function isValidUserRole(role: unknown): role is UserRole {
-  return typeof role === "string" && roles.includes(role as UserRole);
-}
-
-export type Permission =
-  | "view.dashboard"
-  | "view.pos"
-  | "view.inventory"
-  | "view.orders"
-  | "view.transactions"
-  | "view.accounts"
-  | "view.reports"
-  | "view.profile"
-  | "view.company"
-  | "view.company.settings"
-  | "view.company.terminals"
-  | "view.company.subscription"
-  | "view.product"
-  | "view.admin"
-  | "view.admin.terminals"
-  | "view.admin.subscriptions"
-  | "view.admin.approvals";
-
-export const rolePermissions: Record<UserRole, Permission[]> = {
-  admin: [
-    "view.dashboard",
-    "view.accounts",
-    "view.reports",
-    "view.profile",
-    "view.admin",
-    "view.company",
-    "view.company.settings",
-    "view.company.terminals",
-    "view.company.subscription",
-    "view.admin.terminals",
-    "view.admin.subscriptions",
-    "view.admin.approvals",
-  ],
-  manager: [
-    "view.dashboard",
-    "view.accounts",
-    "view.pos",
-    "view.orders",
-    "view.inventory",
-    "view.product",
-    "view.reports",
-    "view.profile",
-    "view.company",
-    "view.company.settings",
-    "view.company.terminals",
-  ],
-  cashier: ["view.dashboard", "view.pos", "view.transactions", "view.profile"],
+export {
+  getFirstAccessibleRoute,
+  getPermissionsForRole,
+  hasPermissionForRoute,
+  isValidUserRole,
+  rolePermissions,
 };
+export type { Permission, UserRole };
 
 export interface RouteConfig {
   href: string;
@@ -100,127 +61,34 @@ export interface RouteConfig {
   showInNav: boolean;
 }
 
-export const routes: RouteConfig[] = [
-  {
-    href: "/dashboard",
-    permission: "view.dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    showInNav: true,
-  },
-  {
-    href: "/pos",
-    permission: "view.pos",
-    label: "POS",
-    icon: ShoppingCart,
-    showInNav: true,
-  },
-  {
-    href: "/product",
-    permission: "view.product",
-    label: "Products & Inventory",
-    icon: Package,
-    showInNav: true,
-  },
-  {
-    href: "/report",
-    permission: "view.reports",
-    label: "Reports",
-    icon: BarChart3,
-    showInNav: true,
-  },
-  {
-    href: "/accounts",
-    permission: "view.accounts",
-    label: "User Management",
-    icon: Users,
-    showInNav: true,
-  },
-  {
-    href: "/companies",
-    permission: "view.company",
-    label: "Manage Companies",
-    icon: Building2,
-    showInNav: true,
-  },
-  {
-    href: "/companies/[companyId]",
-    permission: "view.company",
-    label: "Company",
-    icon: Building2,
-    showInNav: false,
-  },
-  {
-    href: "/companies/[companyId]/terminals",
-    permission: "view.company.terminals",
-    label: "Terminal List",
-    icon: Terminal,
-    showInNav: false,
-  },
-  {
-    href: "/companies/[companyId]/subscription",
-    permission: "view.company.subscription",
-    label: "Subscriptions",
-    icon: CreditCard,
-    showInNav: false,
-  },
-  {
-    href: "/terminals",
-    permission: "view.admin.terminals",
-    label: "Terminals",
-    icon: Terminal,
-    showInNav: false,
-  },
-  {
-    href: "/subscriptions",
-    permission: "view.admin.subscriptions",
-    label: "Subscriptions",
-    icon: CreditCard,
-    showInNav: false,
-  },
-  {
-    href: "/approvals",
-    permission: "view.admin.approvals",
-    label: "Pending Manager Approvals",
-    icon: FileClock,
-    showInNav: false,
-  },
-  {
-    href: "/companies/[companyId]/settings",
-    permission: "view.company.settings",
-    label: "Business Info",
-    icon: Settings,
-    showInNav: false,
-  },
-  {
-    href: "/profile",
-    permission: "view.profile",
-    label: "Profile",
-    icon: Settings,
-    showInNav: false,
-  },
-  {
-    href: "/accounts/[profileId]",
-    permission: "view.profile",
-    label: "Profile",
-    icon: UserRound,
-    showInNav: false,
-  },
-  {
-    href: "/settings",
-    permission: "view.company.settings",
-    label: "Settings",
-    icon: Settings,
-    showInNav: false,
-  },
-  {
-    href: "/admin",
-    permission: "view.admin",
-    label: "Administration",
-    icon: Users,
-    showInNav: false,
-  },
-];
+export const routes: RouteConfig[] = appRoutes.map((route) => ({
+  ...route,
+  icon:
+    route.href === "/dashboard"
+      ? LayoutDashboard
+      : route.href === "/pos"
+        ? ShoppingCart
+        : route.href === "/product"
+          ? Package
+          : route.href === "/report"
+            ? BarChart3
+            : route.href === "/accounts"
+              ? Users
+              : route.href === "/companies" || route.href === "/companies/[companyId]"
+                ? Building2
+                : route.href === "/companies/[companyId]/terminals" || route.href === "/terminals"
+                  ? Terminal
+                  : route.href === "/companies/[companyId]/subscription" ||
+                      route.href === "/subscriptions"
+                    ? CreditCard
+                    : route.href === "/approvals"
+                      ? FileClock
+                      : route.href === "/accounts/[profileId]"
+                        ? UserRound
+                        : route.href === "/admin"
+                          ? Users
+                          : Settings,
+}));
 
 export interface SidebarNavContext {
   companyId?: string | null;
@@ -595,25 +463,6 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
   },
 ];
 
-function routeToRegExp(href: string) {
-  const pattern = href.replace(/\[.+?\]/g, "[^/]+");
-  return new RegExp(`^${pattern}(?:/.*)?$`);
-}
-
-function getMatchingRoute(pathname: string) {
-  const sortedRoutes = [...routes].sort((a, b) => b.href.length - a.href.length);
-  return sortedRoutes.find((route) => routeToRegExp(route.href).test(pathname));
-}
-
-function isConcreteHref(href: string) {
-  return !href.includes("[");
-}
-
-export function getPermissionsForRole(role: string | null): Permission[] {
-  if (!role || !isValidUserRole(role)) return [];
-  return rolePermissions[role];
-}
-
 export function getNavByRole(role: UserRole) {
   const userPermissions = rolePermissions[role] ?? [];
   return routes.filter(
@@ -714,26 +563,4 @@ export function getSidebarSections(
       } satisfies SidebarNavSection;
     })
     .filter((section) => section.items.length > 0);
-}
-
-export function hasPermissionForRoute(
-  role: string | null,
-  pathname: string,
-): boolean {
-  const userPermissions = getPermissionsForRole(role);
-  const route = getMatchingRoute(pathname);
-
-  if (!route) {
-    return true;
-  }
-
-  return userPermissions.includes(route.permission);
-}
-
-export function getFirstAccessibleRoute(role: string | null): string {
-  const userPermissions = getPermissionsForRole(role);
-  const first = routes.find(
-    (route) => isConcreteHref(route.href) && userPermissions.includes(route.permission),
-  );
-  return first?.href ?? "/auth/login";
 }

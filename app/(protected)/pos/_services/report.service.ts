@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { CashTrackReportDto } from "./_dto/pos.dto";
+import { printConfigService } from "./print-config.service";
 
 export const reportService = {
   /**
@@ -18,7 +19,22 @@ export const reportService = {
       where: { id: timestampId },
       include: {
         cashier: { select: { fullName: true } },
-        posTerminal: { select: { posName: true, isTrainMode: true } }
+        posTerminal: {
+          select: {
+            id: true,
+            posName: true,
+            isTrainMode: true,
+            printerName: true,
+            printerDisplayName: true,
+            printerConnectionType: true,
+            printerVendorId: true,
+            printerProductId: true,
+            printerDeviceId: true,
+            printerServiceUuid: true,
+            printerCharacteristicUuid: true,
+            autoPrintEnabled: true,
+          },
+        }
       }
     });
 
@@ -64,10 +80,13 @@ export const reportService = {
 
     return {
       timestampId: timestamp.id,
+      terminalId: timestamp.posTerminal.id,
       cashierName: timestamp.cashier.fullName || "Unknown",
       terminalName: timestamp.posTerminal.posName,
       timestampIn: timestamp.timestampIn,
+      timestampOut: timestamp.timestampOut,
       isTrainMode: timestamp.posTerminal.isTrainMode,
+      printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
       
       openingCash,
       totalCashSales,

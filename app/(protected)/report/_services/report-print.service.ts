@@ -107,21 +107,25 @@ function getTerminalName(terminal: ReportTerminalOptionDto | null) {
 }
 
 function getPrinterAvailability(terminal: ReportTerminalOptionDto | null) {
-  const printerName = terminal?.printerName?.trim() || null;
+  const printerConfig = terminal?.printerConfig ?? null;
+  const printerName =
+    printerConfig?.displayName?.trim() || terminal?.printerName?.trim() || null;
 
   if (!terminal) {
     return {
       printerAvailable: false,
       printerName: null,
+      printerConfig: null,
       message:
         "No terminal printer is selected. Showing printable preview instead.",
     };
   }
 
-  if (!printerName) {
+  if (!printerName || !printerConfig?.connectionType || !printerConfig.autoPrintEnabled) {
     return {
       printerAvailable: false,
-      printerName: null,
+      printerName,
+      printerConfig,
       message: "No paired printer found. Showing printable preview instead.",
     };
   }
@@ -129,7 +133,8 @@ function getPrinterAvailability(terminal: ReportTerminalOptionDto | null) {
   return {
     printerAvailable: true,
     printerName,
-    message: `Printer found (${printerName}). Choose how you want to continue.`,
+    printerConfig,
+    message: `Printer configured (${printerName}). Printing will be attempted on this device first.`,
   };
 }
 
@@ -480,9 +485,10 @@ export const reportPrintService = {
       return null;
     }
 
-    const { printerAvailable, printerName, message } = getPrinterAvailability(
+    const { printerAvailable, printerName, printerConfig, message } = getPrinterAvailability(
       input.selectedTerminal,
     );
+
     const terminalName = getTerminalName(input.selectedTerminal);
     const generatedAtLabel = formatDateTime(new Date());
     const title = getTitle(input.view);
@@ -503,6 +509,7 @@ export const reportPrintService = {
       view: input.view,
       printerAvailable,
       printerName,
+      printerConfig,
       terminalName,
       generatedAtLabel,
       message,

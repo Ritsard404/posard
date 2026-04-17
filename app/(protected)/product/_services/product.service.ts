@@ -3,7 +3,7 @@ import "server-only";
 import Papa from "papaparse";
 
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/current-user";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { mutationContextService } from "@/lib/services/mutation-context.service";
 import type { Prisma, ItemType, VatType } from "@prisma/client";
@@ -62,15 +62,7 @@ interface NormalizedProductInput {
 }
 
 async function getCompanyId(): Promise<string | null> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) return null;
-
-  const profile = await prisma.profile.findFirst({
-    where: { userId: data.user.id },
-    select: { companyId: true },
-  });
-
+  const profile = await getCurrentProfile();
   return profile?.companyId ?? null;
 }
 

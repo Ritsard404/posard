@@ -4,9 +4,11 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { openSessionAction } from "../_actions/session.action";
+import { getSessionCashTrackAction, openSessionAction } from "../_actions/session.action";
 import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { cashTrackPrintService } from "../_services/cash-track-print.service";
+import { printClientService } from "../_services/print-client.service";
 
 interface OpenSessionModalProps {
   terminalId: string;
@@ -41,6 +43,28 @@ export function OpenSessionModal({ terminalId, terminalName, onSuccess, onCancel
     setIsLoading(false);
 
     if (result.success && result.user) {
+      void (async () => {
+        const reportResult = await getSessionCashTrackAction(result.timestampId);
+        if (!reportResult.success || !reportResult.data) {
+          return;
+        }
+
+        const payload = cashTrackPrintService.buildPayload(
+          reportResult.data,
+          "cash-in",
+        );
+
+        try {
+          await printClientService.print({
+            title: payload.title,
+            intent: "cash-in",
+            previewContent: payload.previewContent,
+            printerConfig: payload.printerConfig,
+          });
+        } catch {
+          // Keep session flow moving even if printing fails.
+        }
+      })();
       onSuccess(result);
     } else {
       setError(result.error || "Failed to open session. Invalid PIN or terminal in use.");

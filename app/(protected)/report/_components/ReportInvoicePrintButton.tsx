@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Monitor, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,36 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { getReportInvoicePrintPayloadAction } from "../_actions/report.action";
 import type { ReportInvoicePrintPayloadDto } from "../_services/_dto/report.dto";
+import { printClientService } from "@/app/(protected)/pos/_services/print-client.service";
 
 interface ReportInvoicePrintButtonProps {
   invoiceId: string;
   invoiceNumber: number;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function buildPrintMarkup(payload: ReportInvoicePrintPayloadDto) {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Invoice ${payload.invoiceNumber}</title>
-    <style>
-      body { margin: 0; padding: 16px; font-family: "Courier New", monospace; color: #111827; }
-      pre { margin: 0; white-space: pre-wrap; font-size: 12px; line-height: 1.35; }
-      @page { margin: 8mm; }
-    </style>
-  </head>
-  <body>
-    <pre>${escapeHtml(payload.previewContent)}</pre>
-    <script>window.onload=function(){window.print();};</script>
-  </body>
-</html>`;
 }
 
 export function ReportInvoicePrintButton({
@@ -53,8 +28,45 @@ export function ReportInvoicePrintButton({
   const [isPending, startTransition] = useTransition();
   const [payload, setPayload] = useState<ReportInvoicePrintPayloadDto | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const autoPrintStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!payload || autoPrintStartedRef.current) {
+      return;
+    }
+
+    autoPrintStartedRef.current = true;
+
+    void (async () => {
+      try {
+        const result = await printClientService.print({
+          title: `Invoice ${payload.invoiceNumber}`,
+          intent: "report-invoice",
+          previewContent: payload.previewContent,
+          printerConfig: payload.printerConfig,
+        });
+
+        if (result.status === "printed") {
+          toast.success(`Invoice #${payload.invoiceNumber} sent to printer.`, {
+            description: result.message,
+          });
+          return;
+        }
+
+        setIsPreviewOpen(true);
+        toast.info(result.message);
+      } catch (error) {
+        setIsPreviewOpen(true);
+        toast.error(
+          error instanceof Error ? error.message : "Unable to print invoice.",
+        );
+      }
+    })();
+  }, [payload]);
 
   const handleOpen = () => {
+    autoPrintStartedRef.current = false;
+
     startTransition(async () => {
       const result = await getReportInvoicePrintPayloadAction(invoiceId);
 
@@ -64,29 +76,35 @@ export function ReportInvoicePrintButton({
       }
 
       setPayload(result.data);
-      setIsPreviewOpen(true);
-      toast.info(result.data.message);
     });
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!payload) {
       return;
     }
 
     try {
-      const printWindow = window.open("", "_blank", "noopener,noreferrer");
+      const result = await printClientService.print({
+        title: `Invoice ${payload.invoiceNumber}`,
+        intent: "report-invoice",
+        previewContent: payload.previewContent,
+        printerConfig: payload.printerConfig,
+      });
 
-      if (!printWindow) {
-        throw new Error("The browser blocked the print window.");
+      if (result.status === "printed") {
+        toast.success("Printing in progress...", {
+          description: result.message,
+        });
+        return;
       }
 
-      printWindow.document.open();
-      printWindow.document.write(buildPrintMarkup(payload));
-      printWindow.document.close();
-      toast.success("Printing in progress...");
-    } catch {
-      toast.error("Unable to open the print window.");
+      setIsPreviewOpen(true);
+      toast.info(result.message);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to open the print window.",
+      );
     }
   };
 
@@ -119,7 +137,7 @@ export function ReportInvoicePrintButton({
             <Button type="button" variant="outline" className="rounded-xl" onClick={() => setIsPreviewOpen(false)}>
               Close
             </Button>
-            <Button type="button" className="rounded-xl" onClick={handlePrint} disabled={!payload}>
+            <Button type="button" className="rounded-xl" onClick={() => void handlePrint()} disabled={!payload}>
               <Printer className="size-4" />
               Print
             </Button>

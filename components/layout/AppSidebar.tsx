@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, LogOut } from "lucide-react";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -41,7 +41,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   getSidebarSections,
-  isValidUserRole,
   type SidebarNavItem,
   type SidebarNavSection,
   type UserRole,
@@ -53,12 +52,12 @@ interface UserProfile {
   id: string;
   role: UserRole;
   full_name?: string | null;
-  avatar_url?: string;
-  email?: string;
+  avatar_url?: string | null;
+  email?: string | null;
   company_id?: string | null;
 }
 
-function getInitials(name?: string | null, email?: string): string {
+function getInitials(name?: string | null, email?: string | null): string {
   if (name) {
     return name
       .split(" ")
@@ -218,90 +217,19 @@ function SidebarNavSubLink({
   );
 }
 
-function AppSidebarInner() {
+export function AppSidebar({
+  initialProfile,
+}: {
+  initialProfile: UserProfile | null;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const params = useParams();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [profile] = useState<UserProfile | null>(initialProfile);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadProfile = async () => {
-      try {
-        const supabase = createClient();
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.getSession();
-
-        if (sessionError) {
-          throw sessionError;
-        }
-
-        const sessionUser = sessionData?.session?.user;
-
-        if (!sessionUser) {
-          router.push("/auth/login");
-          return;
-        }
-
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("id, role, status, company_id, full_name")
-          .eq("user_id", sessionUser.id)
-          .single();
-
-        if (profileError || !profileData) {
-          throw profileError || new Error("User profile not found");
-        }
-
-        if (profileData.status === "pending") {
-          router.push("/auth/pending");
-          return;
-        }
-
-        if (profileData.status === "disabled") {
-          router.push("/auth/disabled");
-          return;
-        }
-
-        if (!isValidUserRole(profileData.role)) {
-          throw new Error("Invalid role");
-        }
-
-        if (isMounted) {
-          setProfile({
-            id: profileData.id,
-            role: profileData.role,
-            full_name: profileData.full_name,
-            avatar_url: undefined,
-            email: sessionUser.email,
-            company_id: profileData.company_id,
-          });
-        }
-      } catch (error) {
-        if (isMounted) {
-          setFetchError(
-            error instanceof Error ? error.message : "Failed to load profile",
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadProfile();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
+  const [isLoggingOut, startLogoutTransition] = useTransition();
 
   const navContext = useMemo(
     () => ({
@@ -311,9 +239,10 @@ function AppSidebarInner() {
     [params?.companyId, profile?.company_id, profile?.id],
   );
 
-  const sidebarSections = profile
-    ? getSidebarSections(profile.role, navContext)
-    : [];
+  const sidebarSections = useMemo(
+    () => (profile ? getSidebarSections(profile.role, navContext) : []),
+    [navContext, profile],
+  );
 
   const contentSections = sidebarSections.filter(
     (section) => section.placement !== "footer",
@@ -323,10 +252,14 @@ function AppSidebarInner() {
   );
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/auth/login");
-    setShowLogoutDialog(false);
+    startLogoutTransition(() => {
+      void (async () => {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        router.push("/auth/login");
+        setShowLogoutDialog(false);
+      })();
+    });
   };
 
   const toggleSection = (sectionId: string, defaultOpen: boolean) => {
@@ -488,28 +421,7 @@ function AppSidebarInner() {
       </SidebarHeader>
 
       <SidebarContent className="overflow-x-hidden px-3 pb-3">
-        {isLoading ? (
-          <SidebarGroup className="px-0">
-            <SidebarGroupContent>
-              <div className="space-y-2 px-1">
-                {[1, 2, 3, 4, 5, 6].map((item) => (
-                  <div
-                    key={item}
-                    className="h-11 w-full animate-pulse rounded-xl bg-muted/60"
-                  />
-                ))}
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : fetchError ? (
-          <SidebarGroup className="px-0">
-            <SidebarGroupContent>
-              <div className="rounded-xl border border-destructive/15 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {fetchError}
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : contentSections.length === 0 ? (
+        {contentSections.length === 0 ? (
           <SidebarGroup className="px-0">
             <SidebarGroupContent>
               <div className="px-3 py-2 text-sm italic text-muted-foreground">
@@ -541,7 +453,7 @@ function AppSidebarInner() {
             <div className="flex items-center gap-3 rounded-2xl border border-muted/60 bg-muted/30 p-2">
               <Avatar className="size-10 shrink-0 rounded-xl ring-2 ring-background">
                 <AvatarImage
-                  src={profile?.avatar_url}
+                  src={profile?.avatar_url ?? undefined}
                   alt={profile?.full_name ?? "User"}
                 />
                 <AvatarFallback className="rounded-xl bg-primary/10 text-xs font-bold text-primary">
@@ -575,10 +487,13 @@ function AppSidebarInner() {
               <AlertDialogTrigger asChild>
                 <SidebarMenuButton
                   tooltip="Log out"
+                  disabled={isLoggingOut}
                   className="h-10 rounded-xl text-muted-foreground hover:bg-destructive/5 hover:text-destructive"
                 >
                   <LogOut className="size-4" />
-                  <span className="text-sm font-medium">Log out</span>
+                  <span className="text-sm font-medium">
+                    {isLoggingOut ? "Logging out..." : "Log out"}
+                  </span>
                 </SidebarMenuButton>
               </AlertDialogTrigger>
               <AlertDialogContent className="rounded-3xl">
@@ -607,48 +522,5 @@ function AppSidebarInner() {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  );
-}
-
-export function AppSidebar() {
-  return (
-    <Suspense
-      fallback={
-        <Sidebar collapsible="icon" variant="sidebar" className="border-r">
-          <SidebarHeader className="p-4">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <div className="flex items-center gap-3 px-2">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
-                    <span className="text-lg font-bold">P</span>
-                  </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-bold text-foreground">
-                      POSard
-                    </span>
-                  </div>
-                </div>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarHeader>
-          <SidebarContent className="px-3">
-            <SidebarGroup className="px-0">
-              <SidebarGroupContent>
-                <div className="space-y-2 px-1">
-                  {[1, 2, 3, 4].map((item) => (
-                    <div
-                      key={item}
-                      className="h-11 w-full animate-pulse rounded-xl bg-muted/60"
-                    />
-                  ))}
-                </div>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-        </Sidebar>
-      }
-    >
-      <AppSidebarInner />
-    </Suspense>
   );
 }

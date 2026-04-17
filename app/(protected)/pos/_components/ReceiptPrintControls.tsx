@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Monitor, Printer, ScanText } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Bluetooth, Monitor, Printer, ScanSearch, Usb } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,83 +13,153 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { saveSessionPrinterConfigAction } from "../_actions/pos.action";
+import { usePOSStore } from "../_store/pos-store";
+import type { PrintJobDto, PrinterConfigDto } from "../_services/_dto/print.dto";
+import { printClientService } from "../_services/print-client.service";
 import type { ReceiptPrintPayloadDto } from "../_services/receipt-print.service";
 
 interface ReceiptPrintControlsProps {
   payload: ReceiptPrintPayloadDto;
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function buildPrintMarkup(payload: ReceiptPrintPayloadDto) {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Receipt</title>
-    <style>
-      body { margin: 0; padding: 16px; font-family: "Courier New", monospace; color: #111827; }
-      pre { margin: 0; white-space: pre-wrap; font-size: 12px; line-height: 1.35; }
-      @page { margin: 8mm; }
-    </style>
-  </head>
-  <body>
-    <pre>${escapeHtml(payload.previewContent)}</pre>
-    <script>window.onload=function(){window.print();};</script>
-  </body>
-</html>`;
+function buildJob(
+  payload: ReceiptPrintPayloadDto,
+  printerConfig: PrinterConfigDto | null,
+): PrintJobDto {
+  return {
+    title: "Receipt",
+    intent: "receipt",
+    previewContent: payload.previewContent,
+    printerConfig,
+  };
 }
 
 export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
+  const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfigDto | null>(
+    payload.printerConfig,
+  );
   const [isChoiceOpen, setIsChoiceOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const printerStatusLabel = useMemo(
-    () => (payload.printerAvailable ? "Printer ready" : "Preview fallback"),
-    [payload.printerAvailable],
+  const [isSaving, setIsSaving] = useState(false);
+  const autoPrintKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setPrinterConfig(payload.printerConfig);
+  }, [payload.printerConfig]);
+
+  const job = useMemo(
+    () => buildJob(payload, printerConfig),
+    [payload, printerConfig],
   );
+  const printerStatus = useMemo(
+    () => printClientService.getStatus(printerConfig),
+    [printerConfig],
+  );
+  const printerName = printerConfig?.displayName ?? payload.printerName ?? null;
 
-  const openPreview = (description?: string) => {
-    setIsPreviewOpen(true);
+  useEffect(() => {
+    const autoPrintKey = `${payload.previewContent}:${printerConfig?.displayName ?? "none"}`;
 
-    if (description) {
-      toast.info(description);
-    }
-  };
-
-  const handlePrimary = () => {
-    if (!payload.printerAvailable) {
-      openPreview(payload.message);
+    if (
+      autoPrintKeyRef.current === autoPrintKey ||
+      !printerConfig?.autoPrintEnabled ||
+      !printerConfig?.connectionType
+    ) {
       return;
     }
 
-    setIsChoiceOpen(true);
+    autoPrintKeyRef.current = autoPrintKey;
+
+    void (async () => {
+      try {
+        const result = await printClientService.print(job);
+        if (result.status === "printed") {
+          toast.success("Receipt sent to printer.", {
+            description: result.message,
+          });
+          return;
+        }
+
+        setIsPreviewOpen(true);
+        toast.info(result.message);
+      } catch (error) {
+        setIsPreviewOpen(true);
+        toast.error(
+          error instanceof Error ? error.message : "Unable to print receipt.",
+        );
+      }
+    })();
+  }, [job, payload.previewContent, printerConfig]);
+
+  const openPreview = () => {
+    setIsPreviewOpen(true);
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     try {
-      const printWindow = window.open("", "_blank", "noopener,noreferrer");
+      const result = await printClientService.print(job);
+      setIsChoiceOpen(false);
 
-      if (!printWindow) {
-        throw new Error("The browser blocked the print window.");
+      if (result.status === "printed") {
+        toast.success("Printing in progress...", {
+          description: result.message,
+        });
+        return;
       }
 
-      printWindow.document.open();
-      printWindow.document.write(buildPrintMarkup(payload));
-      printWindow.document.close();
+      setIsPreviewOpen(true);
+      toast.info(result.message);
+    } catch (error) {
       setIsChoiceOpen(false);
-      toast.success("Printing in progress...", {
-        description: payload.printerName
-          ? `Configured printer: ${payload.printerName}`
-          : "Use the browser print dialog to continue.",
+      setIsPreviewOpen(true);
+      toast.error(
+        error instanceof Error ? error.message : "Printing failed. Showing preview instead.",
+      );
+    }
+  };
+
+  const handlePair = async (connectionType: "usb" | "bluetooth") => {
+    if (!activeTimestampId) {
+      toast.error("Open a POS session before pairing a printer.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const paired = await printClientService.pair(connectionType);
+      const nextConfig: PrinterConfigDto = {
+        displayName: paired.displayName,
+        connectionType: paired.connectionType,
+        vendorId: paired.vendorId,
+        productId: paired.productId,
+        deviceId: paired.deviceId,
+        serviceUuid: paired.serviceUuid,
+        characteristicUuid: paired.characteristicUuid,
+        autoPrintEnabled: true,
+      };
+      const result = await saveSessionPrinterConfigAction(
+        activeTimestampId,
+        nextConfig,
+      );
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      setPrinterConfig(nextConfig);
+      toast.success("Printer paired and test printed.", {
+        description: `${paired.displayName} is ready on this terminal.`,
       });
-    } catch {
-      setIsChoiceOpen(false);
-      openPreview("Printing failed. Showing printable preview instead.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to pair printer.",
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -97,14 +167,23 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
     <>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <Badge
-          variant={payload.printerAvailable ? "secondary" : "outline"}
+          variant={printerStatus.tone === "ready" ? "secondary" : "outline"}
           className="rounded-full px-3 py-1"
         >
-          {printerStatusLabel}
+          {printerStatus.label}
         </Badge>
-        <Button type="button" variant="outline" className="rounded-xl" onClick={handlePrimary}>
-          {payload.printerAvailable ? <Printer className="size-4" /> : <Monitor className="size-4" />}
-          {payload.printerAvailable ? "Print / Preview" : "Preview Receipt"}
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-xl"
+          onClick={() => setIsChoiceOpen(true)}
+        >
+          {printerStatus.tone === "ready" ? (
+            <Printer className="size-4" />
+          ) : (
+            <Monitor className="size-4" />
+          )}
+          Print / Preview
         </Button>
       </div>
 
@@ -112,28 +191,53 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
         <DialogContent className="rounded-3xl sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Receipt Output</DialogTitle>
-            <DialogDescription>{payload.message}</DialogDescription>
+            <DialogDescription>{printerStatus.description}</DialogDescription>
           </DialogHeader>
-          <div className="rounded-2xl border bg-muted/30 p-4 text-sm text-muted-foreground">
-            Printer: {payload.printerName ?? "Not configured"}
+          <div className="space-y-3 rounded-2xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <div>Printer: {printerName ?? "Not configured"}</div>
+            <div>Transport: {printerConfig?.connectionType ?? "Preview only"}</div>
           </div>
-          <DialogFooter className="gap-2 sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-xl"
-              onClick={() => {
-                setIsChoiceOpen(false);
-                openPreview();
-              }}
-            >
-              <ScanText className="size-4" />
-              Preview on Screen
-            </Button>
-            <Button type="button" className="rounded-xl" onClick={handlePrint}>
-              <Printer className="size-4" />
-              Print Now
-            </Button>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl"
+                disabled={isSaving}
+                onClick={() => void handlePair("usb")}
+              >
+                <Usb className="size-4" />
+                Pair USB
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl"
+                disabled={isSaving}
+                onClick={() => void handlePair("bluetooth")}
+              >
+                <Bluetooth className="size-4" />
+                Pair Bluetooth
+              </Button>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl"
+                onClick={() => {
+                  setIsChoiceOpen(false);
+                  openPreview();
+                }}
+              >
+                <ScanSearch className="size-4" />
+                Preview
+              </Button>
+              <Button type="button" className="rounded-xl" onClick={() => void handlePrint()}>
+                <Printer className="size-4" />
+                Print Now
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -150,10 +254,15 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
             </pre>
           </div>
           <DialogFooter className="gap-2 sm:justify-end">
-            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setIsPreviewOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setIsPreviewOpen(false)}
+            >
               Close
             </Button>
-            <Button type="button" className="rounded-xl" onClick={handlePrint}>
+            <Button type="button" className="rounded-xl" onClick={() => void handlePrint()}>
               <Printer className="size-4" />
               Print from Preview
             </Button>

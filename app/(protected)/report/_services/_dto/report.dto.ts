@@ -1,3 +1,5 @@
+import type { PrinterConfigDto } from "@/app/(protected)/pos/_services/_dto/print.dto";
+
 export interface ReportViewerDto {
   profileId: string;
   companyId: string | null;
@@ -10,6 +12,7 @@ export interface ReportTerminalOptionDto {
   name: string;
   isActive: boolean;
   printerName: string | null;
+  printerConfig: PrinterConfigDto | null;
 }
 
 export interface ReportWorkspaceDto {
@@ -54,6 +57,7 @@ export interface ReportTerminalContextDto {
   terminalId: string;
   terminalName: string;
   printerName: string | null;
+  printerConfig: PrinterConfigDto | null;
   isActive: boolean;
 }
 
@@ -467,6 +471,7 @@ export interface ReportPrintPayloadDto {
   view: ReportPrintableView;
   printerAvailable: boolean;
   printerName: string | null;
+  printerConfig: PrinterConfigDto | null;
   terminalName: string | null;
   generatedAtLabel: string;
   message: string;
@@ -478,6 +483,7 @@ export interface ReportInvoicePrintPayloadDto {
   invoiceNumber: number;
   printerAvailable: boolean;
   printerName: string | null;
+  printerConfig: PrinterConfigDto | null;
   message: string;
   previewContent: string;
 }

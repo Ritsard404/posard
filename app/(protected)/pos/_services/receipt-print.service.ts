@@ -1,4 +1,5 @@
 import type { ReceiptDto } from "./_dto/receipt.dto";
+import type { PrinterConfigDto } from "./_dto/print.dto";
 
 const RECEIPT_WIDTH = 32;
 const QTY_WIDTH = 5;
@@ -167,22 +168,31 @@ function shouldPrintDuplicate(receipt: ReceiptDto) {
 export interface ReceiptPrintPayloadDto {
   printerAvailable: boolean;
   printerName: string | null;
+  printerConfig: PrinterConfigDto | null;
   message: string;
   previewContent: string;
 }
 
 export const receiptPrintService = {
   buildPayload(receipt: ReceiptDto): ReceiptPrintPayloadDto {
-    const printerName = receipt.printerName?.trim() || null;
+    const printerConfig = receipt.printerConfig;
+    const printerName =
+      printerConfig?.displayName?.trim() || receipt.printerName?.trim() || null;
     const copies = shouldPrintDuplicate(receipt)
       ? [buildReceiptBody(receipt), buildReceiptBody(receipt, "COPY")]
       : [buildReceiptBody(receipt)];
+    const canAutoPrint = Boolean(
+      printerConfig &&
+        printerConfig.autoPrintEnabled &&
+        printerConfig.connectionType,
+    );
 
     return {
-      printerAvailable: Boolean(printerName),
+      printerAvailable: canAutoPrint,
       printerName,
+      printerConfig,
       message: printerName
-        ? `Printer found (${printerName}). Choose how you want to continue.`
+        ? `Printer configured (${printerName}). Printing will be attempted on this device first.`
         : "No paired printer found. Showing printable preview instead.",
       previewContent: copies.join(`\n\n${"=".repeat(RECEIPT_WIDTH)}\n\n`),
     };

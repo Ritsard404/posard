@@ -6,15 +6,30 @@ import {
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { PageTitle } from "@/components/layout/PageTitle";
+import { getCurrentProfile } from "@/lib/auth/current-user";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const profile = await getCurrentProfile();
+
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar
+        initialProfile={
+          profile
+            ? {
+                id: profile.id,
+                role: profile.role,
+                full_name: profile.fullName,
+                email: profile.email,
+                company_id: profile.companyId,
+              }
+            : null
+        }
+      />
       <SidebarInset>
         {/* Sticky Header */}
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b px-4 lg:px-6 bg-background/80 backdrop-blur-md">

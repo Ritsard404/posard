@@ -1,7 +1,6 @@
 import "server-only";
 
-import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/current-user";
 
 export interface MutationContext {
   profileId: string;
@@ -10,17 +9,7 @@ export interface MutationContext {
 
 export const mutationContextService = {
   async getContext(): Promise<MutationContext> {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getUser();
-
-    if (!data.user) {
-      throw new Error("You must be signed in to perform this action.");
-    }
-
-    const profile = await prisma.profile.findFirst({
-      where: { userId: data.user.id },
-      select: { id: true, companyId: true },
-    });
+    const profile = await getCurrentProfile();
 
     if (!profile?.id) {
       throw new Error("No profile found for this account.");

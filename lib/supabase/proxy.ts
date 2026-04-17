@@ -4,7 +4,7 @@ import { hasEnvVars } from "../utils";
 import {
   hasPermissionForRoute,
   getFirstAccessibleRoute,
-} from "@/lib/access-control";
+} from "@/lib/access-control-core";
 
 const publicRoutes = [
   "/",

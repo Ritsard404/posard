@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { auditLogService } from "@/lib/services/audit-log.service";
+import { printConfigService } from "../_services/print-config.service";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -41,6 +42,7 @@ export async function getCurrentSessionAction() {
           name: timestamp.posTerminal.posName,
           vat: timestamp.posTerminal.vat,
           discountMax: Number(timestamp.posTerminal.discountMax),
+          printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
         },
         user: { name: profile.fullName || null, role: profile.role },
       },
@@ -78,6 +80,7 @@ export async function getTerminalsAction() {
       isActive: terminal.isActive,
       vat: terminal.vat,
       discountMax: Number(terminal.discountMax),
+      printerConfig: printConfigService.mapPrinterConfig(terminal),
       sessions: terminal.timestamps.map((timestamp) => ({
         profile: {
           fullName: timestamp.cashier.fullName ?? null,
@@ -175,6 +178,7 @@ export async function openSessionAction(
         name: terminal.posName,
         vat: terminal.vat,
         discountMax: Number(terminal.discountMax),
+        printerConfig: printConfigService.mapPrinterConfig(terminal),
       },
     };
   } catch (error) {

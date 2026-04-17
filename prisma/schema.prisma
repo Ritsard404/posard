@@ -60,6 +60,14 @@ enum SubscriptionStatus {
   @@schema("public")
 }
 
+enum PrinterConnectionType {
+  usb
+  bluetooth
+
+  @@map("printer_connection_type")
+  @@schema("public")
+}
+
 /////////////////////////////////////////////////
 // PROFILE (Single User Source)
 /////////////////////////////////////////////////
@@ -192,6 +200,14 @@ model PosTerminalInfo {
   useCenter    String  @map("use_center")
   dbName       String? @map("db_name")
   printerName  String  @map("printer_name")
+  printerDisplayName      String?               @map("printer_display_name")
+  printerConnectionType   PrinterConnectionType? @map("printer_connection_type")
+  printerVendorId         Int?                  @map("printer_vendor_id")
+  printerProductId        Int?                  @map("printer_product_id")
+  printerDeviceId         String?               @map("printer_device_id")
+  printerServiceUuid      String?               @map("printer_service_uuid")
+  printerCharacteristicUuid String?             @map("printer_characteristic_uuid")
+  autoPrintEnabled        Boolean               @default(true) @map("auto_print_enabled")
 
   // Counters
   resetCounterNo      Int @default(0) @map("reset_counter_no")
@@ -651,7 +667,7 @@ model Invoice {
    * -------------------------
    */
 
-  invoiceNumber Int @unique @map("invoice_number")
+  invoiceNumber Int @map("invoice_number")
 
   /**
    * -------------------------
@@ -729,6 +745,7 @@ model Invoice {
   @@index([posTerminalId])
   @@index([cashierId])
   @@index([voidedById])
+  @@unique([posTerminalId, invoiceNumber], name: "uk_invoice_terminal_invoice_number")
   @@map("invoice")
   @@schema("public")
 }

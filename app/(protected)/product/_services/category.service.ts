@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/current-user";
 import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
 
 // ─────────────────────────────────────────────
@@ -8,15 +8,7 @@ import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/categ
 // ─────────────────────────────────────────────
 
 async function getCompanyId(): Promise<string | null> {
-const supabase = await createClient();
-const { data } = await supabase.auth.getUser();
-if (!data.user) return null;
-
-const profile = await prisma.profile.findFirst({
-where: { userId: data.user.id },
-select: { companyId: true },
-});
-
+const profile = await getCurrentProfile();
 return profile?.companyId ?? null;
 }
 

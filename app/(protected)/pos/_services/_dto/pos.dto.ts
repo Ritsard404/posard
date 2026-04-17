@@ -1,3 +1,5 @@
+import type { PrinterConfigDto } from "./print.dto";
+
 export type ItemType = 'RESALE' | 'WHOLESALE';
 export type VatType = 'VATABLE' | 'EXEMPT' | 'ZERO';
 
@@ -36,10 +38,13 @@ export interface POSMetaDataDto {
 
 export interface CashTrackReportDto {
   timestampId: string;
+  terminalId: string;
   cashierName: string;
   terminalName: string;
   timestampIn: Date;
+  timestampOut: Date | null;
   isTrainMode: boolean;
+  printerConfig: PrinterConfigDto | null;
   
   // Financials
   openingCash: number;

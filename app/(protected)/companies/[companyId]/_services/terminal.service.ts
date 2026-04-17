@@ -6,6 +6,7 @@ import {
   type TerminalConfigurationInput,
   type SetTerminalActiveInput,
 } from "./terminal.dto";
+import { printConfigService } from "@/app/(protected)/pos/_services/print-config.service";
 
 function mapTerminal(terminal: {
   id: string;
@@ -26,6 +27,14 @@ function mapTerminal(terminal: {
   useCenter: string;
   dbName: string | null;
   printerName: string;
+  printerDisplayName: string | null;
+  printerConnectionType: "usb" | "bluetooth" | null;
+  printerVendorId: number | null;
+  printerProductId: number | null;
+  printerDeviceId: string | null;
+  printerServiceUuid: string | null;
+  printerCharacteristicUuid: string | null;
+  autoPrintEnabled: boolean;
   resetCounterNo: number;
   resetCounterTrainNo: number;
   zCounterNo: number;
@@ -43,6 +52,7 @@ function mapTerminal(terminal: {
 
   return {
     ...terminal,
+    printerConfig: printConfigService.mapPrinterConfig(terminal),
     discountMax: terminal.discountMax.toNumber(),
     companyName: terminal.company?.name ?? null,
     subscriptionStatus: terminal.subscription?.status ?? null,

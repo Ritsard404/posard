@@ -1,4 +1,16 @@
 import { z } from "zod";
+import type { PrinterConfigDto } from "@/app/(protected)/pos/_services/_dto/print.dto";
+
+const PrinterConfigSchema = z.object({
+  displayName: z.string().nullable(),
+  connectionType: z.enum(["usb", "bluetooth"]).nullable(),
+  vendorId: z.number().int().nullable(),
+  productId: z.number().int().nullable(),
+  deviceId: z.string().nullable(),
+  serviceUuid: z.string().nullable(),
+  characteristicUuid: z.string().nullable(),
+  autoPrintEnabled: z.boolean(),
+});
 
 export const TerminalSchema = z.object({
   id: z.string().uuid(),
@@ -19,6 +31,15 @@ export const TerminalSchema = z.object({
   useCenter: z.string().min(1, "Use Center is required"),
   dbName: z.string().nullable(),
   printerName: z.string().min(1, "Printer Name is required"),
+  printerDisplayName: z.string().nullable().optional(),
+  printerConnectionType: z.enum(["usb", "bluetooth"]).nullable().optional(),
+  printerVendorId: z.number().int().nullable().optional(),
+  printerProductId: z.number().int().nullable().optional(),
+  printerDeviceId: z.string().nullable().optional(),
+  printerServiceUuid: z.string().nullable().optional(),
+  printerCharacteristicUuid: z.string().nullable().optional(),
+  autoPrintEnabled: z.boolean().optional(),
+  printerConfig: PrinterConfigSchema.nullable().optional(),
   resetCounterNo: z.number().int().min(0),
   resetCounterTrainNo: z.number().int().min(0),
   zCounterNo: z.number().int().min(0),
@@ -36,6 +57,10 @@ export const TerminalSchema = z.object({
 });
 
 export type TerminalDTO = z.infer<typeof TerminalSchema>;
+
+export interface TerminalPrinterConfigurationDTO {
+  printerConfig: PrinterConfigDto | null;
+}
 
 export const CreateTerminalSchema = z.object({
   minNumber: z.string().min(1, "MIN number is required"),

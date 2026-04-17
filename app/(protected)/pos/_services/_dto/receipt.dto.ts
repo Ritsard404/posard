@@ -1,3 +1,5 @@
+import type { PrinterConfigDto } from "./print.dto";
+
 export interface ReceiptItemDto {
   id: string;
   productName: string;
@@ -22,6 +24,7 @@ export interface ReceiptDto {
   createdAt: string;
   posTerminalName: string;
   printerName: string | null;
+  printerConfig: PrinterConfigDto | null;
   registeredName: string;
   address: string;
   vatTinNumber: string;

@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import type { ReceiptDto } from "../_dto/receipt.dto";
+import { printConfigService } from "../print-config.service";
 
 type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
   select: {
@@ -24,6 +25,14 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
       select: {
         posName: true;
         printerName: true;
+        printerDisplayName: true;
+        printerConnectionType: true;
+        printerVendorId: true;
+        printerProductId: true;
+        printerDeviceId: true;
+        printerServiceUuid: true;
+        printerCharacteristicUuid: true;
+        autoPrintEnabled: true;
         registeredName: true;
         address: true;
         vatTinNumber: true;
@@ -69,6 +78,7 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
     createdAt: invoice.createdAt.toISOString(),
     posTerminalName: invoice.posTerminal.posName,
     printerName: invoice.posTerminal.printerName || null,
+    printerConfig: printConfigService.mapPrinterConfig(invoice.posTerminal),
     registeredName: invoice.posTerminal.registeredName,
     address: invoice.posTerminal.address,
     vatTinNumber: invoice.posTerminal.vatTinNumber,

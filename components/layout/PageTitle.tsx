@@ -1,13 +1,13 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { routes } from "@/lib/access-control";
+import { appRoutes } from "@/lib/access-control-core";
 
 function getPageLabel(pathname: string): string {
   if (!pathname || pathname === "/") return "Dashboard";
 
   // Sort routes by length descending so more specific paths match first
-  const sortedRoutes = [...routes].sort((a, b) => b.href.length - a.href.length);
+  const sortedRoutes = [...appRoutes].sort((a, b) => b.href.length - a.href.length);
 
   for (const r of sortedRoutes) {
     // Convert NEXT.js path like /companies/[companyId]/settings to regex

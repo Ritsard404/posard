@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getTerminalsAction } from "../_actions/session.action";
+import type { PrinterConfigDto } from "../_services/_dto/print.dto";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, MonitorSmartphone } from "lucide-react";
@@ -12,6 +13,7 @@ interface Terminal {
   isActive: boolean;
   vat: number;
   discountMax: number;
+  printerConfig?: PrinterConfigDto | null;
   sessions: {
     profile: {
       fullName: string | null;
@@ -25,6 +27,7 @@ interface TerminalSelectionProps {
     terminalName: string,
     vat: number,
     discountMax: number,
+    printerConfig?: PrinterConfigDto | null,
   ) => void;
 }
 
@@ -90,7 +93,13 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                 className={`group relative overflow-hidden glass-card p-2 border-white/5 transition-all duration-300 ${t.isActive ? "opacity-60 grayscale-[0.5]" : "hover:scale-[1.03] active:scale-[0.98] cursor-pointer hover:border-accent/30 hover:shadow-2xl group-hover:shadow-accent/5"}`}
                 onClick={() =>
                   !t.isActive &&
-                  onSelectTerminal(t.id, t.posName, t.vat, Number(t.discountMax))
+                  onSelectTerminal(
+                    t.id,
+                    t.posName,
+                    t.vat,
+                    Number(t.discountMax),
+                    t.printerConfig ?? null,
+                  )
                 }
               >
                 <CardHeader className="flex flex-row items-center gap-5 pb-4">

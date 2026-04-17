@@ -3,6 +3,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { receiptPrintService } from "@/app/(protected)/pos/_services/receipt-print.service";
+import { printConfigService } from "@/app/(protected)/pos/_services/print-config.service";
 import type {
   AuditTrailDto,
   AuditTrailItemDto,
@@ -457,6 +458,14 @@ export const reportService = {
         id: true,
         posName: true,
         printerName: true,
+        printerDisplayName: true,
+        printerConnectionType: true,
+        printerVendorId: true,
+        printerProductId: true,
+        printerDeviceId: true,
+        printerServiceUuid: true,
+        printerCharacteristicUuid: true,
+        autoPrintEnabled: true,
         isActive: true,
         company: {
           select: {
@@ -477,6 +486,7 @@ export const reportService = {
       terminalId: terminal.id,
       terminalName: terminal.posName,
       printerName: terminal.printerName || null,
+      printerConfig: printConfigService.mapPrinterConfig(terminal),
       isActive: terminal.isActive,
     };
   },
@@ -515,6 +525,14 @@ export const reportService = {
           posName: true,
           isActive: true,
           printerName: true,
+          printerDisplayName: true,
+          printerConnectionType: true,
+          printerVendorId: true,
+          printerProductId: true,
+          printerDeviceId: true,
+          printerServiceUuid: true,
+          printerCharacteristicUuid: true,
+          autoPrintEnabled: true,
         },
         orderBy: {
           posName: "asc",
@@ -534,6 +552,7 @@ export const reportService = {
         name: terminal.posName,
         isActive: terminal.isActive,
         printerName: terminal.printerName || null,
+        printerConfig: printConfigService.mapPrinterConfig(terminal),
       })),
     };
   },
@@ -1926,6 +1945,14 @@ export const reportService = {
           select: {
             posName: true,
             printerName: true,
+            printerDisplayName: true,
+            printerConnectionType: true,
+            printerVendorId: true,
+            printerProductId: true,
+            printerDeviceId: true,
+            printerServiceUuid: true,
+            printerCharacteristicUuid: true,
+            autoPrintEnabled: true,
             registeredName: true,
             address: true,
             vatTinNumber: true,
@@ -1974,6 +2001,7 @@ export const reportService = {
       createdAt: invoice.createdAt.toISOString(),
       posTerminalName: invoice.posTerminal.posName,
       printerName: invoice.posTerminal.printerName || null,
+      printerConfig: printConfigService.mapPrinterConfig(invoice.posTerminal),
       registeredName: invoice.posTerminal.registeredName,
       address: invoice.posTerminal.address,
       vatTinNumber: invoice.posTerminal.vatTinNumber,
@@ -2013,6 +2041,7 @@ export const reportService = {
       invoiceNumber: invoice.invoiceNumber,
       printerAvailable: payload.printerAvailable,
       printerName: payload.printerName,
+      printerConfig: payload.printerConfig,
       message: payload.message,
       previewContent: payload.previewContent,
     };

@@ -6,6 +6,7 @@ import {
   ItemType,
 } from "../_services/_dto/pos.dto";
 import { InvoiceStatusType } from "../_services/_dto/order.dto";
+import type { PrinterConfigDto } from "../_services/_dto/print.dto";
 
 export type { Product, Category, VatType, ItemType };
 
@@ -42,6 +43,7 @@ interface ActiveTerminalState {
   name: string;
   vat: number;
   discountMax: number;
+  printerConfig?: PrinterConfigDto | null;
 }
 
 const defaultDiscount: POSDiscount = {

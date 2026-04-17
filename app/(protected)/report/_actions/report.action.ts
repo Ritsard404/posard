@@ -3,6 +3,9 @@
 import { z } from "zod";
 import { reportService } from "../_services/report.service";
 import { reportAccessService } from "../_services/report-access.service";
+import type { PrinterConfigDto } from "@/app/(protected)/pos/_services/_dto/print.dto";
+import { terminalPrinterConfigService } from "@/app/(protected)/pos/_services/terminal-printer-config.service";
+import { revalidatePath } from "next/cache";
 import type {
   AuditTrailDto,
   DailyTransactionsDto,
@@ -55,6 +58,17 @@ const ReportCompaniesQuerySchema = z.object({
   page: z.coerce.number().int().min(0).optional(),
   size: z.coerce.number().int().min(1).max(100).optional(),
   keyword: z.string().trim().optional(),
+});
+
+const PrinterConfigSchema = z.object({
+  displayName: z.string().trim().min(1).nullable(),
+  connectionType: z.enum(["usb", "bluetooth"]).nullable(),
+  vendorId: z.number().int().nullable(),
+  productId: z.number().int().nullable(),
+  deviceId: z.string().trim().nullable(),
+  serviceUuid: z.string().trim().nullable(),
+  characteristicUuid: z.string().trim().nullable(),
+  autoPrintEnabled: z.boolean(),
 });
 
 function toErrorMessage(error: unknown, fallback: string) {
@@ -489,6 +503,42 @@ export async function getReportTerminalContextAction(
     return {
       success: false,
       error: toErrorMessage(error, "Failed to load terminal report context"),
+    };
+  }
+}
+
+export async function saveReportTerminalPrinterConfigAction(input: {
+  companyId: string;
+  terminalId: string;
+  printerConfig: PrinterConfigDto | null;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = z.object({
+      companyId: z.string().uuid(),
+      terminalId: z.string().uuid(),
+      printerConfig: PrinterConfigSchema.nullable(),
+    }).parse(input);
+
+    await reportService.getTerminalContext(
+      viewer,
+      validated.companyId,
+      validated.terminalId,
+    );
+
+    await terminalPrinterConfigService.updateTerminalPrinterConfig(
+      validated.terminalId,
+      validated.printerConfig,
+    );
+
+    revalidatePath("/report");
+    revalidatePath(`/companies/${validated.companyId}/report`);
+    revalidatePath(`/companies/${validated.companyId}/terminals/${validated.terminalId}/report`);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to save printer configuration"),
     };
   }
 }

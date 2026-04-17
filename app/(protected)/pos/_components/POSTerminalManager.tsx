@@ -11,6 +11,7 @@ import { ProductDisplay } from './ProductDisplay';
 import { CartPanel } from './CartPanel';
 import { TenderPanel } from './TenderPanel';
 import { Monitor } from 'lucide-react';
+import type { PrinterConfigDto } from '../_services/_dto/print.dto';
 
 export function POSTerminalManager() {
   const [mounted, setMounted] = useState(false);
@@ -20,6 +21,7 @@ export function POSTerminalManager() {
     name: string;
     vat: number;
     discountMax: number;
+    printerConfig?: PrinterConfigDto | null;
   } | null>(null);
 
   const { setProducts, setCategories, setSession, activeSessionId } = usePOSStore();
@@ -77,8 +79,8 @@ export function POSTerminalManager() {
     return (
       <div className="relative min-h-[calc(100vh-10rem)] flex flex-col items-center justify-center p-4">
         <TerminalSelection 
-          onSelectTerminal={(id, name, vat, discountMax) =>
-            setSelectedTerminal({ id, name, vat, discountMax })
+          onSelectTerminal={(id, name, vat, discountMax, printerConfig) =>
+            setSelectedTerminal({ id, name, vat, discountMax, printerConfig })
           } 
         />
 
@@ -95,6 +97,7 @@ export function POSTerminalManager() {
                   name: selectedTerminal.name,
                   vat: selectedTerminal.vat,
                   discountMax: selectedTerminal.discountMax,
+                  printerConfig: selectedTerminal.printerConfig ?? null,
                 },
                 user: data.user
               });

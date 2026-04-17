@@ -540,7 +540,11 @@ export async function ReportDetailWorkspace({
                 <CalendarDays className="size-4 text-muted-foreground" />
                 <span>{formatDate(fromDate)} to {formatDate(toDate)}</span>
               </div>
-              <ReportPrintControls payload={printPayload} />
+              <ReportPrintControls
+                payload={printPayload}
+                companyId={workspaceResult.data.companyId}
+                terminalId={activeTerminalId ?? null}
+              />
             </div>
           </div>
 

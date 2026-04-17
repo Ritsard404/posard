@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { withdrawCashAction, getAvailableCashAction } from "../_actions/session.action";
+import { withdrawCashAction, getAvailableCashAction, getSessionCashTrackAction } from "../_actions/session.action";
 import { toast } from "sonner";
 import { useEffect } from "react";
+import { cashTrackPrintService } from "../_services/cash-track-print.service";
+import { printClientService } from "../_services/print-client.service";
 
 interface WithdrawModalProps {
   timestampId: string;
@@ -53,6 +55,28 @@ export function WithdrawModal({ timestampId, onSuccess, onCancel }: WithdrawModa
 
     if (result.success) {
       toast.success("Cash withdrawn successfully");
+      void (async () => {
+        const reportResult = await getSessionCashTrackAction(timestampId);
+        if (!reportResult.success || !reportResult.data) {
+          return;
+        }
+
+        const payload = cashTrackPrintService.buildPayload(
+          reportResult.data,
+          "cash-out",
+        );
+
+        try {
+          await printClientService.print({
+            title: payload.title,
+            intent: "cash-out",
+            previewContent: payload.previewContent,
+            printerConfig: payload.printerConfig,
+          });
+        } catch {
+          // Keep cashier flow moving even if printer access fails.
+        }
+      })();
       onSuccess();
     } else {
       setError(result.error || "Failed to withdraw cash.");
