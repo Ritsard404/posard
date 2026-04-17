@@ -174,7 +174,7 @@ function SidebarNavLink({
           : "font-medium hover:bg-muted",
       )}
     >
-      <Link href={item.href} className="flex items-center gap-3">
+      <Link href={item.href} prefetch className="flex items-center gap-3">
         <item.icon className="size-4" />
         <span className="flex-1 text-[14px]">{item.label}</span>
         {item.badge ? <NavBadge>{item.badge}</NavBadge> : null}
@@ -208,7 +208,7 @@ function SidebarNavSubLink({
 
   return (
     <SidebarMenuSubButton asChild isActive={isActive}>
-      <Link href={item.href} className="flex items-center gap-2">
+      <Link href={item.href} prefetch className="flex items-center gap-2">
         <item.icon className="size-4" />
         <span className="flex-1">{item.label}</span>
         {item.badge ? <NavBadge>{item.badge}</NavBadge> : null}
@@ -363,7 +363,7 @@ export function AppSidebar({
 
                       return (
                         <DropdownMenuItem key={item.id} asChild className="rounded-lg">
-                          <Link href={item.href} className="flex items-center gap-2">
+                          <Link href={item.href} prefetch className="flex items-center gap-2">
                             <item.icon className="size-4" />
                             <span className="flex-1">{item.label}</span>
                             {isActive ? <NavBadge>Open</NavBadge> : null}
@@ -403,7 +403,7 @@ export function AppSidebar({
       <SidebarHeader className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link className="flex items-center gap-3 px-2 group" href="/">
+            <Link className="flex items-center gap-3 px-2 group" href="/" prefetch>
               <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-transform duration-200 group-hover:scale-105">
                 <span className="text-xl font-bold tracking-tighter">P</span>
               </div>

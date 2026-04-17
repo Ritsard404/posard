@@ -16,6 +16,7 @@ interface InventoryPaginationProps {
   size: number;
   onPageChange: (page: number) => void;
   onSizeChange: (size: number) => void;
+  isPending?: boolean;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
@@ -33,6 +34,7 @@ export function InventoryPagination({
   size,
   onPageChange,
   onSizeChange,
+  isPending = false,
 }: InventoryPaginationProps) {
   // No mostrar paginación si no hay datos
   if (totalElements === 0) return null;
@@ -67,6 +69,7 @@ export function InventoryPagination({
             id="page-size-select"
             value={size}
             onChange={(e) => onSizeChange(Number(e.target.value))}
+            disabled={isPending}
             className="h-8 rounded-md border border-input bg-transparent px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
           >
             {PAGE_SIZE_OPTIONS.map((opt) => (
@@ -83,7 +86,7 @@ export function InventoryPagination({
             id="btn-prev-page"
             variant="outline"
             size="icon-xs"
-            disabled={!hasPrevious}
+            disabled={!hasPrevious || isPending}
             onClick={() => onPageChange(page - 1)}
           >
             <ChevronLeft className="size-4" />
@@ -102,7 +105,7 @@ export function InventoryPagination({
             id="btn-next-page"
             variant="outline"
             size="icon-xs"
-            disabled={!hasNext}
+            disabled={!hasNext || isPending}
             onClick={() => onPageChange(page + 1)}
           >
             <ChevronRight className="size-4" />

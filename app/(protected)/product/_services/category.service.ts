@@ -73,6 +73,11 @@ Use this for inventory management.
 async findAllByCompany(): Promise<CategoryDto[]> {
 const companyId = await getCompanyId();
 
+return this.findAllByCompanyId(companyId);
+},
+
+async findAllByCompanyId(companyId: string | null): Promise<CategoryDto[]> {
+
 const categories = await prisma.category.findMany({
   where: {
     isDeleted: false,

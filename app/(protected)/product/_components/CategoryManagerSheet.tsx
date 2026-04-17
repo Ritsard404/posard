@@ -24,50 +24,34 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import {
-  findAllCategoriesByCompany,
   createCategory,
   updateCategory,
   deleteCategory,
 } from "@/app/(protected)/product/_actions/category.actions";
 import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
 
-// ─────────────────────────────────────────────
-// Props del gestor de categorías
-// ─────────────────────────────────────────────
-
 interface CategoryManagerSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categories: CategoryDto[];
-  onCategoriesUpdated: (categories: CategoryDto[]) => void;
+  onSuccess: () => void;
 }
-
-// ─────────────────────────────────────────────
-// Panel lateral para gestionar categorías (CRUD)
-// ─────────────────────────────────────────────
 
 export function CategoryManagerSheet({
   open,
   onOpenChange,
   categories,
-  onCategoriesUpdated,
+  onSuccess,
 }: CategoryManagerSheetProps) {
   const [newName, setNewName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [deletingCategory, setDeletingCategory] = useState<CategoryDto | null>(
-    null
+    null,
   );
   const [error, setError] = useState<string | null>(null);
 
-  // Refrescar la lista de categorías desde el servidor
-  async function refreshCategories() {
-    const updated = await findAllCategoriesByCompany();
-    onCategoriesUpdated(updated);
-  }
-
-  // Crear una nueva categoría
   async function handleCreate() {
     if (!newName.trim()) return;
     setIsCreating(true);
@@ -79,19 +63,17 @@ export function CategoryManagerSheet({
       setError(result.error);
     } else {
       setNewName("");
-      await refreshCategories();
+      onSuccess();
     }
     setIsCreating(false);
   }
 
-  // Iniciar la edición en línea
-  function startEditing(cat: CategoryDto) {
-    setEditingId(cat.id);
-    setEditingName(cat.categoryName);
+  function startEditing(category: CategoryDto) {
+    setEditingId(category.id);
+    setEditingName(category.categoryName);
     setError(null);
   }
 
-  // Guardar la edición
   async function handleSaveEdit() {
     if (!editingId || !editingName.trim()) return;
     setError(null);
@@ -105,11 +87,10 @@ export function CategoryManagerSheet({
     } else {
       setEditingId(null);
       setEditingName("");
-      await refreshCategories();
+      onSuccess();
     }
   }
 
-  // Confirmar eliminación
   async function handleConfirmDelete() {
     if (!deletingCategory) return;
     setError(null);
@@ -119,7 +100,7 @@ export function CategoryManagerSheet({
     if (result.error) {
       setError(result.error);
     } else {
-      await refreshCategories();
+      onSuccess();
     }
     setDeletingCategory(null);
   }
@@ -136,21 +117,19 @@ export function CategoryManagerSheet({
           </SheetHeader>
 
           <div className="flex flex-col gap-4 px-4 py-2">
-            {/* Error general */}
-            {error && (
+            {error ? (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
               </div>
-            )}
+            ) : null}
 
-            {/* Campo para agregar categoría */}
             <div className="flex items-center gap-2">
               <Input
                 id="new-category-name"
                 placeholder="New category name"
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                onChange={(event) => setNewName(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && handleCreate()}
                 disabled={isCreating}
               />
               <Button
@@ -167,26 +146,24 @@ export function CategoryManagerSheet({
               </Button>
             </div>
 
-            {/* Lista de categorías */}
             <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
               {categories.length === 0 ? (
                 <p className="px-4 py-6 text-center text-sm text-muted-foreground">
                   No categories yet.
                 </p>
               ) : (
-                categories.map((cat) => (
+                categories.map((category) => (
                   <div
-                    key={cat.id}
+                    key={category.id}
                     className="flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/30"
                   >
-                    {editingId === cat.id ? (
+                    {editingId === category.id ? (
                       <>
-                        {/* Modo edición en línea */}
                         <Input
                           value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" && handleSaveEdit()
+                          onChange={(event) => setEditingName(event.target.value)}
+                          onKeyDown={(event) =>
+                            event.key === "Enter" && handleSaveEdit()
                           }
                           className="h-8 flex-1 text-sm"
                           autoFocus
@@ -208,14 +185,13 @@ export function CategoryManagerSheet({
                       </>
                     ) : (
                       <>
-                        {/* Modo lectura */}
                         <span className="flex-1 truncate text-sm font-medium">
-                          {cat.categoryName}
+                          {category.categoryName}
                         </span>
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          onClick={() => startEditing(cat)}
+                          onClick={() => startEditing(category)}
                           className="text-muted-foreground"
                         >
                           <Pencil className="size-3.5" />
@@ -223,7 +199,7 @@ export function CategoryManagerSheet({
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          onClick={() => setDeletingCategory(cat)}
+                          onClick={() => setDeletingCategory(category)}
                           className="text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="size-3.5" />
@@ -238,10 +214,9 @@ export function CategoryManagerSheet({
         </SheetContent>
       </Sheet>
 
-      {/* Diálogo de confirmación para eliminar */}
       <AlertDialog
         open={deletingCategory !== null}
-        onOpenChange={(o) => !o && setDeletingCategory(null)}
+        onOpenChange={(open) => !open && setDeletingCategory(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>

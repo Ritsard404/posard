@@ -1,36 +1,27 @@
-import { Suspense } from "react";
-import { findAllProducts } from "@/app/(protected)/product/_actions/product.actions";
-import { findAllCategoriesByCompany } from "@/app/(protected)/product/_actions/category.actions";
+import type { SearchParamsInput } from "@/app/(protected)/_lib/list-query";
 import { InventoryPageClient } from "./_components/InventoryPageClient";
-import { InventoryPageSkeleton } from "./_components/InventoryPageSkeleton";
+import { getCachedInventoryPageData } from "@/app/(protected)/product/_services/product-cache";
+import {
+  parseProductListQuery,
+  type ProductListQuery,
+} from "@/app/(protected)/product/_services/product-query";
 
-// ─────────────────────────────────────────────
-// Página del inventario (Server Component)
-// Envuelve la carga async en Suspense para no bloquear la navegación
-// ─────────────────────────────────────────────
-
-export default function InventoryPage() {
-  return (
-    <Suspense fallback={<InventoryPageSkeleton />}>
-      <InventoryContent />
-    </Suspense>
-  );
+interface InventoryPageProps {
+  searchParams: Promise<SearchParamsInput>;
 }
 
-// ─────────────────────────────────────────────
-// Componente interno que ejecuta la carga async
-// ─────────────────────────────────────────────
-
-async function InventoryContent() {
-  const [initialProducts, initialCategories] = await Promise.all([
-    findAllProducts({ page: 0, size: 10 }),
-    findAllCategoriesByCompany(),
-  ]);
+export default async function InventoryPage({
+  searchParams,
+}: InventoryPageProps) {
+  const query: ProductListQuery = parseProductListQuery(await searchParams);
+  const { initialProducts, initialCategories } =
+    await getCachedInventoryPageData(query);
 
   return (
     <InventoryPageClient
       initialProducts={initialProducts}
       initialCategories={initialCategories}
+      query={query}
     />
   );
 }

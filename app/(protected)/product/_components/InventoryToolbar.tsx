@@ -21,6 +21,7 @@ interface InventoryToolbarProps {
   onAddProduct: () => void;
   onBulkUpload: () => void;
   onManageCategories: () => void;
+  isPending?: boolean;
 }
 
 export function InventoryToolbar({
@@ -32,6 +33,7 @@ export function InventoryToolbar({
   onAddProduct,
   onBulkUpload,
   onManageCategories,
+  isPending = false,
 }: InventoryToolbarProps) {
   const selectedCategoryName =
     categories.find((category) => category.id === selectedCategoryId)?.categoryName ?? "All Categories";
@@ -45,6 +47,7 @@ export function InventoryToolbar({
           placeholder="Search products by name or barcode..."
           value={keyword}
           onChange={(event) => onKeywordChange(event.target.value)}
+          aria-busy={isPending}
           className="h-11 rounded-xl border-white/10 bg-background/50 pl-10 font-medium transition-all focus:border-accent/50 focus:ring-0"
         />
       </div>
@@ -78,6 +81,12 @@ export function InventoryToolbar({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {isPending ? (
+          <p className="text-xs font-medium text-muted-foreground">
+            Updating products...
+          </p>
+        ) : null}
 
         <Button
           id="btn-manage-categories"

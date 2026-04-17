@@ -374,6 +374,21 @@ export const productService = {
     direction?: "asc" | "desc";
   }): Promise<PageResponse<ProductDto>> {
     const companyId = await getCompanyId();
+    return this.findAllForCompany(companyId, params);
+  },
+
+  async findAllForCompany(
+    companyId: string | null,
+    params?: {
+      keyword?: string;
+      barcode?: string;
+      categoryId?: string;
+      page?: number;
+      size?: number;
+      sortBy?: string;
+      direction?: "asc" | "desc";
+    },
+  ): Promise<PageResponse<ProductDto>> {
     const page = params?.page ?? 0;
     const size = params?.size ?? 10;
     const sortField = SORTABLE_FIELDS[params?.sortBy ?? ""] ?? "name";
@@ -444,6 +459,19 @@ export const productService = {
     direction?: "asc" | "desc";
   }): Promise<ProductDto[]> {
     const companyId = await getCompanyId();
+    return this.findByCategoryForCompany(companyId, params);
+  },
+
+  async findByCategoryForCompany(
+    companyId: string | null,
+    params: {
+      categoryId: string;
+      page?: number;
+      size?: number;
+      sortBy?: string;
+      direction?: "asc" | "desc";
+    },
+  ): Promise<ProductDto[]> {
     const page = params?.page ?? 0;
     const size = params?.size ?? 10;
     const sortField = SORTABLE_FIELDS[params?.sortBy ?? ""] ?? "name";

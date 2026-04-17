@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath, revalidateTag } from "next/cache";
 import type {
   ProductBatchPreviewDto,
   ProductBatchRowDto,
@@ -7,7 +8,20 @@ import type {
   ProductSaveDto,
   PageResponse,
 } from "@/app/(protected)/product/_services/_dto/product.dto";
+import { getCurrentProfile } from "@/lib/auth/current-user";
+import {
+  getProductCategoriesTag,
+  getProductListTag,
+} from "@/app/(protected)/product/_services/product-cache";
 import { productService } from "../_services/product.service";
+
+async function revalidateProductData() {
+  const companyId = (await getCurrentProfile())?.companyId ?? null;
+
+  revalidateTag(getProductListTag(companyId), "max");
+  revalidateTag(getProductCategoriesTag(companyId), "max");
+  revalidatePath("/product");
+}
 
 export async function findAllProducts(params?: {
   keyword?: string;
@@ -40,6 +54,7 @@ export async function createProduct(
 ): Promise<{ error?: string }> {
   try {
     await productService.create(dto);
+    await revalidateProductData();
     return {};
   } catch (err) {
     return { error: (err as Error).message };
@@ -51,6 +66,7 @@ export async function createManyProducts(
 ): Promise<{ error?: string }> {
   try {
     await productService.createMany(rows);
+    await revalidateProductData();
     return {};
   } catch (err) {
     return { error: (err as Error).message };
@@ -63,6 +79,7 @@ export async function updateProduct(
 ): Promise<{ error?: string }> {
   try {
     await productService.update(id, dto);
+    await revalidateProductData();
     return {};
   } catch (err) {
     return { error: (err as Error).message };
@@ -72,6 +89,7 @@ export async function updateProduct(
 export async function deleteProduct(id: string): Promise<{ error?: string }> {
   try {
     await productService.delete(id);
+    await revalidateProductData();
     return {};
   } catch (err) {
     return { error: (err as Error).message };
@@ -87,6 +105,7 @@ export async function batchUploadProducts(
 ): Promise<{ error?: string }> {
   try {
     await productService.createMany(rows);
+    await revalidateProductData();
     return {};
   } catch (err) {
     return { error: (err as Error).message };
