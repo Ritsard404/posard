@@ -1,8 +1,10 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+
+import { AuthFeedback, type AuthFeedbackState } from "@/components/auth-feedback";
+import { AuthSubmitButton } from "@/components/auth-submit-button";
 import {
   Card,
   CardContent,
@@ -12,63 +14,92 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 export function UpdatePasswordForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState<AuthFeedbackState>({ kind: "idle" });
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const supabase = createClient();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
-      router.push("/dashboard");
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
+  const clearFeedback = () => {
+    if (feedback.kind !== "idle") {
+      setFeedback({ kind: "idle" });
     }
+  };
+
+  const handleUpdatePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isPending) {
+      return;
+    }
+
+    setFeedback({ kind: "pending", message: "Saving your new password..." });
+
+    startTransition(async () => {
+      const supabase = createClient();
+
+      try {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+
+        router.push("/dashboard");
+      } catch (error: unknown) {
+        setFeedback({
+          kind: "error",
+          message: error instanceof Error ? error.message : "An error occurred",
+        });
+      }
+    });
   };
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Reset Your Password</CardTitle>
-          <CardDescription>
+      <Card className="glass-card border-white/5 shadow-2xl">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-heading font-extrabold tracking-tight">
+            Reset Your Password
+          </CardTitle>
+          <CardDescription className="text-muted-foreground font-medium">
             Please enter your new password below.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleForgotPassword}>
+          <form onSubmit={handleUpdatePassword} aria-busy={isPending}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="password">New password</Label>
+                <Label
+                  htmlFor="password"
+                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                >
+                  New Password
+                </Label>
                 <Input
                   id="password"
                   type="password"
                   placeholder="New password"
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isPending}
+                  aria-disabled={isPending}
+                  className="h-12 rounded-xl bg-background/50 border-white/10"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    clearFeedback();
+                  }}
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save new password"}
-              </Button>
+              <AuthFeedback state={feedback} />
+              <AuthSubmitButton
+                className="h-12 w-full rounded-xl font-bold glow-on-hover"
+                isPending={isPending}
+                idleLabel="Save New Password"
+                pendingLabel="Saving new password..."
+              />
             </div>
           </form>
         </CardContent>

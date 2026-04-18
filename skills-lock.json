@@ -6,6 +6,11 @@
       "sourceType": "github",
       "computedHash": "ee53d65b163cd7eb953a930c95841cfe398cc2c0bd24c06508bbaa07c432be35"
     },
+    "playwright-cli": {
+      "source": "microsoft/playwright-cli",
+      "sourceType": "github",
+      "computedHash": "d3b0292e4fce2457cb6a80eee36f496c0ec75383724f8b9a1b5e62f657673256"
+    },
     "prisma-client-api": {
       "source": "prisma/skills",
       "sourceType": "github",
