@@ -45,6 +45,7 @@ export function OpenSessionModal({
   onSuccess,
   onCancel,
 }: OpenSessionModalProps) {
+  const [managerPin, setManagerPin] = useState("");
   const [openingCash, setOpeningCash] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,8 +59,13 @@ export function OpenSessionModal({
       return;
     }
 
+    if (managerPin.length < 4) {
+      setError("Manager PIN must be at least 4 digits.");
+      return;
+    }
+
     setIsLoading(true);
-    const result = await openSessionAction(terminalId, openingCash);
+    const result = await openSessionAction(terminalId, managerPin, openingCash);
     setIsLoading(false);
 
     if (result.success && result.user) {
@@ -106,6 +112,7 @@ export function OpenSessionModal({
     }
 
     setError(result.error || "Failed to open session. Terminal may be in use.");
+    setManagerPin("");
   };
 
   return (
@@ -116,8 +123,8 @@ export function OpenSessionModal({
             Open Session: {terminalName}
           </DialogTitle>
           <DialogDescription>
-            Enter the starting cash to open this terminal for your logged-in
-            account.
+            Enter the starting cash and manager approval PIN to open this
+            terminal for your logged-in account.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleOpenSession} className="flex flex-col space-y-6 py-4">
@@ -128,11 +135,25 @@ export function OpenSessionModal({
               type="number"
               min="0"
               step="0.01"
-              autoFocus
               placeholder="0.00"
               className="h-12 text-right text-lg font-medium"
               value={openingCash || ""}
               onChange={(e) => setOpeningCash(Number(e.target.value))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="managerPin">Approving Manager PIN</Label>
+            <Input
+              id="managerPin"
+              type="password"
+              maxLength={6}
+              autoFocus
+              inputMode="numeric"
+              placeholder="••••••"
+              className="h-12 text-center text-xl tracking-widest"
+              value={managerPin}
+              onChange={(e) => setManagerPin(e.target.value.replace(/\D/g, ""))}
             />
           </div>
 
@@ -154,7 +175,7 @@ export function OpenSessionModal({
             </Button>
             <Button
               type="submit"
-              disabled={isLoading || openingCash < 0}
+              disabled={isLoading || openingCash < 0 || managerPin.length < 4}
               className="h-12 flex-1 text-lg"
             >
               {isLoading ? (

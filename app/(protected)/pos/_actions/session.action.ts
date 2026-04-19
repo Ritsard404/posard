@@ -104,12 +104,31 @@ export async function getTerminalsAction() {
 
 export async function openSessionAction(
   terminalId: string,
+  managerPin: string,
   openingCash: number = 0,
 ) {
   try {
     const profile = await getCurrentProfile();
     if (!profile.companyId)
       return { success: false, error: "No company associated with user." };
+    const companyId = profile.companyId;
+
+    if (!managerPin.trim()) {
+      return { success: false, error: "Manager PIN is required." };
+    }
+
+    const approver = await prisma.profile.findFirst({
+      where: {
+        companyId,
+        pin: managerPin,
+        role: { in: ["manager", "admin"] },
+      },
+      select: { id: true },
+    });
+
+    if (!approver) {
+      return { success: false, error: "Invalid Manager PIN" };
+    }
 
     const terminal = await prisma.posTerminalInfo.findUnique({
       where: { id: terminalId },
@@ -148,6 +167,7 @@ export async function openSessionAction(
         data: {
           posTerminalId: terminal.id,
           cashierId: profile.id,
+          managerInId: approver.id,
           timestampIn: new Date(),
           cashInDrawerAmount: openingCash,
         },
@@ -156,6 +176,15 @@ export async function openSessionAction(
       await tx.posTerminalInfo.update({
         where: { id: terminal.id },
         data: { isActive: true },
+      });
+
+      await auditLogService.create(tx, {
+        companyId,
+        actorProfileId: approver.id,
+        posTerminalId: terminal.id,
+        actionType: "OPEN_SESSION",
+        referenceId: timestamp.id,
+        amount: openingCash,
       });
 
       return { timestamp };
