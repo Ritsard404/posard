@@ -59,6 +59,7 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
     [printerConfig],
   );
   const printerName = printerConfig?.displayName ?? payload.printerName ?? null;
+  const hasAssignedPrinter = Boolean(printerConfig?.connectionType);
 
   useEffect(() => {
     const autoPrintKey = `${payload.previewContent}:${printerConfig?.displayName ?? "none"}`;
@@ -85,7 +86,9 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
           return;
         }
 
-        toast.error(result.message);
+        if (result.status !== "unsupported") {
+          toast.error(result.message);
+        }
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Unable to print receipt.",
@@ -167,15 +170,17 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Badge
-          variant={printerStatus.tone === "ready" ? "secondary" : "outline"}
-          className="rounded-full px-3 py-1"
-        >
-          {printerStatus.label}
-        </Badge>
+        {hasAssignedPrinter ? (
+          <Badge
+            variant={printerStatus.tone === "ready" ? "secondary" : "outline"}
+            className="rounded-full px-3 py-1"
+          >
+            {printerStatus.label}
+          </Badge>
+        ) : null}
         <Button
           type="button"
-          variant="outline"
+          variant={hasAssignedPrinter ? "outline" : "ghost"}
           className="rounded-xl"
           onClick={() => setIsChoiceOpen(true)}
         >
@@ -184,7 +189,7 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
           ) : (
             <Monitor className="size-4" />
           )}
-          Print / Preview
+          {hasAssignedPrinter ? "Print / Preview" : "Receipt Options"}
         </Button>
       </div>
 

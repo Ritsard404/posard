@@ -19,7 +19,9 @@ import {
 export function TenderPanel() {
   const { total } = usePOSPaymentSummary();
   const setActiveMobileTab = usePOSStore((state) => state.setActiveMobileTab);
-  const flow = usePOSCheckoutFlow(total);
+  const flow = usePOSCheckoutFlow(total, {
+    onFastComplete: () => setActiveMobileTab("menu"),
+  });
   const activePaymentMethodLabel =
     paymentMethods.find((method) => method.id === flow.paymentMethod)?.label ??
     flow.paymentMethod;
@@ -45,7 +47,9 @@ export function TenderPanel() {
         change={flow.change}
         canComplete={flow.canComplete}
         isProcessing={flow.isProcessing}
+        fastCheckout={flow.fastCheckout}
         setDiscountType={flow.setDiscountType}
+        setFastCheckout={flow.setFastCheckout}
         updateDiscountDetails={flow.updateDiscountDetails}
         setPaymentMethod={flow.setPaymentMethod}
         setAmountTendered={flow.setAmountTendered}

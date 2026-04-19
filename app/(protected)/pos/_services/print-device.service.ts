@@ -516,9 +516,15 @@ async function printBluetooth(
   job: PrintJobDto,
   config: PrinterConfigDto,
 ): Promise<PrintJobResultDto> {
-  const device =
-    (await findBluetoothDevice(config)) ??
-    (await requestBluetoothDevice(config.serviceUuid));
+  const device = await findBluetoothDevice(config);
+
+  if (!device) {
+    return {
+      status: "unsupported",
+      message:
+        "The paired Bluetooth printer is not available in this browser. Pair it again from the Print / Preview button before printing.",
+    };
+  }
 
   const result = await withBluetoothConnection(device, async (server) => {
     const { characteristic } = await resolveBluetoothWritableCharacteristic(

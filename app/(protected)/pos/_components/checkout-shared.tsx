@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -28,6 +29,7 @@ import { payOrderAction } from "../_actions/order.action";
 import type { OrderDto } from "../_services/_dto/order.dto";
 import type { ReceiptDto } from "../_services/_dto/receipt.dto";
 import { calculatePayment } from "../_services/payment-calculation.service";
+import { printClientService } from "../_services/print-client.service";
 import { receiptPrintService } from "../_services/receipt-print.service";
 import { ReceiptPrintControls } from "./ReceiptPrintControls";
 
@@ -107,7 +109,10 @@ export function usePOSPaymentSummary() {
   }, [activeTerminal?.discountMax, activeTerminal?.vat, cart, discount]);
 }
 
-export function usePOSCheckoutFlow(totalAmount: number) {
+export function usePOSCheckoutFlow(
+  totalAmount: number,
+  options?: { onFastComplete?: () => void },
+) {
   const {
     cart,
     discount,
@@ -127,6 +132,7 @@ export function usePOSCheckoutFlow(totalAmount: number) {
   const [step, setStep] = useState<"PAYMENT" | "RECEIPT">("PAYMENT");
   const [isProcessing, setIsProcessing] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptDto | null>(null);
+  const [fastCheckout, setFastCheckout] = useState(false);
 
   const requiresDiscountMetadata =
     discount.type === "PWD" || discount.type === "SENIOR";
@@ -202,6 +208,39 @@ export function usePOSCheckoutFlow(totalAmount: number) {
 
     if (res.success) {
       applyStockUpdates(res.receipt.stockUpdates);
+
+      if (fastCheckout) {
+        const receiptPrintPayload = receiptPrintService.buildPayload(res.receipt);
+
+        if (
+          receiptPrintPayload.printerAvailable &&
+          receiptPrintPayload.printerConfig
+        ) {
+          void printClientService.print(
+            {
+              title: "Receipt",
+              intent: "receipt",
+              previewContent: receiptPrintPayload.previewContent,
+              printSegments: receiptPrintPayload.printSegments,
+              printerConfig: receiptPrintPayload.printerConfig,
+            },
+            { fallbackToPreview: false },
+          );
+        }
+
+        clearCart();
+        setStep("PAYMENT");
+        setReceipt(null);
+        setAmountTendered(0);
+        setDiscount(defaultDiscount);
+        setPaymentMethod("CASH");
+        options?.onFastComplete?.();
+        toast.success("Sale complete.", {
+          description: "Ready for the next transaction.",
+        });
+        return;
+      }
+
       setReceipt(res.receipt);
       setStep("RECEIPT");
       return;
@@ -221,12 +260,14 @@ export function usePOSCheckoutFlow(totalAmount: number) {
     paymentMethod,
     amountTendered,
     isProcessing,
+    fastCheckout,
     requiresDiscountMetadata,
     trimmedEligibleName,
     trimmedOscaIdNum,
     isDiscountMetadataValid,
     change,
     canComplete,
+    setFastCheckout,
     setDiscountType,
     updateDiscountDetails,
     setPaymentMethod,
@@ -251,7 +292,9 @@ interface POSTenderFormProps {
   change: number;
   canComplete: boolean;
   isProcessing: boolean;
+  fastCheckout: boolean;
   setDiscountType: (type: DiscountType) => void;
+  setFastCheckout: (enabled: boolean) => void;
   updateDiscountDetails: (
     details: Partial<{ eligibleDiscName: string; oscaIdNum: string }>,
   ) => void;
@@ -275,7 +318,9 @@ export function POSTenderForm({
   change,
   canComplete,
   isProcessing,
+  fastCheckout,
   setDiscountType,
+  setFastCheckout,
   updateDiscountDetails,
   setPaymentMethod,
   setAmountTendered,
@@ -555,6 +600,11 @@ export function POSTenderForm({
                   : "Review payment details to continue."}
             </p>
           )}
+
+          <FastCheckoutToggle
+            checked={fastCheckout}
+            onCheckedChange={setFastCheckout}
+          />
 
           <Button
             className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl px-4 font-heading text-base font-black uppercase tracking-widest"
@@ -872,9 +922,41 @@ export function POSTenderForm({
               </>
             )}
           </Button>
+
+          <div className="mt-3">
+            <FastCheckoutToggle
+              checked={fastCheckout}
+              onCheckedChange={setFastCheckout}
+            />
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function FastCheckoutToggle({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="mb-3 flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border bg-card px-4 py-3 text-left">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-bold text-foreground">
+          Fast checkout
+        </span>
+        <span className="block text-xs font-medium text-muted-foreground">
+          Complete sale and return to products immediately.
+        </span>
+      </span>
+    </label>
   );
 }
 
@@ -1054,9 +1136,6 @@ export function POSReceiptContent({
 
       <div className="border-t bg-background p-4 sm:p-6">
         <div className="flex w-full flex-col gap-3">
-          {receiptPrintPayload ? (
-            <ReceiptPrintControls payload={receiptPrintPayload} />
-          ) : null}
           <Button
             onClick={onNewCheckout}
             className="h-14 w-full rounded-2xl px-4 font-heading text-base font-black uppercase tracking-widest sm:text-lg"
@@ -1064,6 +1143,9 @@ export function POSReceiptContent({
             <Receipt className="size-5" />
             New Checkout
           </Button>
+          {receiptPrintPayload ? (
+            <ReceiptPrintControls payload={receiptPrintPayload} />
+          ) : null}
         </div>
       </div>
     </>

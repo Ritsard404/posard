@@ -26,7 +26,9 @@ export function CheckoutModal({
   onOpenChange,
   totalAmount,
 }: CheckoutModalProps) {
-  const flow = usePOSCheckoutFlow(totalAmount);
+  const flow = usePOSCheckoutFlow(totalAmount, {
+    onFastComplete: () => onOpenChange(false),
+  });
   const activePaymentMethodLabel =
     paymentMethods.find((method) => method.id === flow.paymentMethod)?.label ??
     flow.paymentMethod;
@@ -82,7 +84,9 @@ export function CheckoutModal({
             change={flow.change}
             canComplete={flow.canComplete}
             isProcessing={flow.isProcessing}
+            fastCheckout={flow.fastCheckout}
             setDiscountType={flow.setDiscountType}
+            setFastCheckout={flow.setFastCheckout}
             updateDiscountDetails={flow.updateDiscountDetails}
             setPaymentMethod={flow.setPaymentMethod}
             setAmountTendered={flow.setAmountTendered}
