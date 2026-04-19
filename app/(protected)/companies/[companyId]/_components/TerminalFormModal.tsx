@@ -130,10 +130,10 @@ export default function TerminalFormModal({
                 <Input {...register("vatTinNumber")} placeholder="000-000-000-000" />
               </FieldGroup>
               <FieldGroup label="VAT (%)" error={errors.vat?.message}>
-                <Input type="number" {...register("vat")} placeholder="Optional" />
+                <PercentInput {...register("vat")} placeholder="Optional" />
               </FieldGroup>
               <FieldGroup label="Max Discount" error={errors.discountMax?.message}>
-                <Input type="number" step="0.01" {...register("discountMax")} placeholder="Optional" />
+                <PercentInput {...register("discountMax")} placeholder="Optional" />
               </FieldGroup>
             </div>
           </section>
@@ -171,6 +171,17 @@ export default function TerminalFormModal({
 
 function toDateInputValue(value: Date | string) {
   return new Date(value).toISOString().split("T")[0];
+}
+
+function PercentInput(props: React.ComponentProps<typeof Input>) {
+  return (
+    <div className="relative">
+      <Input type="number" min="0" max="100" step="0.01" className="pr-10" {...props} />
+      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+        %
+      </span>
+    </div>
+  );
 }
 
 function FieldGroup({

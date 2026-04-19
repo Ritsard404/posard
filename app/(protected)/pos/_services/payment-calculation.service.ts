@@ -28,10 +28,15 @@ export function isDiscountWithRequiredMetadata(
 
 export function getEffectiveDiscountPercent(
   discount?: DiscountDto,
+  maxDiscount?: number,
 ): number | undefined {
   if (!discount?.discountType) return discount?.discountPercent;
   if (isDiscountWithRequiredMetadata(discount.discountType)) return 20;
-  return discount.discountPercent;
+  if (!discount.discountPercent || discount.discountPercent <= 0) return undefined;
+
+  return maxDiscount === undefined
+    ? discount.discountPercent
+    : Math.min(discount.discountPercent, maxDiscount);
 }
 
 function round2(value: number): number {
@@ -69,14 +74,19 @@ function calculateDiscountAmount(
     );
   }
 
+  const maxDiscountAmount = round2((grossTotal * maxDiscount) / 100);
+
   if (discount.discountAmount && discount.discountAmount > 0) {
-    return round2(Math.min(discount.discountAmount, maxDiscount));
+    return round2(Math.min(discount.discountAmount, maxDiscountAmount));
   }
 
-  if (discount.discountPercent && discount.discountPercent > 0) {
-    return round2(
-      Math.min((grossTotal * discount.discountPercent) / 100, maxDiscount),
-    );
+  const effectiveDiscountPercent = getEffectiveDiscountPercent(
+    discount,
+    maxDiscount,
+  );
+
+  if (effectiveDiscountPercent && effectiveDiscountPercent > 0) {
+    return round2((grossTotal * effectiveDiscountPercent) / 100);
   }
 
   return 0;

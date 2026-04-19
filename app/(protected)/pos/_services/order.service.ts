@@ -35,30 +35,47 @@ async function getCurrentProfile() {
   return profile;
 }
 
-async function getTerminalForProfile(companyId: string) {
-  const terminal = await prisma.posTerminalInfo.findFirst({
-    where: { companyId },
+async function getActiveTimestampForOrder(companyId: string, timestampId: string) {
+  if (!timestampId) {
+    throw new Error("Active POS session is required");
+  }
+
+  const timestamp = await prisma.timestamp.findFirst({
+    where: {
+      id: timestampId,
+      timestampOut: null,
+      posTerminal: { companyId },
+    },
     select: {
       id: true,
-      vat: true,
-      discountMax: true,
-      isTrainMode: true,
-      resetCounterNo: true,
-      resetCounterTrainNo: true,
-      printerName: true,
-      printerDisplayName: true,
-      printerConnectionType: true,
-      printerVendorId: true,
-      printerProductId: true,
-      printerDeviceId: true,
-      printerServiceUuid: true,
-      printerCharacteristicUuid: true,
-      autoPrintEnabled: true,
+      cashierId: true,
+      posTerminal: {
+        select: {
+          id: true,
+          vat: true,
+          discountMax: true,
+          isTrainMode: true,
+          resetCounterNo: true,
+          resetCounterTrainNo: true,
+          printerName: true,
+          printerDisplayName: true,
+          printerConnectionType: true,
+          printerVendorId: true,
+          printerProductId: true,
+          printerDeviceId: true,
+          printerServiceUuid: true,
+          printerCharacteristicUuid: true,
+          autoPrintEnabled: true,
+        },
+      },
     },
   });
 
-  if (!terminal) throw new Error("No active terminal found for user's company");
-  return terminal;
+  if (!timestamp) {
+    throw new Error("Active POS session not found for this terminal");
+  }
+
+  return timestamp;
 }
 
 async function generateInvoiceNumber(
@@ -93,6 +110,10 @@ async function updateTerminalCounter(
 function validateOrderRequest(dto: OrderDto) {
   if (!dto.items || dto.items.length === 0) {
     throw new Error("Items cannot be empty");
+  }
+
+  if (!dto.timestampId) {
+    throw new Error("Active POS session is required");
   }
 
   if (dto.cashTenderAmount == null) {
@@ -261,7 +282,11 @@ export const orderService = {
 
     const profile = await getCurrentProfile();
     if (!profile.companyId) throw new Error("User has no assigned company");
-    const terminal = await getTerminalForProfile(profile.companyId);
+    const activeTimestamp = await getActiveTimestampForOrder(
+      profile.companyId,
+      dto.timestampId,
+    );
+    const terminal = activeTimestamp.posTerminal;
 
     const productMap = await loadAndValidateProducts(
       prisma,
@@ -301,7 +326,7 @@ export const orderService = {
         data: {
           invoiceNumber,
           posTerminalId: terminal.id,
-          cashierId: profile.id,
+          cashierId: activeTimestamp.cashierId,
 
           grossAmount: calc.grossAmount,
           totalAmount: calc.totalAmount,
@@ -323,7 +348,10 @@ export const orderService = {
           eligibleDiscName: discount?.eligibleDiscName,
           oscaIdNum: discount?.oscaIdNum,
           discountType: discount?.discountType,
-          discountPercent: getEffectiveDiscountPercent(discount),
+          discountPercent: getEffectiveDiscountPercent(
+            discount,
+            terminal.discountMax ? Number(terminal.discountMax) : 0,
+          ),
 
           status: "PAID" satisfies InvoiceStatusType,
           isTrainMode: terminal.isTrainMode,
@@ -454,7 +482,11 @@ export const orderService = {
 
     const profile = await getCurrentProfile();
     if (!profile.companyId) throw new Error("User has no assigned company");
-    const terminal = await getTerminalForProfile(profile.companyId);
+    const activeTimestamp = await getActiveTimestampForOrder(
+      profile.companyId,
+      dto.order.timestampId,
+    );
+    const terminal = activeTimestamp.posTerminal;
 
     const productMap = await loadProducts(dto.order.items);
     const discount = normalizeDiscount(dto.order.discount);
@@ -477,7 +509,7 @@ export const orderService = {
       data: {
         invoiceNumber,
         posTerminalId: terminal.id,
-        cashierId: profile.id,
+        cashierId: activeTimestamp.cashierId,
         voidedById: manager.id,
         reason: dto.reason,
 

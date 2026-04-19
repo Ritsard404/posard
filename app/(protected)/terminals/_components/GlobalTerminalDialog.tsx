@@ -120,10 +120,10 @@ export function GlobalTerminalDialog({
               <Input {...register("vatTinNumber")} />
             </Field>
             <Field label="VAT" error={errors.vat?.message}>
-              <Input type="number" {...register("vat")} />
+              <PercentInput {...register("vat")} />
             </Field>
-            <Field label="Discount Max" error={errors.discountMax?.message}>
-              <Input type="number" step="0.01" {...register("discountMax")} />
+            <Field label="Max Discount" error={errors.discountMax?.message}>
+              <PercentInput {...register("discountMax")} />
             </Field>
             <Field label="Printer Name" error={errors.printerName?.message}>
               <Input {...register("printerName")} />
@@ -160,6 +160,17 @@ function Field({
       <Label>{label}</Label>
       {children}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </div>
+  );
+}
+
+function PercentInput(props: React.ComponentProps<typeof Input>) {
+  return (
+    <div className="relative">
+      <Input type="number" min="0" max="100" step="0.01" className="pr-10" {...props} />
+      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+        %
+      </span>
     </div>
   );
 }

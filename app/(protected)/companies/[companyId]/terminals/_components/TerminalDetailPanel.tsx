@@ -75,7 +75,7 @@ export default function TerminalDetailPanel({
             ["Operated By", terminal.operatedBy ?? "Not set"],
             ["Address", terminal.address ?? "Not set"],
             ["VAT", `${terminal.vat ?? 0}%`],
-            ["Max Discount", String(terminal.discountMax ?? 0)],
+            ["Max Discount", `${terminal.discountMax ?? 0}%`],
             ["Printer", terminal.printerDisplayName ?? terminal.printerName ?? "Not set"],
             ["Printer Transport", terminal.printerConnectionType ?? "Not paired"],
           ]}

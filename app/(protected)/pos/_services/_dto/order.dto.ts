@@ -33,6 +33,7 @@ export interface DiscountDto {
 }
 
 export interface OrderDto {
+  timestampId: string;
   items: ItemRequestDto[];
   cashTenderAmount: number;
   ePayments?: EPaymentDto[];

@@ -17,7 +17,7 @@ export interface CartItem extends Product {
   itemStatus?: InvoiceStatusType;
 }
 
-export type DiscountType = "NONE" | "PWD" | "SENIOR";
+export type DiscountType = "NONE" | "OTHERS" | "PWD" | "SENIOR";
 export interface POSDiscount {
   type: DiscountType;
   eligibleDiscName: string;

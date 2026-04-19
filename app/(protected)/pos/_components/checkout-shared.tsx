@@ -59,6 +59,7 @@ export const paymentMethods: {
 
 export const discountOptions: { id: DiscountType; label: string }[] = [
   { id: "NONE", label: "None" },
+  { id: "OTHERS", label: "Max Discount" },
   { id: "PWD", label: "PWD (20% + VAT Exempt)" },
   { id: "SENIOR", label: "Senior (20% + VAT Exempt)" },
 ];
@@ -82,6 +83,10 @@ export function usePOSPaymentSummary() {
               discountType: discount.type,
               eligibleDiscName: discount.eligibleDiscName,
               oscaIdNum: discount.oscaIdNum,
+              discountPercent:
+                discount.type === "OTHERS"
+                  ? (activeTerminal?.discountMax ?? 0)
+                  : undefined,
             }
           : undefined,
       vatRate: activeTerminal?.vat ?? 12,
@@ -113,6 +118,8 @@ export function usePOSCheckoutFlow(totalAmount: number) {
     setPaymentMethod,
     amountTendered,
     setAmountTendered,
+    activeTerminal,
+    activeTimestampId,
     clearCart,
     applyStockUpdates,
   } = usePOSStore();
@@ -164,6 +171,7 @@ export function usePOSCheckoutFlow(totalAmount: number) {
     setIsProcessing(true);
 
     const orderDto: OrderDto = {
+      timestampId: activeTimestampId ?? "",
       items: cart.map((item) => ({
         productId: item.id,
         qty: item.cartQuantity,
@@ -181,6 +189,10 @@ export function usePOSCheckoutFlow(totalAmount: number) {
               discountType: discount.type,
               eligibleDiscName: trimmedEligibleName || undefined,
               oscaIdNum: trimmedOscaIdNum || undefined,
+              discountPercent:
+                discount.type === "OTHERS"
+                  ? (activeTerminal?.discountMax ?? 0)
+                  : undefined,
             }
           : undefined,
     };

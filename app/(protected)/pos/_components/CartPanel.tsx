@@ -267,6 +267,7 @@ export function CartPanel() {
                     prompt("Enter void reason:") || "Manager Cancelled via PIN";
 
                   const orderDto: OrderDto = {
+                    timestampId: activeTimestampId ?? "",
                     items: cart.map((i) => ({
                       productId: i.id,
                       qty: i.cartQuantity,

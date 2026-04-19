@@ -81,7 +81,7 @@ export async function getTerminalsAction() {
     const mappedTerminals = terminals.map((terminal) => ({
       id: terminal.id,
       posName: terminal.posName ?? "Unnamed terminal",
-      isActive: terminal.isActive,
+      isActive: terminal.timestamps.length > 0,
       vat: terminal.vat ?? 0,
       discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
       printerConfig: printConfigService.mapPrinterConfig(terminal),
@@ -128,22 +128,15 @@ export async function openSessionAction(
       return { success: false, error: "Invalid terminal" };
     }
 
-    if (terminal.isActive) {
+    const activeTerminalSession = await prisma.timestamp.findFirst({
+      where: { posTerminalId: terminal.id, timestampOut: null },
+      select: { id: true },
+    });
+
+    if (activeTerminalSession) {
       return {
         success: false,
         error: "Terminal is already in use by another session.",
-      };
-    }
-
-    // Also verify user does not have an active session already
-    const existingUserSession = await prisma.timestamp.findFirst({
-      where: { cashierId: unlocker.id, timestampOut: null },
-    });
-
-    if (existingUserSession) {
-      return {
-        success: false,
-        error: "User already has an active POS session on another terminal.",
       };
     }
 

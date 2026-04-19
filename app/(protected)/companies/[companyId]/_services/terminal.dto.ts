@@ -29,6 +29,11 @@ const nullableNumberInput = z.preprocess((value) => {
   return value;
 }, z.coerce.number().min(0).nullable());
 
+const nullablePercentageInput = nullableNumberInput.refine(
+  (value) => value === null || value <= 100,
+  "Percentage cannot exceed 100%",
+);
+
 const requiredDateInput = z
   .union([z.string(), z.date()])
   .transform((value, ctx) => {
@@ -107,8 +112,8 @@ export const CreateTerminalSchema = z.object({
   validUntil: requiredDateInput,
   operatedBy: nullableStringInput.optional(),
   vatTinNumber: nullableStringInput.optional(),
-  vat: nullableNumberInput.optional(),
-  discountMax: nullableNumberInput.optional(),
+  vat: nullablePercentageInput.optional(),
+  discountMax: nullablePercentageInput.optional(),
   printerName: nullableStringInput.optional(),
 });
 
@@ -123,8 +128,8 @@ export type UpdateTerminalInput = z.infer<typeof UpdateTerminalSchema>;
 const vatTinPattern = /^\d{3}-\d{3}-\d{3}-\d{3,4}$/;
 
 export const TerminalConfigurationSchema = z.object({
-  vat: nullableNumberInput.refine((value) => value === null || value <= 100, "VAT rate cannot exceed 100%"),
-  discountMax: nullableNumberInput.refine((value) => value === null || value <= 100, "Max discount cannot exceed 100%"),
+  vat: nullablePercentageInput,
+  discountMax: nullablePercentageInput,
   vatTinNumber: nullableStringInput.refine(
     (value) => value === null || vatTinPattern.test(value),
     "Use VAT TIN format ###-###-###-####",
