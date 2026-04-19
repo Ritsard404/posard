@@ -9,9 +9,9 @@ import type {
   EPaymentDto,
   ItemRequestDto,
   OrderDto,
+  InvoiceStatusType as OrderInvoiceStatusType,
 } from "./_dto/order.dto";
 import type { ReceiptDto } from "./_dto/receipt.dto";
-import { mapInvoiceToReceipt } from "./_mappers/receipt.mapper";
 import {
   calculatePayment,
   getEffectiveDiscountPercent,
@@ -20,6 +20,7 @@ import {
 } from "./payment-calculation.service";
 import { receiptPrintService } from "./receipt-print.service";
 import { printArchiveService } from "./print-archive.service";
+import { printConfigService } from "./print-config.service";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -49,9 +50,15 @@ async function getActiveTimestampForOrder(companyId: string, timestampId: string
     select: {
       id: true,
       cashierId: true,
+      cashier: {
+        select: {
+          fullName: true,
+        },
+      },
       posTerminal: {
         select: {
           id: true,
+          posName: true,
           vat: true,
           discountMax: true,
           isTrainMode: true,
@@ -66,6 +73,10 @@ async function getActiveTimestampForOrder(companyId: string, timestampId: string
           printerServiceUuid: true,
           printerCharacteristicUuid: true,
           autoPrintEnabled: true,
+          registeredName: true,
+          address: true,
+          vatTinNumber: true,
+          minNumber: true,
         },
       },
     },
@@ -188,6 +199,63 @@ async function loadAndValidateProducts(
   return productMap;
 }
 
+type ProductLookup = Awaited<ReturnType<typeof loadAndValidateProducts>>;
+
+function buildReceiptFromOrder(input: {
+  invoice: {
+    id: string;
+    invoiceNumber: number;
+    createdAt: Date;
+    isTrainMode: boolean;
+  };
+  terminal: Awaited<ReturnType<typeof getActiveTimestampForOrder>>["posTerminal"];
+  cashierName: string | null;
+  calc: ReturnType<typeof calculatePayment>;
+  discount?: DiscountDto;
+  items: ItemRequestDto[];
+  productMap: ProductLookup;
+  otherPayments: ReceiptDto["otherPayments"];
+  stockUpdates: ReceiptDto["stockUpdates"];
+}): ReceiptDto {
+  return {
+    id: input.invoice.id,
+    invoiceNumber: input.invoice.invoiceNumber,
+    createdAt: input.invoice.createdAt.toISOString(),
+    posTerminalName: input.terminal.posName ?? "Unnamed terminal",
+    printerName: input.terminal.printerName || null,
+    printerConfig: printConfigService.mapPrinterConfig(input.terminal),
+    registeredName: input.terminal.registeredName,
+    address: input.terminal.address,
+    vatTinNumber: input.terminal.vatTinNumber,
+    minNumber: input.terminal.minNumber,
+    terminalVat: input.terminal.vat ?? 0,
+    cashierName: input.cashierName ?? "Unknown",
+    isTrainMode: input.invoice.isTrainMode,
+    discountType: input.discount?.discountType ?? null,
+    discountAmount: input.calc.discountAmount,
+    dueAmount: input.calc.dueAmount,
+    totalTendered: input.calc.totalTendered,
+    eligibleDiscName: input.discount?.eligibleDiscName ?? null,
+    customerName: input.discount?.eligibleDiscName ?? null,
+    totalAmount: input.calc.totalAmount,
+    cashTendered: input.calc.cashTendered,
+    changeAmount: input.calc.changeAmount,
+    vatSales: input.calc.vatSales,
+    vatExempt: input.calc.vatExempt,
+    vatZero: input.calc.vatZero,
+    vatAmount: input.calc.vatAmount,
+    otherPayments: input.otherPayments,
+    stockUpdates: input.stockUpdates,
+    items: input.items.map((item) => ({
+      id: item.productId,
+      productName: input.productMap.get(item.productId)?.name ?? "Unknown",
+      qty: item.qty,
+      subTotal: item.status === "VOID" ? 0 : item.subTotal,
+      status: item.status ?? ("PAID" satisfies OrderInvoiceStatusType),
+    })),
+  };
+}
+
 async function loadProducts(items: ItemRequestDto[]) {
   return loadProductsWithDb(prisma, items);
 }
@@ -288,38 +356,32 @@ export const orderService = {
     );
     const terminal = activeTimestamp.posTerminal;
 
-    const productMap = await loadAndValidateProducts(
-      prisma,
-      dto.items,
-      false,
-    );
-
-    const calc = calculatePayment({
-      items: buildCalculationItems(dto.items, productMap),
-      discount,
-      vatRate: terminal.vat ?? 0,
-      maxDiscount: terminal.discountMax ? Number(terminal.discountMax) : 0,
-      cashTenderAmount: dto.cashTenderAmount,
-      ePayments: dto.ePayments,
-    });
-
-    validatePayment(calc);
-
     const ePaymentData = dto.ePayments?.length
       ? await buildEPaymentData(dto.ePayments)
       : undefined;
 
     const receipt = await prisma.$transaction(async (tx) => {
-      const invoiceNumber = await generateInvoiceNumber(
-        tx,
-        terminal.id,
-        terminal.isTrainMode,
-      );
-
       const transactionProductMap = await loadAndValidateProducts(
         tx,
         dto.items,
         false,
+      );
+
+      const calc = calculatePayment({
+        items: buildCalculationItems(dto.items, transactionProductMap),
+        discount,
+        vatRate: terminal.vat ?? 0,
+        maxDiscount: terminal.discountMax ? Number(terminal.discountMax) : 0,
+        cashTenderAmount: dto.cashTenderAmount,
+        ePayments: dto.ePayments,
+      });
+
+      validatePayment(calc);
+
+      const invoiceNumber = await generateInvoiceNumber(
+        tx,
+        terminal.id,
+        terminal.isTrainMode,
       );
 
       const invoice = await tx.invoice.create({
@@ -370,7 +432,11 @@ export const orderService = {
           ...(ePaymentData?.length
             ? {
                 ePayments: {
-                  create: ePaymentData,
+                  create: ePaymentData.map((payment) => ({
+                    saleTypeId: payment.saleTypeId,
+                    reference: payment.reference,
+                    amount: payment.amount,
+                  })),
                 },
               }
             : {}),
@@ -379,67 +445,7 @@ export const orderService = {
           id: true,
           invoiceNumber: true,
           createdAt: true,
-          dueAmount: true,
-          totalTendered: true,
-          discountType: true,
-          discountAmount: true,
-          eligibleDiscName: true,
-          customerName: true,
-          totalAmount: true,
-          cashTendered: true,
-          changeAmount: true,
-          vatSales: true,
-          vatExempt: true,
-          vatZero: true,
-          vatAmount: true,
           isTrainMode: true,
-          posTerminal: {
-            select: {
-              posName: true,
-              printerName: true,
-              printerDisplayName: true,
-              printerConnectionType: true,
-              printerVendorId: true,
-              printerProductId: true,
-              printerDeviceId: true,
-              printerServiceUuid: true,
-              printerCharacteristicUuid: true,
-              autoPrintEnabled: true,
-              registeredName: true,
-              address: true,
-              vatTinNumber: true,
-              minNumber: true,
-              vat: true,
-            },
-          },
-          cashier: {
-            select: {
-              fullName: true,
-            },
-          },
-          ePayments: {
-            select: {
-              amount: true,
-              saleType: {
-                select: {
-                  name: true,
-                },
-              },
-            },
-          },
-          items: {
-            select: {
-              id: true,
-              qty: true,
-              subTotal: true,
-              status: true,
-              product: {
-                select: {
-                  name: true,
-                },
-              },
-            },
-          },
         },
       });
 
@@ -450,12 +456,26 @@ export const orderService = {
 
       await updateTerminalCounter(tx, terminal.id, terminal.isTrainMode, terminal);
 
-      return {
-        ...mapInvoiceToReceipt(invoice),
+      return buildReceiptFromOrder({
+        invoice,
+        terminal,
+        cashierName: activeTimestamp.cashier.fullName,
+        calc,
+        discount,
+        items: dto.items,
+        productMap: transactionProductMap,
+        otherPayments: ePaymentData?.map((payment) => ({
+          name: payment.name,
+          amount: payment.amount,
+        })) ?? [],
         stockUpdates,
-      };
+      });
     });
 
+    return receipt;
+  },
+
+  async archiveReceipt(receipt: ReceiptDto): Promise<void> {
     const printPayload = receiptPrintService.buildPayload(receipt);
 
     await printArchiveService.createArchive({
@@ -464,8 +484,6 @@ export const orderService = {
       invoiceId: receipt.id,
       isTrainMode: receipt.isTrainMode,
     });
-
-    return receipt;
   },
 
   async cancelOrder(dto: CancelOrderDto): Promise<void> {
@@ -556,16 +574,21 @@ async function buildEPaymentData(ePayments: EPaymentDto[]) {
 
   const saleTypes = await prisma.saleType.findMany({
     where: { id: { in: saleTypeIds } },
-    select: { id: true },
+    select: { id: true, name: true },
   });
 
   if (saleTypes.length !== saleTypeIds.length) {
     throw new Error("One or more sale types not found");
   }
 
-  return ePayments.map((p) => ({
-    saleTypeId: p.saleTypeId,
-    reference: p.reference,
-    amount: p.amount,
+  const saleTypeNameMap = new Map(
+    saleTypes.map((saleType) => [saleType.id, saleType.name ?? "Other"]),
+  );
+
+  return ePayments.map((payment) => ({
+    saleTypeId: payment.saleTypeId,
+    reference: payment.reference,
+    amount: payment.amount,
+    name: saleTypeNameMap.get(payment.saleTypeId) ?? "Other",
   }));
 }
