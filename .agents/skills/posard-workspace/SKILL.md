@@ -78,6 +78,39 @@ enum VatType {
 
 ---
 
+## Error Handling Rules (CRITICAL)
+
+### Client Safety
+- Server-side errors MUST NEVER be displayed directly to users
+- Do NOT expose:
+  - Prisma errors
+  - SQL/database errors
+  - stack traces
+  - internal exception messages
+  - framework/system errors
+
+### Action Layer Responsibility
+- Services → throw raw errors
+- Actions → catch errors and sanitize them
+- UI → only consume safe messages
+
+### Required Action Pattern
+
+```ts
+try {
+  // logic
+  return { success: true } as const;
+} catch (error) {
+  console.error(error); // log full error internally
+
+  return {
+    success: false,
+    error: "Something went wrong. Please try again.",
+  } as const;
+}
+
+---
+
 ## Actions Rules
 - Must include `"use server"`
 - Must return:

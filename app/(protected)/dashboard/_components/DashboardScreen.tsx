@@ -108,7 +108,7 @@ function TrendChart({ data }: { data: DashboardDataDto["trend"] }) {
   } satisfies ChartConfig;
 
   return (
-    <ChartContainer config={chartConfig} className="h-[320px]">
+    <ChartContainer config={chartConfig} height={320}>
       <AreaChart accessibilityLayer data={data} margin={{ left: 8, right: 8, top: 12 }}>
         <defs>
           <linearGradient id="fillSales" x1="0" y1="0" x2="0" y2="1">
@@ -174,7 +174,7 @@ function RankedBars({
 
   return (
     <div className="space-y-4">
-      <ChartContainer config={chartConfig} className="h-[300px]">
+      <ChartContainer config={chartConfig} height={300}>
         <BarChart accessibilityLayer data={items} layout="vertical" margin={{ left: 8, right: 12 }}>
           <CartesianGrid horizontal={false} strokeDasharray="4 4" />
           <XAxis type="number" hide />
@@ -239,7 +239,7 @@ function PaymentMixChart({ items }: { items: DashboardDataDto["paymentMix"] }) {
   }));
 
   return (
-    <ChartContainer config={chartConfig} className="h-[300px]">
+    <ChartContainer config={chartConfig} height={300}>
       <PieChart>
         <ChartTooltip
           content={

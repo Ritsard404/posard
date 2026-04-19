@@ -134,6 +134,7 @@ export function CategoryManagerSheet({
               />
               <Button
                 id="btn-create-category"
+                aria-label="Create category"
                 size="sm"
                 onClick={handleCreate}
                 disabled={isCreating || !newName.trim()}
@@ -160,6 +161,7 @@ export function CategoryManagerSheet({
                     {editingId === category.id ? (
                       <>
                         <Input
+                          aria-label="Category name"
                           value={editingName}
                           onChange={(event) => setEditingName(event.target.value)}
                           onKeyDown={(event) =>
@@ -171,6 +173,7 @@ export function CategoryManagerSheet({
                         <Button
                           variant="ghost"
                           size="icon-xs"
+                          aria-label={`Save ${editingName}`}
                           onClick={handleSaveEdit}
                         >
                           <Check className="size-3.5 text-emerald-600" />
@@ -178,6 +181,7 @@ export function CategoryManagerSheet({
                         <Button
                           variant="ghost"
                           size="icon-xs"
+                          aria-label="Cancel category edit"
                           onClick={() => setEditingId(null)}
                         >
                           <X className="size-3.5" />
@@ -191,6 +195,7 @@ export function CategoryManagerSheet({
                         <Button
                           variant="ghost"
                           size="icon-xs"
+                          aria-label={`Edit ${category.categoryName}`}
                           onClick={() => startEditing(category)}
                           className="text-muted-foreground"
                         >
@@ -199,6 +204,7 @@ export function CategoryManagerSheet({
                         <Button
                           variant="ghost"
                           size="icon-xs"
+                          aria-label={`Delete ${category.categoryName}`}
                           onClick={() => setDeletingCategory(category)}
                           className="text-muted-foreground hover:text-destructive"
                         >

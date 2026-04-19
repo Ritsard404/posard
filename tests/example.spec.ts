@@ -1,18 +1,23 @@
 import { test, expect } from '@playwright/test';
 
-test('has title', async ({ page }) => {
-  await page.goto('https://playwright.dev/');
+test.describe('public app smoke', () => {
+  test('landing page renders the marketing hero', async ({ page }) => {
+    await page.goto('/');
 
-  // Expect a title "to contain" a substring.
-  await expect(page).toHaveTitle(/Playwright/);
-});
+    await expect(
+      page.getByRole('button', { name: 'Start Free Trial' }),
+    ).toBeVisible();
+    await expect(page.getByText('Trusted by 2,000+ businesses worldwide')).toBeVisible();
+  });
 
-test('get started link', async ({ page }) => {
-  await page.goto('https://playwright.dev/');
+  test('login page renders the authentication form', async ({ page }) => {
+    await page.goto('/auth/login');
 
-  // Click the get started link.
-  await page.getByRole('link', { name: 'Get started' }).click();
-
-  // Expects page to have a heading with the name of Installation.
-  await expect(page.getByRole('heading', { name: 'Installation' })).toBeVisible();
+    await expect(
+      page.getByText('Enter your credentials to access your terminal'),
+    ).toBeVisible();
+    await expect(page.getByLabel('Email Address')).toBeVisible();
+    await expect(page.getByLabel('Password')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
+  });
 });

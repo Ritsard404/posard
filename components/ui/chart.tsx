@@ -44,10 +44,14 @@ function getPayloadKey(item: unknown) {
 export function ChartContainer({
   config,
   className,
+  height = 320,
+  minHeight = 240,
   children,
 }: {
   config: ChartConfig;
   className?: string;
+  height?: number;
+  minHeight?: number;
   children: React.ReactNode;
 }) {
   const style = Object.entries(config).reduce<Record<string, string>>(
@@ -61,14 +65,14 @@ export function ChartContainer({
   return (
     <ChartContext.Provider value={config}>
       <div
-        className={cn("h-[320px] w-full min-w-0 min-h-[240px]", className)}
+        className={cn("w-full min-w-0", className)}
         style={style as React.CSSProperties}
       >
         <ResponsiveContainer
           width="100%"
-          height="100%"
+          height={height}
           minWidth={0}
-          minHeight={240}
+          minHeight={minHeight}
           debounce={50}
         >
           {children as React.ReactElement}
