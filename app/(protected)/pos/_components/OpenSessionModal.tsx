@@ -1,10 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { getSessionCashTrackAction, openSessionAction } from "../_actions/session.action";
+import {
+  getSessionCashTrackAction,
+  openSessionAction,
+} from "../_actions/session.action";
 import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cashTrackPrintService } from "../_services/cash-track-print.service";
@@ -30,29 +39,27 @@ interface OpenSessionModalProps {
   onCancel: () => void;
 }
 
-export function OpenSessionModal({ terminalId, terminalName, onSuccess, onCancel }: OpenSessionModalProps) {
-  const [pin, setPin] = useState("");
+export function OpenSessionModal({
+  terminalId,
+  terminalName,
+  onSuccess,
+  onCancel,
+}: OpenSessionModalProps) {
   const [openingCash, setOpeningCash] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Hardcode an open state
-  const handleUnlock = async (e: React.FormEvent) => {
+  const handleOpenSession = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
-    if (pin.length < 4) {
-      setError("PIN must be at least 4 digits");
-      return;
-    }
-    
+
     if (openingCash < 0) {
       setError("Opening cash cannot be negative");
       return;
     }
 
     setIsLoading(true);
-    const result = await openSessionAction(terminalId, pin, openingCash);
+    const result = await openSessionAction(terminalId, openingCash);
     setIsLoading(false);
 
     if (result.success && result.user) {
@@ -80,13 +87,14 @@ export function OpenSessionModal({ terminalId, terminalName, onSuccess, onCancel
             toast.success("Cash-in slip sent to printer.", {
               description: printResult.message,
             });
-          } else {
+          } else if (printResult.status !== "unsupported") {
             toast.error(printResult.message);
           }
         }
       } catch {
         // Keep session flow moving even if printing fails.
       }
+
       onSuccess({
         success: true,
         user: result.user,
@@ -94,37 +102,25 @@ export function OpenSessionModal({ terminalId, terminalName, onSuccess, onCancel
         timestampId: result.timestampId,
         terminal: result.terminal,
       });
-    } else {
-      setError(result.error || "Failed to open session. Invalid PIN or terminal in use.");
-      setPin("");
+      return;
     }
+
+    setError(result.error || "Failed to open session. Terminal may be in use.");
   };
 
   return (
-    <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Open Session: {terminalName}</DialogTitle>
+          <DialogTitle className="text-xl font-bold">
+            Open Session: {terminalName}
+          </DialogTitle>
           <DialogDescription>
-            Enter your PIN and the starting cash to unlock your terminal session.
+            Enter the starting cash to open this terminal for your logged-in
+            account.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleUnlock} className="flex flex-col space-y-6 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="pin">Cashier / Manager PIN</Label>
-            <Input
-              id="pin"
-              type="password"
-              maxLength={6}
-              autoFocus
-              inputMode="numeric"
-              placeholder="••••••"
-              className="text-center text-xl tracking-widest h-12"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-            />
-          </div>
-
+        <form onSubmit={handleOpenSession} className="flex flex-col space-y-6 py-4">
           <div className="space-y-2">
             <Label htmlFor="cash">Opening Cash Amount</Label>
             <Input
@@ -132,21 +128,40 @@ export function OpenSessionModal({ terminalId, terminalName, onSuccess, onCancel
               type="number"
               min="0"
               step="0.01"
+              autoFocus
               placeholder="0.00"
-              className="text-right text-lg h-12 font-medium"
+              className="h-12 text-right text-lg font-medium"
               value={openingCash || ""}
               onChange={(e) => setOpeningCash(Number(e.target.value))}
             />
           </div>
 
-          {error && <p className="text-sm text-destructive font-medium bg-destructive/10 p-2 rounded-md">{error}</p>}
-          
-          <div className="flex justify-end gap-3 pt-2 w-full">
-            <Button type="button" variant="outline" className="flex-1 h-12" onClick={onCancel} disabled={isLoading}>
+          {error ? (
+            <p className="rounded-md bg-destructive/10 p-2 text-sm font-medium text-destructive">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="flex w-full justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 flex-1"
+              onClick={onCancel}
+              disabled={isLoading}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || pin.length < 4} className="flex-1 h-12 text-lg">
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Open Session"}
+            <Button
+              type="submit"
+              disabled={isLoading || openingCash < 0}
+              className="h-12 flex-1 text-lg"
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                "Open Session"
+              )}
             </Button>
           </div>
         </form>

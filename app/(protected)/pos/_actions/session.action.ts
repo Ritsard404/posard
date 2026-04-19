@@ -104,7 +104,6 @@ export async function getTerminalsAction() {
 
 export async function openSessionAction(
   terminalId: string,
-  pin: string,
   openingCash: number = 0,
 ) {
   try {
@@ -112,14 +111,6 @@ export async function openSessionAction(
     if (!profile.companyId)
       return { success: false, error: "No company associated with user." };
 
-    // 1. Validate PIN
-    const unlocker = await prisma.profile.findFirst({
-      where: { companyId: profile.companyId, pin: pin },
-    });
-
-    if (!unlocker) return { success: false, error: "Invalid PIN" };
-
-    // 2. Validate Terminal state
     const terminal = await prisma.posTerminalInfo.findUnique({
       where: { id: terminalId },
     });
@@ -140,18 +131,23 @@ export async function openSessionAction(
       };
     }
 
-    // 3. Create Timestamp transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Force close any stuck sessions on this terminal
-      await tx.timestamp.updateMany({
-        where: { posTerminalId: terminal.id, timestampOut: null },
-        data: { timestampOut: new Date(), cashOutDrawerAmount: 0 }, // emergency force close
-      });
+    const activeUserSession = await prisma.timestamp.findFirst({
+      where: { cashierId: profile.id, timestampOut: null },
+      select: { id: true, posTerminal: { select: { posName: true } } },
+    });
 
+    if (activeUserSession) {
+      return {
+        success: false,
+        error: `You already have an active POS session${activeUserSession.posTerminal.posName ? ` on ${activeUserSession.posTerminal.posName}` : ""}.`,
+      };
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
       const timestamp = await tx.timestamp.create({
         data: {
           posTerminalId: terminal.id,
-          cashierId: unlocker.id,
+          cashierId: profile.id,
           timestampIn: new Date(),
           cashInDrawerAmount: openingCash,
         },
@@ -167,7 +163,7 @@ export async function openSessionAction(
 
     return {
       success: true,
-      user: { name: unlocker.fullName, role: unlocker.role },
+      user: { name: profile.fullName, role: profile.role },
       sessionId: result.timestamp.id,
       timestampId: result.timestamp.id,
       terminal: {
