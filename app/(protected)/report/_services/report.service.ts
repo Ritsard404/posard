@@ -358,7 +358,7 @@ async function buildXReadingFromTimestamp(timestamp: {
   };
   posTerminal: {
     id: string;
-    posName: string;
+    posName: string | null;
     registeredName: string | null;
     operatedBy: string | null;
     address: string | null;
@@ -367,7 +367,7 @@ async function buildXReadingFromTimestamp(timestamp: {
     ptuNumber: string | null;
     accreditationNumber: string | null;
     isTrainMode: boolean;
-    vat: Prisma.Decimal | number;
+    vat: Prisma.Decimal | number | null;
   };
 }, companyId: string): Promise<XReadingDto> {
   if (!timestamp.timestampIn) {
@@ -408,7 +408,7 @@ async function buildXReadingFromTimestamp(timestamp: {
     generatedAt: new Date(),
     range: createRange(timestamp.timestampIn, readingEnd),
     terminalId: timestamp.posTerminal.id,
-    terminalName: timestamp.posTerminal.posName,
+    terminalName: timestamp.posTerminal.posName ?? "Unnamed terminal",
     businessName: timestamp.posTerminal.registeredName ?? "N/A",
     operatorName: timestamp.posTerminal.operatedBy ?? "N/A",
     addressLine: timestamp.posTerminal.address ?? "N/A",
@@ -600,7 +600,7 @@ export const reportService = {
       companyId: terminal.company.id,
       companyName: terminal.company.name,
       terminalId: terminal.id,
-      terminalName: terminal.posName,
+      terminalName: terminal.posName ?? "Unnamed terminal",
       printerName: terminal.printerName || null,
       printerConfig: printConfigService.mapPrinterConfig(terminal),
       isActive: terminal.isActive,
@@ -665,7 +665,7 @@ export const reportService = {
       companyName: company.name,
       terminals: terminals.map((terminal) => ({
         id: terminal.id,
-        name: terminal.posName,
+        name: terminal.posName ?? "Unnamed terminal",
         isActive: terminal.isActive,
         printerName: terminal.printerName || null,
         printerConfig: printConfigService.mapPrinterConfig(terminal),
@@ -1118,7 +1118,7 @@ export const reportService = {
         createdAt: invoice.createdAt,
         status: invoice.status,
         cashierName: invoice.cashier.fullName ?? "Unknown",
-        terminalName: invoice.posTerminal.posName,
+        terminalName: invoice.posTerminal.posName ?? "Unnamed terminal",
         customerName: invoice.customerName,
         totalAmount: toNumber(invoice.totalAmount),
         discountAmount: toNumber(invoice.discountAmount),
@@ -1305,7 +1305,7 @@ export const reportService = {
         occurredAt: timestamp.timestampIn!,
         actorName: timestamp.managerIn?.fullName ?? timestamp.cashier.fullName ?? "Unknown",
         actorRole: timestamp.managerIn?.role ?? timestamp.cashier.role,
-        terminalName: timestamp.posTerminal.posName,
+        terminalName: timestamp.posTerminal.posName ?? "Unnamed terminal",
         action:
           toNumber(timestamp.cashInDrawerAmount) > 0 ? "SET_CASH_IN_DRAWER" : "LOG_IN",
         amount: toNumber(timestamp.cashInDrawerAmount),
@@ -1324,7 +1324,7 @@ export const reportService = {
           timestamp.managerOut?.role ??
           timestamp.managerIn?.role ??
           timestamp.cashier.role,
-        terminalName: timestamp.posTerminal.posName,
+        terminalName: timestamp.posTerminal.posName ?? "Unnamed terminal",
         action:
           toNumber(timestamp.cashOutDrawerAmount) > 0 ? "SET_CASH_OUT_DRAWER" : "LOG_OUT",
         amount: toNumber(timestamp.cashOutDrawerAmount),
@@ -1501,10 +1501,11 @@ export const reportService = {
 
     for (const invoice of invoices) {
       const businessDate = normalizeStartOfDay(invoice.createdAt);
-      const key = `${businessDate.toISOString()}-${invoice.posTerminal.posName}`;
+      const terminalName = invoice.posTerminal.posName ?? "Unnamed terminal";
+      const key = `${businessDate.toISOString()}-${terminalName}`;
       const current = map.get(key) ?? {
         businessDate,
-        terminalName: invoice.posTerminal.posName,
+        terminalName,
         invoiceCount: 0,
         grossSales: 0,
         totalDiscounts: 0,
@@ -1619,7 +1620,7 @@ export const reportService = {
         entryDate: invoice.createdAt,
         source: "BASE",
         status: invoice.status,
-        terminalName: invoice.posTerminal.posName,
+        terminalName: invoice.posTerminal.posName ?? "Unnamed terminal",
         cashierName: invoice.cashier.fullName ?? "Unknown",
         managerName: invoice.voidedBy?.fullName ?? null,
         customerName: invoice.customerName,
@@ -1773,7 +1774,7 @@ export const reportService = {
       voidedDate: invoice.updatedAt,
       cashierName: invoice.cashier.fullName ?? "Unknown",
       cancelledBy: invoice.voidedBy?.fullName ?? null,
-      terminalName: invoice.posTerminal.posName,
+      terminalName: invoice.posTerminal.posName ?? "Unnamed terminal",
       discountType: invoice.discountType ?? null,
       grossSales: toNumber(invoice.grossAmount),
       discountAmount: toNumber(invoice.discountAmount),
@@ -1912,7 +1913,7 @@ export const reportService = {
       refundDate: invoice.updatedAt,
       cashierName: invoice.cashier.fullName ?? "Unknown",
       managerName: invoice.voidedBy?.fullName ?? null,
-      terminalName: invoice.posTerminal.posName,
+      terminalName: invoice.posTerminal.posName ?? "Unnamed terminal",
       customerName: invoice.customerName,
       totalAmount: toNumber(invoice.totalAmount),
       returnedAmount: toNumber(invoice.returnedAmount),
@@ -1981,7 +1982,7 @@ export const reportService = {
         returnAmount: Math.round(lineSubtotal * returnRatio * 100) / 100,
         transactionDate: item.invoice.createdAt,
         returnDate: item.updatedAt,
-        terminalName: item.invoice.posTerminal.posName,
+        terminalName: item.invoice.posTerminal.posName ?? "Unnamed terminal",
         cashierName: item.invoice.cashier.fullName ?? "Unknown",
         managerName: item.invoice.voidedBy?.fullName ?? null,
         isTrainMode: item.invoice.isTrainMode,
@@ -2120,14 +2121,14 @@ export const reportService = {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
       createdAt: invoice.createdAt.toISOString(),
-      posTerminalName: invoice.posTerminal.posName,
+      posTerminalName: invoice.posTerminal.posName ?? "Unnamed terminal",
       printerName: invoice.posTerminal.printerName || null,
       printerConfig: printConfigService.mapPrinterConfig(invoice.posTerminal),
       registeredName: invoice.posTerminal.registeredName,
       address: invoice.posTerminal.address,
       vatTinNumber: invoice.posTerminal.vatTinNumber,
       minNumber: invoice.posTerminal.minNumber,
-      terminalVat: invoice.posTerminal.vat,
+      terminalVat: invoice.posTerminal.vat ?? 0,
       cashierName: invoice.cashier.fullName ?? "Unknown",
       isTrainMode: invoice.isTrainMode,
       discountType: invoice.discountType ?? null,

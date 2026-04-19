@@ -37,6 +37,7 @@ export default function CompanySettingsForm({
       code: company.code ?? "",
       email: company.email ?? "",
       phone: company.phone ?? "",
+      address: company.address ?? "",
       logoImageUrl: company.logoImageUrl ?? "",
     },
   });
@@ -65,6 +66,14 @@ export default function CompanySettingsForm({
           <Input
             {...register("phone")}
             placeholder="+63 900 000 0000"
+            className="focus:border-blue-500"
+          />
+        </FieldGroup>
+
+        <FieldGroup label="Address" error={errors.address?.message} className="sm:col-span-2">
+          <Input
+            {...register("address")}
+            placeholder="Street, City, Province"
             className="focus:border-blue-500"
           />
         </FieldGroup>

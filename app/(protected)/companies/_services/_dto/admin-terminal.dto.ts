@@ -15,8 +15,8 @@ export interface AdminTerminalListItemDto {
   id: string;
   companyId: string;
   companyName: string;
-  posName: string;
-  registeredName: string;
+  posName: string | null;
+  registeredName: string | null;
   approvalStatus: "active" | "inactive" | "in_use";
   assignedUserName: string | null;
   createdAt: Date;
@@ -25,4 +25,3 @@ export interface AdminTerminalListItemDto {
   subscriptionStatus: "pending" | "active" | "expired" | "suspended" | "cancelled" | null;
   subscriptionExpiresAt: Date | null;
 }
-

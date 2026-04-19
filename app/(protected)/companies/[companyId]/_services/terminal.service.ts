@@ -10,23 +10,19 @@ import { printConfigService } from "@/app/(protected)/pos/_services/print-config
 
 function mapTerminal(terminal: {
   id: string;
-  minNumber: string;
-  accreditationNumber: string;
-  ptuNumber: string;
+  minNumber: string | null;
+  accreditationNumber: string | null;
+  ptuNumber: string | null;
   dateIssued: Date;
   validUntil: Date;
-  posName: string;
-  registeredName: string;
-  operatedBy: string;
-  address: string;
-  vatTinNumber: string;
-  vat: number;
-  discountMax: { toNumber(): number };
-  costCenter: string;
-  branchCenter: string;
-  useCenter: string;
-  dbName: string | null;
-  printerName: string;
+  posName: string | null;
+  registeredName: string | null;
+  operatedBy: string | null;
+  address: string | null;
+  vatTinNumber: string | null;
+  vat: number | null;
+  discountMax: { toNumber(): number } | null;
+  printerName: string | null;
   printerDisplayName: string | null;
   printerConnectionType: "usb" | "bluetooth" | null;
   printerVendorId: number | null;
@@ -53,7 +49,7 @@ function mapTerminal(terminal: {
   return {
     ...terminal,
     printerConfig: printConfigService.mapPrinterConfig(terminal),
-    discountMax: terminal.discountMax.toNumber(),
+    discountMax: terminal.discountMax?.toNumber() ?? null,
     companyName: terminal.company?.name ?? null,
     subscriptionStatus: terminal.subscription?.status ?? null,
     subscriptionExpiresAt: terminal.subscription?.expiresAt ?? null,
@@ -143,10 +139,32 @@ export const terminalService = {
   },
 
   async createTerminal(companyId: string, payload: CreateTerminalInput): Promise<TerminalDTO> {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: {
+        name: true,
+        address: true,
+        _count: {
+          select: {
+            posTerminals: true,
+          },
+        },
+      },
+    });
+
+    if (!company) {
+      throw new Error("Company not found");
+    }
+
+    const nextTerminalNumber = company._count.posTerminals + 1;
+
     const terminal = await prisma.posTerminalInfo.create({
       data: {
         ...payload,
         companyId,
+        posName: `${company.name} POS ${nextTerminalNumber}`,
+        registeredName: company.name,
+        address: company.address,
       },
     });
 
@@ -221,13 +239,9 @@ export const terminalService = {
         vat: payload.vat,
         discountMax: payload.discountMax,
         vatTinNumber: payload.vatTinNumber,
-        address: payload.address,
-        costCenter: payload.costCenter,
-        branchCenter: payload.branchCenter,
-        useCenter: payload.useCenter,
         printerName:
           payload.printerConfig?.displayName?.trim() ||
-          payload.printerName,
+          (payload.printerName ?? null),
         printerDisplayName: payload.printerConfig?.displayName ?? null,
         printerConnectionType: payload.printerConfig?.connectionType ?? null,
         printerVendorId: payload.printerConfig?.vendorId ?? null,

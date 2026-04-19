@@ -25,10 +25,10 @@ export interface ReceiptDto {
   posTerminalName: string;
   printerName: string | null;
   printerConfig: PrinterConfigDto | null;
-  registeredName: string;
-  address: string;
-  vatTinNumber: string;
-  minNumber: string;
+  registeredName: string | null;
+  address: string | null;
+  vatTinNumber: string | null;
+  minNumber: string | null;
   terminalVat: number;
   cashierName: string;
   isTrainMode: boolean;

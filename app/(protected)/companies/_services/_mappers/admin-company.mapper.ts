@@ -6,6 +6,7 @@ export function mapAdminCompanyListItem(company: {
   email: string | null;
   code: string | null;
   phone: string | null;
+  address: string | null;
   logoImageUrl: string | null;
   createdAt: Date;
   users: Array<{ fullName: string | null; email: string }>;
@@ -24,6 +25,7 @@ export function mapAdminCompanyListItem(company: {
     email: company.email,
     code: company.code,
     phone: company.phone,
+    address: company.address,
     logoImageUrl: company.logoImageUrl,
     ownerManagerName: owner?.fullName ?? null,
     ownerManagerEmail: owner?.email ?? null,

@@ -58,17 +58,10 @@ export function GlobalTerminalDialog({
       ptuNumber: terminal?.ptuNumber ?? "",
       dateIssued: terminal ? toDateInputValue(terminal.dateIssued) : "",
       validUntil: terminal ? toDateInputValue(terminal.validUntil) : "",
-      posName: terminal?.posName ?? "",
-      registeredName: terminal?.registeredName ?? "",
       operatedBy: terminal?.operatedBy ?? "",
-      address: terminal?.address ?? "",
       vatTinNumber: terminal?.vatTinNumber ?? "",
-      vat: terminal?.vat ?? 0,
-      discountMax: terminal?.discountMax ?? 0,
-      costCenter: terminal?.costCenter ?? "",
-      branchCenter: terminal?.branchCenter ?? "",
-      useCenter: terminal?.useCenter ?? "",
-      dbName: terminal?.dbName ?? undefined,
+      vat: terminal?.vat ?? undefined,
+      discountMax: terminal?.discountMax ?? undefined,
       printerName: terminal?.printerName ?? "",
     });
   }, [companyId, companyOptions, open, reset, terminal]);
@@ -120,12 +113,6 @@ export function GlobalTerminalDialog({
             <Field label="Valid Until" error={errors.validUntil?.message}>
               <Input type="date" {...register("validUntil")} />
             </Field>
-            <Field label="POS Name" error={errors.posName?.message}>
-              <Input {...register("posName")} />
-            </Field>
-            <Field label="Registered Name" error={errors.registeredName?.message}>
-              <Input {...register("registeredName")} />
-            </Field>
             <Field label="Operated By" error={errors.operatedBy?.message}>
               <Input {...register("operatedBy")} />
             </Field>
@@ -140,21 +127,6 @@ export function GlobalTerminalDialog({
             </Field>
             <Field label="Printer Name" error={errors.printerName?.message}>
               <Input {...register("printerName")} />
-            </Field>
-            <Field label="Address" error={errors.address?.message} className="sm:col-span-2">
-              <Input {...register("address")} />
-            </Field>
-            <Field label="Cost Center" error={errors.costCenter?.message}>
-              <Input {...register("costCenter")} />
-            </Field>
-            <Field label="Branch Center" error={errors.branchCenter?.message}>
-              <Input {...register("branchCenter")} />
-            </Field>
-            <Field label="Use Center" error={errors.useCenter?.message}>
-              <Input {...register("useCenter")} />
-            </Field>
-            <Field label="DB Name" error={errors.dbName?.message}>
-              <Input {...register("dbName")} />
             </Field>
           </section>
 
@@ -195,4 +167,3 @@ function Field({
 function toDateInputValue(value: Date | string) {
   return new Date(value).toISOString().split("T")[0];
 }
-

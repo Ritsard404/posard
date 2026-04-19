@@ -12,17 +12,17 @@ export default async function CompanyLayout({
   const resolvedParams = await params;
   const companyId = resolvedParams.companyId;
 
-  try {
-    const viewer = await companyAccessService.getViewer();
+  const viewer = await companyAccessService.getViewer().catch(() => null);
 
-    if (viewer.role !== "admin" && viewer.companyId !== companyId) {
-      if (viewer.companyId) {
-        redirect(`/companies/${viewer.companyId}`);
-      }
+  if (!viewer) {
+    redirect("/dashboard");
+  }
 
-      redirect("/dashboard");
+  if (viewer.role !== "admin" && viewer.companyId !== companyId) {
+    if (viewer.companyId) {
+      redirect(`/companies/${viewer.companyId}`);
     }
-  } catch {
+
     redirect("/dashboard");
   }
 

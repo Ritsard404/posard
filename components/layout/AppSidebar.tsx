@@ -233,10 +233,13 @@ export function AppSidebar({
 
   const navContext = useMemo(
     () => ({
-      companyId: (params?.companyId as string) || profile?.company_id || null,
+      companyId:
+        profile?.role === "manager"
+          ? profile.company_id ?? null
+          : (params?.companyId as string) || profile?.company_id || null,
       profileId: profile?.id || null,
     }),
-    [params?.companyId, profile?.company_id, profile?.id],
+    [params?.companyId, profile?.company_id, profile?.id, profile?.role],
   );
 
   const sidebarSections = useMemo(

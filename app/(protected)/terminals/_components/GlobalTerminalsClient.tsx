@@ -156,8 +156,8 @@ export function GlobalTerminalsClient({
                   {pageData.items.map((terminal) => (
                     <tr key={terminal.id} className="border-b">
                       <td className="px-4 py-3">
-                        <div className="font-semibold">{terminal.posName}</div>
-                        <div className="text-xs text-muted-foreground">{terminal.registeredName}</div>
+                        <div className="font-semibold">{terminal.posName ?? "Unnamed terminal"}</div>
+                        <div className="text-xs text-muted-foreground">{terminal.registeredName ?? "No registered name"}</div>
                       </td>
                       <td className="px-4 py-3">{terminal.companyName}</td>
                       <td className="px-4 py-3"><TerminalStatusBadge status={terminal.approvalStatus} /></td>
@@ -195,7 +195,7 @@ export function GlobalTerminalsClient({
                   <div className="space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="font-semibold">{terminal.posName}</div>
+                        <div className="font-semibold">{terminal.posName ?? "Unnamed terminal"}</div>
                         <div className="text-xs text-muted-foreground">{terminal.companyName}</div>
                       </div>
                       <TerminalStatusBadge status={terminal.approvalStatus} />

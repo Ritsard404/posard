@@ -56,6 +56,7 @@ export function CompanyManagementClient({
             code: company.code,
             email: company.email,
             phone: company.phone,
+            address: company.address,
             logoImageUrl: company.logoImageUrl,
             createdAt: company.createdAt,
             updatedAt: company.createdAt,

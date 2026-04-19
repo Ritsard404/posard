@@ -45,8 +45,12 @@ export async function updateCompanyAction(companyId: string, payload: UpdateComp
     const data = await companyService.updateCompany(companyId, validated);
     
     revalidatePath("/companies");
+    revalidatePath("/terminals");
+    revalidatePath("/subscriptions");
     revalidatePath(`/companies/${companyId}`);
     revalidatePath(`/companies/${companyId}/settings`);
+    revalidatePath(`/companies/${companyId}/terminals`);
+    revalidatePath(`/companies/${companyId}/subscription`);
     
     return { success: true, data };
   } catch (error) {

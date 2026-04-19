@@ -20,8 +20,8 @@ function mapSubscription(subscription: {
   updatedAt: Date;
   terminal: {
     id: string;
-    posName: string;
-    registeredName: string;
+    posName: string | null;
+    registeredName: string | null;
     isActive: boolean;
     isTrainMode: boolean;
   };

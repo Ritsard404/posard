@@ -82,7 +82,7 @@ export const reportService = {
       timestampId: timestamp.id,
       terminalId: timestamp.posTerminal.id,
       cashierName: timestamp.cashier.fullName || "Unknown",
-      terminalName: timestamp.posTerminal.posName,
+      terminalName: timestamp.posTerminal.posName ?? "Unnamed terminal",
       timestampIn: timestamp.timestampIn,
       timestampOut: timestamp.timestampOut,
       isTrainMode: timestamp.posTerminal.isTrainMode,

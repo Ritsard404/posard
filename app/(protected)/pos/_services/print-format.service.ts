@@ -147,15 +147,15 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
       separator("="),
       centerText("INVOICE"),
       separator("="),
-      centerText(receipt.registeredName),
-      centerText(receipt.address),
+      centerText(receipt.registeredName ?? "N/A"),
+      centerText(receipt.address ?? "N/A"),
     );
 
-    if (receipt.vatTinNumber.trim()) {
+    if (receipt.vatTinNumber?.trim()) {
       content.push(centerText(`TIN: ${receipt.vatTinNumber.trim()}`));
     }
 
-    if (receipt.minNumber.trim()) {
+    if (receipt.minNumber?.trim()) {
       content.push(centerText(`MIN: ${receipt.minNumber.trim()}`));
     }
 

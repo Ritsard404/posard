@@ -9,6 +9,7 @@ export type SetupCompanyInput = {
   code?: string;
   email?: string;
   phone?: string;
+  address?: string;
   logoImageUrl?: string;
   managerPin: string;
 };
@@ -36,6 +37,7 @@ export async function createCompany(data: SetupCompanyInput) {
         code: data.code,
         email: data.email,
         phone: data.phone,
+        address: data.address,
         logoImageUrl: data.logoImageUrl,
         users: {
           connect: { userId: currentUserId! },
@@ -59,19 +61,16 @@ export async function createCompany(data: SetupCompanyInput) {
         companyId: company.id,
         operatedBy: profile.id,
         registeredName: data.name,
-        posName: `${data.name} - Default Terminal`,
+        posName: `${data.name} POS 1`,
         minNumber: "",
         accreditationNumber: "",
         ptuNumber: "",
         dateIssued: today,
         validUntil: threeYearsOut,
-        address: "",
+        address: data.address || null,
         vatTinNumber: "",
         vat: 12,
         discountMax: 20,
-        costCenter: "",
-        branchCenter: "",
-        useCenter: "",
         printerName: "",
         isTrainMode: false,
       },

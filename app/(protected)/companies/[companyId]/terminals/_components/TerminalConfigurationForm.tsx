@@ -50,13 +50,9 @@ export default function TerminalConfigurationForm({
   useEffect(() => {
     if (!terminal) {
       reset({
-        vat: 12,
-        discountMax: 20,
+        vat: undefined,
+        discountMax: undefined,
         vatTinNumber: "",
-        address: "",
-        costCenter: "",
-        branchCenter: "",
-        useCenter: "",
         printerName: "",
         printerConfig: null,
       });
@@ -65,13 +61,9 @@ export default function TerminalConfigurationForm({
     }
 
     reset({
-      vat: terminal.vat ?? 12,
-      discountMax: terminal.discountMax ?? 20,
-      vatTinNumber: terminal.vatTinNumber,
-      address: terminal.address,
-      costCenter: terminal.costCenter,
-      branchCenter: terminal.branchCenter,
-      useCenter: terminal.useCenter,
+      vat: terminal.vat ?? undefined,
+      discountMax: terminal.discountMax ?? undefined,
+      vatTinNumber: terminal.vatTinNumber ?? "",
       printerName: terminal.printerName ?? "",
       printerConfig: terminal.printerConfig ?? null,
     });
@@ -92,7 +84,7 @@ export default function TerminalConfigurationForm({
     intent: "receipt",
     previewContent: [
       "POSARD PRINTER TEST",
-      `Terminal: ${terminal.posName}`,
+      `Terminal: ${terminal.posName ?? "Unnamed terminal"}`,
       `Printer: ${(config?.displayName ?? terminal.printerName) || "PB-58H"}`,
       `Transport: ${config?.connectionType ?? "preview"}`,
       new Date().toLocaleString(),
@@ -205,31 +197,11 @@ export default function TerminalConfigurationForm({
 
       <SectionCard
         title="Business Info"
-        description="Maintain the terminal's tax and address information."
+        description="Maintain the terminal's tax information."
       >
         <div className="grid gap-4 md:grid-cols-2">
           <FieldGroup label="VAT TIN" error={errors.vatTinNumber?.message}>
             <Input {...register("vatTinNumber")} placeholder="123-456-789-0000" />
-          </FieldGroup>
-          <FieldGroup label="Address" error={errors.address?.message} className="md:col-span-2">
-            <Input {...register("address")} placeholder="Street, City, Province" />
-          </FieldGroup>
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Organizational"
-        description="Apply company tags used for reporting and operational grouping."
-      >
-        <div className="grid gap-4 md:grid-cols-3">
-          <FieldGroup label="Cost Center" error={errors.costCenter?.message}>
-            <Input {...register("costCenter")} placeholder="Optional" />
-          </FieldGroup>
-          <FieldGroup label="Branch Center" error={errors.branchCenter?.message}>
-            <Input {...register("branchCenter")} placeholder="Optional" />
-          </FieldGroup>
-          <FieldGroup label="Use Center" error={errors.useCenter?.message}>
-            <Input {...register("useCenter")} placeholder="Optional" />
           </FieldGroup>
         </div>
       </SectionCard>

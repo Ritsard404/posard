@@ -2,7 +2,7 @@ import type { AdminSubscriptionListItemDto } from "../_dto/admin-subscription.dt
 
 export function mapAdminSubscriptionListItem(terminal: {
   id: string;
-  posName: string;
+  posName: string | null;
   companyId: string;
   isActive: boolean;
   company: { name: string };
@@ -19,7 +19,7 @@ export function mapAdminSubscriptionListItem(terminal: {
 }): AdminSubscriptionListItemDto {
   return {
     terminalId: terminal.id,
-    terminalName: terminal.posName,
+    terminalName: terminal.posName ?? "Unnamed terminal",
     companyId: terminal.companyId,
     companyName: terminal.company.name,
     billingCycle: terminal.subscription?.billingCycle ?? null,

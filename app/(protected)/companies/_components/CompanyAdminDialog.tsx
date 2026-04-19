@@ -48,6 +48,7 @@ export function CompanyAdminDialog({
       code: company?.code ?? "",
       email: company?.email ?? "",
       phone: company?.phone ?? "",
+      address: company?.address ?? "",
       logoImageUrl: company?.logoImageUrl ?? "",
     });
   }, [company, open, reset]);
@@ -76,6 +77,9 @@ export function CompanyAdminDialog({
           </div>
           <Field label="Email" error={errors.email?.message}>
             <Input {...register("email")} type="email" placeholder="owner@company.com" />
+          </Field>
+          <Field label="Address" error={errors.address?.message}>
+            <Input {...register("address")} placeholder="Street, City, Province" />
           </Field>
           <Field label="Logo URL" error={errors.logoImageUrl?.message}>
             <Input {...register("logoImageUrl")} placeholder="https://cdn.example.com/logo.png" />

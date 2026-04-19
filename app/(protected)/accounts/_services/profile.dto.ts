@@ -81,23 +81,19 @@ export interface DrawerStateDto {
 
 export interface PosTerminalDto {
   id: string;
-  minNumber: string;
-  accreditationNumber: string;
-  ptuNumber: string;
+  minNumber: string | null;
+  accreditationNumber: string | null;
+  ptuNumber: string | null;
   dateIssued: string;
   validUntil: string;
-  posName: string;
-  registeredName: string;
-  operatedBy: string;
-  address: string;
-  vatTinNumber: string;
-  vat: number;
-  discountMax: number;
-  costCenter: string;
-  branchCenter: string;
-  useCenter: string;
-  dbName: string | null;
-  printerName: string;
+  posName: string | null;
+  registeredName: string | null;
+  operatedBy: string | null;
+  address: string | null;
+  vatTinNumber: string | null;
+  vat: number | null;
+  discountMax: number | null;
+  printerName: string | null;
   resetCounterNo: number;
   resetCounterTrainNo: number;
   zCounterNo: number;

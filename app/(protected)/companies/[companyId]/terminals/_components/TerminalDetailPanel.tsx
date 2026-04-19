@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, MapPin, ShieldCheck, ToggleLeft } from "lucide-react";
+import { MapPin, ShieldCheck, ToggleLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { TerminalDTO } from "../../_services/terminal.dto";
@@ -43,11 +43,11 @@ export default function TerminalDetailPanel({
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-semibold">{terminal.posName}</h2>
+            <h2 className="text-xl font-semibold">{terminal.posName ?? "Unnamed terminal"}</h2>
             <StatusPill label={terminal.isActive ? "active" : "inactive"} tone={terminal.isActive ? "success" : "neutral"} />
             <StatusPill label={terminal.isTrainMode ? "training mode" : "live mode"} tone={terminal.isTrainMode ? "warning" : "success"} />
           </div>
-          <p className="text-sm text-muted-foreground">{terminal.registeredName}</p>
+          <p className="text-sm text-muted-foreground">{terminal.registeredName ?? "No registered name"}</p>
           <p className="text-sm text-muted-foreground">
             Terminal details stay visible here while managers configure the approved business settings below.
           </p>
@@ -59,33 +59,24 @@ export default function TerminalDetailPanel({
           title="Registration"
           icon={ShieldCheck}
           items={[
-            ["MIN Number", terminal.minNumber],
-            ["Accreditation Number", terminal.accreditationNumber],
-            ["PTU Number", terminal.ptuNumber],
+            ["MIN Number", terminal.minNumber ?? "Not set"],
+            ["Accreditation Number", terminal.accreditationNumber ?? "Not set"],
+            ["PTU Number", terminal.ptuNumber ?? "Not set"],
             ["Date Issued", formatDate(terminal.dateIssued)],
             ["Valid Until", formatDate(terminal.validUntil)],
-            ["VAT TIN", terminal.vatTinNumber],
+            ["VAT TIN", terminal.vatTinNumber ?? "Not set"],
           ]}
         />
         <DetailSection
           title="Business Snapshot"
           icon={MapPin}
           items={[
-            ["Registered Name", terminal.registeredName],
-            ["Operated By", terminal.operatedBy],
-            ["Address", terminal.address],
-            ["VAT", `${terminal.vat}%`],
-            ["Max Discount", String(terminal.discountMax)],
-          ]}
-        />
-        <DetailSection
-          title="Organizational Snapshot"
-          icon={Building2}
-          items={[
-            ["Cost Center", terminal.costCenter],
-            ["Branch Center", terminal.branchCenter],
-            ["Use Center", terminal.useCenter],
-            ["Printer", terminal.printerDisplayName ?? terminal.printerName],
+            ["Registered Name", terminal.registeredName ?? "Not set"],
+            ["Operated By", terminal.operatedBy ?? "Not set"],
+            ["Address", terminal.address ?? "Not set"],
+            ["VAT", `${terminal.vat ?? 0}%`],
+            ["Max Discount", String(terminal.discountMax ?? 0)],
+            ["Printer", terminal.printerDisplayName ?? terminal.printerName ?? "Not set"],
             ["Printer Transport", terminal.printerConnectionType ?? "Not paired"],
           ]}
         />
@@ -105,7 +96,7 @@ export default function TerminalDetailPanel({
                 type="button"
                 role="switch"
                 aria-checked={terminal.isTrainMode}
-                aria-label={`Toggle training mode for ${terminal.posName}`}
+                aria-label={`Toggle training mode for ${terminal.posName ?? "terminal"}`}
                 disabled={!onTrainingModeChange || isTogglingTrainingMode}
                 onClick={() => onTrainingModeChange?.(terminal, !terminal.isTrainMode)}
                 className={cn(

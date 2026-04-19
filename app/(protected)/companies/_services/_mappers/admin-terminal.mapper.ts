@@ -3,8 +3,8 @@ import type { AdminTerminalListItemDto } from "../_dto/admin-terminal.dto";
 export function mapAdminTerminalListItem(terminal: {
   id: string;
   companyId: string;
-  posName: string;
-  registeredName: string;
+  posName: string | null;
+  registeredName: string | null;
   createdAt: Date;
   isActive: boolean;
   company: { name: string };
@@ -29,4 +29,3 @@ export function mapAdminTerminalListItem(terminal: {
     subscriptionExpiresAt: terminal.subscription?.expiresAt ?? null,
   };
 }
-

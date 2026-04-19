@@ -272,8 +272,8 @@ export const orderService = {
     const calc = calculatePayment({
       items: buildCalculationItems(dto.items, productMap),
       discount,
-      vatRate: terminal.vat,
-      maxDiscount: Number(terminal.discountMax),
+      vatRate: terminal.vat ?? 0,
+      maxDiscount: terminal.discountMax ? Number(terminal.discountMax) : 0,
       cashTenderAmount: dto.cashTenderAmount,
       ePayments: dto.ePayments,
     });
@@ -461,8 +461,8 @@ export const orderService = {
     const calc = calculatePayment({
       items: buildCalculationItems(dto.order.items, productMap),
       discount,
-      vatRate: terminal.vat,
-      maxDiscount: Number(terminal.discountMax),
+      vatRate: terminal.vat ?? 0,
+      maxDiscount: terminal.discountMax ? Number(terminal.discountMax) : 0,
       cashTenderAmount: dto.order.cashTenderAmount,
       ePayments: dto.order.ePayments,
     });

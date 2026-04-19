@@ -13,6 +13,7 @@ function mapCompanyBase(company: {
   code: string | null;
   email: string | null;
   phone: string | null;
+  address: string | null;
   logoImageUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -23,6 +24,7 @@ function mapCompanyBase(company: {
     code: company.code,
     email: company.email,
     phone: company.phone,
+    address: company.address,
     logoImageUrl: company.logoImageUrl,
     createdAt: company.createdAt,
     updatedAt: company.updatedAt,
@@ -40,6 +42,7 @@ export const companyService = {
             code: true,
             email: true,
             phone: true,
+            address: true,
             logoImageUrl: true,
             createdAt: true,
             updatedAt: true,
@@ -63,6 +66,7 @@ export const companyService = {
           code: true,
           email: true,
           phone: true,
+          address: true,
           logoImageUrl: true,
           createdAt: true,
           updatedAt: true,
@@ -103,6 +107,7 @@ export const companyService = {
             code: true,
             email: true,
             phone: true,
+            address: true,
             logoImageUrl: true,
             createdAt: true,
             updatedAt: true,
@@ -132,6 +137,7 @@ export const companyService = {
           code: true,
           email: true,
           phone: true,
+          address: true,
           logoImageUrl: true,
           createdAt: true,
           updatedAt: true,
@@ -181,9 +187,23 @@ export const companyService = {
     id: string,
     payload: UpdateCompanyInput,
   ): Promise<CompanyDTO> {
-    const updated = await prisma.company.update({
-      where: { id },
-      data: payload,
+    const updated = await prisma.$transaction(async (tx) => {
+      const company = await tx.company.update({
+        where: { id },
+        data: payload,
+      });
+
+      if (payload.name !== undefined || payload.address !== undefined) {
+        await tx.posTerminalInfo.updateMany({
+          where: { companyId: id },
+          data: {
+            registeredName: company.name,
+            address: company.address,
+          },
+        });
+      }
+
+      return company;
     });
 
     return {
@@ -192,6 +212,7 @@ export const companyService = {
       code: updated.code,
       email: updated.email,
       phone: updated.phone,
+      address: updated.address,
       logoImageUrl: updated.logoImageUrl,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,

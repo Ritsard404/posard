@@ -43,9 +43,9 @@ export async function getCurrentSessionAction() {
         timestampId: timestamp.id,
         terminal: {
           id: timestamp.posTerminalId,
-          name: timestamp.posTerminal.posName,
-          vat: timestamp.posTerminal.vat,
-          discountMax: Number(timestamp.posTerminal.discountMax),
+          name: timestamp.posTerminal.posName ?? "Unnamed terminal",
+          vat: timestamp.posTerminal.vat ?? 0,
+          discountMax: timestamp.posTerminal.discountMax ? Number(timestamp.posTerminal.discountMax) : 0,
           printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
         },
         user: { name: profile.fullName || null, role: profile.role },
@@ -80,10 +80,10 @@ export async function getTerminalsAction() {
     // Map `timestamps` to `sessions` format for UI compatibility
     const mappedTerminals = terminals.map((terminal) => ({
       id: terminal.id,
-      posName: terminal.posName,
+      posName: terminal.posName ?? "Unnamed terminal",
       isActive: terminal.isActive,
-      vat: terminal.vat,
-      discountMax: Number(terminal.discountMax),
+      vat: terminal.vat ?? 0,
+      discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
       printerConfig: printConfigService.mapPrinterConfig(terminal),
       sessions: terminal.timestamps.map((timestamp) => ({
         profile: {
@@ -179,9 +179,9 @@ export async function openSessionAction(
       timestampId: result.timestamp.id,
       terminal: {
         id: terminal.id,
-        name: terminal.posName,
-        vat: terminal.vat,
-        discountMax: Number(terminal.discountMax),
+        name: terminal.posName ?? "Unnamed terminal",
+        vat: terminal.vat ?? 0,
+        discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
         printerConfig: printConfigService.mapPrinterConfig(terminal),
       },
     };
@@ -303,7 +303,7 @@ async function buildSessionXReadingPrintPayload(
     detail,
     selectedTerminal: {
       id: timestamp.posTerminal.id,
-      name: timestamp.posTerminal.posName,
+      name: timestamp.posTerminal.posName ?? "Unnamed terminal",
       isActive: timestamp.posTerminal.isActive,
       printerName: timestamp.posTerminal.printerName,
       printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),

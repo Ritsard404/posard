@@ -29,10 +29,6 @@ const SEED_TERMINALS: PosTerminalDto[] = [
     vatTinNumber: "123-456-789-000",
     vat: 12,
     discountMax: 20,
-    costCenter: "CC-001",
-    branchCenter: "BR-001",
-    useCenter: "USE-001",
-    dbName: null,
     printerName: "EPSON-TM-T88",
     resetCounterNo: 0,
     resetCounterTrainNo: 0,
@@ -56,10 +52,6 @@ const SEED_TERMINALS: PosTerminalDto[] = [
     vatTinNumber: "123-456-789-000",
     vat: 12,
     discountMax: 20,
-    costCenter: "CC-001",
-    branchCenter: "BR-001",
-    useCenter: "USE-002",
-    dbName: null,
     printerName: "EPSON-TM-T88",
     resetCounterNo: 0,
     resetCounterTrainNo: 0,
@@ -104,11 +96,7 @@ function toDto(t: TerminalWithCompany): PosTerminalDto {
     address: t.address,
     vatTinNumber: t.vatTinNumber,
     vat: t.vat,
-    discountMax: Number(t.discountMax),
-    costCenter: t.costCenter,
-    branchCenter: t.branchCenter,
-    useCenter: t.useCenter,
-    dbName: t.dbName,
+    discountMax: t.discountMax ? Number(t.discountMax) : null,
     printerName: t.printerName,
     resetCounterNo: t.resetCounterNo,
     resetCounterTrainNo: t.resetCounterTrainNo,
@@ -211,9 +199,9 @@ export const posTerminalService = {
       const filtered = kw
         ? mockTerminals.filter(
             (t) =>
-              t.posName.toLowerCase().includes(kw) ||
-              t.registeredName.toLowerCase().includes(kw) ||
-              t.minNumber.toLowerCase().includes(kw),
+              (t.posName ?? "").toLowerCase().includes(kw) ||
+              (t.registeredName ?? "").toLowerCase().includes(kw) ||
+              (t.minNumber ?? "").toLowerCase().includes(kw),
           )
         : mockTerminals;
       const page = params?.page ?? 0;
@@ -292,10 +280,6 @@ export const posTerminalService = {
           vatTinNumber: "",
           vat: 12,
           discountMax: 20,
-          costCenter: "",
-          branchCenter: "",
-          useCenter: "",
-          dbName: null,
           printerName: "",
           resetCounterNo: 0,
           resetCounterTrainNo: 0,
@@ -334,9 +318,6 @@ export const posTerminalService = {
         vatTinNumber: "",
         vat: 12,
         discountMax: 20,
-        costCenter: "",
-        branchCenter: "",
-        useCenter: "",
         printerName: "",
       },
     });
@@ -392,10 +373,6 @@ export const posTerminalService = {
         vatTinNumber: dto.vatTinNumber,
         vat: dto.vat,
         discountMax: dto.discountMax,
-        costCenter: dto.costCenter,
-        branchCenter: dto.branchCenter,
-        useCenter: dto.useCenter,
-        dbName: dto.dbName,
         printerName: dto.printerName,
         isTrainMode: dto.isTrainMode,
       },

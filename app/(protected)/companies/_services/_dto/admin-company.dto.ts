@@ -12,6 +12,7 @@ export interface AdminCompanyListItemDto {
   email: string | null;
   code: string | null;
   phone: string | null;
+  address: string | null;
   logoImageUrl: string | null;
   ownerManagerName: string | null;
   ownerManagerEmail: string | null;
@@ -32,6 +33,7 @@ export const AdminCompanyUpsertSchema = z.object({
     .transform((value) => value || null)
     .refine((value) => value === null || /\S+@\S+\.\S+/.test(value), "Invalid email"),
   phone: z.string().trim().optional().transform((value) => value || null),
+  address: z.string().trim().optional().transform((value) => value || null),
   logoImageUrl: z.string().trim().optional().transform((value) => value || null),
 });
 

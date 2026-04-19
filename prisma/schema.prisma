@@ -129,6 +129,7 @@ model Company {
   code  String?
   email String?
   phone String?
+  address String?
 
   logoImageUrl String? @map("logo_img_url") @db.VarChar(500)
 
@@ -179,27 +180,23 @@ model PosTerminalInfo {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_pos_terminal") @db.Uuid
 
   // Regulatory
-  minNumber           String   @map("min_number")
-  accreditationNumber String   @map("accreditation_number")
-  ptuNumber           String   @map("ptu_number")
+  minNumber           String?  @map("min_number")
+  accreditationNumber String?  @map("accreditation_number")
+  ptuNumber           String?  @map("ptu_number")
   dateIssued          DateTime @map("date_issued") @db.Date
   validUntil          DateTime @map("valid_until") @db.Date
 
   // Business
-  posName        String  @map("pos_name")
-  registeredName String  @map("registered_name")
-  operatedBy     String  @map("operated_by")
-  address        String
-  vatTinNumber   String  @map("vat_tin_number")
-  vat            Int
-  discountMax    Decimal @map("discount_max") @db.Decimal(10, 2)
+  posName        String?  @map("pos_name")
+  registeredName String?  @map("registered_name")
+  operatedBy     String?  @map("operated_by")
+  address        String?
+  vatTinNumber   String?  @map("vat_tin_number")
+  vat            Int?
+  discountMax    Decimal? @map("discount_max") @db.Decimal(10, 2)
 
   // System
-  costCenter   String  @map("cost_center")
-  branchCenter String  @map("branch_center")
-  useCenter    String  @map("use_center")
-  dbName       String? @map("db_name")
-  printerName  String  @map("printer_name")
+  printerName  String? @map("printer_name")
   printerDisplayName      String?               @map("printer_display_name")
   printerConnectionType   PrinterConnectionType? @map("printer_connection_type")
   printerVendorId         Int?                  @map("printer_vendor_id")

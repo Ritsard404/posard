@@ -104,8 +104,8 @@ export default function SubscriptionPageClient({ companyId }: SubscriptionPageCl
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-2">
                     <div>
-                      <h3 className="text-lg font-semibold">{terminal.posName}</h3>
-                      <p className="text-sm text-muted-foreground">{terminal.registeredName}</p>
+                      <h3 className="text-lg font-semibold">{terminal.posName ?? "Unnamed terminal"}</h3>
+                      <p className="text-sm text-muted-foreground">{terminal.registeredName ?? "No registered name"}</p>
                     </div>
                     <div className="flex flex-wrap gap-2 text-xs">
                       <StatusPill

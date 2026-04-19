@@ -24,6 +24,7 @@ export const CompanySchema = z.object({
   code: z.string().nullable(),
   email: z.string().email("Invalid email").nullable(),
   phone: z.string().nullable(),
+  address: z.string().nullable(),
   logoImageUrl: z.string().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -52,6 +53,7 @@ export const UpdateCompanySchema = z.object({
   code: nullableTextInput.optional(),
   email: nullableEmailInput.optional(),
   phone: nullableTextInput.optional(),
+  address: nullableTextInput.optional(),
   logoImageUrl: nullableTextInput.optional(),
 });
 

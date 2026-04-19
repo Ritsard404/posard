@@ -14,6 +14,7 @@ function toCompanyDto(company: {
   code: string | null;
   email: string | null;
   phone: string | null;
+  address: string | null;
   logoImageUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -24,6 +25,7 @@ function toCompanyDto(company: {
     code: company.code,
     email: company.email,
     phone: company.phone,
+    address: company.address,
     logoImageUrl: company.logoImageUrl,
     createdAt: company.createdAt,
     updatedAt: company.updatedAt,
@@ -63,6 +65,7 @@ export const adminCompanyService = {
           email: true,
           code: true,
           phone: true,
+          address: true,
           logoImageUrl: true,
           createdAt: true,
           users: {
@@ -127,9 +130,23 @@ export const adminCompanyService = {
   },
 
   async updateCompany(companyId: string, payload: AdminCompanyUpsertInput): Promise<CompanyDTO> {
-    const company = await prisma.company.update({
-      where: { id: companyId },
-      data: payload,
+    const company = await prisma.$transaction(async (tx) => {
+      const updated = await tx.company.update({
+        where: { id: companyId },
+        data: payload,
+      });
+
+      if (payload.name !== undefined || payload.address !== undefined) {
+        await tx.posTerminalInfo.updateMany({
+          where: { companyId },
+          data: {
+            registeredName: updated.name,
+            address: updated.address,
+          },
+        });
+      }
+
+      return updated;
     });
 
     return toCompanyDto(company);

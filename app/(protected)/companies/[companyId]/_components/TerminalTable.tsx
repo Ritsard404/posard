@@ -91,10 +91,10 @@ export default function TerminalTable({
                     } ${selectedTerminalId === t.id ? "bg-blue-50/70" : ""}`}
                     onClick={onSelect ? () => onSelect(t) : undefined}
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900">{t.posName}</td>
-                    <td className="px-4 py-3 text-gray-600">{t.minNumber}</td>
-                    <td className="px-4 py-3 text-gray-600">{t.ptuNumber}</td>
-                    <td className="px-4 py-3 text-gray-600">{t.registeredName}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{t.posName ?? "Unnamed terminal"}</td>
+                    <td className="px-4 py-3 text-gray-600">{t.minNumber ?? "Not set"}</td>
+                    <td className="px-4 py-3 text-gray-600">{t.ptuNumber ?? "Not set"}</td>
+                    <td className="px-4 py-3 text-gray-600">{t.registeredName ?? "No registered name"}</td>
                     <td className="px-4 py-3 text-gray-600">
                       {new Date(t.validUntil).toLocaleDateString()}
                     </td>
@@ -204,8 +204,8 @@ export default function TerminalTable({
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="font-semibold text-gray-900">{t.posName}</div>
-                    <div className="text-xs text-gray-500">{t.registeredName}</div>
+                    <div className="font-semibold text-gray-900">{t.posName ?? "Unnamed terminal"}</div>
+                    <div className="text-xs text-gray-500">{t.registeredName ?? "No registered name"}</div>
                   </div>
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -220,8 +220,8 @@ export default function TerminalTable({
                   </span>
                 </div>
                 <div className="text-xs text-gray-500 space-y-1">
-                  <div>MIN: {t.minNumber}</div>
-                  <div>PTU: {t.ptuNumber}</div>
+                  <div>MIN: {t.minNumber ?? "Not set"}</div>
+                  <div>PTU: {t.ptuNumber ?? "Not set"}</div>
                   <div>Valid until: {new Date(t.validUntil).toLocaleDateString()}</div>
                 </div>
                 <div className="flex gap-2 pt-1">

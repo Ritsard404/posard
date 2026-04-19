@@ -35,6 +35,7 @@ export function SetupCompanyForm() {
       code: "",
       email: "",
       phone: "",
+      address: "",
       logoImageUrl: "",
       managerPin: "",
     },
@@ -128,6 +129,20 @@ export function SetupCompanyForm() {
                 {errors.phone && (
                   <p className="text-xs font-bold text-destructive">
                     {errors.phone.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Company Address</Label>
+                <Input
+                  placeholder="Street, City, Province"
+                  {...register("address")}
+                  className="h-12 rounded-xl bg-background/50 border-white/10 focus:border-accent/50 transition-all"
+                />
+                {errors.address && (
+                  <p className="text-xs font-bold text-destructive">
+                    {errors.address.message}
                   </p>
                 )}
               </div>

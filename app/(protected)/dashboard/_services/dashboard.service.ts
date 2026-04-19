@@ -261,7 +261,7 @@ export const dashboardService = {
           .slice(0, 5),
         terminals: terminals.map((terminal) => ({
           id: terminal.id,
-          name: terminal.posName,
+          name: terminal.posName ?? "Unnamed terminal",
           secondaryLabel: terminal.company.name,
           sales: terminal.invoices.reduce(
             (sum, invoice) =>
@@ -277,7 +277,7 @@ export const dashboardService = {
         recentActivities: auditLogs.map((log) => ({
           id: log.id,
           title: log.actionType,
-          description: `${log.actorProfile.fullName ?? log.actorProfile.email}${log.posTerminal ? ` • ${log.posTerminal.posName}` : ""}`,
+          description: `${log.actorProfile.fullName ?? log.actorProfile.email}${log.posTerminal ? ` • ${log.posTerminal.posName ?? "Unnamed terminal"}` : ""}`,
           occurredAt: log.createdAt,
         })),
         alerts: [
@@ -505,14 +505,14 @@ export const dashboardService = {
       recentActivities: auditLogs.map((log) => ({
         id: log.id,
         title: log.actionType,
-        description: `${log.actorProfile.fullName ?? log.actorProfile.email}${log.posTerminal ? ` • ${log.posTerminal.posName}` : ""}`,
+        description: `${log.actorProfile.fullName ?? log.actorProfile.email}${log.posTerminal ? ` • ${log.posTerminal.posName ?? "Unnamed terminal"}` : ""}`,
         occurredAt: log.createdAt,
       })),
       recentInvoices: recentInvoices.map((invoice) => ({
         id: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
         customerName: invoice.customerName,
-        terminalName: invoice.posTerminal.posName,
+        terminalName: invoice.posTerminal.posName ?? "Unnamed terminal",
         amount: toNumber(invoice.totalAmount),
         status: invoice.status,
         createdAt: invoice.createdAt,
@@ -541,7 +541,7 @@ export const dashboardService = {
         ],
         terminals: terminals.map((terminal) => ({
           id: terminal.id,
-          name: terminal.posName,
+          name: terminal.posName ?? "Unnamed terminal",
           secondaryLabel: terminal.timestamps.length > 0 ? "Open drawer" : "No open shift",
           sales: terminal.invoices.reduce(
             (sum, invoice) =>
@@ -585,7 +585,7 @@ export const dashboardService = {
 
     const latestCashierShift = latestShift
       ? {
-          terminalName: latestShift.posTerminal.posName,
+          terminalName: latestShift.posTerminal.posName ?? "Unnamed terminal",
           openedAt: latestShift.timestampIn,
           openingFund: toNumber(latestShift.cashInDrawerAmount),
           withdrawalAmount: toNumber(latestShift.withdrawnDrawerAmount),

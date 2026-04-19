@@ -24,7 +24,7 @@ import {
 
 interface SubscriptionTerminalOption {
   id: string;
-  posName: string;
+  posName: string | null;
 }
 
 interface SubscriptionFormDialogProps {
@@ -121,7 +121,7 @@ export function SubscriptionFormDialog({
           <DialogTitle>Manage Terminal Subscription</DialogTitle>
           <DialogDescription>
             {terminal
-              ? `Configure billing for ${terminal.posName}.`
+              ? `Configure billing for ${terminal.posName ?? "Unnamed terminal"}.`
               : "Configure billing for this terminal."}
           </DialogDescription>
         </DialogHeader>

@@ -51,8 +51,8 @@ export const TerminalSubscriptionSchema = z.object({
   updatedAt: z.date(),
   terminal: z.object({
     id: z.string().uuid(),
-    posName: z.string(),
-    registeredName: z.string(),
+    posName: z.string().nullable(),
+    registeredName: z.string().nullable(),
     isActive: z.boolean(),
     isTrainMode: z.boolean(),
   }),

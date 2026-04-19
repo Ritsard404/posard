@@ -12,25 +12,62 @@ export const PrinterConfigSchema = z.object({
   autoPrintEnabled: z.boolean(),
 });
 
+const nullableStringInput = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value ?? null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}, z.string().nullable());
+
+const nullableNumberInput = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
+  return value;
+}, z.coerce.number().min(0).nullable());
+
+const requiredDateInput = z
+  .union([z.string(), z.date()])
+  .transform((value, ctx) => {
+    if (typeof value === "string" && value.trim().length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Date is required",
+      });
+      return z.NEVER;
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Invalid date",
+      });
+      return z.NEVER;
+    }
+
+    return date;
+  });
+
 export const TerminalSchema = z.object({
   id: z.string().uuid(),
-  minNumber: z.string().min(1, "MIN number is required"),
-  accreditationNumber: z.string().min(1, "Accreditation number is required"),
-  ptuNumber: z.string().min(1, "PTU number is required"),
+  minNumber: z.string().nullable(),
+  accreditationNumber: z.string().nullable(),
+  ptuNumber: z.string().nullable(),
   dateIssued: z.date(),
   validUntil: z.date(),
-  posName: z.string().min(1, "POS Name is required"),
-  registeredName: z.string().min(1, "Registered Name is required"),
-  operatedBy: z.string().min(1, "Operated By is required"),
-  address: z.string().min(1, "Address is required"),
-  vatTinNumber: z.string().min(1, "VAT TIN is required"),
-  vat: z.number().int().min(0),
-  discountMax: z.number().min(0),
-  costCenter: z.string().min(1, "Cost Center is required"),
-  branchCenter: z.string().min(1, "Branch Center is required"),
-  useCenter: z.string().min(1, "Use Center is required"),
-  dbName: z.string().nullable(),
-  printerName: z.string().min(1, "Printer Name is required"),
+  posName: z.string().nullable(),
+  registeredName: z.string().nullable(),
+  operatedBy: z.string().nullable(),
+  address: z.string().nullable(),
+  vatTinNumber: z.string().nullable(),
+  vat: z.number().int().min(0).nullable(),
+  discountMax: z.number().min(0).nullable(),
+  printerName: z.string().nullable(),
   printerDisplayName: z.string().nullable().optional(),
   printerConnectionType: z.enum(["usb", "bluetooth"]).nullable().optional(),
   printerVendorId: z.number().int().nullable().optional(),
@@ -63,23 +100,16 @@ export interface TerminalPrinterConfigurationDTO {
 }
 
 export const CreateTerminalSchema = z.object({
-  minNumber: z.string().min(1, "MIN number is required"),
-  accreditationNumber: z.string().min(1, "Accreditation number is required"),
-  ptuNumber: z.string().min(1, "PTU number is required"),
-  dateIssued: z.string().or(z.date()).transform((val) => new Date(val)),
-  validUntil: z.string().or(z.date()).transform((val) => new Date(val)),
-  posName: z.string().min(1, "POS Name is required"),
-  registeredName: z.string().min(1, "Registered Name is required"),
-  operatedBy: z.string().min(1, "Operated By is required"),
-  address: z.string().min(1, "Address is required"),
-  vatTinNumber: z.string().min(1, "VAT TIN is required"),
-  vat: z.coerce.number().int().min(0),
-  discountMax: z.coerce.number().min(0),
-  costCenter: z.string().min(1, "Cost Center is required"),
-  branchCenter: z.string().min(1, "Branch Center is required"),
-  useCenter: z.string().min(1, "Use Center is required"),
-  dbName: z.string().nullable().optional(),
-  printerName: z.string().min(1, "Printer Name is required"),
+  minNumber: nullableStringInput.optional(),
+  accreditationNumber: nullableStringInput.optional(),
+  ptuNumber: nullableStringInput.optional(),
+  dateIssued: requiredDateInput,
+  validUntil: requiredDateInput,
+  operatedBy: nullableStringInput.optional(),
+  vatTinNumber: nullableStringInput.optional(),
+  vat: nullableNumberInput.optional(),
+  discountMax: nullableNumberInput.optional(),
+  printerName: nullableStringInput.optional(),
 });
 
 export type CreateTerminalPayload = z.input<typeof CreateTerminalSchema>;
@@ -93,18 +123,13 @@ export type UpdateTerminalInput = z.infer<typeof UpdateTerminalSchema>;
 const vatTinPattern = /^\d{3}-\d{3}-\d{3}-\d{3,4}$/;
 
 export const TerminalConfigurationSchema = z.object({
-  vat: z.coerce.number().min(0, "VAT rate must be at least 0%").max(100, "VAT rate cannot exceed 100%"),
-  discountMax: z.coerce.number().min(0, "Max discount must be at least 0%").max(100, "Max discount cannot exceed 100%"),
-  vatTinNumber: z
-    .string()
-    .trim()
-    .min(1, "VAT TIN is required")
-    .refine((value) => vatTinPattern.test(value), "Use VAT TIN format ###-###-###-####"),
-  address: z.string().trim().min(1, "Address is required"),
-  costCenter: z.string().trim().max(100, "Cost Center must be 100 characters or fewer"),
-  branchCenter: z.string().trim().max(100, "Branch Center must be 100 characters or fewer"),
-  useCenter: z.string().trim().max(100, "Use Center must be 100 characters or fewer"),
-  printerName: z.string().trim().max(100, "Printer must be 100 characters or fewer"),
+  vat: nullableNumberInput.refine((value) => value === null || value <= 100, "VAT rate cannot exceed 100%"),
+  discountMax: nullableNumberInput.refine((value) => value === null || value <= 100, "Max discount cannot exceed 100%"),
+  vatTinNumber: nullableStringInput.refine(
+    (value) => value === null || vatTinPattern.test(value),
+    "Use VAT TIN format ###-###-###-####",
+  ),
+  printerName: nullableStringInput,
   printerConfig: PrinterConfigSchema.nullable().optional(),
 });
 

@@ -59,17 +59,10 @@ export default function TerminalFormModal({
         ptuNumber: terminal.ptuNumber,
         dateIssued: toDateInputValue(terminal.dateIssued),
         validUntil: toDateInputValue(terminal.validUntil),
-        posName: terminal.posName,
-        registeredName: terminal.registeredName,
         operatedBy: terminal.operatedBy,
-        address: terminal.address,
         vatTinNumber: terminal.vatTinNumber,
-        vat: terminal.vat,
-        discountMax: terminal.discountMax,
-        costCenter: terminal.costCenter,
-        branchCenter: terminal.branchCenter,
-        useCenter: terminal.useCenter,
-        dbName: terminal.dbName ?? undefined,
+        vat: terminal.vat ?? undefined,
+        discountMax: terminal.discountMax ?? undefined,
         printerName: terminal.printerName,
       });
       return;
@@ -81,17 +74,10 @@ export default function TerminalFormModal({
       ptuNumber: "",
       dateIssued: "",
       validUntil: "",
-      posName: "",
-      registeredName: "",
       operatedBy: "",
-      address: "",
       vatTinNumber: "",
-      vat: 0,
-      discountMax: 0,
-      costCenter: "",
-      branchCenter: "",
-      useCenter: "",
-      dbName: undefined,
+      vat: undefined,
+      discountMax: undefined,
       printerName: "",
     });
   }, [isOpen, terminal, reset]);
@@ -137,12 +123,6 @@ export default function TerminalFormModal({
               Business Information
             </h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FieldGroup label="POS Name" error={errors.posName?.message}>
-                <Input {...register("posName")} placeholder="POS-001" />
-              </FieldGroup>
-              <FieldGroup label="Registered Name" error={errors.registeredName?.message}>
-                <Input {...register("registeredName")} placeholder="Business Name Inc." />
-              </FieldGroup>
               <FieldGroup label="Operated By" error={errors.operatedBy?.message}>
                 <Input {...register("operatedBy")} placeholder="Operator name" />
               </FieldGroup>
@@ -150,13 +130,10 @@ export default function TerminalFormModal({
                 <Input {...register("vatTinNumber")} placeholder="000-000-000-000" />
               </FieldGroup>
               <FieldGroup label="VAT (%)" error={errors.vat?.message}>
-                <Input type="number" {...register("vat")} placeholder="12" />
+                <Input type="number" {...register("vat")} placeholder="Optional" />
               </FieldGroup>
               <FieldGroup label="Max Discount" error={errors.discountMax?.message}>
-                <Input type="number" step="0.01" {...register("discountMax")} placeholder="20" />
-              </FieldGroup>
-              <FieldGroup label="Address" error={errors.address?.message} className="sm:col-span-2">
-                <Input {...register("address")} placeholder="Street, City, Province" />
+                <Input type="number" step="0.01" {...register("discountMax")} placeholder="Optional" />
               </FieldGroup>
             </div>
           </section>
@@ -166,20 +143,8 @@ export default function TerminalFormModal({
               System Configuration
             </h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FieldGroup label="Cost Center" error={errors.costCenter?.message}>
-                <Input {...register("costCenter")} placeholder="COST-001" />
-              </FieldGroup>
-              <FieldGroup label="Branch Center" error={errors.branchCenter?.message}>
-                <Input {...register("branchCenter")} placeholder="BRANCH-001" />
-              </FieldGroup>
-              <FieldGroup label="Use Center" error={errors.useCenter?.message}>
-                <Input {...register("useCenter")} placeholder="USE-001" />
-              </FieldGroup>
-              <FieldGroup label="DB Name" error={errors.dbName?.message}>
-                <Input {...register("dbName")} placeholder="db_pos_001" />
-              </FieldGroup>
               <FieldGroup label="Printer Name" error={errors.printerName?.message}>
-                <Input {...register("printerName")} placeholder="EPSON-TM20" />
+                <Input {...register("printerName")} placeholder="Optional" />
               </FieldGroup>
             </div>
           </section>
