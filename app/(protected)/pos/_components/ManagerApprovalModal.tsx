@@ -18,7 +18,7 @@ interface ManagerApprovalModalProps {
   onOpenChange: (open: boolean) => void;
   actionType: string;
   referenceId: string;
-  onSuccess: (manager: { email: string; name: string }) => void;
+  onSuccess: (manager: { email: string; name: string }) => void | Promise<void>;
 }
 
 export function ManagerApprovalModal({
@@ -57,7 +57,7 @@ export function ManagerApprovalModal({
       if (result.success) {
         setPin("");
         setError(null);
-        onSuccess(result.manager);
+        await onSuccess(result.manager);
         onOpenChange(false);
         return;
       }

@@ -7,7 +7,14 @@ import { CheckoutModal } from "./CheckoutModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Minus, ShoppingCart, ChevronRight } from "lucide-react";
+import {
+  Trash2,
+  Plus,
+  Minus,
+  ShoppingCart,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePOSPaymentSummary } from "./checkout-shared";
@@ -27,18 +34,22 @@ export function CartPanel() {
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
-  const [approvalType, setApprovalType] = useState<"VOID_ITEM" | "CANCEL_ORDER">(
-    "VOID_ITEM",
-  );
+  const [approvalType, setApprovalType] = useState<
+    "VOID_ITEM" | "CANCEL_ORDER"
+  >("VOID_ITEM");
   const [approvalRefId, setApprovalRefId] = useState("");
-  const [pendingAction, setPendingAction] = useState<(
-    (manager: { email: string; name: string }) => void
-  ) | null>(null);
+  const [pendingAction, setPendingAction] = useState<
+    ((manager: { email: string; name: string }) => void | Promise<void>) | null
+  >(null);
+
+  const [isVoiding, setIsVoiding] = useState(false);
 
   const { activeCart, subtotal, discountAmount, total, taxDerived } =
     usePOSPaymentSummary();
 
   const handleCartQuantityChange = (cartItemId: string, quantity: number) => {
+    if (isVoiding) return;
+
     const result = updateCartQuantity(cartItemId, quantity);
 
     if (!result.success) {
@@ -56,6 +67,20 @@ export function CartPanel() {
 
   return (
     <div className="relative z-10 flex h-full w-full flex-col bg-card animate-in slide-in-from-right-4 duration-300">
+      {isVoiding ? (
+        <div className="fixed inset-0 z-[100] flex cursor-wait flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex min-h-40 w-[min(22rem,calc(100vw-2rem))] flex-col items-center justify-center rounded-xl border bg-card p-6 text-center shadow-lg">
+            <Loader2 className="mb-4 size-8 animate-spin text-primary" />
+            <p className="font-heading text-lg font-black tracking-tight text-foreground">
+              Voiding order
+            </p>
+            <p className="mt-2 text-sm font-medium text-muted-foreground">
+              Please wait until the transaction is complete.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between border-b p-4 lg:p-6">
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
@@ -113,11 +138,14 @@ export function CartPanel() {
                           type="number"
                           min="0"
                           step="0.01"
+                          disabled={isVoid || isVoiding}
                           className={`h-7 w-20 border-none bg-transparent p-0 text-right text-sm font-black focus-visible:ring-0 ${item.customSubtotal !== undefined ? "text-primary" : "text-foreground/80"}`}
                           value={
                             item.customSubtotal !== undefined
                               ? item.customSubtotal
-                              : Number((item.price * item.cartQuantity).toFixed(2))
+                              : Number(
+                                  (item.price * item.cartQuantity).toFixed(2),
+                                )
                           }
                           onChange={(e) => {
                             if (e.target.value === "") {
@@ -153,7 +181,7 @@ export function CartPanel() {
                             item.cartQuantity - 1,
                           )
                         }
-                        disabled={isVoid}
+                        disabled={isVoid || isVoiding}
                       >
                         <Minus className="size-4" />
                       </Button>
@@ -173,7 +201,7 @@ export function CartPanel() {
                             item.cartQuantity + 1,
                           )
                         }
-                        disabled={isVoid}
+                        disabled={isVoid || isVoiding}
                       >
                         <Plus className="size-4" />
                       </Button>
@@ -191,6 +219,8 @@ export function CartPanel() {
                         size="icon"
                         className="h-9 w-9 rounded-lg border border-destructive/10 bg-destructive/5 text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground"
                         onClick={() => {
+                          if (isVoiding) return;
+
                           setApprovalType("VOID_ITEM");
                           setApprovalRefId(item.cartItemId);
                           setPendingAction(
@@ -198,6 +228,7 @@ export function CartPanel() {
                           );
                           setApprovalOpen(true);
                         }}
+                        disabled={isVoiding}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -257,47 +288,53 @@ export function CartPanel() {
             variant="outline"
             className="group h-14 w-1/4 rounded-xl text-[10px] font-bold uppercase tracking-wider text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground active:scale-95"
             onClick={async () => {
-              if (cart.length === 0) return;
+              if (cart.length === 0 || isVoiding) return;
 
               setApprovalType("CANCEL_ORDER");
               setApprovalRefId(activeTimestampId || "");
               setPendingAction(
                 () => async (manager: { email: string; name: string }) => {
-                  const reason =
-                    prompt("Enter void reason:") || "Manager Cancelled via PIN";
+                  setIsVoiding(true);
+                  try {
+                    const reason =
+                      prompt("Enter void reason:") ||
+                      "Manager Cancelled via PIN";
 
-                  const orderDto: OrderDto = {
-                    timestampId: activeTimestampId ?? "",
-                    items: cart.map((i) => ({
-                      productId: i.id,
-                      qty: i.cartQuantity,
-                      price: i.price,
-                      subTotal:
-                        i.itemStatus === "VOID"
-                          ? 0
-                          : (i.customSubtotal ?? i.price * i.cartQuantity),
-                      status: i.itemStatus || "PENDING",
-                    })),
-                    cashTenderAmount: 0,
-                  };
+                    const orderDto: OrderDto = {
+                      timestampId: activeTimestampId ?? "",
+                      items: cart.map((i) => ({
+                        productId: i.id,
+                        qty: i.cartQuantity,
+                        price: i.price,
+                        subTotal:
+                          i.itemStatus === "VOID"
+                            ? 0
+                            : (i.customSubtotal ?? i.price * i.cartQuantity),
+                        status: i.itemStatus || "PENDING",
+                      })),
+                      cashTenderAmount: 0,
+                    };
 
-                  const res = await cancelOrderAction({
-                    order: orderDto,
-                    managerIdentifier: manager.email,
-                    reason,
-                  });
+                    const res = await cancelOrderAction({
+                      order: orderDto,
+                      managerIdentifier: manager.email,
+                      reason,
+                    });
 
-                  if (res.success) {
-                    clearCart();
-                    alert("Order cancelled successfully.");
-                  } else {
-                    alert("Failed to cancel order: " + res.error);
+                    if (res.success) {
+                      clearCart();
+                      alert("Order cancelled successfully.");
+                    } else {
+                      alert("Failed to cancel order: " + res.error);
+                    }
+                  } finally {
+                    setIsVoiding(false);
                   }
                 },
               );
               setApprovalOpen(true);
             }}
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || isVoiding}
           >
             <div className="flex flex-col items-center">
               <Trash2 className="mb-1 size-4 transition-transform group-hover:rotate-12" />
@@ -314,7 +351,7 @@ export function CartPanel() {
               }
               setCheckoutOpen(true);
             }}
-            disabled={activeCart.length === 0}
+            disabled={activeCart.length === 0 || isVoiding}
           >
             {isMobile ? "Go to Tender" : "Checkout"}
             <ChevronRight className="ml-2 size-6 transition-transform group-hover:translate-x-1" />
@@ -336,10 +373,14 @@ export function CartPanel() {
         actionType={approvalType}
         referenceId={approvalRefId}
         onSuccess={(manager) => {
-          if (pendingAction) {
-            pendingAction(manager);
-            setPendingAction(null);
+          if (!pendingAction) {
+            return;
           }
+
+          const action = pendingAction;
+          return Promise.resolve(action(manager)).finally(() => {
+            setPendingAction(null);
+          });
         }}
       />
     </div>
