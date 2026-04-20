@@ -71,6 +71,18 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+function isVoidInvoice(invoice: { status: string }) {
+  return invoice.status === "VOID" || invoice.status === "CANCELLED";
+}
+
+function calculateVoidAmount(invoice: {
+  grossAmount: unknown;
+  totalAmount: unknown;
+}) {
+  const totalAmount = toNumber(invoice.totalAmount);
+  return totalAmount > 0 ? totalAmount : toNumber(invoice.grossAmount);
+}
+
 function createRange(from: Date, to: Date): ReportDateRangeDto {
   return { from, to };
 }
@@ -302,7 +314,7 @@ function createItemWhere(
     },
     invoice: {
       status: {
-        not: "VOID",
+        notIn: ["VOID", "CANCELLED"],
       },
       posTerminal: {
         companyId,
@@ -383,7 +395,7 @@ async function buildXReadingFromTimestamp(timestamp: {
   );
   const unreadInvoices = invoices.filter((invoice) => !invoice.isRead);
   const paidInvoices = unreadInvoices.filter((invoice) => invoice.status === "PAID");
-  const voidInvoices = unreadInvoices.filter((invoice) => invoice.status === "VOID");
+  const voidInvoices = unreadInvoices.filter(isVoidInvoice);
   const returnedInvoices = unreadInvoices.filter(
     (invoice) => invoice.status === "RETURNED",
   );
@@ -430,7 +442,7 @@ async function buildXReadingFromTimestamp(timestamp: {
     refundAmount,
     refundCount: returnedInvoices.length,
     voidAmount: voidInvoices.reduce(
-      (sum, invoice) => sum + toNumber(invoice.totalAmount),
+      (sum, invoice) => sum + calculateVoidAmount(invoice),
       0,
     ),
     voidCount: voidInvoices.length,
@@ -438,10 +450,10 @@ async function buildXReadingFromTimestamp(timestamp: {
     actualCash,
     shortOver: actualCash - expectedCash - refundAmount,
     cashSales,
-    otherPayments: buildPaymentBreakdown(unreadInvoices),
+    otherPayments: buildPaymentBreakdown(paidInvoices),
     paymentsReceived:
       cashSales +
-      unreadInvoices.reduce(
+      paidInvoices.reduce(
         (sum, invoice) =>
           sum +
           invoice.ePayments.reduce(
@@ -709,7 +721,7 @@ export const reportService = {
       ]);
 
     const paidInvoices = invoices.filter((invoice) => invoice.status === "PAID");
-    const voidInvoices = invoices.filter((invoice) => invoice.status === "VOID");
+    const voidInvoices = invoices.filter(isVoidInvoice);
     const returnedInvoices = invoices.filter(
       (invoice) => invoice.status === "RETURNED",
     );
@@ -730,7 +742,7 @@ export const reportService = {
         0,
       ),
       totalVoids: voidInvoices.reduce(
-        (sum, invoice) => sum + toNumber(invoice.totalAmount),
+        (sum, invoice) => sum + calculateVoidAmount(invoice),
         0,
       ),
       totalDiscounts: paidInvoices.reduce(
@@ -855,7 +867,7 @@ export const reportService = {
     });
 
     const paidInvoices = invoices.filter((invoice) => invoice.status === "PAID");
-    const voidInvoices = invoices.filter((invoice) => invoice.status === "VOID");
+    const voidInvoices = invoices.filter(isVoidInvoice);
     const returnedInvoices = invoices.filter(
       (invoice) => invoice.status === "RETURNED",
     );
@@ -869,7 +881,7 @@ export const reportService = {
       0,
     );
     const totalVoids = voidInvoices.reduce(
-      (sum, invoice) => sum + toNumber(invoice.totalAmount),
+      (sum, invoice) => sum + calculateVoidAmount(invoice),
       0,
     );
     const totalDiscounts = paidInvoices.reduce(
@@ -1416,7 +1428,7 @@ export const reportService = {
         WHERE terminal.company_id = ${companyId}::uuid
           AND invoice.created_at >= ${input.from}
           AND invoice.created_at <= ${input.to}
-          AND invoice.status <> 'VOID'
+          AND invoice.status NOT IN ('VOID', 'CANCELLED')
           AND item.status <> 'VOID'
           ${terminalId ? Prisma.sql`AND terminal.uuid_pos_terminal = ${terminalId}::uuid` : Prisma.empty}
       `),
@@ -1475,6 +1487,7 @@ export const reportService = {
       where: createInvoiceWhere(companyId, input.from, input.to, terminalId),
       select: {
         createdAt: true,
+        grossAmount: true,
         totalAmount: true,
         discountAmount: true,
         returnedAmount: true,
@@ -1517,17 +1530,19 @@ export const reportService = {
       };
 
       current.invoiceCount += 1;
-      current.grossSales += toNumber(invoice.totalAmount);
+       current.grossSales += toNumber(invoice.totalAmount);
       current.totalDiscounts += toNumber(invoice.discountAmount);
       current.totalReturns += toNumber(invoice.returnedAmount);
-      current.cashSales += calculateCashCollected(invoice);
-      current.ePaymentSales += invoice.ePayments.reduce(
-        (sum, payment) => sum + toNumber(payment.amount),
-        0,
-      );
+      if (invoice.status === "PAID") {
+        current.cashSales += calculateCashCollected(invoice);
+        current.ePaymentSales += invoice.ePayments.reduce(
+          (sum, payment) => sum + toNumber(payment.amount),
+          0,
+        );
+      }
 
-      if (invoice.status === "VOID" || invoice.status === "CANCELLED") {
-        current.totalVoids += toNumber(invoice.totalAmount);
+      if (isVoidInvoice(invoice)) {
+        current.totalVoids += calculateVoidAmount(invoice);
       }
 
       current.netSales +=
@@ -1653,7 +1668,7 @@ export const reportService = {
         vat,
       });
 
-      if (invoice.status === "VOID" || invoice.status === "CANCELLED") {
+      if (isVoidInvoice(invoice)) {
         const voidEntry: TransactionListItemDto = {
           ...baseEntry,
           entryDate: invoice.updatedAt,

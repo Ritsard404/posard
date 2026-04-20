@@ -544,7 +544,7 @@ export const orderService = {
         vatZero: 0,
         discountAmount: 0,
 
-        status: "CANCELLED" satisfies InvoiceStatusType,
+        status: "VOID" satisfies InvoiceStatusType,
         isTrainMode: terminal.isTrainMode,
 
         items: {
