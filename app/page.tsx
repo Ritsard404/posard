@@ -1,9 +1,7 @@
-import { AuthButton } from "@/components/auth-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { hasEnvVars } from "@/lib/utils";
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { Suspense } from "react";
 import {
   Card,
   CardContent,
@@ -13,7 +11,48 @@ import {
 } from "@/components/ui/card";
 import { ShoppingCart, Package, BarChart3, ShieldCheck, Zap, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AuthGate } from "@/components/auth-gate";
+import { absoluteUrl, jsonLdScript, siteConfig } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: "Small Business POS Software for Retail Checkout",
+  description: siteConfig.description,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "POSard Small Business POS Software",
+    description: siteConfig.description,
+    url: absoluteUrl("/"),
+    siteName: siteConfig.name,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "POSard small business POS software",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "POSard Small Business POS Software",
+    description: siteConfig.description,
+    images: ["/opengraph-image"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+};
 
 const features = [
   {
@@ -54,17 +93,58 @@ const features = [
   },
 ];
 
-export default async function Home() {
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${siteConfig.url}/#organization`,
+      name: siteConfig.name,
+      url: siteConfig.url,
+      logo: absoluteUrl("/branding/posard-favicon.png"),
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteConfig.url}/#website`,
+      name: siteConfig.name,
+      url: siteConfig.url,
+      publisher: {
+        "@id": `${siteConfig.url}/#organization`,
+      },
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${siteConfig.url}/#software`,
+      name: siteConfig.name,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: siteConfig.url,
+      description: siteConfig.description,
+      featureList: [
+        "Point-of-sale checkout",
+        "Inventory management",
+        "Sales reporting",
+        "Role-based access control",
+        "Cloud-based retail management",
+      ],
+      publisher: {
+        "@id": `${siteConfig.url}/#organization`,
+      },
+    },
+  ],
+};
+
+export default function Home() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-background font-sans">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
+      />
       {/* Decorative Background Elements */}
       <div className="absolute top-0 -left-4 w-72 h-72 bg-accent/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
       <div className="absolute top-0 -right-4 w-72 h-72 bg-emerald-500/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
       <div className="absolute -bottom-8 left-20 w-72 h-72 bg-indigo-500/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
-
-      <Suspense fallback={null}>
-        <AuthGate />
-      </Suspense>
 
       <div className="relative z-10 flex flex-col items-center">
         {/* Navigation */}
@@ -86,11 +166,12 @@ export default async function Home() {
             </div>
 
             <div className="flex items-center gap-4">
-              {!hasEnvVars ? null : (
-                <Suspense>
-                  <AuthButton />
-                </Suspense>
-              )}
+              <Button asChild size="sm" variant="outline">
+                <Link href="/auth/login">Sign in</Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href="/auth/sign-up">Sign up</Link>
+              </Button>
             </div>
           </div>
         </nav>
@@ -108,21 +189,20 @@ export default async function Home() {
               </div>
               
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-heading font-extrabold tracking-tighter leading-[1.1] text-foreground">
-                Retails best kept <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-emerald-500">secret.</span>
+                Small business POS software for <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-emerald-500">faster retail.</span>
               </h1>
               
               <p className="max-w-xl mx-auto lg:mx-0 text-lg md:text-xl text-muted-foreground leading-relaxed">
-                Empower your business with a POS system that is as fast as your sales. 
-                Intuitive, secure, and built for the modern retailer.
+                POSard helps small retailers run checkout, inventory, sales reports, and secure staff access from one cloud-based point-of-sale system.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
-                <Link href="/signup">
+                <Link href="/auth/sign-up">
                   <Button size="lg" className="h-14 px-8 text-lg font-bold glow-on-hover rounded-xl shadow-lg shadow-accent/20">
                     Start Free Trial
                   </Button>
                 </Link>
-                <Link href="/signin">
+                <Link href="/auth/login">
                   <Button
                     size="lg"
                     variant="outline"
@@ -135,20 +215,16 @@ export default async function Home() {
               
               <div className="flex items-center justify-center lg:justify-start gap-4 pt-8 text-sm text-muted-foreground font-medium">
                 <div className="flex -space-x-2">
-                  {[1,2,3,4].map(i => (
-                    <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-secondary flex items-center justify-center">
-                      <Image 
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i * 123}`} 
-                        alt="User" 
-                        width={32} 
-                        height={32} 
-                        className="rounded-full"
-                        unoptimized
-                      />
+                  {["R", "S", "M", "C"].map((initial) => (
+                    <div
+                      key={initial}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-secondary text-xs font-bold text-foreground"
+                    >
+                      {initial}
                     </div>
                   ))}
                 </div>
-                <span>Trusted by 2,000+ businesses worldwide</span>
+                <span>Built for growing small retail teams</span>
               </div>
             </div>
 
@@ -162,7 +238,7 @@ export default async function Home() {
                   height={600}
                   className="rounded-[1.5rem] shadow-2xl"
                   priority
-                  unoptimized   
+                  sizes="(min-width: 1024px) 50vw, 100vw"
                 />
               </div>
             </div>

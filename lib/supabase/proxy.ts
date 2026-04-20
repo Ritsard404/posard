@@ -11,6 +11,9 @@ const publicRoutes = [
   "/auth/login",
   "/auth/sign-up",
   "/auth/sign-up-success",
+  "/opengraph-image",
+  "/robots.txt",
+  "/sitemap.xml",
 ];
 const authRoutes = ["/auth/login", "/auth/sign-up"];
 

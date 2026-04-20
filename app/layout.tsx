@@ -1,27 +1,63 @@
 import type { Metadata } from "next";
 import { Nunito_Sans, Rubik } from "next/font/google";
+import { absoluteUrl, siteConfig } from "@/lib/seo";
 import { AppProviders } from "./providers";
 import "./globals.css";
 
-const defaultUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(defaultUrl),
+  metadataBase: new URL(siteConfig.url),
   title: {
-    default: "POSard | Professional Retail Solutions",
+    default: `${siteConfig.name} | ${siteConfig.title}`,
     template: "%s | POSard",
   },
-  description:
-    "POSard is a premium, all-in-one point-of-sale system designed for modern retail. Manage sales, inventory, and analytics with ease and style.",
-  applicationName: "POSard",
-  keywords: ["POS", "Point of Sale", "Retail Management", "Inventory Control", "Business Analytics", "POSard"],
-  authors: [{ name: "Ritsard" }],
+  description: siteConfig.description,
+  applicationName: siteConfig.name,
+  keywords: siteConfig.keywords,
+  authors: [{ name: siteConfig.creator }],
+  creator: siteConfig.creator,
+  publisher: siteConfig.name,
+  alternates: {
+    canonical: "/",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/branding/posard-favicon.png", type: "image/png" },
+      { url: "/branding/posard-favicon.svg", type: "image/svg+xml" },
+    ],
+  },
   openGraph: {
-    title: "POSard | Professional Retail Solutions",
-    description: "Steamline your business with our modern point-of-sale system.",
+    title: `${siteConfig.name} | ${siteConfig.title}`,
+    description: siteConfig.description,
+    url: absoluteUrl("/"),
+    siteName: siteConfig.name,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "POSard small business POS software",
+      },
+    ],
+    locale: "en_US",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${siteConfig.name} | ${siteConfig.title}`,
+    description: siteConfig.description,
+    images: ["/opengraph-image"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
 };
 
