@@ -3,9 +3,9 @@ import { usePOSStore } from '../_store/pos-store';
 import { ProductCard } from './ProductCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, LayoutGrid, List } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search, LayoutGrid, List, Package } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { BarcodeScannerPanel } from './BarcodeScannerPanel';
 
 export function ProductDisplay() {
   const isMobile = useIsMobile();
@@ -34,46 +34,54 @@ export function ProductDisplay() {
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="flex flex-col h-full bg-background border-r animate-in fade-in duration-300">
-      <div className="border-b bg-background p-4 lg:p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-grow group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+    <div className="flex h-full min-h-0 flex-col border-r bg-background animate-in fade-in duration-300">
+      <div className="shrink-0 space-y-2 border-b bg-background p-2.5 sm:p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="group relative min-w-[12rem] flex-[1_1_16rem]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary sm:left-4 sm:size-5" />
             <Input 
               placeholder="Search products..." 
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 w-full rounded-xl h-12 text-base transition-all font-medium"
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
+              className="h-11 w-full rounded-xl pl-10 text-sm font-medium transition-all sm:pl-12 sm:text-base"
             />
           </div>
-          <div className="flex rounded-xl border bg-card p-1">
+          <BarcodeScannerPanel className="min-w-[9.75rem] flex-[1_1_9.75rem] sm:flex-none" />
+          <div className="grid h-11 shrink-0 grid-cols-2 rounded-xl border bg-card p-1">
             <Button 
               variant={activeViewMode === 'grid' ? "default" : "ghost"} 
               size="sm" 
               onClick={() => setActiveViewMode('grid')}
-              className="h-10 rounded-lg px-3"
+              className="h-9 rounded-lg px-2 sm:px-3"
             >
-              <LayoutGrid className="size-5" />
-              Grid
+              <LayoutGrid className="size-4" />
+              <span className="text-xs sm:text-sm">Grid</span>
             </Button>
             <Button 
               variant={activeViewMode === 'list' ? "default" : "ghost"} 
               size="sm" 
               onClick={() => setActiveViewMode('list')}
-              className="h-10 rounded-lg px-3"
+              className="h-9 rounded-lg px-2 sm:px-3"
             >
-              <List className="size-5" />
-              List
+              <List className="size-4" />
+              <span className="text-xs sm:text-sm">List</span>
             </Button>
           </div>
         </div>
 
-        <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex w-max space-x-2 pb-2">
+        <div className="relative">
+          <div className="scroll-pb-1 overflow-x-auto pb-1">
+            <div className="flex w-max min-w-full gap-2">
             <Button
               variant={selectedCategoryId === null ? 'default' : 'outline'}
-              className="rounded-full px-5 h-9 font-bold text-[10px] uppercase tracking-wider"
-              onClick={() => setSelectedCategoryId(null)}
+              className="h-8 shrink-0 rounded-full px-3.5 text-[10px] font-bold uppercase tracking-wider"
+              onClick={() => {
+                setSelectedCategoryId(null);
+                setPage(1);
+              }}
             >
               All Items
             </Button>
@@ -81,19 +89,24 @@ export function ProductDisplay() {
               <Button
                 key={cat.id}
                 variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                className="rounded-full px-5 h-9 font-bold text-[10px] uppercase tracking-wider"
-                onClick={() => setSelectedCategoryId(cat.id)}
+                className="h-8 max-w-[14rem] shrink-0 rounded-full px-3.5 text-[10px] font-bold uppercase tracking-wider"
+                onClick={() => {
+                  setSelectedCategoryId(cat.id);
+                  setPage(1);
+                }}
               >
-                {cat.categoryName}
+                <span className="truncate">{cat.categoryName}</span>
               </Button>
             ))}
+            </div>
           </div>
-        </ScrollArea>
+          <div className="pointer-events-none absolute bottom-2 right-0 top-0 w-8 bg-gradient-to-l from-background to-transparent" />
+        </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4 lg:p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-2.5 sm:p-3">
         {paginatedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20 animate-in fade-in zoom-in-95">
+          <div className="flex min-h-full flex-col items-center justify-center py-20 text-muted-foreground animate-in fade-in zoom-in-95">
             <div className="size-20 rounded-full bg-muted flex items-center justify-center mb-6">
               <Package className="size-10 opacity-20" />
             </div>
@@ -103,8 +116,8 @@ export function ProductDisplay() {
         ) : (
           <div className={
             activeViewMode === 'grid' 
-              ? "grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-10" 
-              : "flex flex-col gap-3 pb-10"
+              ? "grid grid-cols-2 gap-2.5 pb-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+              : "flex flex-col gap-2 pb-3"
           }>
             {paginatedProducts.map((product, idx) => (
               <div 
@@ -117,14 +130,14 @@ export function ProductDisplay() {
             ))}
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       {totalPages > 1 && (
-        <div className="p-4 border-t flex items-center justify-between bg-card text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        <div className="flex shrink-0 flex-col gap-2 border-t bg-card p-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:p-3">
           <span>
             Showing <span className="text-foreground">{(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> of {filteredProducts.length}
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-2 sm:justify-end sm:gap-3">
             <Button 
               variant="outline" 
               size="sm"
@@ -152,6 +165,3 @@ export function ProductDisplay() {
     </div>
   );
 }
-
-// Ensure Package icon is imported even if we fallback to error block
-import { Package } from 'lucide-react';

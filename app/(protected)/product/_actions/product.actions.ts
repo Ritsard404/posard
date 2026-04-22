@@ -129,3 +129,7 @@ export async function previewBatchUploadProducts(
 export async function getProductCsvTemplate(): Promise<string> {
   return productService.generateCsvTemplate();
 }
+
+export async function getProductImportWorkbookTemplate(): Promise<string> {
+  return productService.generateImportWorkbookTemplate();
+}

@@ -24,6 +24,8 @@ type ProfileWithCompany = Prisma.ProfileGetPayload<{
   include: { company: true };
 }>;
 
+const CASHIER_LIMIT_PER_TERMINAL = 3;
+
 function assertViewerCanManageAccounts(viewer: AccountsViewerDto) {
   if (viewer.role === "cashier") {
     throw new Error("Forbidden");
@@ -56,6 +58,36 @@ async function ensureCompanyExists(companyId: string) {
 
   if (!company) {
     throw new Error("Company not found");
+  }
+}
+
+async function getCompanyCashierCapacity(companyId: string) {
+  const [terminalCount, cashierCount] = await Promise.all([
+    prisma.posTerminalInfo.count({
+      where: { companyId },
+    }),
+    prisma.profile.count({
+      where: { companyId, role: "cashier" },
+    }),
+  ]);
+
+  const cashierLimit = terminalCount * CASHIER_LIMIT_PER_TERMINAL;
+
+  return {
+    terminalCount,
+    cashierCount,
+    cashierLimit,
+    cashierSlotsAvailable: Math.max(cashierLimit - cashierCount, 0),
+  };
+}
+
+async function assertCashierSlotAvailable(companyId: string) {
+  const capacity = await getCompanyCashierCapacity(companyId);
+
+  if (capacity.cashierCount >= capacity.cashierLimit) {
+    throw new Error(
+      `Cashier account limit reached. This company has ${capacity.terminalCount} terminal(s), allowing up to ${capacity.cashierLimit} cashier account(s).`,
+    );
   }
 }
 
@@ -191,11 +223,27 @@ export const accountsService = {
   ): Promise<AccountCompanyOptionDto[]> {
     if (viewer.role === "admin") {
       const companies = await prisma.company.findMany({
-        select: { id: true, name: true },
+        select: {
+          id: true,
+          name: true,
+          _count: {
+            select: {
+              posTerminals: true,
+              users: { where: { role: "cashier" } },
+            },
+          },
+        },
         orderBy: { name: "asc" },
       });
 
-      return companies.map(mapCompanyToOption);
+      return companies.map((company) =>
+        mapCompanyToOption({
+          id: company.id,
+          name: company.name,
+          terminalCount: company._count.posTerminals,
+          cashierCount: company._count.users,
+        }),
+      );
     }
 
     if (!viewer.companyId) {
@@ -204,10 +252,28 @@ export const accountsService = {
 
     const company = await prisma.company.findUnique({
       where: { id: viewer.companyId },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            posTerminals: true,
+            users: { where: { role: "cashier" } },
+          },
+        },
+      },
     });
 
-    return company ? [mapCompanyToOption(company)] : [];
+    return company
+      ? [
+          mapCompanyToOption({
+            id: company.id,
+            name: company.name,
+            terminalCount: company._count.posTerminals,
+            cashierCount: company._count.users,
+          }),
+        ]
+      : [];
   },
 
   async createAccount(
@@ -232,6 +298,10 @@ export const accountsService = {
     }
 
     await ensureCompanyExists(companyId);
+
+    if (input.role === "cashier") {
+      await assertCashierSlotAvailable(companyId);
+    }
 
     const existingProfile = await prisma.profile.findUnique({
       where: { email: input.email },

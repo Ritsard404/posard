@@ -71,6 +71,18 @@ function CreateAccountDialog(props: AccountDialogProps) {
   });
 
   const selectedRole = form.watch("role");
+  const selectedCompanyId = form.watch("companyId");
+  const selectedCompany = props.companyOptions.find(
+    (company) =>
+      company.id ===
+      (props.viewerRole === "manager"
+        ? props.companyOptions[0]?.id
+        : selectedCompanyId),
+  );
+  const cashierLimitReached =
+    selectedRole === "cashier" &&
+    selectedCompany !== undefined &&
+    selectedCompany.cashierSlotsAvailable <= 0;
 
   useEffect(() => {
     form.reset({
@@ -162,6 +174,18 @@ function CreateAccountDialog(props: AccountDialogProps) {
                 {form.formState.errors.companyId.message}
               </p>
             ) : null}
+            {selectedRole === "cashier" && selectedCompany ? (
+              <p
+                className={`text-xs ${
+                  cashierLimitReached ? "text-destructive" : "text-muted-foreground"
+                }`}
+              >
+                Cashier slots: {selectedCompany.cashierSlotsAvailable} available
+                of {selectedCompany.cashierLimit}. {selectedCompany.cashierCount} used
+                across {selectedCompany.terminalCount} terminal
+                {selectedCompany.terminalCount === 1 ? "" : "s"}.
+              </p>
+            ) : null}
           </div>
 
           {selectedRole === "cashier" ? (
@@ -194,7 +218,7 @@ function CreateAccountDialog(props: AccountDialogProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={props.isPending}>
+            <Button type="submit" disabled={props.isPending || cashierLimitReached}>
               {props.isPending ? "Saving..." : "Create Account"}
             </Button>
           </DialogFooter>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   CheckCircle2,
+  MonitorSmartphone,
   Pencil,
   Plus,
   Power,
@@ -103,6 +104,30 @@ export function AccountsPageClient({
   const activeAccounts = accounts.filter((account) => account.status === "active").length;
   const pendingAccounts = accounts.filter((account) => account.status === "pending").length;
   const disabledAccounts = accounts.filter((account) => account.status === "disabled").length;
+  const selectedCompanyForCapacity =
+    viewer.role === "manager"
+      ? companyOptions[0]
+      : filters.companyId
+        ? companyOptions.find((company) => company.id === filters.companyId)
+        : undefined;
+  const aggregateCapacity = companyOptions.reduce(
+    (summary, company) => ({
+      terminalCount: summary.terminalCount + company.terminalCount,
+      cashierCount: summary.cashierCount + company.cashierCount,
+      cashierLimit: summary.cashierLimit + company.cashierLimit,
+      cashierSlotsAvailable:
+        summary.cashierSlotsAvailable + company.cashierSlotsAvailable,
+    }),
+    {
+      terminalCount: 0,
+      cashierCount: 0,
+      cashierLimit: 0,
+      cashierSlotsAvailable: 0,
+    },
+  );
+  const cashierCapacity = selectedCompanyForCapacity ?? aggregateCapacity;
+  const canCreateCashier =
+    viewer.role === "admin" || cashierCapacity.cashierSlotsAvailable > 0;
 
   function refreshAccounts(nextFilters: FiltersState = filters) {
     startTransition(() => {
@@ -298,6 +323,22 @@ export function AccountsPageClient({
           <p className="mt-1 text-sm text-muted-foreground">Visible accounts</p>
         </Card>
         <Card className="glass-card border-white/5 p-5">
+          <div className="flex items-center gap-2">
+            <MonitorSmartphone className="size-4 text-accent" />
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              Cashier Slots
+            </p>
+          </div>
+          <p className="mt-2 text-2xl font-heading font-extrabold tracking-tight">
+            {cashierCapacity.cashierSlotsAvailable}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {cashierCapacity.cashierCount}/{cashierCapacity.cashierLimit} used
+            across {cashierCapacity.terminalCount} terminal
+            {cashierCapacity.terminalCount === 1 ? "" : "s"}
+          </p>
+        </Card>
+        <Card className="glass-card border-white/5 p-5">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
             Active
           </p>
@@ -339,7 +380,10 @@ export function AccountsPageClient({
               <UserRound className="size-4" />
               Edit My Profile
             </Button>
-            <Button onClick={() => setDialogState({ type: "create", role: "cashier" })}>
+            <Button
+              onClick={() => setDialogState({ type: "create", role: "cashier" })}
+              disabled={!canCreateCashier}
+            >
               <Plus className="size-4" />
               Create Cashier
             </Button>

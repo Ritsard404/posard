@@ -59,9 +59,14 @@ const operationsFeatures = [
       "Use admin, manager, and cashier roles so each team member sees the right POS tools.",
   },
   {
+    title: "Cashier slots per terminal",
+    description:
+      "Create up to 3 cashier accounts for every company terminal, with available slots shown during account setup.",
+  },
+  {
     title: "Multi-terminal support",
     description:
-      "Manage terminal registrations, subscriptions, printer settings, and terminal status from one workspace.",
+      "Manage terminal registrations, subscriptions, printer settings, cashier capacity, and terminal status from one workspace.",
   },
 ];
 
@@ -87,7 +92,7 @@ export default function FeaturesPage() {
 
       <ContentSection
         title="Business operations"
-        description="POSard gives managers and owners the operational controls needed to run products, discounts, reports, roles, and terminals with less manual work."
+        description="POSard gives managers and owners the operational controls needed to run products, discounts, reports, roles, cashier limits, and terminals with less manual work."
       >
         <BulletGrid items={operationsFeatures} />
       </ContentSection>

@@ -42,7 +42,6 @@ export type Permission =
   | "view.dashboard"
   | "view.pos"
   | "view.inventory"
-  | "view.orders"
   | "view.transactions"
   | "view.accounts"
   | "view.reports"
@@ -76,7 +75,6 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "view.dashboard",
     "view.accounts",
     "view.pos",
-    "view.orders",
     "view.inventory",
     "view.product",
     "view.reports",
@@ -96,8 +94,8 @@ export interface AppRouteConfig {
 }
 
 export const appRoutes: AppRouteConfig[] = [
+  { href: "/pos", permission: "view.pos", label: "Point of Sale", showInNav: true },
   { href: "/dashboard", permission: "view.dashboard", label: "Dashboard", showInNav: true },
-  { href: "/pos", permission: "view.pos", label: "POS", showInNav: true },
   { href: "/product", permission: "view.product", label: "Products & Inventory", showInNav: true },
   { href: "/report", permission: "view.reports", label: "Reports", showInNav: true },
   { href: "/accounts", permission: "view.accounts", label: "User Management", showInNav: true },

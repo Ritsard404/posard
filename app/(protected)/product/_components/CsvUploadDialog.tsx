@@ -27,7 +27,7 @@ import { Separator } from "@/components/ui/separator";
 
 import {
   batchUploadProducts,
-  getProductCsvTemplate,
+  getProductImportWorkbookTemplate,
   previewBatchUploadProducts,
 } from "@/app/(protected)/product/_actions/product.actions";
 import type {
@@ -39,6 +39,65 @@ interface CsvUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+}
+
+function escapeCsvValue(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  return value;
+}
+
+function worksheetToCsv(xmlText: string): string {
+  const document = new DOMParser().parseFromString(xmlText, "text/xml");
+  const parseError = document.querySelector("parsererror");
+
+  if (parseError) {
+    throw new Error("The spreadsheet template could not be read.");
+  }
+
+  const worksheets = Array.from(document.getElementsByTagName("Worksheet"));
+  const productsSheet =
+    worksheets.find(
+      (worksheet) =>
+        worksheet.getAttribute("ss:Name") === "Products" ||
+        worksheet.getAttribute("Name") === "Products",
+    ) ?? worksheets[0];
+
+  if (!productsSheet) {
+    throw new Error("The spreadsheet does not contain a Products sheet.");
+  }
+
+  const rows = Array.from(productsSheet.getElementsByTagName("Row"));
+
+  return rows
+    .map((row) => {
+      const cells = Array.from(row.getElementsByTagName("Cell"));
+      return cells
+        .map((cell) => {
+          const data = cell.getElementsByTagName("Data")[0];
+          return escapeCsvValue(data?.textContent ?? "");
+        })
+        .join(",");
+    })
+    .join("\n");
+}
+
+function normalizeUploadedText(text: string): string {
+  const trimmedStart = text.trimStart();
+
+  if (trimmedStart.startsWith("<?xml") || trimmedStart.startsWith("<Workbook")) {
+    return worksheetToCsv(text);
+  }
+
+  if (trimmedStart.startsWith("PK")) {
+    throw new Error(
+      "XLSX files are not supported for upload yet. Export the Products sheet as CSV, or use the downloaded POSARD .xls template.",
+    );
+  }
+
+  return text;
 }
 
 function UploadSummary({
@@ -151,20 +210,30 @@ export function CsvUploadDialog({
 
     const reader = new FileReader();
     reader.onload = (loadEvent) => {
-      const text = String(loadEvent.target?.result ?? "");
-      setCsvText(text);
-      setPreview(null);
+      try {
+        const text = String(loadEvent.target?.result ?? "");
+        setCsvText(normalizeUploadedText(text));
+        setPreview(null);
+      } catch (readError) {
+        setCsvText("");
+        setPreview(null);
+        setError(
+          readError instanceof Error
+            ? readError.message
+            : "The uploaded file could not be read.",
+        );
+      }
     };
     reader.readAsText(file);
   }
 
   async function handleDownloadTemplate() {
-    const template = await getProductCsvTemplate();
-    const blob = new Blob([template], { type: "text/csv" });
+    const template = await getProductImportWorkbookTemplate();
+    const blob = new Blob([template], { type: "application/vnd.ms-excel" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "product_template.csv";
+    link.download = "POSARD-Product-Import-Template.xls";
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -215,9 +284,9 @@ export function CsvUploadDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
-      <AlertDialogContent className="max-h-[90vh] max-w-4xl gap-0 overflow-hidden p-0">
-        <div className="flex flex-col">
-          <AlertDialogHeader className="space-y-3 border-b px-4 py-4 sm:px-6">
+      <AlertDialogContent className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-7xl gap-0 overflow-hidden p-0 sm:w-[calc(100vw-2rem)]">
+        <div className="flex min-h-0 w-full flex-col">
+          <AlertDialogHeader className="shrink-0 space-y-3 border-b px-4 py-4 sm:px-6">
             <AlertDialogTitle className="flex items-center gap-2 text-left">
               <FileSpreadsheet className="size-5" />
               Batch Create Products
@@ -227,7 +296,8 @@ export function CsvUploadDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="flex flex-col gap-4 px-4 py-4 sm:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-4">
             {error ? (
               <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                 {error}
@@ -239,9 +309,6 @@ export function CsvUploadDialog({
                 <Download className="size-4" />
                 Download Template
               </Button>
-              <p className="text-xs text-muted-foreground">
-                Columns: Product Name, Category Name, Barcode, Base Unit, Track Inventory, Quantity, Cost, Price, Item Type, VAT Type, Available, Product Image URL
-              </p>
             </div>
 
             <div
@@ -256,7 +323,7 @@ export function CsvUploadDialog({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xls,.xml,text/csv,application/vnd.ms-excel"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -279,7 +346,7 @@ export function CsvUploadDialog({
             {preview ? (
               <>
                 <Separator />
-                <ScrollArea className="h-[320px] pr-4">
+                <ScrollArea className="h-[min(48vh,520px)] pr-4">
                   <div className="space-y-3">
                     {preview.rows.map((row) => (
                       <PreviewRow key={`${row.rowNumber}-${row.name}`} row={row} />
@@ -288,9 +355,10 @@ export function CsvUploadDialog({
                 </ScrollArea>
               </>
             ) : null}
+            </div>
           </div>
 
-          <AlertDialogFooter className="border-t px-4 py-4 sm:px-6">
+          <AlertDialogFooter className="sticky bottom-0 z-10 shrink-0 border-t bg-background px-4 py-4 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] sm:px-6">
             <AlertDialogCancel disabled={isPreviewPending || isUploadPending}>
               Cancel
             </AlertDialogCancel>

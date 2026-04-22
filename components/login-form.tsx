@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { AuthFeedback, type AuthFeedbackState } from "@/components/auth-feedback";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
 import {
   Card,
@@ -24,23 +23,15 @@ export function LoginForm({
 }: React.ComponentPropsWithoutRef<"div">) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [feedback, setFeedback] = useState<AuthFeedbackState>({ kind: "idle" });
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  const clearFeedback = () => {
-    if (feedback.kind !== "idle") {
-      setFeedback({ kind: "idle" });
-    }
-  };
-
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isPending) {
-      return;
-    }
+    if (isPending) return;
 
-    setFeedback({ kind: "pending", message: "Signing you in..." });
+    setError(null);
 
     startTransition(async () => {
       const supabase = createClient();
@@ -53,9 +44,7 @@ export function LoginForm({
         if (error) throw error;
 
         const userId = data?.user?.id;
-        if (!userId) {
-          throw new Error("Could not get logged in user id");
-        }
+        if (!userId) throw new Error("Could not get logged in user id");
 
         const profileResult = await supabase
           .from("profiles")
@@ -66,8 +55,8 @@ export function LoginForm({
         if (profileResult.error || !profileResult.data) {
           await supabase.auth.signOut();
           throw new Error(
-            "User profile not found or unauthorized =>" +
-              (profileResult.error?.message || ""),
+            "User profile not found or unauthorized => " +
+              (profileResult.error?.message ?? ""),
           );
         }
 
@@ -79,11 +68,8 @@ export function LoginForm({
         }
 
         router.push("/dashboard");
-      } catch (error: unknown) {
-        setFeedback({
-          kind: "error",
-          message: error instanceof Error ? error.message : "An error occurred",
-        });
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "An error occurred");
       }
     });
   };
@@ -116,23 +102,20 @@ export function LoginForm({
                   required
                   value={email}
                   disabled={isPending}
-                  aria-disabled={isPending}
                   className="h-12 rounded-xl bg-background/50 border-white/10"
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    clearFeedback();
+                    setError(null);
                   }}
                 />
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label
-                    htmlFor="password"
-                    className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
-                  >
-                    Password
-                  </Label>
-                </div>
+                <Label
+                  htmlFor="password"
+                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                >
+                  Password
+                </Label>
                 <Input
                   id="password"
                   type="password"
@@ -140,15 +123,18 @@ export function LoginForm({
                   placeholder="*******"
                   value={password}
                   disabled={isPending}
-                  aria-disabled={isPending}
                   className="h-12 rounded-xl bg-background/50 border-white/10"
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    clearFeedback();
+                    setError(null);
                   }}
                 />
               </div>
-              <AuthFeedback state={feedback} />
+              {error && (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              )}
               <AuthSubmitButton
                 className="h-12 w-full rounded-xl font-bold glow-on-hover"
                 isPending={isPending}

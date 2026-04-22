@@ -44,6 +44,59 @@ const CSV_HEADERS = [
   "Product Image URL",
 ] as const;
 
+const IMPORT_WORKBOOK_HEADERS = [
+  "Product Name *",
+  "Price *",
+  "Category Name",
+  "Barcode",
+  "Base Unit",
+  "Track Inventory",
+  "Quantity",
+  "Cost",
+  "Item Type",
+  "VAT Type",
+  "Available",
+  "Product Image URL",
+] as const;
+
+const CSV_GUIDE_ROWS = [
+  ["Product Name", "Yes", "Unique product name within the selected category.", "Coca-Cola 330ml"],
+  ["Price", "Yes", "Selling price. Must be zero or greater.", "25"],
+  ["Category Name", "No", "Existing or new category. Blank rows go to Uncategorized.", "DRINKS"],
+  ["Barcode", "No", "Product barcode or SKU. Leave blank if unused.", "4800000111111"],
+  ["Base Unit", "No", "Selling unit. Blank values become UNIT.", "PCS, UNIT, KG"],
+  ["Track Inventory", "No", "Use TRUE, YES, Y, or 1 to track stock. Blank or FALSE disables stock tracking.", "TRUE"],
+  ["Quantity", "No", "Stock count. Used only when Track Inventory is enabled.", "100"],
+  ["Cost", "No", "Product cost. Must be zero or greater. Blank becomes 0.", "18"],
+  ["Item Type", "No", "Allowed values: RESALE or WHOLESALE. Blank becomes RESALE.", "RESALE"],
+  ["VAT Type", "No", "Allowed values: VATABLE, EXEMPT, or ZERO. Blank becomes VATABLE.", "VATABLE"],
+  ["Available", "No", "Use TRUE, YES, Y, or 1 to sell now. Blank becomes TRUE.", "TRUE"],
+  ["Product Image URL", "No", "Direct image URL. Leave blank if there is no product photo.", "https://example.com/product.png"],
+] as const;
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildWorkbookRow(values: readonly string[]): string {
+  const cells = values
+    .map(
+      (value) =>
+        `<Cell><Data ss:Type="String">${escapeXml(value)}</Data></Cell>`,
+    )
+    .join("");
+
+  return `<Row>${cells}</Row>`;
+}
+
+function buildWorkbookColumn(width: number): string {
+  return `<Column ss:Width="${width}" />`;
+}
+
 type CsvRow = Record<string, string | undefined>;
 
 interface NormalizedProductInput {
@@ -721,7 +774,11 @@ export const productService = {
     const parsed = Papa.parse<CsvRow>(trimmedCsv, {
       header: true,
       skipEmptyLines: "greedy",
-      transformHeader: (header) => header.trim().toLowerCase(),
+      transformHeader: (header) =>
+        header
+          .trim()
+          .replace(/\s*\*+$/, "")
+          .toLowerCase(),
     });
 
     if (parsed.errors.length > 0) {
@@ -796,6 +853,105 @@ export const productService = {
       CSV_HEADERS.join(","),
       'Sample Item,BEVERAGES,SKU-001,UNIT,true,24,80,100,RESALE,VATABLE,true,https://example.com/product.png',
     ].join("\n");
+  },
+
+  generateImportWorkbookTemplate(): string {
+    const templateRows = [
+      buildWorkbookRow(IMPORT_WORKBOOK_HEADERS),
+      buildWorkbookRow([
+        "Coca-Cola 330ml",
+        "25",
+        "DRINKS",
+        "4800000111111",
+        "PCS",
+        "TRUE",
+        "100",
+        "18",
+        "RESALE",
+        "VATABLE",
+        "TRUE",
+        "",
+      ]),
+      buildWorkbookRow([
+        "Lucky Me Pancit Canton",
+        "15",
+        "INSTANT FOOD",
+        "4800000222222",
+        "UNIT",
+        "TRUE",
+        "50",
+        "11",
+        "RESALE",
+        "VATABLE",
+        "TRUE",
+        "",
+      ]),
+      buildWorkbookRow([
+        "Piattos Cheese 85g",
+        "35",
+        "SNACKS",
+        "4800000333333",
+        "PCS",
+        "TRUE",
+        "30",
+        "25",
+        "RESALE",
+        "VATABLE",
+        "TRUE",
+        "",
+      ]),
+      buildWorkbookRow([
+        "Surf Powder 65g",
+        "12",
+        "HOUSEHOLD",
+        "4800000444444",
+        "PCS",
+        "TRUE",
+        "80",
+        "8",
+        "RESALE",
+        "VATABLE",
+        "TRUE",
+        "",
+      ]),
+    ].join("");
+
+    const guideRows = [
+      buildWorkbookRow(["POSARD Product Import Guide", "", "", ""]),
+      buildWorkbookRow(["Fill in your products using the Products sheet. Fields marked with * are required.", "", "", ""]),
+      buildWorkbookRow(["", "", "", ""]),
+      buildWorkbookRow(["Column", "Required", "Description", "Example"]),
+      ...CSV_GUIDE_ROWS.map((row) => buildWorkbookRow(row)),
+      buildWorkbookRow(["", "", "", ""]),
+      buildWorkbookRow(["Important Notes:", "", "", ""]),
+      buildWorkbookRow(["• Fields marked with * in the Products sheet are required", "", "", ""]),
+      buildWorkbookRow(["• Use one product per row", "", "", ""]),
+      buildWorkbookRow(["• Do not repeat the same Product Name under the same Category Name", "", "", ""]),
+      buildWorkbookRow(["• Quantity, Cost, and Price must be valid numbers", "", "", ""]),
+      buildWorkbookRow(["• Boolean fields accept TRUE, FALSE, YES, NO, Y, N, 1, or 0", "", "", ""]),
+      buildWorkbookRow(["• Delete the sample data rows before importing your products", "", "", ""]),
+      buildWorkbookRow(["• You can upload CSV files or this POSARD Excel XML template directly", "", "", ""]),
+      buildWorkbookRow(["• Duplicate products in the same category will be blocked", "", "", ""]),
+    ].join("");
+
+    const productColumns = [180, 80, 140, 140, 90, 110, 90, 80, 100, 100, 90, 220]
+      .map(buildWorkbookColumn)
+      .join("");
+    const guideColumns = [180, 90, 420, 220].map(buildWorkbookColumn).join("");
+
+    return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="Products">
+    <Table>${productColumns}${templateRows}</Table>
+  </Worksheet>
+  <Worksheet ss:Name="Instructions">
+    <Table>${guideColumns}${guideRows}</Table>
+  </Worksheet>
+</Workbook>`;
   },
 
   toBatchRows(dtos: ProductSaveDto[]): ProductBatchRowDto[] {

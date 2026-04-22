@@ -95,6 +95,7 @@ export const routes: RouteConfig[] = appRoutes.map((route) => ({
 export interface SidebarNavContext {
   companyId?: string | null;
   profileId?: string | null;
+  posStatus?: "available" | "in_use";
 }
 
 export interface SidebarNavItem {
@@ -104,6 +105,8 @@ export interface SidebarNavItem {
   href?: string;
   disabled?: boolean;
   badge?: string;
+  badgeTone?: "neutral" | "success" | "active";
+  priority?: boolean;
   children?: SidebarNavItem[];
 }
 
@@ -125,6 +128,7 @@ interface SidebarNavItemConfig {
   roles?: UserRole[];
   disabled?: boolean;
   badge?: string;
+  priority?: boolean;
   keepVisibleWithoutHref?: boolean;
   children?: SidebarNavItemConfig[];
 }
@@ -145,26 +149,19 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
     placement: "content",
     items: [
       {
+        id: "pos",
+        label: "Point of Sale",
+        icon: ShoppingCart,
+        href: "/pos",
+        permission: "view.pos",
+        priority: true,
+      },
+      {
         id: "dashboard",
         label: "Dashboard",
         icon: LayoutDashboard,
         href: "/dashboard",
         permission: "view.dashboard",
-      },
-      {
-        id: "pos",
-        label: "POS",
-        icon: ShoppingCart,
-        href: "/pos",
-        permission: "view.pos",
-      },
-      {
-        id: "orders-sales",
-        label: "Orders / Sales",
-        icon: Receipt,
-        roles: ["manager", "cashier"],
-        disabled: true,
-        badge: "Soon",
       },
       {
         id: "products-inventory",
@@ -538,7 +535,19 @@ function buildSidebarItem(
     icon: item.icon,
     href,
     disabled: item.disabled || (Boolean(item.href) && !href),
-    badge: item.badge,
+    badge:
+      item.id === "pos"
+        ? context.posStatus === "in_use"
+          ? "In use"
+          : "Available"
+        : item.badge,
+    badgeTone:
+      item.id === "pos"
+        ? context.posStatus === "in_use"
+          ? "active"
+          : "success"
+        : "neutral",
+    priority: item.priority,
     children,
   };
 }

@@ -15,6 +15,10 @@ export interface AccountsViewerDto {
 export interface AccountCompanyOptionDto {
   id: string;
   name: string;
+  terminalCount: number;
+  cashierCount: number;
+  cashierLimit: number;
+  cashierSlotsAvailable: number;
 }
 
 export interface AccountPermissionsDto {

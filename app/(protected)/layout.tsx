@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { getCurrentProfile } from "@/lib/auth/current-user";
+import { prisma } from "@/lib/prisma";
 
 export default async function DashboardLayout({
   children,
@@ -14,6 +15,15 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const profile = await getCurrentProfile();
+  const activePosSession = profile
+    ? await prisma.timestamp.findFirst({
+        where: {
+          cashierId: profile.id,
+          timestampOut: null,
+        },
+        select: { id: true },
+      })
+    : null;
 
   return (
     <SidebarProvider>
@@ -26,6 +36,7 @@ export default async function DashboardLayout({
                 full_name: profile.fullName,
                 email: profile.email,
                 company_id: profile.companyId,
+                pos_status: activePosSession ? "in_use" : "available",
               }
             : null
         }
@@ -48,7 +59,7 @@ export default async function DashboardLayout({
         </header>
 
         {/* Main content */}
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <main className="flex-1 p-2 lg:p-3">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

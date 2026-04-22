@@ -82,10 +82,21 @@ export function mapProfileToAccountDetail(
 }
 
 export function mapCompanyToOption(
-  company: { id: string; name: string },
+  company: {
+    id: string;
+    name: string;
+    terminalCount: number;
+    cashierCount: number;
+  },
 ): AccountCompanyOptionDto {
+  const cashierLimit = company.terminalCount * 3;
+
   return {
     id: company.id,
     name: company.name,
+    terminalCount: company.terminalCount,
+    cashierCount: company.cashierCount,
+    cashierLimit,
+    cashierSlotsAvailable: Math.max(cashierLimit - company.cashierCount, 0),
   };
 }

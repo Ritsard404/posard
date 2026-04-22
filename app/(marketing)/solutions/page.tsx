@@ -28,7 +28,7 @@ const solutions = [
   {
     title: "Small businesses and startups",
     description:
-      "Start with one default terminal, then add terminals as the business grows without changing systems.",
+      "Start with one default terminal and up to 3 cashier accounts, then add terminals as the business grows without changing systems.",
   },
   {
     title: "Service-based businesses",
@@ -51,7 +51,7 @@ const benefits = [
   {
     title: "Stronger team control",
     description:
-      "Use role-based access and manager approval workflows to protect important POS operations.",
+      "Use role-based access, per-terminal cashier capacity, and manager approval workflows to protect important POS operations.",
   },
 ];
 

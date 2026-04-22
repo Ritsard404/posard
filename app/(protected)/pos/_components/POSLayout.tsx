@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   LayoutGrid,
   LogOut,
+  Maximize2,
   MoreHorizontal,
+  Minimize2,
   ShoppingCart,
   Wallet,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { HeaderActions } from "@/components/layout/HeaderActions";
 import { CashTrackTrigger } from "@/components/layout/CashTrackTrigger";
@@ -36,6 +39,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showCloseSession, setShowCloseSession] = useState(false);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
   const activeSessionId = usePOSStore((state) => state.activeSessionId);
@@ -55,11 +59,57 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
     { id: "tender", label: "Tender", icon: Wallet },
   ];
 
+  useEffect(() => {
+    const syncFullscreenState = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    syncFullscreenState();
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreenState);
+    };
+  }, []);
+
+  async function handleToggleFullscreen() {
+    if (!document.fullscreenEnabled) {
+      toast.error("Fullscreen is not available in this browser.");
+      return;
+    }
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {
+      toast.error("Unable to change fullscreen mode.");
+    }
+  }
+
   return (
-    <div className="flex h-[calc(100vh-4rem)] w-full flex-col overflow-hidden bg-background">
+    <div className="flex h-[calc(100dvh-5rem)] w-full max-w-full flex-col overflow-hidden bg-background lg:h-[calc(100dvh-5.5rem)]">
       <HeaderActions>
         <div className="flex items-center gap-2">
           <CashTrackTrigger />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleToggleFullscreen}
+            className="h-9 rounded-lg px-3"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="size-4" />
+            ) : (
+              <Maximize2 className="size-4" />
+            )}
+            <span className="hidden sm:inline">
+              {isFullscreen ? "Exit" : "Fullscreen"}
+            </span>
+            <span className="sm:hidden">{isFullscreen ? "Exit" : "Full"}</span>
+          </Button>
           {isMobile ? (
             <Button
               variant="outline"
@@ -95,9 +145,9 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
         </div>
       </HeaderActions>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {isMobile ? (
-          <div className="flex h-full w-full flex-col overflow-hidden">
+          <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-hidden">
               {activeMobileTab === "menu" ? children : null}
               {activeMobileTab === "cart" ? cart : null}
@@ -107,7 +157,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
             <button
               type="button"
               onClick={() => setActiveMobileTab("cart")}
-              className="flex items-center justify-between border-t bg-card px-4 py-3 text-left"
+              className="flex shrink-0 items-center justify-between border-t bg-card px-4 py-3 text-left"
             >
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
@@ -127,7 +177,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
               </div>
             </button>
 
-            <div className="grid h-16 grid-cols-3 border-t bg-background">
+            <div className="grid h-16 shrink-0 grid-cols-3 border-t bg-background">
               {mobileTabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeMobileTab === tab.id;
@@ -151,8 +201,8 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           </div>
         ) : (
           <>
-            <div className="flex-1 h-full overflow-hidden">{children}</div>
-            <div className="w-[380px] xl:w-[420px] h-full border-l bg-card">
+            <div className="h-full min-w-0 flex-1 overflow-hidden">{children}</div>
+            <div className="h-full w-[320px] shrink-0 border-l bg-card xl:w-[360px]">
               {cart}
             </div>
           </>

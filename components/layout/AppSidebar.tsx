@@ -55,6 +55,7 @@ interface UserProfile {
   avatar_url?: string | null;
   email?: string | null;
   company_id?: string | null;
+  pos_status?: "available" | "in_use";
 }
 
 function getInitials(name?: string | null, email?: string | null): string {
@@ -126,11 +127,24 @@ function sectionHasActiveItem(
   });
 }
 
-function NavBadge({ children }: { children: string }) {
+function NavBadge({
+  children,
+  tone = "neutral",
+}: {
+  children: string;
+  tone?: SidebarNavItem["badgeTone"];
+}) {
   return (
     <Badge
       variant="secondary"
-      className="shrink-0 rounded-full bg-muted px-2 py-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+      className={cn(
+        "shrink-0 rounded-full px-2 py-0 text-[10px] font-semibold uppercase tracking-wide group-data-[collapsible=icon]:hidden",
+        tone === "active"
+          ? "bg-background text-primary"
+          : tone === "success"
+            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            : "bg-muted text-muted-foreground",
+      )}
     >
       {children}
     </Badge>
@@ -153,11 +167,13 @@ function SidebarNavLink({
       <SidebarMenuButton
         disabled
         tooltip={item.label}
-        className="h-11 rounded-xl px-3 text-muted-foreground/70"
+        className="h-11 justify-start rounded-xl px-3 text-muted-foreground/70 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
       >
         <item.icon className="size-4" />
-        <span className="flex-1 text-[14px]">{item.label}</span>
-        {item.badge ? <NavBadge>{item.badge}</NavBadge> : null}
+        <span className="flex-1 text-[14px] group-data-[collapsible=icon]:hidden">
+          {item.label}
+        </span>
+        {item.badge ? <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge> : null}
       </SidebarMenuButton>
     );
   }
@@ -168,16 +184,24 @@ function SidebarNavLink({
       isActive={isActive}
       tooltip={item.label}
       className={cn(
-        "h-11 rounded-xl px-3 transition-colors",
+        "h-11 justify-start rounded-xl px-3 transition-colors group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0",
         isActive
           ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-          : "font-medium hover:bg-muted",
+          : item.priority
+            ? "border border-primary/20 bg-primary/5 font-bold text-primary hover:bg-primary/10"
+            : "font-medium hover:bg-muted",
       )}
     >
-      <Link href={item.href} prefetch className="flex items-center gap-3">
+      <Link
+        href={item.href}
+        prefetch
+        className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center"
+      >
         <item.icon className="size-4" />
-        <span className="flex-1 text-[14px]">{item.label}</span>
-        {item.badge ? <NavBadge>{item.badge}</NavBadge> : null}
+        <span className="flex-1 text-[14px] group-data-[collapsible=icon]:hidden">
+          {item.label}
+        </span>
+        {item.badge ? <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge> : null}
       </Link>
     </SidebarMenuButton>
   );
@@ -200,7 +224,7 @@ function SidebarNavSubLink({
         <span className="flex w-full items-center gap-2">
           <item.icon className="size-4" />
           <span className="flex-1">{item.label}</span>
-          {item.badge ? <NavBadge>{item.badge}</NavBadge> : null}
+          {item.badge ? <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge> : null}
         </span>
       </SidebarMenuSubButton>
     );
@@ -211,7 +235,7 @@ function SidebarNavSubLink({
       <Link href={item.href} prefetch className="flex items-center gap-2">
         <item.icon className="size-4" />
         <span className="flex-1">{item.label}</span>
-        {item.badge ? <NavBadge>{item.badge}</NavBadge> : null}
+        {item.badge ? <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge> : null}
       </Link>
     </SidebarMenuSubButton>
   );
@@ -238,8 +262,15 @@ export function AppSidebar({
           ? profile.company_id ?? null
           : (params?.companyId as string) || profile?.company_id || null,
       profileId: profile?.id || null,
+      posStatus: profile?.pos_status ?? "available",
     }),
-    [params?.companyId, profile?.company_id, profile?.id, profile?.role],
+    [
+      params?.companyId,
+      profile?.company_id,
+      profile?.id,
+      profile?.pos_status,
+      profile?.role,
+    ],
   );
 
   const sidebarSections = useMemo(
@@ -288,16 +319,18 @@ export function AppSidebar({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="flex h-11 w-full items-center justify-between rounded-xl px-3 text-left text-sm font-medium hover:bg-muted"
+                  className="mx-auto flex h-11 w-full items-center justify-between rounded-xl px-3 text-left text-sm font-medium hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
                   onClick={() => toggleSection(section.id, hasActiveItem)}
                 >
                   <span className="flex items-center gap-3">
                     {section.icon ? <section.icon className="size-4" /> : null}
-                    <span>{section.label}</span>
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      {section.label}
+                    </span>
                   </span>
                   <ChevronDown
                     className={cn(
-                      "size-4 transition-transform",
+                      "size-4 transition-transform group-data-[collapsible=icon]:hidden",
                       isExpanded ? "rotate-180" : "rotate-0",
                     )}
                   />
@@ -335,15 +368,17 @@ export function AppSidebar({
                       tooltip={section.label}
                       isActive={hasActiveItem}
                       className={cn(
-                        "h-11 rounded-xl px-3",
+                        "h-11 rounded-xl px-3 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0",
                         hasActiveItem
                           ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                           : "font-medium hover:bg-muted",
                       )}
                     >
                       {section.icon ? <section.icon className="size-4" /> : null}
-                      <span className="flex-1 text-[14px]">{section.label}</span>
-                      <ChevronDown className="size-4" />
+                      <span className="flex-1 text-[14px] group-data-[collapsible=icon]:hidden">
+                        {section.label}
+                      </span>
+                      <ChevronDown className="size-4 group-data-[collapsible=icon]:hidden" />
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-64 rounded-xl">
@@ -359,7 +394,9 @@ export function AppSidebar({
                           >
                             <item.icon className="size-4" />
                             <span className="flex-1">{item.label}</span>
-                            {item.badge ? <NavBadge>{item.badge}</NavBadge> : null}
+                            {item.badge ? (
+                              <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge>
+                            ) : null}
                           </DropdownMenuItem>
                         );
                       }
@@ -403,14 +440,20 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="p-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link className="flex items-center gap-3 px-2 group" href="/" prefetch>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-transform duration-200 group-hover:scale-105">
-                <span className="text-xl font-bold tracking-tighter">P</span>
+            <Link
+              className="group flex items-center gap-3 px-2 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+              href="/"
+              prefetch
+            >
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-transform duration-200 group-hover:scale-105 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-lg">
+                <span className="text-xl font-bold tracking-tighter group-data-[collapsible=icon]:text-lg">
+                  P
+                </span>
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-base font-extrabold tracking-tight text-foreground">
                   POSard
                 </span>
@@ -423,7 +466,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="overflow-x-hidden px-3 pb-3">
+      <SidebarContent className="overflow-x-hidden px-3 pb-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
         {contentSections.length === 0 ? (
           <SidebarGroup className="px-0">
             <SidebarGroupContent>
@@ -440,7 +483,7 @@ export function AppSidebar({
         )}
       </SidebarContent>
 
-      <SidebarFooter className="sticky bottom-0 z-10 mt-auto gap-3 border-t border-border/50 bg-sidebar p-4">
+      <SidebarFooter className="sticky bottom-0 z-10 mt-auto gap-3 border-t border-border/50 bg-sidebar p-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-3">
         {footerSections.map((section) => (
           <SidebarMenu key={section.id} className="gap-1.5">
             {section.items.map((item) => (
@@ -453,8 +496,8 @@ export function AppSidebar({
 
         <SidebarMenu className="gap-2">
           <SidebarMenuItem>
-            <div className="flex items-center gap-3 rounded-2xl border border-muted/60 bg-muted/30 p-2">
-              <Avatar className="size-10 shrink-0 rounded-xl ring-2 ring-background">
+            <div className="flex items-center gap-3 rounded-2xl border border-muted/60 bg-muted/30 p-2 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
+              <Avatar className="size-10 shrink-0 rounded-xl ring-2 ring-background group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-lg">
                 <AvatarImage
                   src={profile?.avatar_url ?? undefined}
                   alt={profile?.full_name ?? "User"}
@@ -463,7 +506,7 @@ export function AppSidebar({
                   {getInitials(profile?.full_name, profile?.email)}
                 </AvatarFallback>
               </Avatar>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                 <div className="truncate text-sm font-bold leading-none text-foreground">
                   {profile?.full_name ?? "Anonymous"}
                 </div>
@@ -474,7 +517,7 @@ export function AppSidebar({
               {profile?.role ? (
                 <Badge
                   variant="secondary"
-                  className="shrink-0 rounded-full bg-primary/5 px-1.5 py-0 text-[9px] font-bold capitalize text-primary"
+                  className="shrink-0 rounded-full bg-primary/5 px-1.5 py-0 text-[9px] font-bold capitalize text-primary group-data-[collapsible=icon]:hidden"
                 >
                   {profile.role}
                 </Badge>
@@ -491,10 +534,10 @@ export function AppSidebar({
                 <SidebarMenuButton
                   tooltip="Log out"
                   disabled={isLoggingOut}
-                  className="h-10 rounded-xl text-muted-foreground hover:bg-destructive/5 hover:text-destructive"
+                  className="h-10 rounded-xl text-muted-foreground hover:bg-destructive/5 hover:text-destructive group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
                 >
                   <LogOut className="size-4" />
-                  <span className="text-sm font-medium">
+                  <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
                     {isLoggingOut ? "Logging out..." : "Log out"}
                   </span>
                 </SidebarMenuButton>

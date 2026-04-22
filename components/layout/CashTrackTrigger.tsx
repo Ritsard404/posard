@@ -44,12 +44,13 @@ export function CashTrackTrigger() {
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={handleOpen} className="hidden md:flex bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200">
+      <Button variant="outline" size="sm" onClick={handleOpen} className="hidden h-9 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 md:flex">
         <Coins className="w-4 h-4 mr-2 text-emerald-600" />
         Cash Track
       </Button>
-      <Button variant="outline" size="icon" onClick={handleOpen} className="md:hidden bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200">
+      <Button variant="outline" size="icon" onClick={handleOpen} className="size-9 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 md:hidden">
         <Coins className="w-4 h-4" />
+        <span className="sr-only">Cash Track</span>
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
