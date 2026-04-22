@@ -98,7 +98,7 @@ function labelValue(label: string, value: string) {
 
 function formatPaymentLines(items: ReportPaymentBreakdownDto[]) {
   if (items.length === 0) {
-    return ["No e-payment activity"];
+    return ["No reference payment activity"];
   }
 
   return items.flatMap((item) => [
@@ -167,7 +167,7 @@ function buildOverviewLines(overview: ReportOverviewDto) {
     labelValue("Net Sales", formatCurrency(overview.totalSales)),
     labelValue("Transactions", String(overview.totalTransactions)),
     labelValue("Cash Sales", formatCurrency(overview.totalCashSales)),
-    labelValue("E-Payments", formatCurrency(overview.totalEPaymentSales)),
+    labelValue("Reference Payments", formatCurrency(overview.totalEPaymentSales)),
     labelValue("Returns", formatCurrency(overview.totalReturns)),
     labelValue("Voids", formatCurrency(overview.totalVoids)),
     labelValue("Discounts", formatCurrency(overview.totalDiscounts)),

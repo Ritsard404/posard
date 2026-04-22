@@ -11,16 +11,24 @@ import {
 } from "@/components/ui/card";
 import { ShoppingCart, Package, BarChart3, ShieldCheck, Zap, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { absoluteUrl, jsonLdScript, siteConfig } from "@/lib/seo";
+import {
+  absoluteUrl,
+  jsonLdScript,
+  organizationJsonLd,
+  publicPages,
+  siteConfig,
+  softwareJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Small Business POS Software for Retail Checkout",
+  title: "POS System Philippines for Small Business Checkout",
   description: siteConfig.description,
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "POSard Small Business POS Software",
+    title: "POSard POS System Philippines",
     description: siteConfig.description,
     url: absoluteUrl("/"),
     siteName: siteConfig.name,
@@ -32,12 +40,12 @@ export const metadata: Metadata = {
         alt: "POSard small business POS software",
       },
     ],
-    locale: "en_US",
+    locale: "en_PH",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "POSard Small Business POS Software",
+    title: "POSard POS System Philippines",
     description: siteConfig.description,
     images: ["/opengraph-image"],
   },
@@ -96,41 +104,9 @@ const features = [
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
-    {
-      "@type": "Organization",
-      "@id": `${siteConfig.url}/#organization`,
-      name: siteConfig.name,
-      url: siteConfig.url,
-      logo: absoluteUrl("/branding/posard-favicon.png"),
-    },
-    {
-      "@type": "WebSite",
-      "@id": `${siteConfig.url}/#website`,
-      name: siteConfig.name,
-      url: siteConfig.url,
-      publisher: {
-        "@id": `${siteConfig.url}/#organization`,
-      },
-    },
-    {
-      "@type": "SoftwareApplication",
-      "@id": `${siteConfig.url}/#software`,
-      name: siteConfig.name,
-      applicationCategory: "BusinessApplication",
-      operatingSystem: "Web",
-      url: siteConfig.url,
-      description: siteConfig.description,
-      featureList: [
-        "Point-of-sale checkout",
-        "Inventory management",
-        "Sales reporting",
-        "Role-based access control",
-        "Cloud-based retail management",
-      ],
-      publisher: {
-        "@id": `${siteConfig.url}/#organization`,
-      },
-    },
+    organizationJsonLd(),
+    websiteJsonLd(),
+    softwareJsonLd(),
   ],
 };
 
@@ -160,9 +136,9 @@ export default function Home() {
             </div>
             
             <div className="hidden md:flex gap-8 items-center font-medium text-muted-foreground">
-              <Link href="#features" className="hover:text-accent transition-colors">Features</Link>
-              <Link href="#solutions" className="hover:text-accent transition-colors">Solutions</Link>
-              <Link href="#pricing" className="hover:text-accent transition-colors">Pricing</Link>
+              <Link href={publicPages.features.path} className="hover:text-accent transition-colors">Features</Link>
+              <Link href={publicPages.solutions.path} className="hover:text-accent transition-colors">Solutions</Link>
+              <Link href={publicPages.pricing.path} className="hover:text-accent transition-colors">Pricing</Link>
             </div>
 
             <div className="flex items-center gap-4">
@@ -185,30 +161,30 @@ export default function Home() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
                 </span>
-                Now with Offline Mode
+                Built for Philippine Small Businesses
               </div>
               
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-heading font-extrabold tracking-tighter leading-[1.1] text-foreground">
-                Small business POS software for <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-emerald-500">faster retail.</span>
+                POS system Philippines for <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-emerald-500">faster checkout.</span>
               </h1>
               
               <p className="max-w-xl mx-auto lg:mx-0 text-lg md:text-xl text-muted-foreground leading-relaxed">
-                POSard helps small retailers run checkout, inventory, sales reports, and secure staff access from one cloud-based point-of-sale system.
+                POSard helps retail stores, restaurants, cafes, and service businesses run checkout, inventory, discounts, receipts, terminal subscriptions, and sales reports from one cloud POS platform.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
                 <Link href="/auth/sign-up">
                   <Button size="lg" className="h-14 px-8 text-lg font-bold glow-on-hover rounded-xl shadow-lg shadow-accent/20">
-                    Start Free Trial
+                    Start with POSard
                   </Button>
                 </Link>
-                <Link href="/auth/login">
+                <Link href={publicPages.features.path}>
                   <Button
                     size="lg"
                     variant="outline"
                     className="h-14 px-8 text-lg font-bold rounded-xl border-2 hover:bg-secondary transition-all"
                   >
-                    View Demo
+                    View Features
                   </Button>
                 </Link>
               </div>
@@ -224,7 +200,7 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-                <span>Built for growing small retail teams</span>
+                <span>Built for growing Philippine business teams</span>
               </div>
             </div>
 
@@ -252,8 +228,8 @@ export default function Home() {
               Powerful tools for <span className="text-accent">growth.</span>
             </h2>
             <p className="max-w-2xl mx-auto text-muted-foreground text-lg">
-              Everything you need to manage your business efficiently, 
-              from one beautiful and intuitive dashboard.
+              Everything you need for checkout, inventory and sales tracking, 
+              PWD and Senior discounts, receipts, X-Reading, and Z-Reading.
             </p>
           </div>
 
@@ -298,10 +274,10 @@ export default function Home() {
             </div>
             
             <div className="flex flex-wrap justify-center gap-12 text-sm font-medium text-muted-foreground uppercase tracking-widest">
-              <Link href="#" className="hover:text-foreground transition-colors">About</Link>
-              <Link href="#" className="hover:text-foreground transition-colors">Privacy</Link>
-              <Link href="#" className="hover:text-foreground transition-colors">Terms</Link>
-              <Link href="#" className="hover:text-foreground transition-colors">Contact</Link>
+              <Link href={publicPages.about.path} className="hover:text-foreground transition-colors">About</Link>
+              <Link href={publicPages.privacy.path} className="hover:text-foreground transition-colors">Privacy</Link>
+              <Link href={publicPages.terms.path} className="hover:text-foreground transition-colors">Terms</Link>
+              <Link href={publicPages.contact.path} className="hover:text-foreground transition-colors">Contact</Link>
             </div>
 
             <div className="flex flex-col items-center md:items-end gap-4">

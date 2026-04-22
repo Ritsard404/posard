@@ -220,7 +220,7 @@ function PaymentMixChart({ items }: { items: DashboardDataDto["paymentMix"] }) {
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-        No electronic payment activity recorded for this view today.
+        No reference payment activity recorded for this view today.
       </div>
     );
   }

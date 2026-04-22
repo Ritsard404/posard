@@ -10,7 +10,7 @@ export const reportService = {
    * Logic:
    * 1. Fetches basic session info (Opening Cash, Withdrawals).
    * 2. Calculates total cash sales from paid invoices in the session timeframe.
-   * 3. Calculates total e-payment sales for reference.
+   * 3. Calculates total reference payment sales.
    * 
    * @param timestampId Unique ID of the session
    */

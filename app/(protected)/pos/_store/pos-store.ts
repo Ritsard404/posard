@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   ProductDto as Product,
   CategoryDto as Category,
+  EPaymentMethodDto,
   VatType,
   ItemType,
 } from "../_services/_dto/pos.dto";
@@ -23,7 +24,7 @@ export interface POSDiscount {
   eligibleDiscName: string;
   oscaIdNum: string;
 }
-export type PaymentMethodType = "CASH" | "GCASH" | "MAYA" | "CARD";
+export type PaymentMethodType = "cash" | "reference";
 export type CartMutationFailureReason = "OUT_OF_STOCK" | "LIMIT_REACHED";
 
 export interface CartMutationResult {
@@ -57,6 +58,8 @@ interface POSState {
   cart: CartItem[];
   discount: POSDiscount;
   paymentMethod: PaymentMethodType;
+  selectedEPaymentMethodId: string | null;
+  paymentReference: string;
   amountTendered: number;
 
   // View state
@@ -73,6 +76,7 @@ interface POSState {
   // POS Data
   products: Product[];
   categories: Category[];
+  epaymentMethods: EPaymentMethodDto[];
 
   // Session Data
   activeSessionId: string | null;
@@ -83,6 +87,7 @@ interface POSState {
   // Actions
   setProducts: (products: Product[]) => void;
   setCategories: (categories: Category[]) => void;
+  setEPaymentMethods: (methods: EPaymentMethodDto[]) => void;
   setSession: (data: {
     sessionId: string | null;
     timestampId: string | null;
@@ -106,6 +111,8 @@ interface POSState {
     details: Partial<Pick<POSDiscount, "eligibleDiscName" | "oscaIdNum">>,
   ) => void;
   setPaymentMethod: (method: PaymentMethodType) => void;
+  setSelectedEPaymentMethodId: (id: string | null) => void;
+  setPaymentReference: (reference: string) => void;
   setAmountTendered: (amount: number) => void;
 
   setSearchQuery: (query: string) => void;
@@ -119,11 +126,14 @@ interface POSState {
 export const usePOSStore = create<POSState>((set, get) => ({
   cart: [],
   discount: defaultDiscount,
-  paymentMethod: "CASH",
+  paymentMethod: "cash",
+  selectedEPaymentMethodId: null,
+  paymentReference: "",
   amountTendered: 0,
 
   products: [],
   categories: [],
+  epaymentMethods: [],
 
   activeSessionId: null,
   activeTimestampId: null,
@@ -141,6 +151,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
   setProducts: (products) => set({ products }),
   setCategories: (categories) => set({ categories }),
+  setEPaymentMethods: (epaymentMethods) => set({ epaymentMethods }),
   setSession: (data) =>
     set({
       activeSessionId: data.sessionId,
@@ -260,7 +271,9 @@ export const usePOSStore = create<POSState>((set, get) => ({
       cart: [],
       amountTendered: 0,
       discount: defaultDiscount,
-      paymentMethod: "CASH",
+      paymentMethod: "cash",
+      selectedEPaymentMethodId: null,
+      paymentReference: "",
     }),
   applyStockUpdates: (updates) => {
     if (updates.length === 0) return;
@@ -298,7 +311,19 @@ export const usePOSStore = create<POSState>((set, get) => ({
         ...details,
       },
     })),
-  setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
+  setPaymentMethod: (paymentMethod) =>
+    set((state) => ({
+      paymentMethod,
+      ...(paymentMethod === "cash"
+        ? { selectedEPaymentMethodId: null, paymentReference: "" }
+        : {
+            selectedEPaymentMethodId:
+              state.selectedEPaymentMethodId ?? state.epaymentMethods[0]?.id ?? null,
+          }),
+    })),
+  setSelectedEPaymentMethodId: (selectedEPaymentMethodId) =>
+    set({ selectedEPaymentMethodId }),
+  setPaymentReference: (paymentReference) => set({ paymentReference }),
   setAmountTendered: (amountTendered) =>
     set({ amountTendered: Math.round(amountTendered * 100) / 100 }),
 

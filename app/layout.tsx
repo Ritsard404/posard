@@ -39,7 +39,7 @@ export const metadata: Metadata = {
         alt: "POSard small business POS software",
       },
     ],
-    locale: "en_US",
+    locale: "en_PH",
     type: "website",
   },
   twitter: {

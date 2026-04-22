@@ -11,6 +11,7 @@ export interface ReceiptItemDto {
 export interface ReceiptOtherPaymentDto {
   name: string;
   amount: number;
+  reference: string | null;
 }
 
 export interface ReceiptStockUpdateDto {

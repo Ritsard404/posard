@@ -2,6 +2,10 @@ import type { Prisma } from "@prisma/client";
 import type { ReceiptDto } from "../_dto/receipt.dto";
 import { printConfigService } from "../print-config.service";
 
+function getPaymentMethodName(name: string | null) {
+  return name?.trim() || "Unlabeled payment method";
+}
+
 type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
   select: {
     id: true;
@@ -48,6 +52,7 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
     ePayments: {
       select: {
         amount: true;
+        reference: true;
         saleType: {
           select: {
             name: true;
@@ -100,8 +105,9 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
     vatZero: Number(invoice.vatZero ?? 0),
     vatAmount: Number(invoice.vatAmount ?? 0),
     otherPayments: invoice.ePayments.map((payment) => ({
-      name: payment.saleType.name ?? "Other",
+      name: getPaymentMethodName(payment.saleType.name),
       amount: Number(payment.amount),
+      reference: payment.reference,
     })),
     stockUpdates: [],
     items: invoice.items.map((item) => ({

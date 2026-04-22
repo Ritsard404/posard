@@ -4,7 +4,6 @@ import { usePOSStore } from "../_store/pos-store";
 import {
   POSReceiptContent,
   POSTenderForm,
-  paymentMethods,
   usePOSCheckoutFlow,
   usePOSPaymentSummary,
 } from "./checkout-shared";
@@ -22,9 +21,6 @@ export function TenderPanel() {
   const flow = usePOSCheckoutFlow(total, {
     onFastComplete: () => setActiveMobileTab("menu"),
   });
-  const activePaymentMethodLabel =
-    paymentMethods.find((method) => method.id === flow.paymentMethod)?.label ??
-    flow.paymentMethod;
 
   const handleReceiptClose = () => {
     flow.resetCheckoutState(true);
@@ -36,14 +32,18 @@ export function TenderPanel() {
       <POSTenderForm
         variant="mobile"
         totalAmount={total}
-        activePaymentMethodLabel={activePaymentMethodLabel}
+        activePaymentMethodLabel={flow.activePaymentMethodLabel}
         paymentMethod={flow.paymentMethod}
+        selectedEPaymentMethodId={flow.selectedEPaymentMethodId}
+        paymentReference={flow.paymentReference}
+        epaymentMethods={flow.epaymentMethods}
         amountTendered={flow.amountTendered}
         discountType={flow.discount.type}
         requiresDiscountMetadata={flow.requiresDiscountMetadata}
         discountEligibleDiscName={flow.discount.eligibleDiscName}
         discountOscaIdNum={flow.discount.oscaIdNum}
         isDiscountMetadataValid={flow.isDiscountMetadataValid}
+        isReferencePaymentValid={flow.isReferencePaymentValid}
         change={flow.change}
         canComplete={flow.canComplete}
         isProcessing={flow.isProcessing}
@@ -51,7 +51,9 @@ export function TenderPanel() {
         setDiscountType={flow.setDiscountType}
         setFastCheckout={flow.setFastCheckout}
         updateDiscountDetails={flow.updateDiscountDetails}
-        setPaymentMethod={flow.setPaymentMethod}
+        setPaymentReference={flow.setPaymentReference}
+        selectCashPayment={flow.selectCashPayment}
+        selectReferencePayment={flow.selectReferencePayment}
         setAmountTendered={flow.setAmountTendered}
         handleQuickCash={flow.handleQuickCash}
         handleComplete={flow.handleComplete}
@@ -80,7 +82,6 @@ export function TenderPanel() {
               requiresDiscountMetadata={flow.requiresDiscountMetadata}
               trimmedEligibleName={flow.trimmedEligibleName}
               trimmedOscaIdNum={flow.trimmedOscaIdNum}
-              paymentMethod={flow.paymentMethod}
               onNewCheckout={handleReceiptClose}
             />
           ) : null}

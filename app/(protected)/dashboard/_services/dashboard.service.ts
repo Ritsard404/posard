@@ -8,6 +8,10 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+function getPaymentMethodName(name: string | null) {
+  return name?.trim() || "Unlabeled payment method";
+}
+
 function startOfDay(value = new Date()) {
   const date = new Date(value);
   date.setHours(0, 0, 0, 0);
@@ -225,7 +229,7 @@ export const dashboardService = {
         }
 
         for (const payment of invoice.ePayments) {
-          const key = payment.saleType.name ?? "Other";
+          const key = getPaymentMethodName(payment.saleType.name);
           paymentMap.set(key, (paymentMap.get(key) ?? 0) + toNumber(payment.amount));
         }
       }
@@ -475,7 +479,7 @@ export const dashboardService = {
     const paymentMap = new Map<string, number>();
     for (const invoice of todayScopedInvoices) {
       for (const payment of invoice.ePayments) {
-        const key = payment.saleType.name ?? "Other";
+        const key = getPaymentMethodName(payment.saleType.name);
         paymentMap.set(key, (paymentMap.get(key) ?? 0) + toNumber(payment.amount));
       }
     }

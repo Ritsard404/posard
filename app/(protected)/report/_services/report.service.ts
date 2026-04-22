@@ -71,6 +71,10 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+function getPaymentMethodName(name: string | null | undefined) {
+  return name?.trim() || "Unlabeled payment method";
+}
+
 function isVoidInvoice(invoice: { status: string }) {
   return invoice.status === "VOID" || invoice.status === "CANCELLED";
 }
@@ -140,7 +144,7 @@ function buildPaymentBreakdown(
 
   for (const invoice of invoices) {
     for (const payment of invoice.ePayments) {
-      const key = payment.saleType?.name?.trim() || "Unknown";
+      const key = getPaymentMethodName(payment.saleType?.name);
       const current = paymentMap.get(key);
 
       if (current) {
@@ -2105,6 +2109,7 @@ export const reportService = {
         ePayments: {
           select: {
             amount: true,
+            reference: true,
             saleType: {
               select: {
                 name: true,
@@ -2160,8 +2165,9 @@ export const reportService = {
       vatZero: toNumber(invoice.vatZero),
       vatAmount: toNumber(invoice.vatAmount),
       otherPayments: invoice.ePayments.map((payment) => ({
-        name: payment.saleType.name ?? "Other",
+        name: getPaymentMethodName(payment.saleType.name),
         amount: toNumber(payment.amount),
+        reference: payment.reference,
       })),
       items: invoice.items.map((item) => ({
         id: item.id,

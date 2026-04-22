@@ -49,7 +49,7 @@ function buildBody(
     divider(),
     buildLine("Opening Cash", money(report.openingCash)),
     buildLine("Cash Sales", money(report.totalCashSales)),
-    buildLine("E-Payments", money(report.totalEPaymentSales)),
+    buildLine("Reference Payments", money(report.totalEPaymentSales)),
     buildLine("Withdrawals", money(report.totalWithdrawals)),
     buildLine("Drawer Total", money(report.expectedDrawerAmount)),
     divider(),

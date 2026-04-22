@@ -24,7 +24,13 @@ export function POSTerminalManager() {
     printerConfig?: PrinterConfigDto | null;
   } | null>(null);
 
-  const { setProducts, setCategories, setSession, activeSessionId } = usePOSStore();
+  const {
+    setProducts,
+    setCategories,
+    setEPaymentMethods,
+    setSession,
+    activeSessionId,
+  } = usePOSStore();
 
   useEffect(() => {
     async function loadData() {
@@ -37,6 +43,7 @@ export function POSTerminalManager() {
         if (metaRes.success) {
           setProducts(metaRes.data.products);
           setCategories(metaRes.data.categories);
+          setEPaymentMethods(metaRes.data.epaymentMethods);
         }
 
         if (sessionRes.success && sessionRes.data) {
@@ -53,7 +60,7 @@ export function POSTerminalManager() {
     }
     
     loadData();
-  }, [setProducts, setCategories, setSession]);
+  }, [setProducts, setCategories, setEPaymentMethods, setSession]);
 
   if (!mounted || loading) {
     return (

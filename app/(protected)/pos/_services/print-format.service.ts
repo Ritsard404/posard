@@ -214,6 +214,9 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
         `${`${payment.name}:`.padEnd(15)}${formatAmount(payment.amount).padStart(17)}`,
       ),
     );
+    if (payment.reference) {
+      content.push(centerText(`Ref: ${payment.reference}`));
+    }
   }
 
   content.push(

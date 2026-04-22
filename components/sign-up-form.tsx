@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { AuthFeedback, type AuthFeedbackState } from "@/components/auth-feedback";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -26,6 +27,7 @@ export function SignUpForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [feedback, setFeedback] = useState<AuthFeedbackState>({ kind: "idle" });
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -47,6 +49,14 @@ export function SignUpForm({
       return;
     }
 
+    if (!termsAccepted) {
+      setFeedback({
+        kind: "error",
+        message: "Please accept the Terms and Conditions and Privacy Policy.",
+      });
+      return;
+    }
+
     setFeedback({ kind: "pending", message: "Creating your account..." });
 
     startTransition(async () => {
@@ -57,7 +67,11 @@ export function SignUpForm({
           email,
           password,
           options: {
-            data: { full_name: fullName },
+            data: {
+              full_name: fullName,
+              terms_accepted: true,
+              terms_accepted_at: new Date().toISOString(),
+            },
           },
         });
         if (error) throw error;
@@ -173,6 +187,40 @@ export function SignUpForm({
                     clearFeedback();
                   }}
                 />
+              </div>
+
+              <div className="flex items-start gap-3 rounded-md border border-white/10 bg-background/40 p-3">
+                <Checkbox
+                  id="terms-accepted"
+                  checked={termsAccepted}
+                  disabled={isPending}
+                  aria-describedby="terms-accepted-description"
+                  onCheckedChange={(checked) => {
+                    setTermsAccepted(checked === true);
+                    clearFeedback();
+                  }}
+                />
+                <Label
+                  htmlFor="terms-accepted"
+                  id="terms-accepted-description"
+                  className="text-left text-xs font-medium leading-5 text-muted-foreground"
+                >
+                  I agree to the{" "}
+                  <Link
+                    href="/terms"
+                    className="font-bold text-accent underline-offset-4 hover:underline"
+                  >
+                    Terms and Conditions
+                  </Link>{" "}
+                  and{" "}
+                  <Link
+                    href="/privacy"
+                    className="font-bold text-accent underline-offset-4 hover:underline"
+                  >
+                    Privacy Policy
+                  </Link>
+                  .
+                </Label>
               </div>
 
               <AuthFeedback state={feedback} />

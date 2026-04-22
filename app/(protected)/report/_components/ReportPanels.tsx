@@ -111,7 +111,7 @@ export function OverviewPanel({ overview }: { overview: ReportOverviewDto }) {
         <SummaryMetric label="Net Sales" value={formatCurrency(overview.totalSales)} />
         <SummaryMetric label="Transactions" value={String(overview.totalTransactions)} />
         <SummaryMetric label="Cash Sales" value={formatCurrency(overview.totalCashSales)} />
-        <SummaryMetric label="E-Payments" value={formatCurrency(overview.totalEPaymentSales)} />
+        <SummaryMetric label="Reference Payments" value={formatCurrency(overview.totalEPaymentSales)} />
         <SummaryMetric label="Returns" value={formatCurrency(overview.totalReturns)} />
         <SummaryMetric label="Voids" value={formatCurrency(overview.totalVoids)} />
       </div>
@@ -122,7 +122,7 @@ export function OverviewPanel({ overview }: { overview: ReportOverviewDto }) {
           description="Sales by non-cash payment method."
         >
           {overview.paymentBreakdown.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No e-payment activity for this range.</div>
+            <div className="text-sm text-muted-foreground">No reference payment activity for this range.</div>
           ) : (
             overview.paymentBreakdown.map((payment) => (
               <div key={payment.name} className="flex items-center justify-between rounded-xl border px-4 py-3">
@@ -193,7 +193,7 @@ export function ZReadingPanel({ reading }: { reading: ZReadingDto }) {
         <SummaryMetric label="Net Sales" value={formatCurrency(reading.netSales)} />
         <SummaryMetric label="Gross Sales" value={formatCurrency(reading.grossSales)} />
         <SummaryMetric label="Cash Sales" value={formatCurrency(reading.cashSales)} />
-        <SummaryMetric label="E-Payments" value={formatCurrency(reading.ePaymentSales)} />
+        <SummaryMetric label="Reference Payments" value={formatCurrency(reading.ePaymentSales)} />
       </div>
       <SimpleListCard
         title="Z-Reading Summary"

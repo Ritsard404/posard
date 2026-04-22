@@ -11,7 +11,6 @@ import { Receipt } from "lucide-react";
 import {
   POSReceiptContent,
   POSTenderForm,
-  paymentMethods,
   usePOSCheckoutFlow,
 } from "./checkout-shared";
 
@@ -29,9 +28,6 @@ export function CheckoutModal({
   const flow = usePOSCheckoutFlow(totalAmount, {
     onFastComplete: () => onOpenChange(false),
   });
-  const activePaymentMethodLabel =
-    paymentMethods.find((method) => method.id === flow.paymentMethod)?.label ??
-    flow.paymentMethod;
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
@@ -51,7 +47,6 @@ export function CheckoutModal({
             requiresDiscountMetadata={flow.requiresDiscountMetadata}
             trimmedEligibleName={flow.trimmedEligibleName}
             trimmedOscaIdNum={flow.trimmedOscaIdNum}
-            paymentMethod={flow.paymentMethod}
             onNewCheckout={() => handleDialogOpenChange(false)}
           />
         </DialogContent>
@@ -73,14 +68,18 @@ export function CheckoutModal({
 
           <POSTenderForm
             totalAmount={totalAmount}
-            activePaymentMethodLabel={activePaymentMethodLabel}
+            activePaymentMethodLabel={flow.activePaymentMethodLabel}
             paymentMethod={flow.paymentMethod}
+            selectedEPaymentMethodId={flow.selectedEPaymentMethodId}
+            paymentReference={flow.paymentReference}
+            epaymentMethods={flow.epaymentMethods}
             amountTendered={flow.amountTendered}
             discountType={flow.discount.type}
             requiresDiscountMetadata={flow.requiresDiscountMetadata}
             discountEligibleDiscName={flow.discount.eligibleDiscName}
             discountOscaIdNum={flow.discount.oscaIdNum}
             isDiscountMetadataValid={flow.isDiscountMetadataValid}
+            isReferencePaymentValid={flow.isReferencePaymentValid}
             change={flow.change}
             canComplete={flow.canComplete}
             isProcessing={flow.isProcessing}
@@ -88,7 +87,9 @@ export function CheckoutModal({
             setDiscountType={flow.setDiscountType}
             setFastCheckout={flow.setFastCheckout}
             updateDiscountDetails={flow.updateDiscountDetails}
-            setPaymentMethod={flow.setPaymentMethod}
+            setPaymentReference={flow.setPaymentReference}
+            selectCashPayment={flow.selectCashPayment}
+            selectReferencePayment={flow.selectReferencePayment}
             setAmountTendered={flow.setAmountTendered}
             handleQuickCash={flow.handleQuickCash}
             handleComplete={flow.handleComplete}

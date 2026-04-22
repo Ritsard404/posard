@@ -148,9 +148,9 @@ function validateOrderRequest(dto: OrderDto) {
 }
 
 function validatePayment(calc: ReturnType<typeof calculatePayment>) {
-  if (calc.cashTendered < calc.totalAmount) {
+  if (calc.totalTendered < calc.totalAmount) {
     throw new Error(
-      `Insufficient payment. Required: ₱${calc.totalAmount.toFixed(2)}, Tendered: ₱${calc.cashTendered.toFixed(2)}`,
+      `Insufficient payment. Required: PHP ${calc.totalAmount.toFixed(2)}, Tendered: PHP ${calc.totalTendered.toFixed(2)}`,
     );
   }
 }
@@ -467,6 +467,7 @@ export const orderService = {
         otherPayments: ePaymentData?.map((payment) => ({
           name: payment.name,
           amount: payment.amount,
+          reference: payment.reference,
         })) ?? [],
         stockUpdates,
       });
@@ -571,24 +572,45 @@ export const orderService = {
 
 async function buildEPaymentData(ePayments: EPaymentDto[]) {
   const saleTypeIds = ePayments.map((p) => p.saleTypeId);
+  const uniqueSaleTypeIds = [...new Set(saleTypeIds)];
 
   const saleTypes = await prisma.saleType.findMany({
-    where: { id: { in: saleTypeIds } },
+    where: { id: { in: uniqueSaleTypeIds }, type: "EPAYMENT" },
     select: { id: true, name: true },
   });
 
-  if (saleTypes.length !== saleTypeIds.length) {
-    throw new Error("One or more sale types not found");
+  if (saleTypes.length !== uniqueSaleTypeIds.length) {
+    throw new Error("One or more reference payment methods are invalid");
   }
 
   const saleTypeNameMap = new Map(
-    saleTypes.map((saleType) => [saleType.id, saleType.name ?? "Other"]),
+    saleTypes.map((saleType) => [
+      saleType.id,
+      saleType.name?.trim() || "Unlabeled payment method",
+    ]),
   );
 
-  return ePayments.map((payment) => ({
-    saleTypeId: payment.saleTypeId,
-    reference: payment.reference,
-    amount: payment.amount,
-    name: saleTypeNameMap.get(payment.saleTypeId) ?? "Other",
-  }));
+  return ePayments.map((payment) => {
+    const reference = payment.reference.trim();
+    const name = saleTypeNameMap.get(payment.saleTypeId);
+
+    if (!name) {
+      throw new Error("Reference payment method is invalid");
+    }
+
+    if (!reference) {
+      throw new Error("Reference number is required");
+    }
+
+    if (payment.amount <= 0) {
+      throw new Error("Reference payment amount must be greater than zero");
+    }
+
+    return {
+      saleTypeId: payment.saleTypeId,
+      reference,
+      amount: payment.amount,
+      name,
+    };
+  });
 }
