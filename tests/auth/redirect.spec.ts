@@ -7,6 +7,17 @@ import {
 } from '../fixtures/auth.fixture';
 
 test.describe('auth redirects', () => {
+  test('allows unauthenticated users to visit public marketing pages', async ({
+    page,
+  }) => {
+    for (const path of ['/pricing', '/solutions', '/features']) {
+      await page.goto(path);
+
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.getByRole('heading').first()).toBeVisible();
+    }
+  });
+
   test('redirects unauthenticated users from protected routes to login', async ({
     page,
   }) => {

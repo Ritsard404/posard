@@ -1,21 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { hasEnvVars } from "../utils";
-import {
-  hasPermissionForRoute,
-  getFirstAccessibleRoute,
-} from "@/lib/access-control-core";
 
-const publicRoutes = [
-  "/",
-  "/auth/login",
-  "/auth/sign-up",
-  "/auth/sign-up-success",
-  "/opengraph-image",
-  "/robots.txt",
-  "/sitemap.xml",
-];
-const authRoutes = ["/auth/login", "/auth/sign-up"];
+import {
+  getFirstAccessibleRoute,
+  hasPermissionForRoute,
+  isAuthRoute,
+  isPublicRoute,
+} from "@/lib/access-control-core";
+import { hasEnvVars } from "../utils";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -45,8 +37,13 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
   const pathname = request.nextUrl.pathname;
+  const isPublic = isPublicRoute(pathname);
 
-  // ── Get user role from DB ──────────────────────────────────────────────────
+  // Marketing/legal pages must remain reachable for guests and signed-in users.
+  if (isPublic && pathname !== "/" && !isAuthRoute(pathname)) {
+    return supabaseResponse;
+  }
+
   let userRole: string | null = null;
 
   if (user) {
@@ -56,7 +53,6 @@ export async function updateSession(request: NextRequest) {
       .eq("user_id", user.sub)
       .single();
 
-    // Pending or disabled account
     if (profile?.status === "pending" || profile?.status === "disabled") {
       if (
         pathname === "/auth/login" ||
@@ -70,7 +66,6 @@ export async function updateSession(request: NextRequest) {
 
     userRole = profile?.role ?? null;
 
-    // Account manager with no company (e.g. just signed up) → force to setup page
     if (
       userRole === "manager" &&
       !profile?.company_id &&
@@ -80,30 +75,22 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // ── Public routes ──────────────────────────────────────────────────────────
-  if (publicRoutes.includes(pathname)) {
-    if (user) {
-      // Logged-in user hitting "/" or auth pages → redirect to their dashboard
-      if (pathname === "/" || authRoutes.some((r) => pathname.startsWith(r))) {
-        const dest = getFirstAccessibleRoute(userRole);
-        if (dest !== pathname) {
-          return NextResponse.redirect(new URL(dest, request.url));
-        }
+  if (isPublic) {
+    if (user && (pathname === "/" || isAuthRoute(pathname))) {
+      const dest = getFirstAccessibleRoute(userRole);
+      if (dest !== pathname) {
+        return NextResponse.redirect(new URL(dest, request.url));
       }
     }
     return supabaseResponse;
   }
 
-  // ── Protected routes ───────────────────────────────────────────────────────
-
-  // Not logged in → send to login
   if (!user) {
     const url = new URL("/auth/login", request.url);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
   }
 
-  // Logged in but no permission → redirect to their first accessible route
   if (!hasPermissionForRoute(userRole, pathname)) {
     const dest = getFirstAccessibleRoute(userRole);
     if (dest === "/auth/login" || dest === pathname) {

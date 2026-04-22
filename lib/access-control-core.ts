@@ -11,6 +11,33 @@ export function isValidUserRole(role: unknown): role is UserRole {
   return typeof role === "string" && roles.includes(role as UserRole);
 }
 
+export const publicRoutes = [
+  "/",
+  "/about",
+  "/features",
+  "/solutions",
+  "/pricing",
+  "/contact",
+  "/privacy",
+  "/terms",
+  "/auth/login",
+  "/auth/sign-up",
+  "/auth/sign-up-success",
+  "/opengraph-image",
+  "/robots.txt",
+  "/sitemap.xml",
+] as const;
+
+export const authRoutes = ["/auth/login", "/auth/sign-up"] as const;
+
+export function isPublicRoute(pathname: string): boolean {
+  return publicRoutes.some((route) => route === pathname);
+}
+
+export function isAuthRoute(pathname: string): boolean {
+  return authRoutes.some((route) => pathname.startsWith(route));
+}
+
 export type Permission =
   | "view.dashboard"
   | "view.pos"
