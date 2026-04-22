@@ -27,13 +27,17 @@ export function PageShell({
   children,
 }: PageShellProps) {
   return (
-    <main>
-      <section className="border-b bg-secondary/20">
-        <div className="mx-auto w-full max-w-7xl px-6 py-16 md:py-20">
-          <p className="text-sm font-bold uppercase tracking-wider text-primary">
+    <main className="w-full">
+      <section className="relative w-full border-b border-white/5">
+        <div className="mx-auto w-full max-w-7xl px-6 py-16 md:py-20 lg:py-24">
+          <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-accent">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+            </span>
             {eyebrow}
-          </p>
-          <h1 className="mt-4 max-w-4xl text-4xl font-heading font-extrabold leading-tight tracking-tight md:text-6xl">
+          </div>
+          <h1 className="mt-6 max-w-4xl text-4xl font-heading font-extrabold leading-tight tracking-tight md:text-6xl">
             {title}
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-muted-foreground">
@@ -54,7 +58,7 @@ export function ContentSection({
   children,
 }: ContentSectionProps) {
   return (
-    <section className="py-8 md:py-10">
+    <section className="border-t border-white/5 py-10 first:border-t-0 md:py-12">
       <div className="max-w-3xl">
         <h2 className="text-2xl font-heading font-bold tracking-tight md:text-3xl">
           {title}
@@ -72,14 +76,16 @@ export function ContentSection({
 
 export function BulletGrid({ items }: BulletGridProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => (
         <article
           key={item.title}
-          className="rounded-md border bg-background p-5 shadow-sm"
+          className="glass-card rounded-md bg-secondary/30 p-5 transition-all duration-300 hover:-translate-y-1"
         >
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-primary" />
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-accent/20 bg-accent/10 text-accent">
+              <CheckCircle2 className="h-5 w-5" />
+            </span>
             <div>
               <h3 className="font-heading text-lg font-bold">{item.title}</h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">

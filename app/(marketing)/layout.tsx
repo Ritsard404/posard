@@ -25,65 +25,88 @@ export default function MarketingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b bg-background/95">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
-              <ShieldCheck className="h-5 w-5 text-primary-foreground" />
-            </span>
-            <span className="text-xl font-heading font-extrabold tracking-tight">
-              POS<span className="text-primary italic">ard</span>
-            </span>
-          </Link>
+    <div className="relative min-h-screen overflow-hidden bg-background font-sans text-foreground">
+      <div className="absolute top-0 -left-4 h-72 w-72 animate-blob rounded-full bg-accent/10 opacity-70 mix-blend-multiply blur-3xl" />
+      <div className="absolute top-0 -right-4 h-72 w-72 animate-blob rounded-full bg-emerald-500/10 opacity-70 mix-blend-multiply blur-3xl animation-delay-2000" />
+      <div className="absolute -bottom-8 left-20 h-72 w-72 animate-blob rounded-full bg-indigo-500/10 opacity-70 mix-blend-multiply blur-3xl animation-delay-4000" />
 
-          <nav className="hidden items-center gap-6 text-sm font-semibold text-muted-foreground md:flex">
-            {primaryLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="transition-colors hover:text-foreground"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <ThemeSwitcher />
-            <Button asChild size="sm">
-              <Link href="/auth/sign-up">Sign up</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {children}
-
-      <footer className="border-t bg-secondary/20">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-10 md:flex-row md:items-center md:justify-between">
-          <div>
-            <Link href="/" className="text-lg font-heading font-extrabold">
-              POS<span className="text-primary italic">ard</span>
+      <div className="relative z-10 flex min-h-screen flex-col items-center">
+        <header className="glass-header flex h-16 w-full justify-center transition-all duration-300">
+          <div className="flex w-full max-w-7xl items-center justify-between px-6 text-sm">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
+                <ShieldCheck className="h-5 w-5 text-accent-foreground" />
+              </span>
+              <span className="text-xl font-heading font-extrabold tracking-tight text-foreground">
+                <span className="text-accent">POS</span>ard
+              </span>
             </Link>
-            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-              Mobile-first POS system for retail, restaurants, and growing
-              businesses in the Philippines.
-            </p>
+
+            <nav className="hidden items-center gap-8 font-medium text-muted-foreground md:flex">
+              {primaryLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="transition-colors hover:text-accent"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="flex items-center gap-3 md:gap-4">
+              <Button asChild size="sm" variant="outline">
+                <Link href="/auth/login">Sign in</Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href="/auth/sign-up">Sign up</Link>
+              </Button>
+            </div>
           </div>
-          <nav className="flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-muted-foreground">
-            {footerLinks.map((link) => (
+        </header>
+
+        {children}
+
+        <footer className="w-full border-t border-white/5 bg-secondary/10 px-6 py-16">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-12 md:flex-row">
+            <div className="space-y-4 text-center md:text-left">
               <Link
-                key={link.href}
-                href={link.href}
-                className="transition-colors hover:text-foreground"
+                href="/"
+                className="flex items-center justify-center gap-2 md:justify-start"
               >
-                {link.label}
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
+                  <ShieldCheck className="h-5 w-5 text-accent-foreground" />
+                </span>
+                <span className="text-2xl font-heading font-extrabold tracking-tight">
+                  POSard<span className="text-accent">POS</span>
+                </span>
               </Link>
-            ))}
-          </nav>
-        </div>
-      </footer>
+              <p className="max-w-xs text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Mobile-first POS system for Philippine businesses.
+              </p>
+            </div>
+
+            <nav className="flex flex-wrap justify-center gap-8 text-sm font-medium uppercase tracking-widest text-muted-foreground md:gap-12">
+              {footerLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="transition-colors hover:text-foreground"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="flex flex-col items-center gap-4 md:items-end">
+              <ThemeSwitcher />
+              <p className="text-xs text-muted-foreground">
+                (c) 2026 POSard. Built by Ritsard.
+              </p>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
