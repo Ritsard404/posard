@@ -1,8 +1,16 @@
- "use client";
+"use client";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, Receipt, ShieldAlert, ShoppingCart, Wallet } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  Clock3,
+  Receipt,
+  ShieldAlert,
+  ShoppingCart,
+  Wallet,
+} from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,12 +40,28 @@ function formatCompact(value: number) {
   }).format(value);
 }
 
-function formatDateTime(value: Date) {
+function formatDateTime(value: Date | null) {
+  if (!value) {
+    return "No recent activity";
+  }
+
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+  }).format(value);
+}
+
+function formatShortDate(value: Date | null) {
+  if (!value) {
+    return "Not set";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   }).format(value);
 }
 
@@ -121,12 +145,7 @@ function TrendChart({ data }: { data: DashboardDataDto["trend"] }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} strokeDasharray="4 4" />
-        <XAxis
-          dataKey="label"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={10}
-        />
+        <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} />
         <YAxis hide />
         <ChartTooltip
           content={
@@ -178,13 +197,7 @@ function RankedBars({
         <BarChart accessibilityLayer data={items} layout="vertical" margin={{ left: 8, right: 12 }}>
           <CartesianGrid horizontal={false} strokeDasharray="4 4" />
           <XAxis type="number" hide />
-          <YAxis
-            type="category"
-            dataKey="name"
-            tickLine={false}
-            axisLine={false}
-            width={90}
-          />
+          <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={90} />
           <ChartTooltip
             content={
               <ChartTooltipContent
@@ -299,116 +312,269 @@ function ProductList({
   );
 }
 
-export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) {
-  const primaryAction =
-    dashboard.role === "admin"
-      ? { href: "/companies", label: "Manage Companies", icon: ArrowRight }
-      : { href: "/pos", label: "Open POS", icon: ShoppingCart };
-  const secondaryAction =
-    dashboard.role === "cashier"
-      ? null
-      : dashboard.role === "admin"
-        ? { href: "/accounts", label: "Manage Accounts", icon: ShieldAlert }
-        : { href: "/report", label: "Open Reports", icon: Receipt };
+function WorkspaceHealth({ dashboard }: { dashboard: DashboardDataDto }) {
+  if (!dashboard.adminWorkspaceStats?.length) {
+    return null;
+  }
 
   return (
-    <div className="space-y-6">
-      <Card className="overflow-hidden rounded-[2rem] border-border/60 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(6,182,212,0.2),_transparent_32%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92))] shadow-sm">
-        <CardContent className="p-6 sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="rounded-full bg-foreground px-3 py-1 text-primary-foreground">
-                  Dashboard
-                </Badge>
-                <Badge variant="outline" className="rounded-full">
-                  {dashboard.scopeLabel}
-                </Badge>
-                <Badge variant="secondary" className="rounded-full capitalize">
-                  {dashboard.role}
-                </Badge>
-              </div>
-              <div>
-                <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                  {dashboard.heroTitle}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                  {dashboard.heroDescription}
-                </p>
-              </div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Signed in as {dashboard.viewerName}
-              </p>
+    <Section
+      title="Workspace Health"
+      description="Platform-level counts that matter to the system owner."
+    >
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {dashboard.adminWorkspaceStats.map((item) => (
+          <div key={item.label} className="rounded-2xl border border-border/60 bg-white px-4 py-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              {item.label}
             </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button asChild className="rounded-xl">
-                <Link href={primaryAction.href}>
-                  <primaryAction.icon className="size-4" />
-                  {primaryAction.label}
-                </Link>
-              </Button>
-              {secondaryAction ? (
-                <Button asChild variant="outline" className="rounded-xl">
-                  <Link href={secondaryAction.href}>
-                    <secondaryAction.icon className="size-4" />
-                    {secondaryAction.label}
-                  </Link>
-                </Button>
-              ) : null}
+            <div className="mt-2 text-2xl font-black tracking-tight text-foreground">
+              {formatCompact(item.value)}
             </div>
+            <div className="mt-1 text-sm text-muted-foreground">{item.hint}</div>
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {dashboard.summary.map((metric) => (
-          <MetricCard
-            key={metric.label}
-            label={metric.label}
-            value={metric.value}
-            hint={metric.hint}
-            tone={metric.tone}
-          />
         ))}
       </div>
+    </Section>
+  );
+}
 
+function AdminCompanyList({ dashboard }: { dashboard: DashboardDataDto }) {
+  if (!dashboard.adminCompanies?.length) {
+    return null;
+  }
+
+  return (
+    <Section
+      title="Company Watchlist"
+      description="Companies with pending work, weak subscription coverage, or low terminal readiness."
+    >
+      <div className="space-y-3">
+        {dashboard.adminCompanies.map((company) => (
+          <div
+            key={company.id}
+            className="rounded-[1.5rem] border border-border/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] p-4"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Building2 className="size-4 text-cyan-600" />
+                  <div className="font-semibold text-foreground">{company.name}</div>
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {company.ownerName ?? "No manager assigned"}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="rounded-full">
+                  {company.riskCount} attention item{company.riskCount === 1 ? "" : "s"}
+                </Badge>
+                {company.pendingRequestCount > 0 ? (
+                  <Badge className="rounded-full bg-amber-100 text-amber-800 hover:bg-amber-100">
+                    {company.pendingRequestCount} pending request{company.pendingRequestCount === 1 ? "" : "s"}
+                  </Badge>
+                ) : null}
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <MiniStat label="Terminals" value={company.terminalCount} />
+              <MiniStat label="Live" value={company.activeTerminalCount} />
+              <MiniStat label="Subscribed" value={company.activeSubscriptionCount} />
+            </div>
+            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <span>Last activity {formatDateTime(company.lastActivityAt)}</span>
+              <Button asChild variant="ghost" size="sm" className="rounded-xl">
+                <Link href={`/companies/${company.id}`}>
+                  Open
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function AdminTerminalWatch({ dashboard }: { dashboard: DashboardDataDto }) {
+  if (!dashboard.adminTerminalWatch?.length) {
+    return null;
+  }
+
+  return (
+    <Section
+      title="Terminal and Subscription Validity"
+      description="Terminals that need subscription action, permit renewal, or direct owner attention."
+    >
+      <div className="space-y-3">
+        {dashboard.adminTerminalWatch.map((terminal) => (
+          <div key={terminal.id} className="rounded-2xl border border-border/60 px-4 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="font-semibold text-foreground">{terminal.name}</div>
+                <div className="mt-1 text-sm text-muted-foreground">{terminal.companyName}</div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="rounded-full capitalize">
+                  {terminal.terminalStateLabel}
+                </Badge>
+                <span className={attentionPillClass(terminal.attentionLevel)}>
+                  {terminal.attentionReason}
+                </span>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <WatchDetail
+                label="Subscription"
+                value={terminal.subscriptionStatusLabel}
+                auxiliary={`Ends ${formatShortDate(terminal.subscriptionExpiresAt)}`}
+              />
+              <WatchDetail
+                label="Terminal Valid Until"
+                value={formatShortDate(terminal.permitValidUntil)}
+                auxiliary="Regulatory validity window"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-white/80 px-3 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-2 text-xl font-bold text-foreground">{formatCompact(value)}</div>
+    </div>
+  );
+}
+
+function WatchDetail({
+  label,
+  value,
+  auxiliary,
+}: {
+  label: string;
+  value: string;
+  auxiliary: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-muted/10 px-3 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-2 font-semibold capitalize text-foreground">{value}</div>
+      <div className="mt-1 text-sm text-muted-foreground">{auxiliary}</div>
+    </div>
+  );
+}
+
+function attentionPillClass(level: "default" | "warning" | "danger") {
+  if (level === "danger") {
+    return "inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700";
+  }
+
+  if (level === "warning") {
+    return "inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700";
+  }
+
+  return "inline-flex rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700";
+}
+
+function AlertsPanel({ dashboard }: { dashboard: DashboardDataDto }) {
+  return (
+    <Section title="Alerts" description="Items that need attention today.">
+      <div className="space-y-3">
+        {dashboard.alerts.length === 0 ? (
+          <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+            No urgent alerts. Operations look stable.
+          </div>
+        ) : (
+          dashboard.alerts.map((alert) => (
+            <div key={alert.id} className="rounded-2xl border border-border/60 p-4">
+              <div className="flex items-start gap-3">
+                <ShieldAlert
+                  className={`mt-0.5 size-4 ${
+                    alert.tone === "danger"
+                      ? "text-rose-500"
+                      : alert.tone === "warning"
+                        ? "text-amber-500"
+                        : "text-cyan-500"
+                  }`}
+                />
+                <div>
+                  <div className="font-semibold text-foreground">{alert.title}</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {alert.description}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Section>
+  );
+}
+
+function RecentActivitySection({ dashboard }: { dashboard: DashboardDataDto }) {
+  return (
+    <Section title="Recent Activity" description="Latest operational events and receipt updates.">
+      <div className="space-y-3">
+        {dashboard.recentActivities.length === 0 ? (
+          <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+            No recent activity available.
+          </div>
+        ) : (
+          dashboard.recentActivities.map((activity) => (
+            <div key={activity.id} className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 px-4 py-3">
+              <div>
+                <div className="font-semibold text-foreground">{activity.title}</div>
+                <div className="mt-1 text-sm text-muted-foreground">{activity.description}</div>
+              </div>
+              <div className="whitespace-nowrap text-xs text-muted-foreground">
+                {formatDateTime(activity.occurredAt)}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Section>
+  );
+}
+
+function AdminDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
+  return (
+    <>
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <WorkspaceHealth dashboard={dashboard} />
+        <AlertsPanel dashboard={dashboard} />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <AdminCompanyList dashboard={dashboard} />
+        <AdminTerminalWatch dashboard={dashboard} />
+      </div>
+
+      <RecentActivitySection dashboard={dashboard} />
+    </>
+  );
+}
+
+function OperationsDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
+  return (
+    <>
       <div className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
         <Section title="7-Day Sales Trend" description="A quick read on daily sales and transaction pace.">
           <TrendChart data={dashboard.trend} />
         </Section>
 
-        <Section title="Alerts" description="Items that need attention today.">
-          <div className="space-y-3">
-            {dashboard.alerts.length === 0 ? (
-              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-                No urgent alerts. Operations look stable.
-              </div>
-            ) : (
-              dashboard.alerts.map((alert) => (
-                <div key={alert.id} className="rounded-2xl border border-border/60 p-4">
-                  <div className="flex items-start gap-3">
-                    <ShieldAlert
-                      className={`mt-0.5 size-4 ${
-                        alert.tone === "danger"
-                          ? "text-rose-500"
-                          : alert.tone === "warning"
-                            ? "text-amber-500"
-                            : "text-cyan-500"
-                      }`}
-                    />
-                    <div>
-                      <div className="font-semibold text-foreground">{alert.title}</div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {alert.description}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Section>
+        <AlertsPanel dashboard={dashboard} />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -502,27 +668,7 @@ export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) 
           </div>
         </Section>
 
-        <Section title="Recent Activity" description="Latest operational events and receipt updates.">
-          <div className="space-y-3">
-            {dashboard.recentActivities.length === 0 ? (
-              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-                No recent activity available.
-              </div>
-            ) : (
-              dashboard.recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 px-4 py-3">
-                  <div>
-                    <div className="font-semibold text-foreground">{activity.title}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">{activity.description}</div>
-                  </div>
-                  <div className="whitespace-nowrap text-xs text-muted-foreground">
-                    {formatDateTime(activity.occurredAt)}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Section>
+        <RecentActivitySection dashboard={dashboard} />
       </div>
 
       {dashboard.recentInvoices ? (
@@ -532,10 +678,10 @@ export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) 
               <div key={invoice.id} className="flex flex-col gap-3 rounded-2xl border border-border/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="font-semibold text-foreground">
-                    Invoice #{invoice.invoiceNumber} • {invoice.customerName}
+                    Invoice #{invoice.invoiceNumber} - {invoice.customerName}
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">
-                    {invoice.terminalName} • {invoice.status}
+                    {invoice.terminalName} - {invoice.status}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -559,6 +705,89 @@ export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) 
           </div>
         </Section>
       ) : null}
+    </>
+  );
+}
+
+export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) {
+  const primaryAction =
+    dashboard.role === "admin"
+      ? { href: "/companies", label: "Manage Companies", icon: Building2 }
+      : { href: "/pos", label: "Open POS", icon: ShoppingCart };
+  const secondaryAction =
+    dashboard.role === "cashier"
+      ? null
+      : dashboard.role === "admin"
+        ? { href: "/subscriptions", label: "Review Subscriptions", icon: Clock3 }
+        : { href: "/report", label: "Open Reports", icon: Receipt };
+
+  return (
+    <div className="space-y-6">
+      <Card className="overflow-hidden rounded-[2rem] border-border/60 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(6,182,212,0.2),_transparent_32%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92))] shadow-sm">
+        <CardContent className="p-6 sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="rounded-full bg-foreground px-3 py-1 text-primary-foreground">
+                  Dashboard
+                </Badge>
+                <Badge variant="outline" className="rounded-full">
+                  {dashboard.scopeLabel}
+                </Badge>
+                <Badge variant="secondary" className="rounded-full capitalize">
+                  {dashboard.role}
+                </Badge>
+              </div>
+              <div>
+                <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                  {dashboard.heroTitle}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+                  {dashboard.heroDescription}
+                </p>
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Signed in as {dashboard.viewerName}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button asChild className="rounded-xl">
+                <Link href={primaryAction.href}>
+                  <primaryAction.icon className="size-4" />
+                  {primaryAction.label}
+                </Link>
+              </Button>
+              {secondaryAction ? (
+                <Button asChild variant="outline" className="rounded-xl">
+                  <Link href={secondaryAction.href}>
+                    <secondaryAction.icon className="size-4" />
+                    {secondaryAction.label}
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {dashboard.summary.map((metric) => (
+          <MetricCard
+            key={metric.label}
+            label={metric.label}
+            value={metric.value}
+            hint={metric.hint}
+            tone={metric.tone}
+          />
+        ))}
+      </div>
+
+      {dashboard.role === "admin" ? (
+        <AdminDashboard dashboard={dashboard} />
+      ) : (
+        <OperationsDashboard dashboard={dashboard} />
+      )}
     </div>
   );
 }

@@ -30,6 +30,26 @@ function daysAgo(days: number) {
   return startOfDay(date);
 }
 
+function daysFromNow(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return endOfDay(date);
+}
+
+function hasDatePassed(value: Date | null | undefined) {
+  return value ? value.getTime() < startOfDay().getTime() : false;
+}
+
+function isDateWithinDays(value: Date | null | undefined, days: number) {
+  if (!value) {
+    return false;
+  }
+
+  const now = startOfDay();
+  const end = daysFromNow(days);
+  return value.getTime() >= now.getTime() && value.getTime() <= end.getTime();
+}
+
 function formatDayLabel(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
@@ -113,78 +133,116 @@ export const dashboardService = {
     const monthStart = daysAgo(29);
 
     if (viewer.role === "admin") {
+      const expiringWindowEnd = daysFromNow(30);
+
       const [
         companiesCount,
         activeManagers,
         activeCashiers,
         activeTerminals,
+        openSessions,
         pendingManagers,
         pendingRequests,
-        todayInvoices,
-        weekInvoices,
-        monthInvoices,
-        terminals,
+        activeSubscriptions,
+        expiringSubscriptions,
+        expiringPermits,
+        companiesWithoutTerminals,
+        terminalsWithoutSubscription,
+        newCompaniesThisMonth,
+        companies,
+        terminalsNeedingAttention,
         auditLogs,
       ] = await Promise.all([
         prisma.company.count(),
         prisma.profile.count({ where: { role: "manager", status: "active" } }),
         prisma.profile.count({ where: { role: "cashier", status: "active" } }),
         prisma.posTerminalInfo.count({ where: { isActive: true } }),
+        prisma.timestamp.count({ where: { timestampOut: null } }),
         prisma.profile.count({ where: { role: "manager", status: "pending" } }),
         prisma.terminalRequest.count({ where: { status: "pending" } }),
-        prisma.invoice.findMany({
-          where: { createdAt: { gte: todayStart, lte: todayEnd } },
-          select: {
-            totalAmount: true,
-            discountAmount: true,
-            returnedAmount: true,
-            status: true,
-            cashTendered: true,
-            changeAmount: true,
-            posTerminal: { select: { company: { select: { name: true } }, posName: true } },
-            ePayments: { select: { amount: true, saleType: { select: { name: true } } } },
+        prisma.terminalSubscription.count({ where: { status: "active" } }),
+        prisma.terminalSubscription.count({
+          where: {
+            status: "active",
+            expiresAt: { gte: todayStart, lte: expiringWindowEnd },
           },
         }),
-        prisma.invoice.findMany({
-          where: { createdAt: { gte: weekStart, lte: todayEnd } },
-          select: {
-            createdAt: true,
-            totalAmount: true,
-            discountAmount: true,
-            returnedAmount: true,
-            status: true,
+        prisma.posTerminalInfo.count({
+          where: {
+            validUntil: { gte: todayStart, lte: expiringWindowEnd },
           },
         }),
-        prisma.invoice.findMany({
-          where: { createdAt: { gte: monthStart, lte: todayEnd }, status: "PAID" },
+        prisma.company.count({ where: { posTerminals: { none: {} } } }),
+        prisma.posTerminalInfo.count({ where: { subscription: null } }),
+        prisma.company.count({ where: { createdAt: { gte: monthStart, lte: todayEnd } } }),
+        prisma.company.findMany({
           select: {
-            totalAmount: true,
-            discountAmount: true,
-            returnedAmount: true,
-            posTerminal: { select: { posName: true, company: { select: { name: true } } } },
+            id: true,
+            name: true,
+            updatedAt: true,
+            users: {
+              where: { role: "manager" },
+              orderBy: [{ approvedAt: "asc" }, { createdAt: "asc" }],
+              take: 1,
+              select: { fullName: true, email: true },
+            },
+            terminalRequests: {
+              where: { status: "pending" },
+              select: { id: true },
+            },
+            auditLogs: {
+              take: 1,
+              orderBy: { createdAt: "desc" },
+              select: { createdAt: true },
+            },
+            posTerminals: {
+              select: {
+                id: true,
+                isActive: true,
+                validUntil: true,
+                subscription: {
+                  select: {
+                    status: true,
+                    expiresAt: true,
+                  },
+                },
+              },
+            },
           },
+          orderBy: { updatedAt: "desc" },
+          take: 8,
         }),
         prisma.posTerminalInfo.findMany({
+          where: {
+            OR: [
+              { subscription: null },
+              { subscription: { status: { in: ["pending", "expired", "suspended", "cancelled"] } } },
+              { subscription: { status: "active", expiresAt: { lte: expiringWindowEnd } } },
+              { validUntil: { lte: expiringWindowEnd } },
+            ],
+          },
           select: {
             id: true,
             posName: true,
             isActive: true,
-            printerName: true,
+            validUntil: true,
             company: { select: { name: true } },
             timestamps: {
               where: { timestampOut: null },
               select: { id: true },
             },
-            invoices: {
-              where: { createdAt: { gte: todayStart, lte: todayEnd }, status: "PAID" },
-              select: { totalAmount: true, discountAmount: true, returnedAmount: true },
+            subscription: {
+              select: {
+                status: true,
+                expiresAt: true,
+              },
             },
           },
-          take: 6,
-          orderBy: { posName: "asc" },
+          orderBy: { validUntil: "asc" },
+          take: 8,
         }),
         prisma.auditLog.findMany({
-          take: 6,
+          take: 10,
           orderBy: { createdAt: "desc" },
           select: {
             id: true,
@@ -196,92 +254,112 @@ export const dashboardService = {
         }),
       ]);
 
-      const todaySales = todayInvoices.reduce((sum, invoice) => {
-        if (invoice.status !== "PAID") return sum;
-        return (
-          sum +
-          toNumber(invoice.totalAmount) -
-          toNumber(invoice.discountAmount) -
-          toNumber(invoice.returnedAmount)
-        );
-      }, 0);
+      const adminCompanies = companies
+        .map((company) => {
+          const activeTerminalCount = company.posTerminals.filter((terminal) => terminal.isActive).length;
+          const activeSubscriptionCount = company.posTerminals.filter(
+            (terminal) => terminal.subscription?.status === "active" && !hasDatePassed(terminal.subscription.expiresAt),
+          ).length;
+          const riskCount =
+            company.posTerminals.filter(
+              (terminal) =>
+                !terminal.subscription ||
+                terminal.subscription.status !== "active" ||
+                hasDatePassed(terminal.subscription.expiresAt) ||
+                isDateWithinDays(terminal.subscription.expiresAt, 30) ||
+                isDateWithinDays(terminal.validUntil, 30),
+            ).length + company.terminalRequests.length;
 
-      const companySalesMap = new Map<string, { sales: number; transactions: number }>();
-      const paymentMap = new Map<string, number>();
-      for (const invoice of monthInvoices) {
-        const name = invoice.posTerminal.company.name;
-        const current = companySalesMap.get(name) ?? { sales: 0, transactions: 0 };
-        current.sales +=
-          toNumber(invoice.totalAmount) -
-          toNumber(invoice.discountAmount) -
-          toNumber(invoice.returnedAmount);
-        current.transactions += 1;
-        companySalesMap.set(name, current);
-      }
+          return {
+            id: company.id,
+            name: company.name,
+            ownerName: company.users[0]?.fullName ?? company.users[0]?.email ?? null,
+            terminalCount: company.posTerminals.length,
+            activeTerminalCount,
+            activeSubscriptionCount,
+            pendingRequestCount: company.terminalRequests.length,
+            riskCount,
+            lastActivityAt: company.auditLogs[0]?.createdAt ?? null,
+          };
+        })
+        .sort((a, b) => b.riskCount - a.riskCount || a.name.localeCompare(b.name))
+        .slice(0, 6);
 
-      for (const invoice of todayInvoices) {
-        const cashAmount =
-          Math.max(0, toNumber(invoice.cashTendered) - toNumber(invoice.changeAmount)) -
-          toNumber(invoice.returnedAmount);
+      const adminTerminalWatch = terminalsNeedingAttention.map((terminal) => {
+        const hasOpenSession = terminal.timestamps.length > 0;
+        const hasExpiredSubscription =
+          terminal.subscription?.status === "expired" ||
+          terminal.subscription?.status === "cancelled" ||
+          hasDatePassed(terminal.subscription?.expiresAt);
+        const hasExpiredPermit = hasDatePassed(terminal.validUntil);
 
-        if (cashAmount > 0) {
-          paymentMap.set("Cash", (paymentMap.get("Cash") ?? 0) + cashAmount);
+        let attentionLevel: "default" | "warning" | "danger" = "default";
+        let attentionReason = "Ready";
+
+        if (!terminal.subscription) {
+          attentionLevel = "danger";
+          attentionReason = "No subscription assigned";
+        } else if (hasExpiredSubscription) {
+          attentionLevel = "danger";
+          attentionReason = "Subscription expired or inactive";
+        } else if (hasExpiredPermit) {
+          attentionLevel = "danger";
+          attentionReason = "Terminal validity already expired";
+        } else if (terminal.subscription.status === "pending" || terminal.subscription.status === "suspended") {
+          attentionLevel = "warning";
+          attentionReason = "Subscription needs admin review";
+        } else if (isDateWithinDays(terminal.subscription.expiresAt, 30)) {
+          attentionLevel = "warning";
+          attentionReason = "Subscription expires within 30 days";
+        } else if (isDateWithinDays(terminal.validUntil, 30)) {
+          attentionLevel = "warning";
+          attentionReason = "Terminal permit expires within 30 days";
         }
 
-        for (const payment of invoice.ePayments) {
-          const key = getPaymentMethodName(payment.saleType.name);
-          paymentMap.set(key, (paymentMap.get(key) ?? 0) + toNumber(payment.amount));
-        }
-      }
+        return {
+          id: terminal.id,
+          name: terminal.posName ?? "Unnamed terminal",
+          companyName: terminal.company.name,
+          terminalStateLabel: hasOpenSession ? "Open session" : terminal.isActive ? "Active" : "Inactive",
+          subscriptionStatusLabel: terminal.subscription?.status ?? "unassigned",
+          permitValidUntil: terminal.validUntil,
+          subscriptionExpiresAt: terminal.subscription?.expiresAt ?? null,
+          attentionLevel,
+          attentionReason,
+        };
+      });
 
       return {
         role: viewer.role,
         viewerName: viewer.fullName ?? viewer.email,
-        scopeLabel: "Workspace overview",
-        heroTitle: "Multi-branch operations at a glance",
-        heroDescription: "Track revenue, active teams, and live terminal health across the workspace.",
+        scopeLabel: "System owner overview",
+        heroTitle: "System owner command center",
+        heroDescription:
+          "Watch company growth, terminal subscription validity, pending approvals, and the latest operational activity across POSard.",
         summary: [
-          { label: "Sales Today", value: todaySales, tone: "success", hint: "Net paid sales across all companies" },
-          { label: "Transactions Today", value: todayInvoices.filter((item) => item.status === "PAID").length, hint: "Paid receipts captured today" },
-          { label: "Active Terminals", value: activeTerminals, hint: "Currently marked live" },
-          { label: "Cashiers Online", value: activeCashiers, hint: "Active cashier accounts" },
-          { label: "Managers Active", value: activeManagers, hint: "Approved managers in workspace" },
-          { label: "Companies", value: companiesCount, hint: "Registered businesses" },
+          { label: "Companies", value: companiesCount, hint: "Registered businesses on the platform" },
+          { label: "Active Subscriptions", value: activeSubscriptions, tone: "success", hint: "Terminals with active plans" },
+          { label: "Terminals Live", value: activeTerminals, hint: "Terminal records currently enabled" },
+          { label: "Expiring in 30 Days", value: expiringSubscriptions + expiringPermits, tone: "warning", hint: "Subscriptions or permits nearing expiry" },
+          { label: "Pending Manager Approvals", value: pendingManagers, tone: pendingManagers > 0 ? "warning" : "default", hint: "Manager accounts waiting for approval" },
+          { label: "Pending Terminal Requests", value: pendingRequests, tone: pendingRequests > 0 ? "warning" : "default", hint: "Company requests needing review" },
         ],
-        trend: buildTrend(weekInvoices),
-        paymentMix: [...paymentMap.entries()]
-          .map(([label, amount]) => ({ label, amount }))
-          .sort((a, b) => b.amount - a.amount),
-        companyLeaderboard: [...companySalesMap.entries()]
-          .map(([name, item], index) => ({
-            id: `${name}-${index}`,
-            name,
-            secondaryLabel: "Last 30 days",
-            sales: item.sales,
-            transactions: item.transactions,
-            statusLabel: item.transactions > 0 ? "Selling" : "Idle",
-          }))
-          .sort((a, b) => b.sales - a.sales)
-          .slice(0, 5),
-        terminals: terminals.map((terminal) => ({
-          id: terminal.id,
-          name: terminal.posName ?? "Unnamed terminal",
-          secondaryLabel: terminal.company.name,
-          sales: terminal.invoices.reduce(
-            (sum, invoice) =>
-              sum +
-              toNumber(invoice.totalAmount) -
-              toNumber(invoice.discountAmount) -
-              toNumber(invoice.returnedAmount),
-            0,
-          ),
-          transactions: terminal.invoices.length,
-          statusLabel: terminal.timestamps.length > 0 ? "Open session" : terminal.isActive ? "Ready" : "Offline",
-        })),
+        trend: [],
+        paymentMix: [],
+        adminWorkspaceStats: [
+          { label: "Active Managers", value: activeManagers, hint: "Approved managers with active accounts" },
+          { label: "Active Cashiers", value: activeCashiers, hint: "Cashiers available across all companies" },
+          { label: "Open Sessions", value: openSessions, hint: "Drawers currently open in the field" },
+          { label: "New Companies", value: newCompaniesThisMonth, hint: "Companies onboarded in the last 30 days" },
+          { label: "No Terminal Yet", value: companiesWithoutTerminals, hint: "Companies still missing their first terminal" },
+          { label: "No Subscription", value: terminalsWithoutSubscription, hint: "Terminals that still need a plan" },
+        ],
+        adminCompanies,
+        adminTerminalWatch,
         recentActivities: auditLogs.map((log) => ({
           id: log.id,
           title: log.actionType,
-          description: `${log.actorProfile.fullName ?? log.actorProfile.email}${log.posTerminal ? ` • ${log.posTerminal.posName ?? "Unnamed terminal"}` : ""}`,
+          description: `${log.actorProfile.fullName ?? log.actorProfile.email}${log.posTerminal ? ` - ${log.posTerminal.posName ?? "Unnamed terminal"}` : ""}`,
           occurredAt: log.createdAt,
         })),
         alerts: [
@@ -290,6 +368,12 @@ export const dashboardService = {
             : []),
           ...(pendingRequests > 0
             ? [{ id: "pending-requests", title: "Terminal requests pending", description: `${pendingRequests} terminal request(s) need review.`, tone: "info" as const }]
+            : []),
+          ...(expiringSubscriptions > 0
+            ? [{ id: "expiring-subscriptions", title: "Subscriptions expiring soon", description: `${expiringSubscriptions} active subscription(s) expire within 30 days.`, tone: "warning" as const }]
+            : []),
+          ...(expiringPermits > 0
+            ? [{ id: "expiring-permits", title: "Terminal permits nearing validity end", description: `${expiringPermits} terminal registration(s) need renewal within 30 days.`, tone: "warning" as const }]
             : []),
         ],
       };
@@ -339,17 +423,17 @@ export const dashboardService = {
         },
         orderBy: { createdAt: "desc" },
       }),
-        prisma.invoice.findMany({
-          where: { ...baseWhere, createdAt: { gte: weekStart, lte: todayEnd } },
-          select: {
-            createdAt: true,
-            totalAmount: true,
-            discountAmount: true,
-            returnedAmount: true,
-            status: true,
-            cashierId: true,
-          },
-        }),
+      prisma.invoice.findMany({
+        where: { ...baseWhere, createdAt: { gte: weekStart, lte: todayEnd } },
+        select: {
+          createdAt: true,
+          totalAmount: true,
+          discountAmount: true,
+          returnedAmount: true,
+          status: true,
+          cashierId: true,
+        },
+      }),
       prisma.item.findMany({
         where: {
           invoice: { posTerminal: { companyId }, createdAt: { gte: monthStart, lte: todayEnd } },
@@ -509,7 +593,7 @@ export const dashboardService = {
       recentActivities: auditLogs.map((log) => ({
         id: log.id,
         title: log.actionType,
-        description: `${log.actorProfile.fullName ?? log.actorProfile.email}${log.posTerminal ? ` • ${log.posTerminal.posName ?? "Unnamed terminal"}` : ""}`,
+        description: `${log.actorProfile.fullName ?? log.actorProfile.email}${log.posTerminal ? ` - ${log.posTerminal.posName ?? "Unnamed terminal"}` : ""}`,
         occurredAt: log.createdAt,
       })),
       recentInvoices: recentInvoices.map((invoice) => ({
@@ -608,7 +692,7 @@ export const dashboardService = {
       viewerName: viewer.fullName ?? viewer.email,
       scopeLabel: company.name,
       heroTitle: "Your shift, receipts, and pace",
-      heroDescription: "Focus on your terminal, today’s sales, and the receipts you’ve already handled.",
+      heroDescription: "Focus on your terminal, today's sales, and the receipts you've already handled.",
       summary: [
         { label: "My Sales Today", value: salesToday, tone: "success", hint: "Net paid sales on your receipts" },
         { label: "My Transactions", value: todayScopedInvoices.filter((item) => item.status === "PAID").length, hint: "Paid invoices handled today" },

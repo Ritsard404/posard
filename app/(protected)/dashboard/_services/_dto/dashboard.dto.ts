@@ -75,6 +75,36 @@ export interface DashboardShiftDto {
   isOpen: boolean;
 }
 
+export interface DashboardAdminWorkspaceStatDto {
+  label: string;
+  value: number;
+  hint: string;
+}
+
+export interface DashboardAdminCompanyHealthDto {
+  id: string;
+  name: string;
+  ownerName: string | null;
+  terminalCount: number;
+  activeTerminalCount: number;
+  activeSubscriptionCount: number;
+  pendingRequestCount: number;
+  riskCount: number;
+  lastActivityAt: Date | null;
+}
+
+export interface DashboardAdminTerminalWatchDto {
+  id: string;
+  name: string;
+  companyName: string;
+  terminalStateLabel: string;
+  subscriptionStatusLabel: string;
+  permitValidUntil: Date;
+  subscriptionExpiresAt: Date | null;
+  attentionLevel: "default" | "warning" | "danger";
+  attentionReason: string;
+}
+
 export interface DashboardDataDto {
   role: UserRole;
   viewerName: string;
@@ -92,4 +122,7 @@ export interface DashboardDataDto {
   lowStockProducts?: DashboardProductStatDto[];
   companyLeaderboard?: DashboardTerminalStatDto[];
   shift?: DashboardShiftDto;
+  adminWorkspaceStats?: DashboardAdminWorkspaceStatDto[];
+  adminCompanies?: DashboardAdminCompanyHealthDto[];
+  adminTerminalWatch?: DashboardAdminTerminalWatchDto[];
 }
