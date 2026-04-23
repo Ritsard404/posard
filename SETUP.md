@@ -1,200 +1,377 @@
-# POSard - Setup Guide
+# POSard Setup Guide
 
-## Quick Start
+This guide sets up POSard for local development with Supabase Auth, Supabase PostgreSQL, Prisma migrations, and the RBAC SQL in `supabase-rbac.sql`.
 
-### 1. Prerequisites
-- Node.js 18+ installed
-- npm or yarn package manager
-- A Supabase account (already configured)
+## Prerequisites
 
-### 2. Install Dependencies
+- Node.js 20 or newer
+- npm
+- A Supabase project
+- Access to the Supabase SQL Editor
+- The Supabase database connection strings
+
+On Windows PowerShell, use `npm.cmd` and `npx.cmd` if `npm` or `npx` is blocked by execution policy.
+
+## Setup Order
+
+Follow this order for a clean setup:
+
+1. Create or open a Supabase project.
+2. Configure Supabase Auth.
+3. Add local environment variables.
+4. Install dependencies.
+5. Run Prisma migrations.
+6. Run `supabase-rbac.sql` in Supabase SQL Editor.
+7. Bootstrap the first admin profile.
+8. Run the app and verify access.
+
+## 1. Create A Supabase Project
+
+In Supabase:
+
+1. Create a project or open the existing POSard project.
+2. Go to **Project Settings > API**.
+3. Copy:
+   - Project URL
+   - Publishable key
+   - Service role key
+4. Go to **Project Settings > Database**.
+5. Copy:
+   - Pooled connection string for app runtime
+   - Direct connection string for Prisma migrations
+
+Use the pooled connection string for `DATABASE_URL` and the direct connection string for `DIRECT_URL`.
+
+## 2. Configure Supabase Auth
+
+In **Authentication > Providers**:
+
+1. Enable Email provider.
+2. Enable password-based sign-in.
+3. Decide whether email confirmation is required for your environment.
+
+In **Authentication > URL Configuration**:
+
+1. Set **Site URL** for local development:
+
+   ```text
+   http://localhost:3000
+   ```
+
+2. Add local redirect URLs:
+
+   ```text
+   http://localhost:3000/auth/login
+   http://localhost:3000/auth/update-password
+   http://localhost:3000/auth/confirm
+   ```
+
+3. For production, also add the deployed Vercel URLs, for example:
+
+   ```text
+   https://posard.vercel.app/auth/login
+   https://posard.vercel.app/auth/update-password
+   https://posard.vercel.app/auth/confirm
+   ```
+
+POSard uses Supabase Auth for sign-in, password reset, user invites, and admin-managed account creation.
+
+## 3. Configure Environment Variables
+
+Create `.env.local` in the project root:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=
+DIRECT_URL=
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+Variable usage:
+
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL used by browser and server clients |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public Supabase key for browser/server auth |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only admin key for creating, inviting, updating, and deleting users |
+| `DATABASE_URL` | Runtime Prisma connection string, usually pooled |
+| `DIRECT_URL` | Direct database connection string used by Prisma migrations |
+| `NEXT_PUBLIC_SITE_URL` | Public canonical URL for SEO metadata |
+| `NEXT_PUBLIC_APP_URL` | Base URL used for account invite redirects |
+
+Keep `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, and `DIRECT_URL` server-only. Do not expose them in client components.
+
+## 4. Install Dependencies
+
 ```bash
 npm install
 ```
 
-### 3. Environment Setup
+Windows PowerShell:
 
-Your `.env.local` is already configured with:
-- **Database**: Supabase PostgreSQL
-- **Auth**: Supabase Authentication
-- **API Keys**: Connected and ready
+```powershell
+npm.cmd install
+```
 
-No additional .env setup needed! ✅
+## 5. Run Prisma Migrations
 
-### 4. Run Development Server
+Generate Prisma Client:
+
+```bash
+npx prisma generate
+```
+
+Apply migrations to Supabase:
+
+```bash
+npx prisma migrate deploy
+```
+
+For local migration development, use:
+
+```bash
+npx prisma migrate dev
+```
+
+Windows PowerShell:
+
+```powershell
+npx.cmd prisma generate
+npx.cmd prisma migrate deploy
+```
+
+Prisma owns the POSard database schema. The migrations create the main application tables, enums, indexes, and foreign keys.
+
+## 6. Run Supabase RBAC SQL
+
+After Prisma migrations complete, run the RBAC SQL. Do not run this before the Prisma migrations on a fresh database, because Prisma owns the full schema and migration history.
+
+1. Open Supabase Dashboard.
+2. Go to **SQL Editor**.
+3. Open the local file `supabase-rbac.sql`.
+4. Copy the SQL into the Supabase SQL Editor.
+5. Run it.
+
+The SQL file does these Supabase-specific tasks:
+
+- Ensures the `user_role` and `user_status` enum types exist.
+- Ensures the `profiles` table exists for Supabase Auth profile lookup.
+- Enables row-level security on `public.profiles`.
+- Creates the `is_admin(user_id uuid)` helper function.
+- Creates the `handle_new_user()` Auth trigger helper.
+- Creates the `on_auth_user_created` trigger on `auth.users`.
+- Creates policies that allow active admins to manage profiles.
+- Allows authenticated users to read their own profile.
+- Allows new authenticated sign-ups to insert their own pending manager profile.
+- Grants public schema usage and authenticated profile read access.
+
+Important: `supabase-rbac.sql` is for Supabase security setup. Prisma migrations remain the source of truth for the full application schema.
+
+## 7. Bootstrap The First Admin
+
+The first admin must exist before admin-only workflows can approve managers or manage companies.
+
+In Supabase:
+
+1. Go to **Authentication > Users**.
+2. Create the first admin user or invite the admin email.
+3. Copy the new user's Auth user ID.
+4. Go to **SQL Editor**.
+5. Insert or update the matching profile:
+
+```sql
+insert into public.profiles (user_id, email, full_name, role, status, approved_at)
+values (
+  'AUTH_USER_ID_HERE',
+  'admin@example.com',
+  'POSard Admin',
+  'admin',
+  'active',
+  now()
+)
+on conflict (user_id)
+do update set
+  email = excluded.email,
+  full_name = excluded.full_name,
+  role = 'admin',
+  status = 'active',
+  approved_at = coalesce(public.profiles.approved_at, now()),
+  updated_at = now();
+```
+
+Replace `AUTH_USER_ID_HERE` and `admin@example.com` with the real Supabase Auth user values.
+
+## 8. Run The App
+
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Windows PowerShell:
 
----
-
-## Test Accounts
-
-### 🔐 Login at `/auth/login`
-
-All test accounts use password: **`200303`**
-
-#### Admin Account 👑
-- **Email**: `posard@pos.com`
-- **Password**: `200303`
-- **Access**: All features
-  - Dashboard
-  - POS System
-  - Inventory Management
-  - Orders
-  - Transactions
-  - User Management
-  - Reports
-  - Settings
-
-#### Manager Account 📊
-- **Email**: `manager@posard.com`
-- **Password**: `200303`
-- **Access**: Limited to:
-  - Dashboard
-  - Orders
-  - Inventory Management
-  - Profile
-
-#### Cashier Account 💳
-- **Email**: `cashier@posard.com`
-- **Password**: `200303`
-- **Access**: Limited to:
-  - Dashboard
-  - POS System
-  - Transactions
-  - Profile
-
----
-
-## Feature Overview by Role
-
-| Feature | Admin | Manager | Cashier |
-|---------|:-----:|:-------:|:-------:|
-| Dashboard | ✅ | ✅ | ✅ |
-| POS/Checkout | ✅ | ❌ | ✅ |
-| Inventory | ✅ | ✅ | ❌ |
-| Orders | ✅ | ✅ | ❌ |
-| Transactions | ✅ | ❌ | ✅ |
-| Users | ✅ | ❌ | ❌ |
-| Reports | ✅ | ❌ | ❌ |
-| Settings | ✅ | ❌ | ❌ |
-
----
-
-## Testing User Permissions
-
-### Test Unauthorized Access
-1. Log in as **Cashier** (`cashier@posard.com`)
-2. Try to navigate to `/admin` or `/inventory`
-3. You should see an **"Unauthorized"** page ✅
-
-### Test Role-Based Navigation
-1. Log in as **Admin** - see full sidebar menu
-2. Log out and log in as **Manager** - see limited menu
-3. Log out and log in as **Cashier** - see minimal menu
-
-### Test Auto-Redirect
-1. Log in as any role
-2. Visit `http://localhost:3000/`
-3. You'll auto-redirect to `/dashboard` ✅
-
----
-
-## Build & Deploy
-
-### Build for Production
-```bash
-npm run build
-# Then run: npm start
+```powershell
+npm.cmd run dev
 ```
 
-### Run Linter
+Open:
+
+```text
+http://localhost:3000
+```
+
+Sign in at:
+
+```text
+http://localhost:3000/auth/login
+```
+
+## Account Flow
+
+POSard uses these account paths:
+
+| Flow | What Happens |
+| --- | --- |
+| Public sign-up | Creates a Supabase Auth user; `supabase-rbac.sql` creates the matching pending manager profile through the `on_auth_user_created` trigger |
+| Admin approval | Admin activates pending manager accounts from the approvals/accounts workflow |
+| Manager onboarding | Approved managers without a company are sent to `/setup-company` |
+| Company setup | Creates the company, assigns the manager, creates the first terminal, and saves the manager PIN |
+| Cashier creation | Manager/admin creates cashier accounts from Accounts; cashier users are active after creation |
+| Password reset | Supabase sends reset link to `/auth/update-password` |
+
+## Role Access
+
+| Area | Admin | Manager | Cashier |
+| --- | --- | --- | --- |
+| Dashboard | Yes | Yes | Yes |
+| POS | No | Yes | Yes |
+| Products and inventory | No | Yes | No |
+| Reports | Yes | Yes | No |
+| Accounts | Yes | Yes | Own profile only |
+| Companies | Yes | Own company screens | No |
+| Terminals | Yes | Own company terminals | No |
+| Approvals | Yes | No | No |
+
+Route and navigation access is controlled by:
+
+```text
+lib/access-control-core.ts
+lib/access-control.ts
+lib/supabase/proxy.ts
+```
+
+## Database Setup Checklist
+
+Use this checklist when preparing a fresh Supabase database:
+
+1. `DATABASE_URL` points to the pooled Supabase database connection.
+2. `DIRECT_URL` points to the direct Supabase database connection.
+3. `npx prisma generate` completes.
+4. `npx prisma migrate deploy` completes.
+5. `supabase-rbac.sql` has been run in Supabase SQL Editor.
+6. `public.profiles` has RLS enabled.
+7. `is_admin(uuid)` exists under `public`.
+8. The first admin Auth user exists.
+9. The first admin `public.profiles` row has `role = 'admin'` and `status = 'active'`.
+10. A login test reaches `/dashboard`.
+
+## Verification Commands
+
+Build:
+
+```bash
+npm run build
+```
+
+Lint:
+
 ```bash
 npm run lint
 ```
 
----
+End-to-end tests:
+
+```bash
+npm run test:e2e
+```
+
+Focused test examples:
+
+```bash
+npm run test:e2e -- tests/auth
+npm run test:e2e -- tests/product --workers=1
+```
 
 ## Troubleshooting
 
-### Build Fails with Missing Modules
-Missing files:
-- `@/components/accounts/AccountTable`
-- `@/features/member/member.hooks`
+### Login says profile was not found
 
-**Solution**: These are placeholder imports. Remove them from `app/(protected)/accounts/page.tsx` or create stub files if you need the accounts page.
+The Supabase Auth user exists, but `public.profiles` does not have a matching `user_id`.
 
-### Can't Log In
-- Verify `.env.local` has correct Supabase URL and keys
-- Check test account email in Supabase dashboard
+Fix:
 
-### Role Not Showing in Sidebar
-- Wait 2-3 seconds for sidebar to load user profile
-- Check browser console for errors
-- Log out and log back in
+1. Confirm `supabase-rbac.sql` has been run.
+2. Create or update the profile row for the user.
+3. Make sure the profile status is `active` for users who should log in.
 
----
+### Account is pending approval
 
-## Architecture
+The user has a profile, but `status = 'pending'`.
 
-### Key Files
+Fix:
+
+1. Sign in as an active admin.
+2. Open the approvals/accounts workflow.
+3. Approve the pending manager account.
+
+For the first admin, update the row manually in SQL as shown in [Bootstrap The First Admin](#7-bootstrap-the-first-admin).
+
+### Manager redirects to setup company
+
+The manager is active but has no `company_id`.
+
+Fix:
+
+1. Let the manager complete `/setup-company`.
+2. Or assign the manager to an existing company through the admin/account workflow.
+
+### Prisma cannot connect
+
+Check:
+
+1. `DATABASE_URL` is present.
+2. `DIRECT_URL` is present.
+3. The database password is URL-encoded if it contains special characters.
+4. Supabase database connection pooling settings match the connection string.
+
+### Supabase admin actions fail
+
+Check:
+
+1. `SUPABASE_SERVICE_ROLE_KEY` is present.
+2. The key is the service role key, not the publishable key.
+3. The code path is server-side only.
+
+### PowerShell blocks npm or npx
+
+Use the Windows command shims:
+
+```powershell
+npm.cmd run dev
+npm.cmd run build
+npx.cmd prisma generate
 ```
-lib/
-├── permissions.ts          # Role-to-permission mapping
-├── navigation.ts           # Routes & navigation config
-└── supabase/
-    ├── proxy.ts           # Middleware (auth, permissions)
-    ├── server.ts          # Server-side client
-    └── client.ts          # Browser-side client
 
-app/
-├── page.tsx               # Landing page (redirects logged-in users)
-├── auth/                  # Login, signup, forgot password
-└── (protected)/           # Dashboard & role-based routes
-    ├── layout.tsx         # Sidebar + header layout
-    ├── dashboard/
-    ├── pos/
-    ├── inventory/
-    └── ...
-```
+## Deployment Notes
 
-### Permission-Based Access Control
-- **Admin**: All permissions
-- **Manager**: `view.dashboard`, `view.orders`, `view.inventory`, `view.profile`
-- **Cashier**: `view.dashboard`, `view.pos`, `view.transactions`, `view.profile`
+For Vercel:
 
----
-
-## Database
-
-### Supabase Project
-- **URL**: https://icgxiznphwdpsubugejl.supabase.co
-- **Region**: ap-south-1 (Singapore)
-- **Connection**: Pooled (port 6543)
-
-### Required Tables
-- `profiles` - User roles and status
-- `auth.users` - Supabase auth users
-
----
-
-## Next Steps
-
-1. ✅ Test all 3 user accounts
-2. ✅ Verify role-based sidebar filtering
-3. ✅ Test permission middleware (try unauthorized routes)
-4. 🔄 Create missing feature components (Accounts, Reports, etc.)
-5. 🔄 Add your business logic for POS, Inventory, etc.
-
----
-
-## Support
-
-For errors or issues, check:
-1. Browser console (Ctrl+Shift+I)
-2. Terminal output from `npm run dev`
-3. Supabase dashboard > Auth > Users (verify accounts exist)
-4. Test with incognito window to clear cache
+1. Add all variables from `.env.local` to Vercel project environment variables.
+2. Set `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_APP_URL` to the production domain.
+3. Add production auth redirect URLs in Supabase.
+4. Run Prisma migrations against the production Supabase database.
+5. Run `supabase-rbac.sql` in the production Supabase SQL Editor.
+6. Confirm the first admin profile exists and is active.
+7. Deploy and verify login, dashboard, POS checkout, reports, and public SEO pages.

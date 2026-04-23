@@ -1,109 +1,258 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# POSard
 
-<p align="center">
- The fastest way to build apps with Next.js and Supabase
-</p>
+POSard is a cloud point-of-sale system for small business operations. It is built with Next.js App Router, Supabase Auth, Prisma, PostgreSQL, Tailwind CSS, shadcn/ui components, and Playwright tests.
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
-</p>
-<br/>
+The application covers cashier checkout, product and inventory management, role-based accounts, company and terminal administration, client-side receipt printing, X-reading/Z-reading reports, and public marketing/SEO pages.
 
-## Features
+## Contents
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Proxy
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+- [Who This Is For](#who-this-is-for)
+- [System Capabilities](#system-capabilities)
+- [Technology Stack](#technology-stack)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+- [Development Commands](#development-commands)
+- [Application Structure](#application-structure)
+- [Roles And Access](#roles-and-access)
+- [Database](#database)
+- [Testing And Verification](#testing-and-verification)
+- [Operational Notes](#operational-notes)
 
-## Demo
+## Who This Is For
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+This README is for developers and maintainers working on the POSard codebase. It focuses on running the app locally, understanding the main domains, and finding the files that own core POS behavior.
 
-## Deploy to Vercel
+For end-user workflows, use the application screens directly: cashier operations live in POS, business setup lives in company/terminal screens, and operational reporting lives in dashboard/report screens.
 
-Vercel deployment will guide you through creating a Supabase account and project.
+## System Capabilities
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+POSard currently includes:
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+- Public marketing pages for `/`, `/about`, `/features`, `/solutions`, `/pricing`, `/contact`, `/privacy`, and `/terms`.
+- Supabase authentication with login, sign-up, password recovery, password update, and manager registration approval.
+- Role-based protected navigation for admin, manager, and cashier users.
+- Company management with operational company records, settings, subscriptions, terminal lists, and terminal requests.
+- Terminal configuration with receipt metadata, invoice numbering scoped per terminal, printer settings, and subscription status.
+- Mobile-first POS checkout with menu, cart, and tender flows.
+- Cash drawer sessions with opening cash, withdrawals, close-session flow, X-reading, and Z-reading support.
+- Dynamic reference payment methods through `SaleType` and `EPayment`, with cash handled separately as drawer tender.
+- PWD, senior, and other discount handling with customer and ID metadata.
+- Product, category, inventory, stock adjustment, CSV import, and soft-delete workflows.
+- Dashboard and reports for sales, invoices, payment mix, terminal activity, voids, returns, and audit activity.
+- Client-side thermal printing through browser device APIs, with server-side archive storage for invoices and readings.
+- Technical SEO support with sitemap, robots, Open Graph image, canonical metadata, and JSON-LD helpers.
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+## Technology Stack
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
+- Framework: Next.js App Router
+- UI: React, Tailwind CSS, shadcn/ui, Radix primitives, lucide-react
+- Forms and validation: React Hook Form, Zod
+- State: Zustand
+- Charts: Recharts
+- Auth and session: Supabase Auth with `@supabase/ssr`
+- Database: PostgreSQL through Prisma Client and `@prisma/adapter-pg`
+- Tests: Playwright
+- Deployment target: Vercel
 
-## Clone and run locally
+## Quick Start
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
+Install dependencies:
 
-2. Create a Next.js app using the Supabase Starter template npx command
+```bash
+npm install
+```
 
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
+Create `.env.local` using the variables in [Environment Variables](#environment-variables).
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
+Generate Prisma Client:
 
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
+```bash
+npx prisma generate
+```
 
-3. Use `cd` to change into the app's directory
+Run the development server:
 
-   ```bash
-   cd with-supabase-app
-   ```
+```bash
+npm run dev
+```
 
-4. Rename `.env.example` to `.env.local` and update the following:
+Open the app:
 
-  ```env
-  NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
-  ```
-  > [!NOTE]
-  > This example uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which refers to Supabase's new **publishable** key format.
-  > Both legacy **anon** keys and new **publishable** keys can be used with this variable name during the transition period. Supabase's dashboard may show `NEXT_PUBLIC_SUPABASE_ANON_KEY`; its value can be used in this example.
-  > See the [full announcement](https://github.com/orgs/supabase/discussions/29260) for more information.
+```text
+http://localhost:3000
+```
 
-  Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
+On Windows PowerShell, prefer the command shims when script execution policy blocks plain commands:
 
-5. You can now run the Next.js local development server:
+```powershell
+npm.cmd install
+npm.cmd run dev
+npx.cmd prisma generate
+```
 
-   ```bash
-   npm run dev
-   ```
+## Environment Variables
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+POSard expects these variables in `.env.local` for local development and in the hosting environment for deployment.
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=
+DIRECT_URL=
+NEXT_PUBLIC_SITE_URL=
+```
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+Variable usage:
 
-## Feedback and issues
+| Variable | Used For |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Browser and server Supabase clients |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth client key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin-only Supabase operations such as user provisioning |
+| `DATABASE_URL` | Prisma Client runtime connection |
+| `DIRECT_URL` | Prisma migration datasource |
+| `NEXT_PUBLIC_SITE_URL` | SEO canonical URL and public metadata base |
 
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
+Do not expose `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, or `DIRECT_URL` to client-side code.
 
-## More Supabase examples
+## Development Commands
 
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+npm run test:e2e
+npm run test:e2e:ui
+npm run test:e2e:headed
+npm run test:e2e:debug
+```
+
+The production build script runs Prisma generation before building Next.js:
+
+```bash
+prisma generate && next build
+```
+
+## Application Structure
+
+Important top-level paths:
+
+```text
+app/
+  (marketing)/       Public marketing, privacy, and terms pages
+  (onboarding)/      Company setup flow
+  (protected)/       Authenticated dashboard, POS, reports, companies, accounts
+  auth/              Login, sign-up, password recovery, password update
+
+components/
+  ui/                Shared shadcn/ui-style primitives
+  layout/            Protected layout actions and sidebar integrations
+  marketing/         Public page shell components
+
+lib/
+  supabase/          Browser, server, proxy, and admin Supabase clients
+  access-control*    Public route, protected route, permission, and sidebar rules
+  seo.ts             Public metadata, canonical, and JSON-LD helpers
+  prisma.ts          Prisma Client singleton
+
+prisma/
+  schema.prisma      Database schema
+  migrations/        Database migrations
+
+tests/
+  auth/              Auth and redirect e2e tests
+  product/           Product and category CRUD e2e tests
+  pos/               POS responsiveness tests
+```
+
+Feature code is intentionally grouped under its route. For example, POS services, components, actions, DTOs, and store logic live under `app/(protected)/pos`.
+
+## Roles And Access
+
+POSard has three application roles:
+
+| Role | Primary Scope |
+| --- | --- |
+| `admin` | Workspace administration, companies, terminals, subscriptions, approvals, dashboard, accounts, reports |
+| `manager` | Company-scoped dashboard, POS, products, inventory, reports, accounts, company settings, terminals |
+| `cashier` | POS, dashboard, transaction-facing activity, own profile |
+
+Route access is defined in:
+
+```text
+lib/access-control-core.ts
+lib/access-control.ts
+lib/supabase/proxy.ts
+```
+
+When adding public pages, update the public route allowlist so unauthenticated visitors and crawlers are not redirected to login.
+
+## Database
+
+The Prisma schema models these main domains:
+
+- `Profile`: Supabase user profile, role, status, company scope, PIN, and approval status.
+- `Company`: Business record and owning scope for products, terminals, users, and audit logs.
+- `PosTerminalInfo`: POS terminal metadata, printer configuration, counters, and invoice scope.
+- `TerminalSubscription` and `TerminalRequest`: Terminal lifecycle and billing state.
+- `Product`, `Category`, `Inventory`: Product catalog and stock tracking.
+- `Invoice`, `Item`, `EPayment`, `SaleType`: Checkout, line items, reference payments, and receipt totals.
+- `Timestamp` and `PosSession`: Cash drawer/session lifecycle.
+- `InvoiceDocument`: Archived invoice, X-reading, and Z-reading payloads.
+- `AuditLog` and `ApprovalLog`: Operational history and manager approval events.
+
+Useful Prisma commands:
+
+```bash
+npx prisma generate
+npx prisma migrate dev
+npx prisma studio
+```
+
+Use `DIRECT_URL` for migrations and `DATABASE_URL` for runtime Prisma access.
+
+## Testing And Verification
+
+Run the full Playwright suite:
+
+```bash
+npm run test:e2e
+```
+
+Run focused suites when working on a specific area:
+
+```bash
+npm run test:e2e -- tests/auth
+npm run test:e2e -- tests/product --workers=1
+```
+
+Run a production build before shipping structural changes:
+
+```bash
+npm run build
+```
+
+On this Windows workspace, `npm.ps1` and `npx.ps1` can be blocked by PowerShell execution policy. Use `npm.cmd` and `npx.cmd` if that happens.
+
+## Operational Notes
+
+- POS printing is browser/client-side because USB and Bluetooth printer access depends on the cashier device.
+- Supabase and Prisma store the receipt/report data; they do not directly access local printers.
+- Cash is tracked as drawer tender. Non-cash payments use dynamic `SaleType` records and reference numbers through `EPayment`.
+- Invoice numbers are scoped per terminal, so different terminals can have the same invoice number sequence.
+- Product inventory tracking is controlled by `Product.trackInventory`; products do not need to be stock-tracked by default.
+- Company pages are operational screens. Manager sign-up approval belongs in the account/approval workflow.
+- Public SEO pages must remain crawlable and should not depend on an authenticated app shell.
+
+## Deployment
+
+The app is designed for Vercel deployment with Supabase and PostgreSQL environment variables configured in the project.
+
+Before deploying:
+
+1. Confirm all required environment variables are present.
+2. Run `npm run build`.
+3. Verify public pages, login, protected routes, POS checkout, and report printing in the deployed environment.
+4. Confirm `NEXT_PUBLIC_SITE_URL` matches the production domain used for canonical metadata.
