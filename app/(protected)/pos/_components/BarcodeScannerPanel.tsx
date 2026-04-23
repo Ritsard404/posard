@@ -291,7 +291,7 @@ export function BarcodeScannerPanel({ className }: BarcodeScannerPanelProps) {
         type="button"
         variant="outline"
         className={cn(
-          "h-11 shrink-0 rounded-xl border-primary/25 bg-primary/5 px-4 font-bold text-primary hover:bg-primary/10",
+          "h-11 min-w-0 rounded-xl border-primary/25 bg-primary/5 px-4 font-bold text-primary hover:bg-primary/10",
           className,
         )}
         onClick={() => openScanner(isMobile ? "camera" : "manual")}

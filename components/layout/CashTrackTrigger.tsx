@@ -44,9 +44,10 @@ export function CashTrackTrigger() {
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={handleOpen} className="hidden h-9 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 md:flex">
-        <Coins className="w-4 h-4 mr-2 text-emerald-600" />
-        Cash Track
+      <Button variant="outline" size="sm" onClick={handleOpen} className="hidden h-9 shrink-0 rounded-lg border-emerald-200 bg-emerald-50 px-2.5 text-emerald-700 hover:bg-emerald-100 md:flex">
+        <Coins className="mr-1.5 h-4 w-4 text-emerald-600" />
+        <span className="hidden lg:inline">Cash Track</span>
+        <span className="lg:hidden">Cash</span>
       </Button>
       <Button variant="outline" size="icon" onClick={handleOpen} className="size-9 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 md:hidden">
         <Coins className="w-4 h-4" />

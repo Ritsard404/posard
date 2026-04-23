@@ -38,12 +38,12 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
     return (
       <Card 
         className={cn(
-          "group flex min-w-0 flex-row items-center justify-between gap-2.5 border bg-card p-2.5 transition-all",
+          "group flex min-w-0 flex-row items-center justify-between gap-2 border bg-card p-2 transition-all",
           isOutOfStock ? "opacity-60 grayscale-[0.5] cursor-not-allowed" : "cursor-pointer border-border active:scale-[0.99]"
         )} 
         onClick={() => !isOutOfStock && handleAdd()}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className={cn(
             "rounded-lg flex items-center justify-center border border-border overflow-hidden relative",
             isMobile ? "size-14" : "size-12 bg-muted/50",
@@ -70,9 +70,9 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
             <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mt-0.5">{categoryName}</p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2 pr-0.5 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 pr-0.5 sm:gap-2">
           <div className="text-right">
-            <p className="font-heading font-black text-xl text-primary tracking-tighter">₱{product.price.toFixed(2)}</p>
+            <p className="font-heading text-lg font-black tracking-tighter text-primary lg:text-xl">₱{product.price.toFixed(2)}</p>
             <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">
               {product.quantity} {product.baseUnit || 'PCS'}
             </p>
@@ -81,7 +81,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
             size="sm" 
             variant="outline" 
             disabled={isOutOfStock}
-            className="h-9 rounded-lg border-primary/20 bg-primary/5 px-3 text-primary disabled:opacity-50"
+            className="h-9 rounded-lg border-primary/20 bg-primary/5 px-2.5 text-primary disabled:opacity-50"
           >
             <Plus className="size-4" />
             <span>Add</span>
@@ -126,20 +126,20 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-grow flex-col justify-between p-2.5">
+      <CardContent className="flex flex-grow flex-col justify-between p-2 lg:p-2.5">
         <div className="mb-1.5 min-w-0">
           <h3 className="line-clamp-2 min-h-9 font-heading text-sm font-bold leading-tight tracking-tight transition-colors group-hover:text-primary lg:text-[15px]">{product.name}</h3>
           <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">{product.barcode || 'NO BARCODE'}</p>
         </div>
         
-        <div className="space-y-1.5 border-t pt-2">
+        <div className="space-y-1.5 border-t pt-1.5 lg:pt-2">
           <div className="flex justify-between items-end">
              <div className="flex flex-col">
               <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">Stock</span>
               <span className={`text-xs font-black ${product.trackInventory && product.quantity <= 10 ? 'text-amber-500' : 'text-muted-foreground'}`}>{product.quantity}</span>
             </div>
             <div className="text-right">
-              <p className="font-heading text-lg font-black leading-none tracking-tighter text-primary sm:text-xl">₱{product.price.toFixed(2)}</p>
+              <p className="font-heading text-base font-black leading-none tracking-tighter text-primary sm:text-lg xl:text-xl">₱{product.price.toFixed(2)}</p>
             </div>
           </div>
           

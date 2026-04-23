@@ -1,14 +1,21 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { usePOSStore } from '../_store/pos-store';
 import { ProductCard } from './ProductCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, LayoutGrid, List, Package } from 'lucide-react';
+import { Check, ChevronDown, Search, LayoutGrid, List, Package } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { BarcodeScannerPanel } from './BarcodeScannerPanel';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export function ProductDisplay() {
   const isMobile = useIsMobile();
+  const [categorySearch, setCategorySearch] = useState('');
   const { 
     searchQuery, setSearchQuery, 
     selectedCategoryId, setSelectedCategoryId,
@@ -30,15 +37,33 @@ export function ProductDisplay() {
     });
   }, [searchQuery, selectedCategoryId, products]);
 
+  const selectedCategory = useMemo(
+    () => categories.find((cat) => cat.id === selectedCategoryId),
+    [categories, selectedCategoryId],
+  );
+
+  const filteredCategories = useMemo(() => {
+    const query = categorySearch.trim().toLowerCase();
+    if (!query) {
+      return categories;
+    }
+
+    return categories.filter((cat) =>
+      cat.categoryName.toLowerCase().includes(query),
+    );
+  }, [categories, categorySearch]);
+
+  const hasManyCategories = categories.length > 12;
+
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-r bg-background animate-in fade-in duration-300">
-      <div className="shrink-0 space-y-2 border-b bg-background p-2.5 sm:p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="group relative min-w-[12rem] flex-[1_1_16rem]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary sm:left-4 sm:size-5" />
+    <div data-testid="pos-product-panel" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-background animate-in fade-in duration-300">
+      <div className="shrink-0 space-y-2 border-b bg-background p-2 sm:p-2.5 lg:p-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 lg:gap-2">
+          <div className="group relative min-w-0 flex-[1_1_14rem]">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
             <Input 
               placeholder="Search products..." 
               value={searchQuery}
@@ -46,65 +71,141 @@ export function ProductDisplay() {
                 setSearchQuery(e.target.value);
                 setPage(1);
               }}
-              className="h-11 w-full rounded-xl pl-10 text-sm font-medium transition-all sm:pl-12 sm:text-base"
+              className="h-10 w-full rounded-lg pl-9 text-sm font-medium transition-all"
             />
           </div>
-          <BarcodeScannerPanel className="min-w-[9.75rem] flex-[1_1_9.75rem] sm:flex-none" />
-          <div className="grid h-11 shrink-0 grid-cols-2 rounded-xl border bg-card p-1">
+          <BarcodeScannerPanel className="h-10 min-w-0 flex-[1_1_8.75rem] rounded-lg px-3 text-sm sm:flex-none" />
+          <div className="grid h-10 shrink-0 grid-cols-2 rounded-lg border bg-card p-0.5">
             <Button 
               variant={activeViewMode === 'grid' ? "default" : "ghost"} 
               size="sm" 
               onClick={() => setActiveViewMode('grid')}
-              className="h-9 rounded-lg px-2 sm:px-3"
+              className="h-9 rounded-md px-2"
             >
               <LayoutGrid className="size-4" />
-              <span className="text-xs sm:text-sm">Grid</span>
+              <span className="text-xs">Grid</span>
             </Button>
             <Button 
               variant={activeViewMode === 'list' ? "default" : "ghost"} 
               size="sm" 
               onClick={() => setActiveViewMode('list')}
-              className="h-9 rounded-lg px-2 sm:px-3"
+              className="h-9 rounded-md px-2"
             >
               <List className="size-4" />
-              <span className="text-xs sm:text-sm">List</span>
+              <span className="text-xs">List</span>
             </Button>
           </div>
         </div>
 
-        <div className="relative">
-          <div className="scroll-pb-1 overflow-x-auto pb-1">
-            <div className="flex w-max min-w-full gap-2">
-            <Button
-              variant={selectedCategoryId === null ? 'default' : 'outline'}
-              className="h-8 shrink-0 rounded-full px-3.5 text-[10px] font-bold uppercase tracking-wider"
-              onClick={() => {
-                setSelectedCategoryId(null);
-                setPage(1);
-              }}
-            >
-              All Items
-            </Button>
-            {categories.map((cat) => (
+        {hasManyCategories ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-9 min-w-0 flex-1 justify-between rounded-lg px-3 text-left text-xs font-bold uppercase tracking-wider sm:max-w-80"
+                >
+                  <span className="min-w-0 truncate">
+                    {selectedCategory?.categoryName ?? 'All Items'}
+                  </span>
+                  <ChevronDown className="ml-2 size-4 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="w-[min(22rem,calc(100vw-2rem))] rounded-xl p-1"
+              >
+                <div
+                  className="p-1"
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <Input
+                    value={categorySearch}
+                    onChange={(event) => setCategorySearch(event.target.value)}
+                    placeholder="Search categories..."
+                    className="h-9 rounded-lg text-sm"
+                  />
+                </div>
+                <DropdownMenuItem
+                  className="rounded-lg text-xs font-bold uppercase tracking-wider"
+                  onSelect={() => {
+                    setSelectedCategoryId(null);
+                    setPage(1);
+                  }}
+                >
+                  <Check
+                    className={
+                      selectedCategoryId === null ? 'size-4 opacity-100' : 'size-4 opacity-0'
+                    }
+                  />
+                  All Items
+                </DropdownMenuItem>
+                {filteredCategories.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                    No categories found.
+                  </div>
+                ) : (
+                  filteredCategories.map((cat) => (
+                    <DropdownMenuItem
+                      key={cat.id}
+                      className="rounded-lg text-xs font-bold uppercase tracking-wider"
+                      onSelect={() => {
+                        setSelectedCategoryId(cat.id);
+                        setPage(1);
+                      }}
+                    >
+                      <Check
+                        className={
+                          selectedCategoryId === cat.id
+                            ? 'size-4 opacity-100'
+                            : 'size-4 opacity-0'
+                        }
+                      />
+                      <span className="min-w-0 truncate">{cat.categoryName}</span>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              {categories.length} categories
+            </span>
+          </div>
+        ) : (
+          <div className="relative min-w-0 max-w-full overflow-hidden">
+            <div className="scroll-pb-1 overflow-x-auto pb-1">
+              <div className="flex w-max min-w-full gap-1.5">
               <Button
-                key={cat.id}
-                variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                className="h-8 max-w-[14rem] shrink-0 rounded-full px-3.5 text-[10px] font-bold uppercase tracking-wider"
+                variant={selectedCategoryId === null ? 'default' : 'outline'}
+                className="h-8 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider"
                 onClick={() => {
-                  setSelectedCategoryId(cat.id);
+                  setSelectedCategoryId(null);
                   setPage(1);
                 }}
               >
-                <span className="truncate">{cat.categoryName}</span>
+                All Items
               </Button>
-            ))}
+              {categories.map((cat) => (
+                <Button
+                  key={cat.id}
+                  variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
+                  className="h-8 max-w-[10rem] shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider lg:max-w-[12rem]"
+                  onClick={() => {
+                    setSelectedCategoryId(cat.id);
+                    setPage(1);
+                  }}
+                >
+                  <span className="truncate">{cat.categoryName}</span>
+                </Button>
+              ))}
+              </div>
             </div>
+            <div className="pointer-events-none absolute bottom-2 right-0 top-0 w-8 bg-gradient-to-l from-background to-transparent" />
           </div>
-          <div className="pointer-events-none absolute bottom-2 right-0 top-0 w-8 bg-gradient-to-l from-background to-transparent" />
-        </div>
+        )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2.5 sm:p-3">
+      <div data-testid="pos-product-scroll" className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-2.5 lg:p-3">
         {paginatedProducts.length === 0 ? (
           <div className="flex min-h-full flex-col items-center justify-center py-20 text-muted-foreground animate-in fade-in zoom-in-95">
             <div className="size-20 rounded-full bg-muted flex items-center justify-center mb-6">
@@ -116,13 +217,13 @@ export function ProductDisplay() {
         ) : (
           <div className={
             activeViewMode === 'grid' 
-              ? "grid grid-cols-2 gap-2.5 pb-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+              ? "grid min-w-0 grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2 pb-3 xl:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]"
               : "flex flex-col gap-2 pb-3"
           }>
             {paginatedProducts.map((product, idx) => (
               <div 
                 key={product.id} 
-                className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+                className="min-w-0 animate-in fade-in slide-in-from-bottom-2 duration-300"
                 style={{ animationDelay: `${idx * 25}ms` }}
               >
                 <ProductCard product={product} viewMode={activeViewMode} />
@@ -133,27 +234,27 @@ export function ProductDisplay() {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex shrink-0 flex-col gap-2 border-t bg-card p-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:p-3">
-          <span>
+        <div className="flex shrink-0 flex-col gap-2 border-t bg-card p-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:p-2.5">
+          <span className="min-w-0 truncate">
             Showing <span className="text-foreground">{(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> of {filteredProducts.length}
           </span>
-          <div className="flex items-center justify-between gap-2 sm:justify-end sm:gap-3">
+          <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
             <Button 
               variant="outline" 
               size="sm"
-              className="h-8 px-3 rounded-lg font-bold"
+              className="h-8 rounded-lg px-3 font-bold"
               disabled={currentPage === 1}
               onClick={() => setPage(currentPage - 1)}
             >
               Prev
             </Button>
-            <div className="flex items-center px-2 font-heading text-foreground text-xs">
-              Page {currentPage} <span className="text-muted-foreground/40 lowercase mx-2 italic font-sans font-medium">of</span> {totalPages}
+            <div className="flex items-center px-1 font-heading text-xs text-foreground">
+              Page {currentPage} <span className="mx-1.5 font-sans font-medium lowercase italic text-muted-foreground/40">of</span> {totalPages}
             </div>
             <Button 
               variant="outline" 
               size="sm"
-              className="h-8 px-3 rounded-lg font-bold"
+              className="h-8 rounded-lg px-3 font-bold"
               disabled={currentPage === totalPages}
               onClick={() => setPage(currentPage + 1)}
             >

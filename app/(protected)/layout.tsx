@@ -41,25 +41,25 @@ export default async function DashboardLayout({
             : null
         }
       />
-      <SidebarInset>
+      <SidebarInset className="h-svh min-w-0 overflow-hidden">
         {/* Sticky Header */}
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b px-4 lg:px-6 bg-background/80 backdrop-blur-md">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b bg-background/80 px-3 backdrop-blur-md lg:px-4">
           <div className="flex items-center gap-2 min-w-0">
             <SidebarTrigger className="-ml-1" />
-            <h1 className="text-xl font-bold truncate text-foreground">
+            <h1 className="truncate text-lg font-bold text-foreground lg:text-xl">
               <PageTitle />
             </h1>
           </div>
 
           {/* This ID is where we can inject page-specific buttons */}
-          <div id="header-actions" className="flex items-center gap-2">
+          <div id="header-actions" className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 overflow-hidden">
             {/* Pages will teleport their buttons here */}
             <ThemeSwitcher />
           </div>
         </header>
 
         {/* Main content */}
-        <main className="flex-1 p-2 lg:p-3">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2 lg:p-3">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

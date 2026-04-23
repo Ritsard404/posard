@@ -66,7 +66,7 @@ export function CartPanel() {
   };
 
   return (
-    <div className="relative z-10 flex h-full min-h-0 w-full flex-col bg-card animate-in slide-in-from-right-4 duration-300">
+    <div data-testid="pos-cart-panel" className="relative z-10 flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-card animate-in slide-in-from-right-4 duration-300">
       {isVoiding ? (
         <div className="fixed inset-0 z-[100] flex cursor-wait flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex min-h-40 w-[min(22rem,calc(100vw-2rem))] flex-col items-center justify-center rounded-xl border bg-card p-6 text-center shadow-lg">
@@ -81,12 +81,12 @@ export function CartPanel() {
         </div>
       ) : null}
 
-      <div className="flex shrink-0 items-center justify-between border-b p-3 lg:p-4">
+      <div className="flex shrink-0 items-center justify-between border-b p-2.5 xl:p-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
             <ShoppingCart className="size-4 text-primary" />
           </div>
-          <h2 className="truncate font-heading text-lg font-black tracking-tight text-foreground">
+          <h2 className="truncate font-heading text-base font-black tracking-tight text-foreground xl:text-lg">
             Active Cart
           </h2>
         </div>
@@ -98,7 +98,7 @@ export function CartPanel() {
         </Badge>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 lg:p-4">
+      <div data-testid="pos-cart-items" className="min-h-0 flex-1 overflow-y-auto p-2.5 xl:p-3">
         {cart.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-20 text-muted-foreground animate-in fade-in zoom-in-95">
             <div className="mb-6 flex size-24 items-center justify-center rounded-full border bg-muted/50">
@@ -110,18 +110,18 @@ export function CartPanel() {
             <p className="mt-1 font-medium">Start scanning products...</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {cart.map((item, idx) => {
               const isVoid = item.itemStatus === "VOID";
 
               return (
                 <div
                   key={item.cartItemId}
-                  className={`flex flex-col rounded-xl border bg-background p-3 transition-all animate-in fade-in slide-in-from-right-2 ${isVoid ? "grayscale opacity-40" : ""}`}
+                  className={`flex min-w-0 flex-col rounded-xl border bg-background p-2.5 transition-all animate-in fade-in slide-in-from-right-2 ${isVoid ? "grayscale opacity-40" : ""}`}
                   style={{ animationDelay: `${idx * 50}ms` }}
                 >
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                  <div className="mb-2.5 flex min-w-0 items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
                       <h4 className="truncate font-heading text-sm font-bold tracking-tight transition-colors group-hover:text-primary">
                         {item.name}
                       </h4>
@@ -241,8 +241,8 @@ export function CartPanel() {
         )}
       </div>
 
-      <div className="shrink-0 border-t bg-card p-3 lg:p-4">
-        <div className="mb-4 space-y-2">
+      <div className="shrink-0 border-t bg-card p-2.5 xl:p-3">
+        <div className="mb-3 space-y-1.5">
           <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
             <span>Aggregated Subtotal</span>
             <span className="font-sans font-bold text-foreground">
@@ -266,10 +266,10 @@ export function CartPanel() {
             </div>
           )}
 
-          <div className="my-3 h-px w-full bg-border" />
+          <div className="my-2.5 h-px w-full bg-border" />
 
-          <div className="flex items-end justify-between gap-3">
-            <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 items-end justify-between gap-2">
+            <div className="flex min-w-0 flex-col gap-1">
               <span className="text-[10px] font-black uppercase tracking-[0.15em] text-primary">
                 Total Amount
               </span>
@@ -277,16 +277,16 @@ export function CartPanel() {
                 Inc. all applicable taxes
               </span>
             </div>
-            <span className="shrink-0 font-heading text-3xl font-black tracking-tighter text-foreground drop-shadow-sm xl:text-4xl">
+            <span className="min-w-0 shrink font-heading text-2xl font-black tracking-tighter text-foreground drop-shadow-sm xl:text-3xl">
               ₱ {Math.max(0, total).toFixed(2)}
             </span>
           </div>
         </div>
 
-        <div className="flex gap-2.5">
+        <div className="flex gap-2">
           <Button
             variant="outline"
-            className="group h-12 w-20 rounded-xl text-[9px] font-bold uppercase tracking-wider text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground active:scale-95"
+            className="group h-11 w-16 shrink-0 rounded-xl text-[9px] font-bold uppercase tracking-wider text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground active:scale-95 xl:h-12 xl:w-20"
             onClick={async () => {
               if (cart.length === 0 || isVoiding) return;
 
@@ -343,7 +343,7 @@ export function CartPanel() {
           </Button>
 
           <Button
-            className="group h-12 flex-1 rounded-xl bg-primary text-base font-black uppercase tracking-widest text-primary-foreground transition-all hover:bg-primary/90 active:scale-95 xl:text-lg"
+            className="group h-11 min-w-0 flex-1 rounded-xl bg-primary text-sm font-black uppercase tracking-wider text-primary-foreground transition-all hover:bg-primary/90 active:scale-95 xl:h-12 xl:text-base"
             onClick={() => {
               if (isMobile) {
                 setActiveMobileTab("tender");
@@ -354,7 +354,7 @@ export function CartPanel() {
             disabled={activeCart.length === 0 || isVoiding}
           >
             {isMobile ? "Go to Tender" : "Checkout"}
-            <ChevronRight className="ml-2 size-6 transition-transform group-hover:translate-x-1" />
+            <ChevronRight className="ml-1.5 size-5 transition-transform group-hover:translate-x-1 xl:size-6" />
           </Button>
         </div>
       </div>

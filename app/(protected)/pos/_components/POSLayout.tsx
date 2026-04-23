@@ -90,25 +90,25 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-5rem)] w-full max-w-full flex-col overflow-hidden bg-background lg:h-[calc(100dvh-5.5rem)]">
+    <div data-testid="pos-shell" className="flex h-full max-h-full w-full max-w-full flex-col overflow-hidden bg-background">
       <HeaderActions>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center justify-end gap-1.5 overflow-hidden">
           <CashTrackTrigger />
           <Button
             variant="outline"
             size="sm"
             onClick={handleToggleFullscreen}
-            className="h-9 rounded-lg px-3"
+            className="h-9 shrink-0 rounded-lg px-2.5"
           >
             {isFullscreen ? (
               <Minimize2 className="size-4" />
             ) : (
               <Maximize2 className="size-4" />
             )}
-            <span className="hidden sm:inline">
+            <span className="hidden lg:inline">
               {isFullscreen ? "Exit" : "Fullscreen"}
             </span>
-            <span className="sm:hidden">{isFullscreen ? "Exit" : "Full"}</span>
+            <span className="lg:hidden">{isFullscreen ? "Exit" : "Full"}</span>
           </Button>
           {isMobile ? (
             <Button
@@ -126,18 +126,18 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowWithdraw(true)}
-                className="hidden h-9 rounded-lg sm:flex"
+                className="hidden h-9 shrink-0 rounded-lg px-2.5 sm:flex"
               >
-                <Wallet className="size-4 mr-2" />
+                <Wallet className="mr-1.5 size-4" />
                 Withdraw
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={() => setShowCloseSession(true)}
-                className="hidden h-9 rounded-lg sm:flex"
+                className="hidden h-9 shrink-0 rounded-lg px-2.5 sm:flex"
               >
-                <LogOut className="size-4 mr-2" />
+                <LogOut className="mr-1.5 size-4" />
                 Close
               </Button>
             </>
@@ -145,7 +145,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
         </div>
       </HeaderActions>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div data-testid="pos-workspace" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         {isMobile ? (
           <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-hidden">
@@ -201,8 +201,8 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           </div>
         ) : (
           <>
-            <div className="h-full min-w-0 flex-1 overflow-hidden">{children}</div>
-            <div className="h-full w-[320px] shrink-0 border-l bg-card xl:w-[360px]">
+            <div data-testid="pos-product-column" className="h-full min-w-0 flex-1 overflow-hidden">{children}</div>
+            <div data-testid="pos-cart-column" className="h-full w-[288px] shrink-0 border-l bg-card lg:w-[304px] xl:w-[340px]">
               {cart}
             </div>
           </>
