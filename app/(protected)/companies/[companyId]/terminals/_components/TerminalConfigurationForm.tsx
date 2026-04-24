@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type Resolver, useForm } from "react-hook-form";
-import { Bluetooth, Cable, Loader2, Printer, RotateCcw, Smartphone, Usb } from "lucide-react";
+import { Bluetooth, Cable, Info, Loader2, Printer, RotateCcw, Smartphone, Usb } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,10 @@ export default function TerminalConfigurationForm({
   );
   const [isPairing, setIsPairing] = useState(false);
   const [isTestingPrinter, setIsTestingPrinter] = useState(false);
+  const [isCheckingNative, setIsCheckingNative] = useState(false);
+  const [nativeDiagnostics, setNativeDiagnostics] = useState<Awaited<
+    ReturnType<typeof printClientService.getNativeDiagnostics>
+  > | null>(null);
   const {
     register,
     handleSubmit,
@@ -185,6 +189,42 @@ export default function TerminalConfigurationForm({
     setValue("printerName", "", { shouldDirty: true, shouldValidate: true });
   };
 
+  const handleCheckNativeDiagnostics = async () => {
+    if (printerConfig?.driver !== "sunmi-native") {
+      toast.error("Select the built-in SUNMI printer mode first.");
+      return;
+    }
+
+    setIsCheckingNative(true);
+
+    try {
+      const diagnostics = await printClientService.getNativeDiagnostics(printerConfig);
+      setNativeDiagnostics(diagnostics);
+
+      if (!diagnostics) {
+        toast.error("Native diagnostics are only available for SUNMI built-in mode.");
+        return;
+      }
+
+      if (!diagnostics.available) {
+        toast.error("SUNMI built-in printer service is not available on this device.", {
+          description: diagnostics.model,
+        });
+        return;
+      }
+
+      toast.success("SUNMI printer service detected.", {
+        description: `${diagnostics.model}${diagnostics.paperWidth ? ` · ${diagnostics.paperWidth}` : ""}`,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to read native printer diagnostics.",
+      );
+    } finally {
+      setIsCheckingNative(false);
+    }
+  };
+
   return (
     <form
       onSubmit={handleSubmit((data) =>
@@ -249,6 +289,45 @@ export default function TerminalConfigurationForm({
             <div>Mode: {getPrinterModeLabel(printerConfig?.mode)}</div>
             <div>Device ID: {printerConfig?.deviceId ?? "Not available"}</div>
           </div>
+          {printerConfig?.driver === "sunmi-native" ? (
+            <Card className="rounded-2xl border shadow-none">
+              <div className="space-y-3 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">
+                      Native diagnostics
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Check if the SUNMI built-in printer service is reachable.
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isCheckingNative}
+                    onClick={() => void handleCheckNativeDiagnostics()}
+                  >
+                    {isCheckingNative ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Info className="size-4" />
+                    )}
+                    Check native status
+                  </Button>
+                </div>
+                {nativeDiagnostics ? (
+                  <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
+                    <div>Device model: <span className="font-medium text-foreground">{nativeDiagnostics.model}</span></div>
+                    <div>Connected: <span className="font-medium text-foreground">{nativeDiagnostics.connected ? "Yes" : "No"}</span></div>
+                    <div>Printer model: <span className="font-medium text-foreground">{nativeDiagnostics.printerModel ?? "Not available"}</span></div>
+                    <div>Paper width: <span className="font-medium text-foreground">{nativeDiagnostics.paperWidth ?? "Not available"}</span></div>
+                    <div>Service version: <span className="font-medium text-foreground">{nativeDiagnostics.serviceVersion ?? "Not available"}</span></div>
+                    <div>Status code: <span className="font-medium text-foreground">{nativeDiagnostics.statusCode ?? "Not available"}</span></div>
+                  </div>
+                ) : null}
+              </div>
+            </Card>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             {printerCapabilities.map((capability) => {

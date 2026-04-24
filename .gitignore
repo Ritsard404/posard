@@ -44,6 +44,17 @@ next-env.d.ts
 /app/generated/prisma
 
 /workflows
+/android/local.properties
+/android/keystore.properties
+/android/.gradle/
+/android/.gradle-user/
+/android/.android-home/
+/android/build/
+/android/app/build/
+**/.gradle/
+**/build/
+*.jks
+*.keystore
 
 # Playwright
 node_modules/

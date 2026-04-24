@@ -35,6 +35,25 @@ export function POSTerminalManager() {
   } = usePOSStore();
 
   useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+
+    const refreshCapabilities = () => {
+      setPrinterCapabilities(printClientService.getCapabilities());
+    };
+
+    refreshCapabilities();
+    const firstRetry = window.setTimeout(refreshCapabilities, 600);
+    const secondRetry = window.setTimeout(refreshCapabilities, 1800);
+
+    return () => {
+      window.clearTimeout(firstRetry);
+      window.clearTimeout(secondRetry);
+    };
+  }, [mounted, setPrinterCapabilities]);
+
+  useEffect(() => {
     async function loadData() {
       try {
         const [metaRes, sessionRes] = await Promise.all([

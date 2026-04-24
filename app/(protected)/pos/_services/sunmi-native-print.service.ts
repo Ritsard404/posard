@@ -1,10 +1,16 @@
 "use client";
 
+import { registerPlugin } from "@capacitor/core";
 import type {
   PrinterCapabilityDto,
   PrinterDeviceSummaryDto,
 } from "./_dto/print.dto";
 import { getPrinterModeMeta } from "./printer-mode.service";
+import {
+  getPlatform,
+  isCapacitorPluginAvailable,
+  isNativePlatform,
+} from "@/src/lib/capacitor/platform";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -26,7 +32,94 @@ declare global {
   }
 }
 
+interface SunmiPrinterPlugin {
+  isAvailable(): Promise<{
+    available: boolean;
+    connected: boolean;
+    model: string;
+  }>;
+  printReceipt(options: { segments: string[] }): Promise<{
+    success?: boolean;
+    segmentsPrinted?: number;
+  }>;
+  printText(options: { content: string }): Promise<{
+    success?: boolean;
+    code?: number;
+    message?: string;
+  }>;
+  testPrint(): Promise<{
+    success?: boolean;
+    code?: number;
+    message?: string;
+  }>;
+  getDeviceInfo(): Promise<{
+    model: string;
+    printerType: "sunmi-built-in";
+    printerModel?: string;
+    printerVersion?: string;
+    printerSerialNo?: string;
+    serviceVersion?: string;
+    paperWidth?: string;
+    statusCode?: number;
+  }>;
+}
+
+export interface SunmiNativePrinterDiagnostics {
+  available: boolean;
+  connected: boolean;
+  model: string;
+  printerType: "sunmi-built-in";
+  printerModel: string | null;
+  printerVersion: string | null;
+  printerSerialNo: string | null;
+  serviceVersion: string | null;
+  paperWidth: string | null;
+  statusCode: number | null;
+}
+
+const sunmiPrinterPlugin =
+  typeof window === "undefined"
+    ? null
+    : registerPlugin<SunmiPrinterPlugin>("SunmiPrinter");
+
+function getCapacitorBridge(): SunmiNativePrinterBridge | null {
+  if (
+    !sunmiPrinterPlugin ||
+    !isNativePlatform() ||
+    getPlatform() !== "android" ||
+    !isCapacitorPluginAvailable("SunmiPrinter")
+  ) {
+    return null;
+  }
+
+  return {
+    async isAvailable() {
+      const result = await sunmiPrinterPlugin.isAvailable();
+      return result.available;
+    },
+    async printText(content: string) {
+      await sunmiPrinterPlugin.printText({ content });
+    },
+    async testPrint() {
+      await sunmiPrinterPlugin.testPrint();
+    },
+    async getDeviceInfo() {
+      const result = await sunmiPrinterPlugin.getDeviceInfo();
+      return {
+        model: result.model,
+        printerType: "sunmi-built-in" as const,
+      };
+    },
+  };
+}
+
 function getBridge(): SunmiNativePrinterBridge | null {
+  const nativeBridge = getCapacitorBridge();
+
+  if (nativeBridge) {
+    return nativeBridge;
+  }
+
   if (typeof window === "undefined") {
     return null;
   }
@@ -100,6 +193,89 @@ export const sunmiNativePrintService = {
   async printText(content: string) {
     const bridge = await assertAvailableBridge();
     await bridge.printText(content);
+  },
+
+  async printReceipt(segments: string[]) {
+    if (
+      sunmiPrinterPlugin &&
+      isNativePlatform() &&
+      getPlatform() === "android" &&
+      isCapacitorPluginAvailable("SunmiPrinter")
+    ) {
+      const result = await sunmiPrinterPlugin.isAvailable();
+
+      if (!result.available) {
+        throw new Error(
+          "The SUNMI built-in printer service is unavailable on this Android device.",
+        );
+      }
+
+      await sunmiPrinterPlugin.printReceipt({
+        segments: segments.filter((segment) => segment.trim().length > 0),
+      });
+      return;
+    }
+
+    const bridge = await assertAvailableBridge();
+    await bridge.printText(segments.join("\n\n\n"));
+  },
+
+  async getDiagnostics(): Promise<SunmiNativePrinterDiagnostics> {
+    if (
+      sunmiPrinterPlugin &&
+      isNativePlatform() &&
+      getPlatform() === "android" &&
+      isCapacitorPluginAvailable("SunmiPrinter")
+    ) {
+      const availability = await sunmiPrinterPlugin.isAvailable();
+
+      if (!availability.available) {
+        return {
+          available: false,
+          connected: availability.connected,
+          model: availability.model,
+          printerType: "sunmi-built-in",
+          printerModel: null,
+          printerVersion: null,
+          printerSerialNo: null,
+          serviceVersion: null,
+          paperWidth: null,
+          statusCode: null,
+        };
+      }
+
+      const info = await sunmiPrinterPlugin.getDeviceInfo();
+
+      return {
+        available: true,
+        connected: availability.connected,
+        model: info.model,
+        printerType: "sunmi-built-in",
+        printerModel: info.printerModel ?? null,
+        printerVersion: info.printerVersion ?? null,
+        printerSerialNo: info.printerSerialNo ?? null,
+        serviceVersion: info.serviceVersion ?? null,
+        paperWidth: info.paperWidth ?? null,
+        statusCode: info.statusCode ?? null,
+      };
+    }
+
+    const bridge = getBridge();
+    const available = bridge ? await bridge.isAvailable() : false;
+    const deviceInfo = bridge && available ? await bridge.getDeviceInfo() : null;
+
+    return {
+      available,
+      connected: Boolean(bridge),
+      model: deviceInfo?.model ?? "Unknown device",
+      printerType: "sunmi-built-in",
+      printerModel: null,
+      printerVersion: null,
+      printerSerialNo: null,
+      serviceVersion: null,
+      paperWidth: null,
+      statusCode: null,
+    };
   },
 
   async testPrint() {

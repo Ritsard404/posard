@@ -8,6 +8,7 @@ import type {
 } from "./_dto/print.dto";
 import { getPrinterModeMeta } from "./printer-mode.service";
 import { sunmiNativePrintService } from "./sunmi-native-print.service";
+import { getPlatform, isNativePlatform } from "@/src/lib/capacitor/platform";
 
 const USB_PRINTER_CLASS = 0x07;
 const DEFAULT_SERIAL_BAUD_RATE = 9600;
@@ -170,14 +171,26 @@ type UsbDeviceWithTransfer = UsbDeviceLike & {
 };
 
 function isUsbSupported() {
+  if (isNativePlatform() && getPlatform() === "android") {
+    return false;
+  }
+
   return typeof navigator !== "undefined" && Boolean(getNavigator().usb);
 }
 
 function isBluetoothSupported() {
+  if (isNativePlatform() && getPlatform() === "android") {
+    return false;
+  }
+
   return typeof navigator !== "undefined" && Boolean(getNavigator().bluetooth);
 }
 
 function isSerialSupported() {
+  if (isNativePlatform() && getPlatform() === "android") {
+    return false;
+  }
+
   return typeof navigator !== "undefined" && Boolean(getNavigator().serial);
 }
 
@@ -845,23 +858,32 @@ export const printDeviceService = {
 
   getCapabilities() {
     const support = this.getBrowserSupport();
+    const isAndroidWrapper = isNativePlatform() && getPlatform() === "android";
 
     return [
       getCapability("usb-web", {
         supported: support.usb,
-        reason: support.usb ? null : "WebUSB is not supported in this browser.",
+        reason: support.usb
+          ? null
+          : isAndroidWrapper
+            ? "USB browser pairing is not available inside the Android wrapper. Use the built-in SUNMI printer mode instead."
+            : "WebUSB is not supported in this browser.",
       }),
       getCapability("bluetooth-ble-web", {
         supported: support.bluetooth,
         reason: support.bluetooth
           ? null
-          : "Web Bluetooth is not supported in this browser.",
+          : isAndroidWrapper
+            ? "Bluetooth browser pairing is not available inside the Android wrapper. Use the built-in SUNMI printer mode instead."
+            : "Web Bluetooth is not supported in this browser.",
       }),
       getCapability("bluetooth-serial-web", {
         supported: support.serial,
         reason: support.serial
           ? null
-          : "Web Serial is not supported in this browser/runtime.",
+          : isAndroidWrapper
+            ? "Bluetooth serial browser pairing is not available inside the Android wrapper. Use the built-in SUNMI printer mode instead."
+            : "Web Serial is not supported in this browser/runtime.",
       }),
       sunmiNativePrintService.getCapability(),
     ];

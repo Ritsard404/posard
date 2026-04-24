@@ -5,6 +5,7 @@ import {
   Bluetooth,
   Cable,
   CheckCircle2,
+  Info,
   Loader2,
   Printer,
   RotateCcw,
@@ -110,16 +111,38 @@ export function SessionPrinterConfigDialog({
   const setActiveTerminalPrinterConfig = usePOSStore(
     (state) => state.setActiveTerminalPrinterConfig,
   );
+  const setPrinterCapabilities = usePOSStore((state) => state.setPrinterCapabilities);
   const [printerConfig, setPrinterConfig] = useState<PrinterConfigDto | null>(
     activeTerminal?.printerConfig ?? null,
   );
   const [isPairing, setIsPairing] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isCheckingNative, setIsCheckingNative] = useState(false);
+  const [nativeDiagnostics, setNativeDiagnostics] = useState<Awaited<
+    ReturnType<typeof printClientService.getNativeDiagnostics>
+  > | null>(null);
 
   useEffect(() => {
     setPrinterConfig(activeTerminal?.printerConfig ?? null);
   }, [activeTerminal?.printerConfig, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const refreshCapabilities = () => {
+      setPrinterCapabilities(printClientService.getCapabilities());
+    };
+
+    refreshCapabilities();
+    const retryTimer = window.setTimeout(refreshCapabilities, 900);
+
+    return () => {
+      window.clearTimeout(retryTimer);
+    };
+  }, [open, setPrinterCapabilities]);
 
   const printerStatus = useMemo(
     () => printClientService.getStatus(printerConfig),
@@ -259,6 +282,42 @@ export function SessionPrinterConfigDialog({
       );
     } finally {
       setIsClearing(false);
+    }
+  };
+
+  const handleCheckNativeDiagnostics = async () => {
+    if (printerConfig?.driver !== "sunmi-native") {
+      toast.error("Select the built-in SUNMI printer mode first.");
+      return;
+    }
+
+    setIsCheckingNative(true);
+
+    try {
+      const diagnostics = await printClientService.getNativeDiagnostics(printerConfig);
+      setNativeDiagnostics(diagnostics);
+
+      if (!diagnostics) {
+        toast.error("Native diagnostics are only available for SUNMI built-in mode.");
+        return;
+      }
+
+      if (!diagnostics.available) {
+        toast.error("SUNMI built-in printer service is not available on this device.", {
+          description: diagnostics.model,
+        });
+        return;
+      }
+
+      toast.success("SUNMI printer service detected.", {
+        description: `${diagnostics.model}${diagnostics.paperWidth ? ` · ${diagnostics.paperWidth}` : ""}`,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to read native printer diagnostics.",
+      );
+    } finally {
+      setIsCheckingNative(false);
     }
   };
 
@@ -435,6 +494,77 @@ export function SessionPrinterConfigDialog({
                       </span>
                     </div>
                   </div>
+                  {printerConfig.driver === "sunmi-native" ? (
+                    <>
+                      <Separator />
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold text-foreground">
+                              Native diagnostics
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Check if the SUNMI printer service is reachable in this runtime.
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-2xl"
+                            disabled={isCheckingNative}
+                            onClick={() => void handleCheckNativeDiagnostics()}
+                          >
+                            {isCheckingNative ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Info className="size-4" />
+                            )}
+                            Check native status
+                          </Button>
+                        </div>
+                        {nativeDiagnostics ? (
+                          <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                            <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                              <span>Device model</span>
+                              <span className="font-medium text-foreground">
+                                {formatConfigValue(nativeDiagnostics.model)}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                              <span>Connected</span>
+                              <span className="font-medium text-foreground">
+                                {nativeDiagnostics.connected ? "Yes" : "No"}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                              <span>Printer model</span>
+                              <span className="font-medium text-foreground">
+                                {formatConfigValue(nativeDiagnostics.printerModel)}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                              <span>Paper width</span>
+                              <span className="font-medium text-foreground">
+                                {formatConfigValue(nativeDiagnostics.paperWidth)}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                              <span>Service version</span>
+                              <span className="font-medium text-foreground">
+                                {formatConfigValue(nativeDiagnostics.serviceVersion)}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                              <span>Status code</span>
+                              <span className="font-medium text-foreground">
+                                {formatConfigValue(nativeDiagnostics.statusCode)}
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
                 </CardContent>
               </Card>
             ) : null}

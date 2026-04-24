@@ -7,6 +7,7 @@ import type {
 import { printDeviceService } from "./print-device.service";
 import { printPreviewService } from "./print-preview.service";
 import { getPrinterModeLabel } from "./printer-mode.service";
+import { sunmiNativePrintService } from "./sunmi-native-print.service";
 
 export const printClientService = {
   getStatus(config: PrinterConfigDto | null) {
@@ -95,6 +96,14 @@ export const printClientService = {
 
   async pair(mode: PrinterCapabilityDto["mode"]) {
     return printDeviceService.pair(mode);
+  },
+
+  async getNativeDiagnostics(config: PrinterConfigDto | null) {
+    if (config?.driver !== "sunmi-native") {
+      return null;
+    }
+
+    return sunmiNativePrintService.getDiagnostics();
   },
 
   async print(

@@ -27,9 +27,9 @@ import { payOrderAction } from "../_actions/order.action";
 import type { OrderDto } from "../_services/_dto/order.dto";
 import type { ReceiptDto } from "../_services/_dto/receipt.dto";
 import { calculatePayment } from "../_services/payment-calculation.service";
-import { printClientService } from "../_services/print-client.service";
 import { receiptPrintService } from "../_services/receipt-print.service";
 import { ReceiptPrintControls } from "./ReceiptPrintControls";
+import { printReceipt } from "@/src/lib/capacitor/printer-bridge";
 
 export const defaultDiscount = {
   type: "NONE" as const,
@@ -249,16 +249,9 @@ export function usePOSCheckoutFlow(
           receiptPrintPayload.printerAvailable &&
           receiptPrintPayload.printerConfig
         ) {
-          void printClientService.print(
-            {
-              title: "Receipt",
-              intent: "receipt",
-              previewContent: receiptPrintPayload.previewContent,
-              printSegments: receiptPrintPayload.printSegments,
-              printerConfig: receiptPrintPayload.printerConfig,
-            },
-            { fallbackToPreview: false },
-          );
+          void printReceipt(receiptPrintPayload, {
+            fallbackToPreview: false,
+          });
         }
 
         clearCart();

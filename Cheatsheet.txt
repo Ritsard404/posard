@@ -1,185 +1,306 @@
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                        PRISMA CHEATSHEET (Supabase)                        ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+POSARD COMMAND CHEATSHEET
+Windows / PowerShell reference for daily development
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SETUP
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+1. BASICS
+============================================================
 
-  Install Prisma
-    npm install prisma @prisma/client
-    npx prisma init
+Project folder
+  cd C:\Users\richa\Documents\POS\posard
 
-  Set DB URL in .env
-    DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
+Important note for this system
+  Use npm.cmd and npx.cmd in PowerShell.
+  Plain npm or npx can fail because of execution policy.
 
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  MIGRATIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Create + apply migration (development)
-    npx prisma migrate dev --name <migration_name>
-    Example: npx prisma migrate dev --name add_full_name_to_profiles
-
-  Create migration file only (without applying)
-    npx prisma migrate dev --name <migration_name> --create-only
-
-  Apply existing migrations (production / CI)
-    npx prisma migrate deploy
-
-  Reset DB and re-run all migrations (DELETES ALL DATA)
-    npx prisma migrate reset
-
-  Check migration status
-    npx prisma migrate status
+Useful file/path note
+  For route-group paths with brackets, prefer -LiteralPath in PowerShell.
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SCHEMA SYNC
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+2. INSTALL AND SETUP
+============================================================
 
-  Pull DB schema into Prisma (DB → schema.prisma)
-    npx prisma db pull
+Install dependencies
+  npm.cmd install
 
-  Push schema to DB without migration file (quick prototyping only)
-    npx prisma db push
+Generate Prisma client
+  npx.cmd prisma generate
 
-  Generate Prisma Client after schema changes
-    npx prisma generate
+Apply production-safe migrations
+  npx.cmd prisma migrate deploy
 
+Create a new local migration while developing
+  npx.cmd prisma migrate dev --name your_change_name
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  COMMON WORKFLOW
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Normal dev cycle (edit schema → apply → generate)
-    1. Edit prisma/schema.prisma
-    2. npx prisma migrate dev --name <what_you_changed>
-    3. npx prisma generate          ← usually auto-runs after migrate
-
-  Adding a new column
-    1. Add field to model in schema.prisma
-    2. npx prisma migrate dev --name add_<column>_to_<table>
-
-  Renaming a column
-    1. Use @map("old_db_column_name") on the new Prisma field name
-    2. npx prisma migrate dev --name rename_<column>_in_<table>
-
-  When DB already has tables (existing Supabase setup)
-    1. npx prisma migrate dev --name init --create-only
-    2. Review prisma/migrations/.../migration.sql
-    3. Remove any duplicate CREATE TYPE / CREATE TABLE lines
-    4. npx prisma migrate deploy
+Open Prisma Studio
+  npx.cmd prisma studio
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  INSPECT & DEBUG
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+3. WEB DEVELOPMENT
+============================================================
 
-  Open visual DB browser
-    npx prisma studio                ← opens at http://localhost:5555
+Start local dev server
+  npm.cmd run dev
 
-  Validate schema without applying
-    npx prisma validate
+Start production server after build
+  npm.cmd run start
 
-  Format schema file
-    npx prisma format
+Create production build
+  npm.cmd run build
 
+Run full lint
+  npm.cmd run lint
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SCHEMA FIELD TYPES (PostgreSQL)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Run TypeScript check
+  npx.cmd tsc --noEmit
 
-  Prisma Type      @db modifier          Use for
-  ─────────────    ──────────────────    ──────────────────────────────
-  String           @db.Uuid              UUID fields
-  String           @db.VarChar(n)        Limited-length strings
-  String           (none)                TEXT columns
-  DateTime         @db.Timestamptz       Timestamps with timezone
-  DateTime         @db.Date              Date only (no time)
-  Decimal          @db.Decimal(p, s)     Money / precise decimals
-  Int              (none)                Integer
-  Boolean          (none)                true/false
-  Json             (none)                JSONB column
+Lint only specific files
+  npx.cmd eslint app/(protected)/pos/_components/ReceiptPrintControls.tsx
+  npx.cmd eslint capacitor.config.ts src/lib/capacitor/printer-bridge.ts
+
+If a Next.js generated type file looks stale
+  Remove .next, then rebuild
+  npm.cmd run build
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  COMMON FIELD DECORATORS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+4. WEB TESTING
+============================================================
 
-  @id                         Primary key
-  @unique                     Unique constraint
-  @default(value)             Default value
-  @default(now())             Auto timestamp on create
-  @default(dbgenerated("..")) Use DB function e.g. gen_random_uuid()
-  @updatedAt                  Auto timestamp on update
-  @map("db_column_name")      Map Prisma field to different DB column
-  @@map("db_table_name")      Map Prisma model to different DB table
-  @db.Uuid                    Mark as UUID type in PostgreSQL
-  ?                           Makes field nullable  e.g. String?
-  []                          Relation array        e.g. Member[]
+Install Playwright browsers
+  npm.cmd run test:e2e:install
 
+Run all Playwright tests
+  npm.cmd run test:e2e
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  RELATIONS QUICK REFERENCE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Open Playwright UI
+  npm.cmd run test:e2e:ui
 
-  One-to-Many (e.g. Company has many Members)
-    model Company {
-      members Member[]
-    }
-    model Member {
-      companyId String?  @map("uuid_company") @db.Uuid
-      company   Company? @relation(fields: [companyId], references: [id])
-    }
+Run Playwright headed
+  npm.cmd run test:e2e:headed
 
-  Self-relation (e.g. Member approved by another Member)
-    model Member {
-      approvedById    String?  @db.Uuid
-      approvedBy      Member?  @relation("ApprovedBy", fields: [approvedById], references: [id])
-      approvedMembers Member[] @relation("ApprovedBy")
-    }
+Run Playwright debug mode
+  npm.cmd run test:e2e:debug
 
-  Multiple FK to same model (e.g. Timestamp has cashier, managerIn, managerOut)
-    → Must use named relations on both sides
-    cashier    Member  @relation("CashierTimestamp",    fields: [cashierId],    references: [id])
-    managerIn  Member? @relation("ManagerInTimestamp",  fields: [managerInId],  references: [id])
-    managerOut Member? @relation("ManagerOutTimestamp", fields: [managerOutId], references: [id])
+Open Playwright report
+  npm.cmd run test:e2e:report
+
+Run one test file
+  npm.cmd run test:e2e -- tests/auth/sign-up.spec.ts
+
+Run one folder
+  npm.cmd run test:e2e -- tests/product
+
+Run one file with one worker
+  npm.cmd run test:e2e -- tests/product/product-management.spec.ts --workers=1
+
+Run one grep target
+  npm.cmd run test:e2e -- --grep "new company admin"
+
+Recommended verification flow before shipping
+  1. npx.cmd eslint <touched files>
+  2. npx.cmd tsc --noEmit
+  3. npm.cmd run build
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SUPABASE-SPECIFIC TIPS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+5. ANDROID / CAPACITOR
+============================================================
 
-  Use pooler URL (port 6543) for migrations and client
-    DATABASE_URL="postgresql://...pooler.supabase.com:6543/postgres"
+Install Capacitor packages
+  npm.cmd install @capacitor/core @capacitor/cli @capacitor/android
 
-  If enum already exists in Supabase, drop before migrating
-    DROP TYPE IF EXISTS user_role CASCADE;
-    DROP TYPE IF EXISTS user_status CASCADE;
+Add Android platform
+  npm.cmd run cap:add:android
 
-  RLS policies are managed in Supabase SQL editor, NOT via Prisma
+Sync Android project after web/native config changes
+  npm.cmd run cap:sync
 
-  Prisma does not manage auth.users — that is Supabase Auth only
+Open Android Studio project
+  npm.cmd run cap:open:android
 
-  After any schema change always run:
-    npx prisma generate
+Run Android app from Capacitor CLI
+  npm.cmd run cap:run:android
+
+One-time manual init command if ever needed again
+  npx.cmd cap init POSard com.posard.app
+
+If Android folder was deleted and must be recreated
+  1. npm.cmd run cap:add:android
+  2. npm.cmd run cap:sync
+  3. npm.cmd run cap:open:android
+
+Local Android testing against emulator
+  $env:CAPACITOR_APP_URL = "http://10.0.2.2:3000"
+  npm.cmd run cap:sync
+  npm.cmd run cap:open:android
+
+Local Android testing against phone on same Wi-Fi
+  $env:CAPACITOR_APP_URL = "http://192.168.1.50:3000"
+  npm.cmd run cap:sync
+  npm.cmd run cap:open:android
+
+Clear temporary Android test URL in current shell
+  Remove-Item Env:CAPACITOR_APP_URL
+
+Hosted production URL fallback
+  capacitor.config.ts falls back to:
+  https://posard.vercel.app
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  QUICK COMMAND REFERENCE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+6. GIT
+============================================================
 
-  npx prisma migrate dev --name <name>    Create + apply migration
-  npx prisma migrate deploy               Apply migrations (prod)
-  npx prisma migrate reset                Reset DB (dev only)
-  npx prisma migrate status               Show migration history
-  npx prisma db pull                      Sync DB → schema
-  npx prisma db push                      Sync schema → DB (no migration)
-  npx prisma generate                     Rebuild Prisma Client
-  npx prisma validate                     Check schema for errors
-  npx prisma format                       Auto-format schema file
-  npx prisma studio                       Open visual DB browser
+See current changes
+  git status --short
 
-══════════════════════════════════════════════════════════════════════════════
+See full status
+  git status
+
+Show diff
+  git diff
+
+Show diff for one file
+  git diff -- app/(protected)/pos/_components/ReceiptPrintControls.tsx
+
+See staged diff
+  git diff --cached
+
+Stage one file
+  git add package.json
+
+Stage all changes
+  git add .
+
+Commit
+  git commit -m "your message"
+
+Create and switch branch
+  git switch -c your-branch-name
+
+Switch branch
+  git switch main
+
+Pull latest changes
+  git pull
+
+Fetch without merging
+  git fetch
+
+View recent history
+  git log --oneline --decorate -n 20
+
+Inspect one commit
+  git show <commit_sha>
+
+Unstage one file
+  git restore --staged package.json
+
+Discard local changes in one file
+  git restore package.json
+
+Never use casually
+  git reset --hard
+  git checkout -- .
+
+
+============================================================
+7. PRISMA / DATABASE
+============================================================
+
+Generate Prisma client
+  npx.cmd prisma generate
+
+Validate schema
+  npx.cmd prisma validate
+
+Format schema
+  npx.cmd prisma format
+
+Check migration status
+  npx.cmd prisma migrate status
+
+Create and apply migration in development
+  npx.cmd prisma migrate dev --name your_change_name
+
+Create migration only
+  npx.cmd prisma migrate dev --name your_change_name --create-only
+
+Apply existing migrations
+  npx.cmd prisma migrate deploy
+
+Pull DB schema into Prisma schema
+  npx.cmd prisma db pull
+
+Push schema without migration
+  npx.cmd prisma db push
+
+Reset database in development only
+  npx.cmd prisma migrate reset
+
+
+============================================================
+8. COMMON POSARD FLOWS
+============================================================
+
+A. Normal frontend/backend change
+  1. npm.cmd run dev
+  2. Edit files
+  3. npx.cmd eslint <touched files>
+  4. npx.cmd tsc --noEmit
+  5. npm.cmd run build
+
+B. Schema change
+  1. Edit prisma/schema.prisma
+  2. npx.cmd prisma migrate dev --name your_change_name
+  3. npx.cmd prisma generate
+  4. npm.cmd run build
+
+C. Android shell refresh after config changes
+  1. npm.cmd run cap:sync
+  2. npm.cmd run cap:open:android
+
+D. Android app testing against local server
+  1. npm.cmd run dev
+  2. $env:CAPACITOR_APP_URL = "http://10.0.2.2:3000"
+  3. npm.cmd run cap:sync
+  4. npm.cmd run cap:open:android
+
+E. Before commit
+  1. git status --short
+  2. npx.cmd eslint <touched files>
+  3. npx.cmd tsc --noEmit
+  4. npm.cmd run build
+  5. git add .
+  6. git commit -m "message"
+
+
+============================================================
+9. QUICK COPY BLOCK
+============================================================
+
+Dev server
+  npm.cmd run dev
+
+Production build
+  npm.cmd run build
+
+Type check
+  npx.cmd tsc --noEmit
+
+All e2e tests
+  npm.cmd run test:e2e
+
+Android sync
+  npm.cmd run cap:sync
+
+Open Android Studio
+  npm.cmd run cap:open:android
+
+Git status
+  git status --short
+
+Git diff
+  git diff

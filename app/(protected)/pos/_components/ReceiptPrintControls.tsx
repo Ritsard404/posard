@@ -23,6 +23,7 @@ import type {
 import { printClientService } from "../_services/print-client.service";
 import { getPrinterModeLabel } from "../_services/printer-mode.service";
 import type { ReceiptPrintPayloadDto } from "../_services/receipt-print.service";
+import { printReceipt } from "@/src/lib/capacitor/printer-bridge";
 
 interface ReceiptPrintControlsProps {
   payload: ReceiptPrintPayloadDto;
@@ -85,7 +86,8 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
 
     void (async () => {
       try {
-        const result = await printClientService.print(job, {
+        const result = await printReceipt(payload, {
+          printerConfig,
           fallbackToPreview: false,
         });
         if (result.status === "printed") {
@@ -104,7 +106,7 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
         );
       }
     })();
-  }, [job, payload.previewContent, printerConfig]);
+  }, [job, payload, payload.previewContent, printerConfig]);
 
   const openPreview = () => {
     setIsPreviewOpen(true);
@@ -112,7 +114,8 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
 
   const handlePrint = async () => {
     try {
-      const result = await printClientService.print(job, {
+      const result = await printReceipt(payload, {
+        printerConfig,
         fallbackToPreview: false,
       });
       setIsChoiceOpen(false);

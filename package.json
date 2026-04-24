@@ -5,6 +5,12 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
+    "cap:add:android": "npx.cmd cap add android",
+    "cap:sync": "npx.cmd cap sync android",
+    "cap:open:android": "npx.cmd cap open android",
+    "cap:run:android": "npx.cmd cap run android",
+    "android:assemble:release": "cmd /c \"cd /d android && gradlew.bat assembleRelease\"",
+    "android:bundle:release": "cmd /c \"cd /d android && gradlew.bat bundleRelease\"",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
@@ -13,6 +19,9 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.7.0",
