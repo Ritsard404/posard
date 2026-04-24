@@ -1,9 +1,17 @@
 import type { PrinterConfigDto } from "./_dto/print.dto";
+import {
+  deriveLegacyConnectionType,
+  derivePrinterDriver,
+  derivePrinterMode,
+  derivePrinterTransport,
+} from "./printer-mode.service";
 
 interface PrinterConfigSource {
   printerName?: string | null;
   printerDisplayName?: string | null;
-  printerConnectionType?: "usb" | "bluetooth" | null;
+  printerConnectionType?: "usb" | "bluetooth" | "serial" | "built_in" | null;
+  printerTransport?: "usb" | "bluetooth" | "built_in" | null;
+  printerDriver?: "webusb" | "webbluetooth" | "webserial" | "sunmi_native" | null;
   printerVendorId?: number | null;
   printerProductId?: number | null;
   printerDeviceId?: string | null;
@@ -21,10 +29,35 @@ export const printConfigService = {
   mapPrinterConfig(source: PrinterConfigSource): PrinterConfigDto | null {
     const displayName =
       cleanString(source.printerDisplayName) ?? cleanString(source.printerName);
+    const mode = derivePrinterMode({
+      transport: source.printerTransport,
+      driver: source.printerDriver,
+      connectionType: source.printerConnectionType,
+    });
 
     const config: PrinterConfigDto = {
       displayName,
-      connectionType: source.printerConnectionType ?? null,
+      mode,
+      transport: derivePrinterTransport({
+        mode,
+        transport:
+          source.printerTransport === "built_in"
+            ? "built-in"
+            : source.printerTransport,
+        connectionType: source.printerConnectionType,
+      }),
+      driver: derivePrinterDriver({
+        mode,
+        driver:
+          source.printerDriver === "sunmi_native"
+            ? "sunmi-native"
+            : source.printerDriver,
+        connectionType: source.printerConnectionType,
+      }),
+      connectionType: deriveLegacyConnectionType({
+        mode,
+        connectionType: source.printerConnectionType,
+      }),
       vendorId: source.printerVendorId ?? null,
       productId: source.printerProductId ?? null,
       deviceId: cleanString(source.printerDeviceId),
@@ -34,6 +67,9 @@ export const printConfigService = {
     };
 
     const hasStructuredConfig =
+      config.mode !== null ||
+      config.transport !== null ||
+      config.driver !== null ||
       config.connectionType !== null ||
       config.vendorId !== null ||
       config.productId !== null ||

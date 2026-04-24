@@ -17,7 +17,13 @@ export const terminalPrinterConfigService = {
       data: {
         printerName: toLegacyPrinterName(printerConfig),
         printerDisplayName: printerConfig?.displayName ?? null,
-        printerConnectionType: printerConfig?.connectionType ?? null,
+        printerConnectionType: (printerConfig?.connectionType ?? null) as never,
+        printerTransport: (
+          printerConfig?.transport === "built-in"
+            ? "built_in"
+            : (printerConfig?.transport ?? null)
+        ) as never,
+        printerDriver: (printerConfig?.driver?.replace("-", "_") ?? null) as never,
         printerVendorId: printerConfig?.vendorId ?? null,
         printerProductId: printerConfig?.productId ?? null,
         printerDeviceId: printerConfig?.deviceId ?? null,

@@ -3,7 +3,19 @@ import type { PrinterConfigDto } from "@/app/(protected)/pos/_services/_dto/prin
 
 export const PrinterConfigSchema = z.object({
   displayName: z.string().nullable(),
-  connectionType: z.enum(["usb", "bluetooth"]).nullable(),
+  mode: z
+    .enum([
+      "usb-web",
+      "bluetooth-ble-web",
+      "bluetooth-serial-web",
+      "sunmi-built-in-native",
+    ])
+    .nullable(),
+  transport: z.enum(["usb", "bluetooth", "built-in"]).nullable(),
+  driver: z
+    .enum(["webusb", "webbluetooth", "webserial", "sunmi-native"])
+    .nullable(),
+  connectionType: z.enum(["usb", "bluetooth", "serial", "built_in"]).nullable(),
   vendorId: z.number().int().nullable(),
   productId: z.number().int().nullable(),
   deviceId: z.string().nullable(),
@@ -74,7 +86,12 @@ export const TerminalSchema = z.object({
   discountMax: z.number().min(0).nullable(),
   printerName: z.string().nullable(),
   printerDisplayName: z.string().nullable().optional(),
-  printerConnectionType: z.enum(["usb", "bluetooth"]).nullable().optional(),
+  printerConnectionType: z.enum(["usb", "bluetooth", "serial", "built_in"]).nullable().optional(),
+  printerTransport: z.enum(["usb", "bluetooth", "built_in"]).nullable().optional(),
+  printerDriver: z
+    .enum(["webusb", "webbluetooth", "webserial", "sunmi_native"])
+    .nullable()
+    .optional(),
   printerVendorId: z.number().int().nullable().optional(),
   printerProductId: z.number().int().nullable().optional(),
   printerDeviceId: z.string().nullable().optional(),

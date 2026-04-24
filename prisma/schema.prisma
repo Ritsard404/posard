@@ -63,8 +63,29 @@ enum SubscriptionStatus {
 enum PrinterConnectionType {
   usb
   bluetooth
+  serial
+  built_in
 
   @@map("printer_connection_type")
+  @@schema("public")
+}
+
+enum PrinterTransport {
+  usb
+  bluetooth
+  built_in
+
+  @@map("printer_transport")
+  @@schema("public")
+}
+
+enum PrinterDriver {
+  webusb
+  webbluetooth
+  webserial
+  sunmi_native
+
+  @@map("printer_driver")
   @@schema("public")
 }
 
@@ -199,6 +220,8 @@ model PosTerminalInfo {
   printerName  String? @map("printer_name")
   printerDisplayName      String?               @map("printer_display_name")
   printerConnectionType   PrinterConnectionType? @map("printer_connection_type")
+  printerTransport        PrinterTransport?      @map("printer_transport")
+  printerDriver           PrinterDriver?         @map("printer_driver")
   printerVendorId         Int?                  @map("printer_vendor_id")
   printerProductId        Int?                  @map("printer_product_id")
   printerDeviceId         String?               @map("printer_device_id")

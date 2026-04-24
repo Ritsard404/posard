@@ -1,6 +1,16 @@
 {
   "version": 1,
   "skills": {
+    "capacitor-best-practices": {
+      "source": "cap-go/capacitor-skills",
+      "sourceType": "github",
+      "computedHash": "b9c04b9507aa285de5e46acbfbdf26fcc0d199001db907e49799caac67d60f21"
+    },
+    "capacitor-plugins": {
+      "source": "cap-go/capacitor-skills",
+      "sourceType": "github",
+      "computedHash": "9972c7c59937b3fc6c1c3e0264f8a1ef86d7d6e2417942cf1917bfb147921161"
+    },
     "documentation-writer": {
       "source": "github/awesome-copilot",
       "sourceType": "github",

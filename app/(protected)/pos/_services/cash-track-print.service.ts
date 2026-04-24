@@ -85,7 +85,7 @@ export const cashTrackPrintService = {
     return {
       title: mode === "cash-in" ? "Cash In" : "Cash Out",
       printerAvailable: Boolean(
-        printerConfig?.connectionType && printerConfig.autoPrintEnabled,
+        printerConfig?.mode && printerConfig.autoPrintEnabled,
       ),
       printerName,
       printerConfig,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bluetooth, Monitor, Printer, ScanSearch, Usb } from "lucide-react";
+import { Bluetooth, Cable, Monitor, Printer, ScanSearch, Smartphone, Usb } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,12 @@ import {
 } from "../_actions/report.action";
 import type { ReportPrintPayloadDto } from "../_services/_dto/report.dto";
 import type {
+  PrinterCapabilityDto,
   PrintJobDto,
   PrinterConfigDto,
 } from "@/app/(protected)/pos/_services/_dto/print.dto";
 import { printClientService } from "@/app/(protected)/pos/_services/print-client.service";
+import { getPrinterModeLabel } from "@/app/(protected)/pos/_services/printer-mode.service";
 
 interface ReportPrintControlsProps {
   payload: ReportPrintPayloadDto | null;
@@ -74,6 +76,10 @@ export function ReportPrintControls({
     () => printClientService.getStatus(printerConfig),
     [printerConfig],
   );
+  const printerCapabilities = useMemo(
+    () => printClientService.getCapabilities(),
+    [],
+  );
 
   const job = useMemo(
     () => (payload ? buildJob(payload, printerConfig) : null),
@@ -87,7 +93,7 @@ export function ReportPrintControls({
       !terminalId ||
       !["x-reading", "z-reading"].includes(payload.view) ||
       !printerConfig?.autoPrintEnabled ||
-      !printerConfig?.connectionType
+      !printerConfig?.mode
     ) {
       return;
     }
@@ -200,18 +206,26 @@ export function ReportPrintControls({
     }
   };
 
-  const handlePair = async (connectionType: "usb" | "bluetooth") => {
+  const handlePair = async (capability: PrinterCapabilityDto) => {
     if (!companyId || !terminalId) {
       toast.error("Select a single terminal before pairing a printer.");
+      return;
+    }
+
+    if (!capability.supported) {
+      toast.error(capability.reason ?? "This printer mode is not available.");
       return;
     }
 
     setIsSaving(true);
 
     try {
-      const paired = await printClientService.pair(connectionType);
+      const paired = await printClientService.pair(capability.mode);
       const nextConfig: PrinterConfigDto = {
         displayName: paired.displayName,
+        mode: paired.mode,
+        transport: paired.transport,
+        driver: paired.driver,
         connectionType: paired.connectionType,
         vendorId: paired.vendorId,
         productId: paired.productId,
@@ -279,29 +293,39 @@ export function ReportPrintControls({
             <div className="mt-1 text-muted-foreground">
               Printer: {printerName ?? "Not configured"}
             </div>
+            <div className="mt-1 text-muted-foreground">
+              Mode: {getPrinterModeLabel(printerConfig?.mode)}
+            </div>
+            <div className="mt-1 text-muted-foreground">
+              Bluetooth is for BLE printers only. For Bluetooth Classic/SPP printers, use Pair Serial when supported by this browser.
+            </div>
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-xl"
-                disabled={isSaving || !terminalId}
-                onClick={() => void handlePair("usb")}
-              >
-                <Usb className="size-4" />
-                Pair USB
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-xl"
-                disabled={isSaving || !terminalId}
-                onClick={() => void handlePair("bluetooth")}
-              >
-                <Bluetooth className="size-4" />
-                Pair Bluetooth
-              </Button>
+              {printerCapabilities.map((capability) => {
+                const Icon =
+                  capability.mode === "usb-web"
+                    ? Usb
+                    : capability.mode === "bluetooth-ble-web"
+                      ? Bluetooth
+                      : capability.mode === "bluetooth-serial-web"
+                        ? Cable
+                        : Smartphone;
+
+                return (
+                  <Button
+                    key={capability.mode}
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    disabled={isSaving || !terminalId || !capability.supported}
+                    onClick={() => void handlePair(capability)}
+                  >
+                    <Icon className="size-4" />
+                    {capability.label}
+                  </Button>
+                );
+              })}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               <Button

@@ -3,6 +3,7 @@
 import { MapPin, ShieldCheck, ToggleLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { getPrinterModeLabel } from "@/app/(protected)/pos/_services/printer-mode.service";
 import type { TerminalDTO } from "../../_services/terminal.dto";
 import TerminalConfigurationForm from "./TerminalConfigurationForm";
 import type { TerminalConfigurationPayload } from "../../_services/terminal.dto";
@@ -77,7 +78,7 @@ export default function TerminalDetailPanel({
             ["VAT", `${terminal.vat ?? 0}%`],
             ["Max Discount", `${terminal.discountMax ?? 0}%`],
             ["Printer", terminal.printerDisplayName ?? terminal.printerName ?? "Not set"],
-            ["Printer Transport", terminal.printerConnectionType ?? "Not paired"],
+            ["Printer Mode", getPrinterModeLabel(terminal.printerConfig?.mode)],
           ]}
         />
         <Card className="border-dashed p-5">

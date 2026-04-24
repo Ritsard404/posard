@@ -7,7 +7,10 @@ import {
   ItemType,
 } from "../_services/_dto/pos.dto";
 import { InvoiceStatusType } from "../_services/_dto/order.dto";
-import type { PrinterConfigDto } from "../_services/_dto/print.dto";
+import type {
+  PrinterCapabilityDto,
+  PrinterConfigDto,
+} from "../_services/_dto/print.dto";
 
 export type { Product, Category, VatType, ItemType };
 
@@ -77,6 +80,7 @@ interface POSState {
   products: Product[];
   categories: Category[];
   epaymentMethods: EPaymentMethodDto[];
+  printerCapabilities: PrinterCapabilityDto[];
 
   // Session Data
   activeSessionId: string | null;
@@ -94,6 +98,8 @@ interface POSState {
     terminal: ActiveTerminalState | null;
     user: { name: string | null; role: string } | null;
   }) => void;
+  setActiveTerminalPrinterConfig: (printerConfig: PrinterConfigDto | null) => void;
+  setPrinterCapabilities: (capabilities: PrinterCapabilityDto[]) => void;
 
   addToCart: (product: Product) => CartMutationResult;
   removeFromCart: (cartItemId: string) => void;
@@ -134,6 +140,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   products: [],
   categories: [],
   epaymentMethods: [],
+  printerCapabilities: [],
 
   activeSessionId: null,
   activeTimestampId: null,
@@ -159,6 +166,16 @@ export const usePOSStore = create<POSState>((set, get) => ({
       activeTerminal: data.terminal,
       activeUser: data.user,
     }),
+  setPrinterCapabilities: (printerCapabilities) => set({ printerCapabilities }),
+  setActiveTerminalPrinterConfig: (printerConfig) =>
+    set((state) => ({
+      activeTerminal: state.activeTerminal
+        ? {
+            ...state.activeTerminal,
+            printerConfig,
+          }
+        : null,
+    })),
 
   addToCart: (product) => {
     const { cart } = get();

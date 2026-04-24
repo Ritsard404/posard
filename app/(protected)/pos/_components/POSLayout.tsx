@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
+  Cable,
   LayoutGrid,
   LogOut,
   Maximize2,
@@ -26,6 +27,7 @@ import { usePOSStore } from "../_store/pos-store";
 import { cn } from "@/lib/utils";
 import { WithdrawModal } from "./WithdrawModal";
 import { CloseSessionModal } from "./CloseSessionModal";
+import { SessionPrinterConfigDialog } from "./SessionPrinterConfigDialog";
 import { formatCurrency, usePOSPaymentSummary } from "./checkout-shared";
 
 interface POSLayoutProps {
@@ -38,6 +40,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const isMobile = useIsMobile();
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showCloseSession, setShowCloseSession] = useState(false);
+  const [showPrinterConfig, setShowPrinterConfig] = useState(false);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -122,6 +125,15 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
             </Button>
           ) : (
             <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPrinterConfig(true)}
+                className="hidden h-9 shrink-0 rounded-lg px-2.5 sm:flex"
+              >
+                <Cable className="mr-1.5 size-4" />
+                Printer
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -223,6 +235,17 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
               className="h-12 justify-start rounded-xl"
               onClick={() => {
                 setMobileActionsOpen(false);
+                setShowPrinterConfig(true);
+              }}
+            >
+              <Cable className="size-4 mr-2" />
+              Printer Setup
+            </Button>
+            <Button
+              variant="outline"
+              className="h-12 justify-start rounded-xl"
+              onClick={() => {
+                setMobileActionsOpen(false);
                 setShowWithdraw(true);
               }}
             >
@@ -251,6 +274,11 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           onCancel={() => setShowWithdraw(false)}
         />
       )}
+
+      <SessionPrinterConfigDialog
+        open={showPrinterConfig}
+        onOpenChange={setShowPrinterConfig}
+      />
 
       {showCloseSession && activeSessionId && activeTimestampId && (
         <CloseSessionModal

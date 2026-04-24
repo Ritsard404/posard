@@ -12,6 +12,7 @@ import { CartPanel } from './CartPanel';
 import { TenderPanel } from './TenderPanel';
 import { Monitor } from 'lucide-react';
 import type { PrinterConfigDto } from '../_services/_dto/print.dto';
+import { printClientService } from '../_services/print-client.service';
 
 export function POSTerminalManager() {
   const [mounted, setMounted] = useState(false);
@@ -29,6 +30,7 @@ export function POSTerminalManager() {
     setCategories,
     setEPaymentMethods,
     setSession,
+    setPrinterCapabilities,
     activeSessionId,
   } = usePOSStore();
 
@@ -46,6 +48,8 @@ export function POSTerminalManager() {
           setEPaymentMethods(metaRes.data.epaymentMethods);
         }
 
+        setPrinterCapabilities(printClientService.getCapabilities());
+
         if (sessionRes.success && sessionRes.data) {
           setSession(sessionRes.data);
         } else {
@@ -60,7 +64,7 @@ export function POSTerminalManager() {
     }
     
     loadData();
-  }, [setProducts, setCategories, setEPaymentMethods, setSession]);
+  }, [setProducts, setCategories, setEPaymentMethods, setSession, setPrinterCapabilities]);
 
   if (!mounted || loading) {
     return (

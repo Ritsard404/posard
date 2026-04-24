@@ -24,7 +24,9 @@ function mapTerminal(terminal: {
   discountMax: { toNumber(): number } | null;
   printerName: string | null;
   printerDisplayName: string | null;
-  printerConnectionType: "usb" | "bluetooth" | null;
+  printerConnectionType: "usb" | "bluetooth" | "serial" | "built_in" | null;
+  printerTransport: "usb" | "bluetooth" | "built_in" | null;
+  printerDriver: "webusb" | "webbluetooth" | "webserial" | "sunmi_native" | null;
   printerVendorId: number | null;
   printerProductId: number | null;
   printerDeviceId: string | null;
@@ -243,7 +245,13 @@ export const terminalService = {
           payload.printerConfig?.displayName?.trim() ||
           (payload.printerName ?? null),
         printerDisplayName: payload.printerConfig?.displayName ?? null,
-        printerConnectionType: payload.printerConfig?.connectionType ?? null,
+        printerConnectionType: (payload.printerConfig?.connectionType ?? null) as never,
+        printerTransport: (
+          payload.printerConfig?.transport === "built-in"
+            ? "built_in"
+            : (payload.printerConfig?.transport ?? null)
+        ) as never,
+        printerDriver: (payload.printerConfig?.driver?.replace("-", "_") ?? null) as never,
         printerVendorId: payload.printerConfig?.vendorId ?? null,
         printerProductId: payload.printerConfig?.productId ?? null,
         printerDeviceId: payload.printerConfig?.deviceId ?? null,

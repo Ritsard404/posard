@@ -1,16 +1,24 @@
 import type {
+  PrinterCapabilityDto,
+  PrinterMode,
   PrintJobDto,
   PrinterConfigDto,
   PrinterDeviceSummaryDto,
   PrintJobResultDto,
 } from "./_dto/print.dto";
+import { getPrinterModeMeta } from "./printer-mode.service";
+import { sunmiNativePrintService } from "./sunmi-native-print.service";
 
 const USB_PRINTER_CLASS = 0x07;
+const DEFAULT_SERIAL_BAUD_RATE = 9600;
 const TEXT_ENCODER = new TextEncoder();
 const COMMON_BLUETOOTH_PRINTER_SERVICE_UUIDS = [
   "000018f0-0000-1000-8000-00805f9b34fb",
   "0000ae30-0000-1000-8000-00805f9b34fb",
   "0000ae3a-0000-1000-8000-00805f9b34fb",
+  "0000ff00-0000-1000-8000-00805f9b34fb",
+  "0000ffe0-0000-1000-8000-00805f9b34fb",
+  "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
   "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
 ];
 const PREFERRED_BLUETOOTH_CHARACTERISTIC_UUIDS = [
@@ -24,6 +32,9 @@ const PREFERRED_BLUETOOTH_CHARACTERISTIC_UUIDS = [
   "ae10",
   "ae3b",
   "ae3c",
+  "0000ff02-0000-1000-8000-00805f9b34fb",
+  "0000ffe1-0000-1000-8000-00805f9b34fb",
+  "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
   "bef8d6c9-9c21-4c9e-b632-bd58c1009f9f",
 ];
 const bluetoothDeviceCache = new Map<string, BluetoothDeviceLike>();
@@ -72,6 +83,43 @@ interface UsbNavigatorLike {
   }): Promise<UsbDeviceLike>;
 }
 
+interface SerialPortInfoLike {
+  usbVendorId?: number;
+  usbProductId?: number;
+  bluetoothServiceClassId?: string;
+}
+
+interface SerialWriterLike {
+  write(value: Uint8Array): Promise<void>;
+  releaseLock(): void;
+}
+
+interface SerialWritableLike {
+  getWriter(): SerialWriterLike;
+}
+
+interface SerialPortLike {
+  open(options: {
+    baudRate: number;
+    dataBits?: number;
+    stopBits?: number;
+    parity?: "none" | "even" | "odd";
+    bufferSize?: number;
+    flowControl?: "none" | "hardware";
+  }): Promise<void>;
+  close(): Promise<void>;
+  getInfo?(): SerialPortInfoLike;
+  writable?: SerialWritableLike | null;
+}
+
+interface SerialNavigatorLike {
+  getPorts(): Promise<SerialPortLike[]>;
+  requestPort(options?: {
+    allowedBluetoothServiceClassIds?: string[];
+    filters?: Array<{ usbVendorId?: number; usbProductId?: number }>;
+  }): Promise<SerialPortLike>;
+}
+
 interface BluetoothCharacteristicLike {
   uuid: string;
   properties?: {
@@ -103,6 +151,7 @@ interface BluetoothDeviceLike {
 
 type NavigatorWithDevices = Navigator & {
   usb?: UsbNavigatorLike;
+  serial?: SerialNavigatorLike;
   bluetooth?: {
     getDevices?(): Promise<BluetoothDeviceLike[]>;
     requestDevice(options: {
@@ -126,6 +175,10 @@ function isUsbSupported() {
 
 function isBluetoothSupported() {
   return typeof navigator !== "undefined" && Boolean(getNavigator().bluetooth);
+}
+
+function isSerialSupported() {
+  return typeof navigator !== "undefined" && Boolean(getNavigator().serial);
 }
 
 function toErrorMessage(error: unknown, fallback: string) {
@@ -161,6 +214,12 @@ function normalizeBluetoothUuid(value: string | null | undefined) {
   }
 
   return normalized;
+}
+
+function toHexId(value: number | null | undefined) {
+  return value === null || value === undefined
+    ? null
+    : `0x${value.toString(16).padStart(4, "0").toUpperCase()}`;
 }
 
 function getBluetoothOptionalServices(preferredServiceUuid?: string | null) {
@@ -386,10 +445,170 @@ async function pairUsbPrinter(): Promise<PrinterDeviceSummaryDto> {
 
   return {
     displayName: device.productName || "USB thermal printer",
+    mode: "usb-web",
+    transport: "usb",
+    driver: "webusb",
     connectionType: "usb",
     vendorId: device.vendorId ?? null,
     productId: device.productId ?? null,
     deviceId: device.serialNumber ?? null,
+    serviceUuid: null,
+    characteristicUuid: null,
+  };
+}
+
+function getSerialPortInfo(port: SerialPortLike) {
+  const info = port.getInfo?.();
+
+  return {
+    vendorId: info?.usbVendorId ?? null,
+    productId: info?.usbProductId ?? null,
+    bluetoothServiceClassId: info?.bluetoothServiceClassId ?? null,
+  };
+}
+
+function describeSerialPort(port: SerialPortLike) {
+  const info = getSerialPortInfo(port);
+  const vendorId = toHexId(info.vendorId);
+  const productId = toHexId(info.productId);
+
+  if (vendorId && productId) {
+    return `Serial printer ${vendorId}:${productId}`;
+  }
+
+  if (info.bluetoothServiceClassId) {
+    return "Bluetooth serial printer";
+  }
+
+  return "Serial thermal printer";
+}
+
+async function openSerialPort(port: SerialPortLike) {
+  try {
+    await port.open({
+      baudRate: DEFAULT_SERIAL_BAUD_RATE,
+      dataBits: 8,
+      stopBits: 1,
+      parity: "none",
+      bufferSize: 255,
+      flowControl: "none",
+    });
+  } catch (error) {
+    const message = toErrorMessage(error, "Unable to open the serial printer.");
+
+    if (message.toLowerCase().includes("already open")) {
+      return;
+    }
+
+    throw new Error(message);
+  }
+}
+
+async function writeSerialPort(port: SerialPortLike, value: Uint8Array) {
+  if (!port.writable) {
+    throw new Error("The selected serial printer is not writable.");
+  }
+
+  const writer = port.writable.getWriter();
+
+  try {
+    await writer.write(value);
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+async function findSerialPort(config: PrinterConfigDto) {
+  if (!isSerialSupported()) {
+    return null;
+  }
+
+  const ports = await getNavigator().serial!.getPorts();
+
+  const matched =
+    ports.find((port) => {
+      const info = getSerialPortInfo(port);
+
+      if (config.vendorId !== null && info.vendorId !== config.vendorId) {
+        return false;
+      }
+
+      if (config.productId !== null && info.productId !== config.productId) {
+        return false;
+      }
+
+      return true;
+    }) ??
+    (ports.length === 1 ? ports[0] : null);
+
+  return matched ?? null;
+}
+
+async function printSerial(
+  job: PrintJobDto,
+  config: PrinterConfigDto,
+): Promise<PrintJobResultDto> {
+  const port = await findSerialPort(config);
+
+  if (!port) {
+    return {
+      status: "unsupported",
+      message:
+        "The paired serial printer is not available in this browser. Pair it again from this terminal before printing.",
+    };
+  }
+
+  await openSerialPort(port);
+
+  try {
+    const printSegments = job.printSegments?.length
+      ? job.printSegments
+      : [job.previewContent];
+
+    for (const segment of printSegments) {
+      await writeSerialPort(port, TEXT_ENCODER.encode(`${segment}\n\n\n`));
+    }
+
+    return {
+      status: "printed",
+      message: `Printed to ${config.displayName ?? "Serial printer"}.`,
+    };
+  } finally {
+    await port.close().catch(() => undefined);
+  }
+}
+
+async function pairSerialPrinter(): Promise<PrinterDeviceSummaryDto> {
+  if (!isSerialSupported()) {
+    throw new Error("Web Serial is not supported in this browser.");
+  }
+
+  const port = await getNavigator().serial!.requestPort();
+
+  await openSerialPort(port);
+
+  try {
+    await writeSerialPort(
+      port,
+      TEXT_ENCODER.encode(
+        "POSARD SERIAL TEST PRINT\nPrinter connected successfully.\n\n\n",
+      ),
+    );
+  } finally {
+    await port.close().catch(() => undefined);
+  }
+
+  const info = getSerialPortInfo(port);
+
+  return {
+    displayName: describeSerialPort(port),
+    mode: "bluetooth-serial-web",
+    transport: "bluetooth",
+    driver: "webserial",
+    connectionType: "serial",
+    vendorId: info.vendorId,
+    productId: info.productId,
+    deviceId: null,
     serviceUuid: null,
     characteristicUuid: null,
   };
@@ -474,6 +693,7 @@ async function resolveBluetoothWritableCharacteristic(
       PREFERRED_BLUETOOTH_CHARACTERISTIC_UUIDS.map((uuid) =>
         writableCharacteristics.find(
           (characteristic) =>
+            normalizeBluetoothUuid(characteristic.uuid) === normalizeBluetoothUuid(uuid) ||
             normalizeBluetoothUuid(characteristic.uuid)?.endsWith(uuid),
         ) ?? null,
       ).find(Boolean) ??
@@ -488,7 +708,9 @@ async function resolveBluetoothWritableCharacteristic(
     }
   }
 
-  throw new Error("No writable Bluetooth printer characteristic was found.");
+  throw new Error(
+    "No writable Bluetooth printer characteristic was found. This printer may be Bluetooth Classic/SPP instead of BLE, or it uses a vendor profile the browser could not access. Try Pair Serial on supported Chrome builds or use USB.",
+  );
 }
 
 async function withBluetoothConnection<T>(
@@ -496,7 +718,9 @@ async function withBluetoothConnection<T>(
   task: (server: BluetoothServerLike) => Promise<T>,
 ) {
   if (!device.gatt) {
-    throw new Error("This Bluetooth printer does not expose a GATT server.");
+    throw new Error(
+      "This Bluetooth device does not expose a BLE GATT server. Use Pair Serial for Bluetooth Classic/SPP printers when the browser supports it, or use USB.",
+    );
   }
 
   const server = await device.gatt.connect();
@@ -577,6 +801,9 @@ async function pairBluetoothPrinter(): Promise<PrinterDeviceSummaryDto> {
 
   return {
     displayName: device.name || "Bluetooth thermal printer",
+    mode: "bluetooth-ble-web",
+    transport: "bluetooth",
+    driver: "webbluetooth",
     connectionType: "bluetooth",
     vendorId: null,
     productId: null,
@@ -586,31 +813,93 @@ async function pairBluetoothPrinter(): Promise<PrinterDeviceSummaryDto> {
   };
 }
 
+function getCapability(
+  mode: PrinterMode,
+  input: {
+    supported: boolean;
+    reason?: string | null;
+  },
+): PrinterCapabilityDto {
+  const meta = getPrinterModeMeta(mode);
+
+  return {
+    mode,
+    transport: meta.transport,
+    driver: meta.driver,
+    label: meta.label,
+    description: meta.description,
+    supported: input.supported,
+    reason: input.reason ?? null,
+  };
+}
+
 export const printDeviceService = {
   getBrowserSupport() {
     return {
       usb: isUsbSupported(),
       bluetooth: isBluetoothSupported(),
+      serial: isSerialSupported(),
+      sunmiNative: sunmiNativePrintService.getCapability().supported,
     };
   },
 
-  async pair(connectionType: "usb" | "bluetooth") {
-    if (connectionType === "usb") {
+  getCapabilities() {
+    const support = this.getBrowserSupport();
+
+    return [
+      getCapability("usb-web", {
+        supported: support.usb,
+        reason: support.usb ? null : "WebUSB is not supported in this browser.",
+      }),
+      getCapability("bluetooth-ble-web", {
+        supported: support.bluetooth,
+        reason: support.bluetooth
+          ? null
+          : "Web Bluetooth is not supported in this browser.",
+      }),
+      getCapability("bluetooth-serial-web", {
+        supported: support.serial,
+        reason: support.serial
+          ? null
+          : "Web Serial is not supported in this browser/runtime.",
+      }),
+      sunmiNativePrintService.getCapability(),
+    ];
+  },
+
+  async pair(mode: PrinterMode) {
+    if (mode === "usb-web") {
       return pairUsbPrinter();
+    }
+
+    if (mode === "bluetooth-serial-web") {
+      return pairSerialPrinter();
+    }
+
+    if (mode === "sunmi-built-in-native") {
+      return sunmiNativePrintService.pair();
     }
 
     return pairBluetoothPrinter();
   },
 
   async print(job: PrintJobDto, config: PrinterConfigDto): Promise<PrintJobResultDto> {
-    if (!config.connectionType) {
+    if (!config.mode || !config.transport || !config.driver) {
       return {
         status: "unsupported",
         message: "No paired printer is configured for this terminal.",
       };
     }
 
-    if (config.connectionType === "usb") {
+    if (config.driver === "sunmi-native") {
+      await sunmiNativePrintService.printText(job.printSegments?.join("\n\n\n") || job.previewContent);
+      return {
+        status: "printed",
+        message: `Printed to ${config.displayName ?? "Built-in Sunmi printer"}.`,
+      };
+    }
+
+    if (config.driver === "webusb") {
       if (!isUsbSupported()) {
         return {
           status: "unsupported",
@@ -619,6 +908,17 @@ export const printDeviceService = {
       }
 
       return printUsb(job, config);
+    }
+
+    if (config.driver === "webserial") {
+      if (!isSerialSupported()) {
+        return {
+          status: "unsupported",
+          message: "Web Serial is not supported in this browser.",
+        };
+      }
+
+      return printSerial(job, config);
     }
 
     if (!isBluetoothSupported()) {
@@ -632,11 +932,11 @@ export const printDeviceService = {
   },
 
   isLikelyConfigured(config: PrinterConfigDto | null) {
-    if (!config?.connectionType) {
+    if (!config?.mode || !config.driver || !config.transport) {
       return false;
     }
 
-    if (config.connectionType === "bluetooth") {
+    if (config.driver === "webbluetooth") {
       return Boolean(config.serviceUuid && config.characteristicUuid);
     }
 

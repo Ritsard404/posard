@@ -1,8 +1,29 @@
-export type PrinterConnectionType = "usb" | "bluetooth";
+export type PrinterTransport = "usb" | "bluetooth" | "built-in";
+
+export type PrinterDriver =
+  | "webusb"
+  | "webbluetooth"
+  | "webserial"
+  | "sunmi-native";
+
+export type PrinterMode =
+  | "usb-web"
+  | "bluetooth-ble-web"
+  | "bluetooth-serial-web"
+  | "sunmi-built-in-native";
+
+export type LegacyPrinterConnectionType =
+  | "usb"
+  | "bluetooth"
+  | "serial"
+  | "built_in";
 
 export interface PrinterConfigDto {
   displayName: string | null;
-  connectionType: PrinterConnectionType | null;
+  mode: PrinterMode | null;
+  transport: PrinterTransport | null;
+  driver: PrinterDriver | null;
+  connectionType: LegacyPrinterConnectionType | null;
   vendorId: number | null;
   productId: number | null;
   deviceId: string | null;
@@ -13,12 +34,25 @@ export interface PrinterConfigDto {
 
 export interface PrinterDeviceSummaryDto {
   displayName: string;
-  connectionType: PrinterConnectionType;
+  mode: PrinterMode;
+  transport: PrinterTransport;
+  driver: PrinterDriver;
+  connectionType: LegacyPrinterConnectionType;
   vendorId: number | null;
   productId: number | null;
   deviceId: string | null;
   serviceUuid: string | null;
   characteristicUuid: string | null;
+}
+
+export interface PrinterCapabilityDto {
+  mode: PrinterMode;
+  transport: PrinterTransport;
+  driver: PrinterDriver;
+  label: string;
+  description: string;
+  supported: boolean;
+  reason: string | null;
 }
 
 export type PrintIntent =

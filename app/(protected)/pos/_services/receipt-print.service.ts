@@ -21,7 +21,7 @@ export const receiptPrintService = {
     const canAutoPrint = Boolean(
       printerConfig &&
         printerConfig.autoPrintEnabled &&
-        printerConfig.connectionType,
+        printerConfig.mode,
     );
 
     return {

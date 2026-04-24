@@ -31,6 +31,8 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
         printerName: true;
         printerDisplayName: true;
         printerConnectionType: true;
+        printerTransport: true;
+        printerDriver: true;
         printerVendorId: true;
         printerProductId: true;
         printerDeviceId: true;

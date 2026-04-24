@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type Resolver, useForm } from "react-hook-form";
-import { Bluetooth, Loader2, Printer, RotateCcw, Usb } from "lucide-react";
+import { Bluetooth, Cable, Loader2, Printer, RotateCcw, Smartphone, Usb } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type {
+  PrinterCapabilityDto,
   PrintJobDto,
   PrinterConfigDto,
 } from "@/app/(protected)/pos/_services/_dto/print.dto";
 import { printClientService } from "@/app/(protected)/pos/_services/print-client.service";
+import { getPrinterModeLabel } from "@/app/(protected)/pos/_services/printer-mode.service";
 import {
   TerminalConfigurationSchema,
   type TerminalConfigurationPayload,
@@ -74,6 +76,10 @@ export default function TerminalConfigurationForm({
     () => printClientService.getStatus(printerConfig),
     [printerConfig],
   );
+  const printerCapabilities = useMemo(
+    () => printClientService.getCapabilities(),
+    [],
+  );
 
   if (!terminal) {
     return null;
@@ -86,7 +92,7 @@ export default function TerminalConfigurationForm({
       "POSARD PRINTER TEST",
       `Terminal: ${terminal.posName ?? "Unnamed terminal"}`,
       `Printer: ${(config?.displayName ?? terminal.printerName) || "PB-58H"}`,
-      `Transport: ${config?.connectionType ?? "preview"}`,
+      `Mode: ${getPrinterModeLabel(config?.mode)}`,
       new Date().toLocaleString(),
       "",
       "Connection successful.",
@@ -98,7 +104,7 @@ export default function TerminalConfigurationForm({
   });
 
   const runTestPrint = async (config: PrinterConfigDto | null) => {
-    if (!config?.connectionType) {
+    if (!config?.mode) {
       toast.error("Pair a printer before running a test print.");
       return false;
     }
@@ -127,13 +133,21 @@ export default function TerminalConfigurationForm({
     }
   };
 
-  const handlePair = async (connectionType: "usb" | "bluetooth") => {
+  const handlePair = async (capability: PrinterCapabilityDto) => {
+    if (!capability.supported) {
+      toast.error(capability.reason ?? "This printer mode is not available.");
+      return;
+    }
+
     setIsPairing(true);
 
     try {
-      const paired = await printClientService.pair(connectionType);
+      const paired = await printClientService.pair(capability.mode);
       const nextConfig: PrinterConfigDto = {
         displayName: paired.displayName,
+        mode: paired.mode,
+        transport: paired.transport,
+        driver: paired.driver,
         connectionType: paired.connectionType,
         vendorId: paired.vendorId,
         productId: paired.productId,
@@ -208,7 +222,7 @@ export default function TerminalConfigurationForm({
 
       <SectionCard
         title="Device"
-        description="Pair the terminal's thermal printer over USB or Bluetooth and confirm the connection with a test print."
+        description="Configure USB, Bluetooth BLE, Bluetooth Serial, or built-in Sunmi printing and confirm the active route with a test print."
       >
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -224,42 +238,55 @@ export default function TerminalConfigurationForm({
             </FieldGroup>
             <FieldGroup label="Connection">
               <Input
-                value={printerConfig?.connectionType ?? "Not paired"}
+                value={getPrinterModeLabel(printerConfig?.mode)}
                 readOnly
-                className="capitalize"
               />
             </FieldGroup>
           </div>
 
           <div className="rounded-2xl border bg-muted/30 p-4 text-sm text-muted-foreground">
             <div>Device: {printerConfig?.displayName ?? "No paired device"}</div>
-            <div>Transport: {printerConfig?.connectionType ?? "Preview only"}</div>
+            <div>Mode: {getPrinterModeLabel(printerConfig?.mode)}</div>
             <div>Device ID: {printerConfig?.deviceId ?? "Not available"}</div>
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {printerCapabilities.map((capability) => {
+              const Icon =
+                capability.mode === "usb-web"
+                  ? Usb
+                  : capability.mode === "bluetooth-ble-web"
+                    ? Bluetooth
+                    : capability.mode === "bluetooth-serial-web"
+                      ? Cable
+                      : Smartphone;
+
+              return (
+                <Button
+                  key={capability.mode}
+                  type="button"
+                  variant="outline"
+                  disabled={
+                    isSubmitting ||
+                    isPairing ||
+                    isTestingPrinter ||
+                    !capability.supported
+                  }
+                  onClick={() => void handlePair(capability)}
+                >
+                  {isPairing ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Icon className="size-4" />
+                  )}
+                  {capability.label}
+                </Button>
+              );
+            })}
             <Button
               type="button"
               variant="outline"
-              disabled={isSubmitting || isPairing || isTestingPrinter}
-              onClick={() => void handlePair("usb")}
-            >
-              {isPairing ? <Loader2 className="size-4 animate-spin" /> : <Usb className="size-4" />}
-              Pair USB
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSubmitting || isPairing || isTestingPrinter}
-              onClick={() => void handlePair("bluetooth")}
-            >
-              {isPairing ? <Loader2 className="size-4 animate-spin" /> : <Bluetooth className="size-4" />}
-              Pair Bluetooth
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSubmitting || isPairing || isTestingPrinter || !printerConfig?.connectionType}
+              disabled={isSubmitting || isPairing || isTestingPrinter || !printerConfig?.mode}
               onClick={() => void runTestPrint(printerConfig)}
             >
               {isTestingPrinter ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
@@ -278,6 +305,9 @@ export default function TerminalConfigurationForm({
 
           <p className="text-xs text-muted-foreground">
             Pairing is only kept after the terminal successfully sends a test receipt to the selected device.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Bluetooth pairing only works for BLE printers with a writable GATT characteristic. For Bluetooth Classic/SPP printers, use the serial option when the browser supports it. Built-in Sunmi printing requires the native Sunmi bridge runtime.
           </p>
         </div>
       </SectionCard>

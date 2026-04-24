@@ -1,15 +1,17 @@
 import type {
+  PrinterCapabilityDto,
   PrintJobDto,
   PrinterConfigDto,
   PrintJobResultDto,
 } from "./_dto/print.dto";
 import { printDeviceService } from "./print-device.service";
 import { printPreviewService } from "./print-preview.service";
+import { getPrinterModeLabel } from "./printer-mode.service";
 
 export const printClientService = {
   getStatus(config: PrinterConfigDto | null) {
     const support = printDeviceService.getBrowserSupport();
-    const hasConfig = Boolean(config?.connectionType);
+    const hasConfig = Boolean(config?.mode && config?.transport && config?.driver);
 
     if (!hasConfig) {
       return {
@@ -20,7 +22,7 @@ export const printClientService = {
       };
     }
 
-    if (config?.connectionType === "usb" && !support.usb) {
+    if (config?.driver === "webusb" && !support.usb) {
       return {
         tone: "fallback" as const,
         label: "Preview fallback",
@@ -29,7 +31,7 @@ export const printClientService = {
       };
     }
 
-    if (config?.connectionType === "bluetooth" && !support.bluetooth) {
+    if (config?.driver === "webbluetooth" && !support.bluetooth) {
       return {
         tone: "fallback" as const,
         label: "Preview fallback",
@@ -38,8 +40,28 @@ export const printClientService = {
       };
     }
 
+    if (config?.driver === "webserial" && !support.serial) {
+      return {
+        tone: "fallback" as const,
+        label: "Preview fallback",
+        description:
+          "This browser does not support Web Serial. On Android, Bluetooth Serial requires a newer Chromium build.",
+        support,
+      };
+    }
+
+    if (config?.driver === "sunmi-native" && !support.sunmiNative) {
+      return {
+        tone: "fallback" as const,
+        label: "Native bridge missing",
+        description:
+          "Built-in Sunmi printing requires the Sunmi-enabled wrapper or native bridge runtime.",
+        support,
+      };
+    }
+
     if (
-      config?.connectionType === "bluetooth" &&
+      config?.driver === "webbluetooth" &&
       (!config.serviceUuid || !config.characteristicUuid)
     ) {
       return {
@@ -59,16 +81,20 @@ export const printClientService = {
       };
     }
 
-      return {
-        tone: "ready" as const,
-        label: "Printer configured",
-        description: `Configured for ${config?.connectionType ?? "saved"} printing.`,
-        support,
-      };
+    return {
+      tone: "ready" as const,
+      label: "Printer configured",
+      description: `Configured for ${getPrinterModeLabel(config?.mode)}.`,
+      support,
+    };
   },
 
-  async pair(connectionType: "usb" | "bluetooth") {
-    return printDeviceService.pair(connectionType);
+  getCapabilities(): PrinterCapabilityDto[] {
+    return printDeviceService.getCapabilities();
+  },
+
+  async pair(mode: PrinterCapabilityDto["mode"]) {
+    return printDeviceService.pair(mode);
   },
 
   async print(

@@ -126,7 +126,7 @@ function getPrinterAvailability(terminal: ReportTerminalOptionDto | null) {
     };
   }
 
-  if (!printerName || !printerConfig?.connectionType || !printerConfig.autoPrintEnabled) {
+  if (!printerName || !printerConfig?.mode || !printerConfig.autoPrintEnabled) {
     return {
       printerAvailable: false,
       printerName,

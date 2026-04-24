@@ -64,7 +64,19 @@ const ReportCompaniesQuerySchema = z.object({
 
 const PrinterConfigSchema = z.object({
   displayName: z.string().trim().min(1).nullable(),
-  connectionType: z.enum(["usb", "bluetooth"]).nullable(),
+  mode: z
+    .enum([
+      "usb-web",
+      "bluetooth-ble-web",
+      "bluetooth-serial-web",
+      "sunmi-built-in-native",
+    ])
+    .nullable(),
+  transport: z.enum(["usb", "bluetooth", "built-in"]).nullable(),
+  driver: z
+    .enum(["webusb", "webbluetooth", "webserial", "sunmi-native"])
+    .nullable(),
+  connectionType: z.enum(["usb", "bluetooth", "serial", "built_in"]).nullable(),
   vendorId: z.number().int().nullable(),
   productId: z.number().int().nullable(),
   deviceId: z.string().trim().nullable(),

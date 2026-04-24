@@ -27,6 +27,8 @@ export const reportService = {
             printerName: true,
             printerDisplayName: true,
             printerConnectionType: true,
+            printerTransport: true,
+            printerDriver: true,
             printerVendorId: true,
             printerProductId: true,
             printerDeviceId: true,
@@ -61,9 +63,6 @@ export const reportService = {
     const totalCashSales = invoices.reduce((sum, invoice) => {
       const tendered = Number(invoice.cashTendered || 0);
       const change = Number(invoice.changeAmount || 0);
-      const returned = Number(invoice.returnedAmount || 0); // Note: schema has returnedAmount with camelCase but map is different? 
-      // Checking schema again: 567: returnedAmount Decimal? @map("returned_amount") @db.Decimal(15, 2)
-      // So in Prisma Client it is returnedAmount.
       const returnedVal = Number(invoice.returnedAmount || 0);
       return sum + (tendered - change - returnedVal);
     }, 0);
