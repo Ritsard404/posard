@@ -622,8 +622,10 @@ export async function saveReportTerminalPrinterConfigAction(input: {
     );
 
     revalidatePath("/report");
+    revalidatePath("/reports");
     revalidatePath(`/companies/${validated.companyId}/report`);
     revalidatePath(`/companies/${validated.companyId}/terminals/${validated.terminalId}/report`);
+    revalidatePath(`/reports/sales?companyId=${validated.companyId}`);
     return { success: true };
   } catch (error) {
     return {

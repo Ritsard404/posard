@@ -97,7 +97,7 @@ export const appRoutes: AppRouteConfig[] = [
   { href: "/pos", permission: "view.pos", label: "Point of Sale", showInNav: true },
   { href: "/dashboard", permission: "view.dashboard", label: "Dashboard", showInNav: true },
   { href: "/product", permission: "view.product", label: "Products & Inventory", showInNav: true },
-  { href: "/report", permission: "view.reports", label: "Reports", showInNav: true },
+  { href: "/reports", permission: "view.reports", label: "Reports", showInNav: true },
   { href: "/accounts", permission: "view.accounts", label: "User Management", showInNav: true },
   { href: "/companies", permission: "view.company", label: "Manage Companies", showInNav: true },
   { href: "/companies/[companyId]", permission: "view.company", label: "Company", showInNav: false },

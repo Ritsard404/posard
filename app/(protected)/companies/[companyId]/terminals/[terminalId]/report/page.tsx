@@ -1,8 +1,5 @@
-import { notFound } from "next/navigation";
-import { CompanyBackLink } from "@/app/(protected)/companies/[companyId]/_components/CompanyBackLink";
-import { ReportDetailWorkspace } from "@/app/(protected)/report/_components/ReportDetailWorkspace";
-import { getReportTerminalContextAction } from "@/app/(protected)/report/_actions/report.action";
-import { reportAccessService } from "@/app/(protected)/report/_services/report-access.service";
+import { redirect } from "next/navigation";
+import { getSlugForPrintableView } from "@/app/(protected)/reports/_components/reports-config";
 
 interface TerminalReportPageProps {
   params: Promise<{ companyId: string; terminalId: string }>;
@@ -14,40 +11,21 @@ export default async function TerminalReportPage({
   searchParams,
 }: TerminalReportPageProps) {
   const { companyId, terminalId } = await params;
-  const viewer = await reportAccessService.getViewer();
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const view = Array.isArray(resolvedSearchParams.view)
+    ? resolvedSearchParams.view[0]
+    : resolvedSearchParams.view;
+  const slug = getSlugForPrintableView(view) ?? "sales";
+  const query = new URLSearchParams({ companyId, terminalId });
 
-  if (viewer.role !== "admin") {
-    notFound();
-  }
+  Object.entries(resolvedSearchParams).forEach(([key, value]) => {
+    const resolved = Array.isArray(value) ? value[0] : value;
+    if (!resolved || key === "view") {
+      return;
+    }
 
-  const contextResult = await getReportTerminalContextAction({
-    companyId,
-    terminalId,
+    query.set(key, resolved);
   });
 
-  if (!contextResult.success) {
-    notFound();
-  }
-
-  return (
-    <div className="space-y-6">
-      <CompanyBackLink
-        href={`/companies/${companyId}/report`}
-        label="Back to Company Reports"
-      />
-
-      <ReportDetailWorkspace
-        searchParams={searchParams}
-        basePath={`/companies/${companyId}/terminals/${terminalId}/report`}
-        companyId={companyId}
-        terminalId={terminalId}
-        companyName={contextResult.data.companyName}
-        terminalName={contextResult.data.terminalName}
-        workspaceLabel="Terminal Reports"
-        workspaceDescription="This view is locked to one terminal so report totals and print actions always map to the selected device."
-        scopeBadgeLabel={contextResult.data.terminalName}
-        showTerminalScopeSwitcher={false}
-      />
-    </div>
-  );
+  redirect(`/reports/${slug}?${query.toString()}`);
 }

@@ -1,12 +1,4 @@
-import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type {
   AuditTrailDto,
   DailyTransactionsDto,
@@ -25,6 +17,13 @@ import type {
 } from "../_services/_dto/report.dto";
 import { ReportInvoicePrintButton } from "./ReportInvoicePrintButton";
 import { formatInvoiceNumber } from "@/app/(protected)/pos/_services/print-format.service";
+import {
+  EmptyState,
+  ReportField,
+  ReportListCard,
+  ReportSectionCard,
+  ReportSummaryStrip,
+} from "./ReportListPrimitives";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -52,111 +51,62 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-export function SummaryMetric({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <Card className="rounded-2xl">
-      <CardContent className="p-4">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {label}
-        </div>
-        <div className="mt-2 text-2xl font-bold text-foreground">{value}</div>
-        {hint ? <div className="mt-1 text-xs text-muted-foreground">{hint}</div> : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-export function EmptyState({ message }: { message: string }) {
-  return (
-    <Card className="rounded-2xl border-dashed">
-      <CardContent className="p-6 text-sm text-muted-foreground">
-        {message}
-      </CardContent>
-    </Card>
-  );
-}
-
-function SimpleListCard({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="rounded-2xl">
-      <CardHeader className="pb-3">
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">{children}</CardContent>
-    </Card>
-  );
-}
-
 export function OverviewPanel({ overview }: { overview: ReportOverviewDto }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <SummaryMetric label="Net Sales" value={formatCurrency(overview.totalSales)} />
-        <SummaryMetric label="Transactions" value={String(overview.totalTransactions)} />
-        <SummaryMetric label="Cash Sales" value={formatCurrency(overview.totalCashSales)} />
-        <SummaryMetric label="Reference Payments" value={formatCurrency(overview.totalEPaymentSales)} />
-        <SummaryMetric label="Returns" value={formatCurrency(overview.totalReturns)} />
-        <SummaryMetric label="Voids" value={formatCurrency(overview.totalVoids)} />
-      </div>
+      <ReportSummaryStrip
+        metrics={[
+          { label: "Net Sales", value: formatCurrency(overview.totalSales) },
+          { label: "Transactions", value: String(overview.totalTransactions) },
+          { label: "Cash Sales", value: formatCurrency(overview.totalCashSales) },
+          {
+            label: "Reference Payments",
+            value: formatCurrency(overview.totalEPaymentSales),
+          },
+          { label: "Returns", value: formatCurrency(overview.totalReturns) },
+          { label: "Voids", value: formatCurrency(overview.totalVoids) },
+        ]}
+      />
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <SimpleListCard
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <ReportSectionCard
           title="Payment Breakdown"
           description="Sales by non-cash payment method."
+          badge="Summary"
         >
           {overview.paymentBreakdown.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No reference payment activity for this range.</div>
+            <EmptyState
+              title="No reference payment activity"
+              message="No reference payment activity was found for this date range."
+            />
           ) : (
             overview.paymentBreakdown.map((payment) => (
-              <div key={payment.name} className="flex items-center justify-between rounded-xl border px-4 py-3">
-                <div>
-                  <div className="font-medium text-foreground">{payment.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {payment.count} transaction{payment.count === 1 ? "" : "s"}
-                  </div>
-                </div>
-                <div className="text-sm font-semibold text-foreground">
-                  {formatCurrency(payment.amount)}
-                </div>
-              </div>
+              <ReportListCard
+                key={payment.name}
+                title={payment.name}
+                subtitle={`${payment.count} transaction${payment.count === 1 ? "" : "s"}`}
+                value={formatCurrency(payment.amount)}
+              />
             ))
           )}
-        </SimpleListCard>
+        </ReportSectionCard>
 
-        <SimpleListCard
+        <ReportSectionCard
           title="Operational Flags"
-          description="Live indicators tied to the selected scope."
+          description="Live indicators tied to the selected reporting scope."
+          badge="Status"
         >
-          <div className="rounded-xl border px-4 py-3">
-            <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Active Sessions</div>
-            <div className="mt-2 text-xl font-bold">{overview.activeSessionCount}</div>
-          </div>
-          <div className="rounded-xl border px-4 py-3">
-            <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Unread Invoices</div>
-            <div className="mt-2 text-xl font-bold">{overview.unreadInvoiceCount}</div>
-          </div>
-          <div className="rounded-xl border px-4 py-3">
-            <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Pending Terminal Requests</div>
-            <div className="mt-2 text-xl font-bold">{overview.pendingTerminalRequests}</div>
-          </div>
-        </SimpleListCard>
+          <ReportSummaryStrip
+            metrics={[
+              { label: "Active Sessions", value: String(overview.activeSessionCount) },
+              { label: "Unread Invoices", value: String(overview.unreadInvoiceCount) },
+              {
+                label: "Pending Terminal Requests",
+                value: String(overview.pendingTerminalRequests),
+              },
+            ]}
+          />
+        </ReportSectionCard>
       </div>
     </div>
   );
@@ -165,23 +115,29 @@ export function OverviewPanel({ overview }: { overview: ReportOverviewDto }) {
 export function XReadingPanel({ reading }: { reading: XReadingDto }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <SummaryMetric label="Terminal" value={reading.terminalName} />
-        <SummaryMetric label="Cashier" value={reading.cashierName} />
-        <SummaryMetric label="Expected Cash" value={formatCurrency(reading.expectedCash)} />
-        <SummaryMetric label="Actual Cash" value={formatCurrency(reading.actualCash)} />
-      </div>
-      <SimpleListCard
+      <ReportSummaryStrip
+        metrics={[
+          { label: "Terminal", value: reading.terminalName },
+          { label: "Cashier", value: reading.cashierName },
+          { label: "Expected Cash", value: formatCurrency(reading.expectedCash) },
+          { label: "Actual Cash", value: formatCurrency(reading.actualCash) },
+        ]}
+      />
+
+      <ReportSectionCard
         title="Session Totals"
         description={`${formatDateTime(reading.range.from)} to ${formatDateTime(reading.range.to)}`}
+        badge="X-Reading"
       >
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <SummaryMetric label="Opening Fund" value={formatCurrency(reading.openingFund)} />
-          <SummaryMetric label="Cash Sales" value={formatCurrency(reading.cashSales)} />
-          <SummaryMetric label="Withdrawals" value={formatCurrency(reading.withdrawalAmount)} />
-          <SummaryMetric label="Short / Over" value={formatCurrency(reading.shortOver)} />
-        </div>
-      </SimpleListCard>
+        <ReportSummaryStrip
+          metrics={[
+            { label: "Opening Fund", value: formatCurrency(reading.openingFund) },
+            { label: "Cash Sales", value: formatCurrency(reading.cashSales) },
+            { label: "Withdrawals", value: formatCurrency(reading.withdrawalAmount) },
+            { label: "Short / Over", value: formatCurrency(reading.shortOver) },
+          ]}
+        />
+      </ReportSectionCard>
     </div>
   );
 }
@@ -189,348 +145,407 @@ export function XReadingPanel({ reading }: { reading: XReadingDto }) {
 export function ZReadingPanel({ reading }: { reading: ZReadingDto }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <SummaryMetric label="Net Sales" value={formatCurrency(reading.netSales)} />
-        <SummaryMetric label="Gross Sales" value={formatCurrency(reading.grossSales)} />
-        <SummaryMetric label="Cash Sales" value={formatCurrency(reading.cashSales)} />
-        <SummaryMetric label="Reference Payments" value={formatCurrency(reading.ePaymentSales)} />
-      </div>
-      <SimpleListCard
+      <ReportSummaryStrip
+        metrics={[
+          { label: "Net Sales", value: formatCurrency(reading.netSales) },
+          { label: "Gross Sales", value: formatCurrency(reading.grossSales) },
+          { label: "Cash Sales", value: formatCurrency(reading.cashSales) },
+          {
+            label: "Reference Payments",
+            value: formatCurrency(reading.ePaymentSales),
+          },
+        ]}
+      />
+
+      <ReportSectionCard
         title="Z-Reading Summary"
         description={`${reading.terminalName} / ${formatDate(reading.range.from)} to ${formatDate(reading.range.to)}`}
+        badge="Z-Reading"
       >
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <SummaryMetric label="Vatable Sales" value={formatCurrency(reading.vatableSales)} />
-          <SummaryMetric label="VAT Amount" value={formatCurrency(reading.vatAmount)} />
-          <SummaryMetric label="Returns" value={formatCurrency(reading.totalReturns)} />
-          <SummaryMetric label="Voids" value={formatCurrency(reading.totalVoids)} />
-        </div>
-      </SimpleListCard>
+        <ReportSummaryStrip
+          metrics={[
+            { label: "Vatable Sales", value: formatCurrency(reading.vatableSales) },
+            { label: "VAT Amount", value: formatCurrency(reading.vatAmount) },
+            { label: "Returns", value: formatCurrency(reading.totalReturns) },
+            { label: "Voids", value: formatCurrency(reading.totalVoids) },
+          ]}
+        />
+      </ReportSectionCard>
     </div>
   );
 }
 
 export function DailyTransactionsPanel({ report }: { report: DailyTransactionsDto }) {
   if (report.items.length === 0) {
-    return <EmptyState message="No daily transactions found for the selected filters." />;
+    return (
+      <EmptyState
+        title="No daily transactions"
+        message="No daily transactions were found for the selected filters."
+      />
+    );
   }
 
   return (
-    <SimpleListCard
+    <ReportSectionCard
       title="Daily Transactions"
       description="Daily sales rollups by date and terminal."
+      badge="Daily"
     >
       {report.items.map((item) => (
-        <div key={`${item.businessDate.toISOString()}-${item.terminalName}`} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="font-semibold">{formatDate(item.businessDate)} / {item.terminalName}</div>
-              <div className="text-sm text-muted-foreground">{item.invoiceCount} invoice{item.invoiceCount === 1 ? "" : "s"}</div>
-            </div>
-            <div className="text-right">
-              <div className="font-semibold">{formatCurrency(item.netSales)}</div>
-              <div className="text-xs text-muted-foreground">Gross {formatCurrency(item.grossSales)}</div>
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={`${item.businessDate.toISOString()}-${item.terminalName}`}
+          title={`${formatDate(item.businessDate)} / ${item.terminalName}`}
+          subtitle={`${item.invoiceCount} invoice${item.invoiceCount === 1 ? "" : "s"}`}
+          value={formatCurrency(item.netSales)}
+          meta={
+            <>
+              <ReportField label="Gross Sales" value={formatCurrency(item.grossSales)} />
+            </>
+          }
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function TransactionsPanel({ history }: { history: TransactionHistoryDto }) {
   if (history.items.length === 0) {
-    return <EmptyState message="No transactions found for this date range and terminal scope." />;
+    return (
+      <EmptyState
+        title="No transactions found"
+        message="No transactions were found for this date range and terminal scope."
+      />
+    );
   }
 
   return (
-    <SimpleListCard
+    <ReportSectionCard
       title="Transaction History"
       description={`Invoice-level activity in the selected scope. ${history.totalTransactions} matching transaction${history.totalTransactions === 1 ? "" : "s"}.`}
+      badge="Invoices"
     >
       {history.items.map((item) => (
-        <div key={item.invoiceId} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
-                <Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {formatDateTime(item.createdAt)} / {item.terminalName} / {item.cashierName}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-right font-semibold">{formatCurrency(item.totalAmount)}</div>
-              <ReportInvoicePrintButton invoiceId={item.invoiceId} invoiceNumber={item.invoiceNumber} />
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={item.invoiceId}
+          title={`#${formatInvoiceNumber(item.invoiceNumber)}`}
+          subtitle={`${formatDateTime(item.createdAt)} / ${item.terminalName} / ${item.cashierName}`}
+          badges={<Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>}
+          value={formatCurrency(item.totalAmount)}
+          actions={
+            <ReportInvoicePrintButton
+              invoiceId={item.invoiceId}
+              invoiceNumber={item.invoiceNumber}
+            />
+          }
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function TransactionListPanel({ report }: { report: TransactionListDto }) {
   if (report.items.length === 0) {
-    return <EmptyState message="No transaction list entries found for the current filters." />;
+    return (
+      <EmptyState
+        title="No ledger entries found"
+        message="No transaction list entries were found for the current filters."
+      />
+    );
   }
 
   return (
-    <SimpleListCard
+    <ReportSectionCard
       title="Transaction List"
       description="Sales, voids, and refunds in ledger order."
+      badge="Ledger"
     >
       {report.items.map((item, index) => (
-        <div key={`${item.invoiceId}-${item.source}-${index}`} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
-                <Badge variant="outline" className="rounded-full uppercase">{item.source}</Badge>
-                <Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {formatDateTime(item.entryDate)} / {item.terminalName} / {item.cashierName}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="font-semibold">{formatCurrency(item.netOfSales)}</div>
-              <div className="text-xs text-muted-foreground">Gross {formatCurrency(item.grossSales)}</div>
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={`${item.invoiceId}-${item.source}-${index}`}
+          title={`#${formatInvoiceNumber(item.invoiceNumber)}`}
+          subtitle={`${formatDateTime(item.entryDate)} / ${item.terminalName} / ${item.cashierName}`}
+          badges={
+            <>
+              <Badge variant="outline" className="rounded-full uppercase">{item.source}</Badge>
+              <Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>
+            </>
+          }
+          value={formatCurrency(item.netOfSales)}
+          meta={<ReportField label="Gross Sales" value={formatCurrency(item.grossSales)} />}
+          actions={
+            <ReportInvoicePrintButton
+              invoiceId={item.invoiceId}
+              invoiceNumber={item.invoiceNumber}
+            />
+          }
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function AuditPanel({ audit }: { audit: AuditTrailDto }) {
   if (audit.items.length === 0) {
-    return <EmptyState message="No audit events found for the current filters." />;
+    return (
+      <EmptyState
+        title="No audit events"
+        message="No audit events were found for the current filters."
+      />
+    );
   }
 
   return (
-    <SimpleListCard
+    <ReportSectionCard
       title="Audit Trail"
       description={`Session events and manager approvals in time order. ${audit.pagination.totalItems} matching event${audit.pagination.totalItems === 1 ? "" : "s"}.`}
+      badge="Audit"
     >
       {audit.items.map((item, index) => (
-        <div key={`${item.source}-${item.referenceId ?? index}-${item.occurredAt.toISOString()}`} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="font-semibold">{item.action}</div>
-              <div className="text-sm text-muted-foreground">{item.actorName} / {item.actorRole}</div>
-              {item.terminalName ? <div className="text-xs text-muted-foreground">Terminal: {item.terminalName}</div> : null}
-              {item.changes ? <div className="mt-1 text-xs text-muted-foreground">{item.changes}</div> : null}
-              <div className="text-xs text-muted-foreground">{formatDateTime(item.occurredAt)}</div>
-            </div>
-            {item.amount !== null ? <div className="font-semibold">{formatCurrency(item.amount)}</div> : null}
-          </div>
-        </div>
+        <ReportListCard
+          key={`${item.source}-${item.referenceId ?? index}-${item.occurredAt.toISOString()}`}
+          title={item.action}
+          subtitle={`${item.actorName} / ${item.actorRole}`}
+          value={item.amount !== null ? formatCurrency(item.amount) : undefined}
+          meta={
+            <>
+              <ReportField label="When" value={formatDateTime(item.occurredAt)} />
+              {item.terminalName ? (
+                <ReportField label="Terminal" value={item.terminalName} />
+              ) : null}
+              {item.changes ? <ReportField label="Details" value={item.changes} /> : null}
+            </>
+          }
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function SalesPanel({ report }: { report: SalesReportDto }) {
   if (report.items.length === 0) {
-    return <EmptyState message="No sales items found for the selected filters." />;
+    return (
+      <EmptyState
+        title="No sales lines"
+        message="No sales items were found for the selected filters."
+      />
+    );
   }
 
   return (
-    <SimpleListCard
+    <ReportSectionCard
       title="Sales Lines"
       description={`Item-level sales and return impact. ${report.pagination.totalItems} matching line item${report.pagination.totalItems === 1 ? "" : "s"}.`}
+      badge="Sales"
     >
       {report.items.map((item) => (
-        <div key={`${item.invoiceId}-${item.itemId}`} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-1">
-              <div className="font-semibold">{item.itemName}</div>
-              <div className="text-sm text-muted-foreground">
-                Invoice #{formatInvoiceNumber(item.invoiceNumber)} / {formatDate(item.invoiceDate)} / {item.itemGroup || "Uncategorized"}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="font-semibold">{formatCurrency(item.revenue)}</div>
-              <div className="text-xs text-muted-foreground">Profit {formatCurrency(item.profit)}</div>
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={`${item.invoiceId}-${item.itemId}`}
+          title={item.itemName}
+          subtitle={`Invoice #${formatInvoiceNumber(item.invoiceNumber)} / ${formatDate(item.invoiceDate)} / ${item.itemGroup || "Uncategorized"}`}
+          value={formatCurrency(item.revenue)}
+          meta={<ReportField label="Profit" value={formatCurrency(item.profit)} />}
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function SalesBookPanel({ report }: { report: SalesBookDto }) {
   if (report.items.length === 0) {
-    return <EmptyState message="No sales book rows found for the selected filters." />;
+    return (
+      <EmptyState
+        title="No sales book rows"
+        message="No sales book rows were found for the selected filters."
+      />
+    );
   }
 
   return (
-    <SimpleListCard title="Sales Book" description="Daily summarized book of sales activity.">
+    <ReportSectionCard
+      title="Sales Book"
+      description="Daily summarized book of sales activity."
+      badge="Book"
+    >
       {report.items.map((item) => (
-        <div key={`${item.businessDate.toISOString()}-${item.terminalName}`} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="font-semibold">{formatDate(item.businessDate)} / {item.terminalName}</div>
-              <div className="text-sm text-muted-foreground">{item.invoiceCount} invoice{item.invoiceCount === 1 ? "" : "s"}</div>
-            </div>
-            <div className="text-right">
-              <div className="font-semibold">{formatCurrency(item.netSales)}</div>
-              <div className="text-xs text-muted-foreground">VAT {formatCurrency(item.vatAmount)}</div>
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={`${item.businessDate.toISOString()}-${item.terminalName}`}
+          title={`${formatDate(item.businessDate)} / ${item.terminalName}`}
+          subtitle={`${item.invoiceCount} invoice${item.invoiceCount === 1 ? "" : "s"}`}
+          value={formatCurrency(item.netSales)}
+          meta={<ReportField label="VAT Amount" value={formatCurrency(item.vatAmount)} />}
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function VoidedListPanel({ report }: { report: VoidedListDto }) {
   if (report.items.length === 0) {
-    return <EmptyState message="No voided invoices found for the selected filters." />;
+    return (
+      <EmptyState
+        title="No voided invoices"
+        message="No voided invoices were found for the selected filters."
+      />
+    );
   }
 
   return (
-    <SimpleListCard title="Voided List" description="Voided and cancelled invoice records.">
+    <ReportSectionCard
+      title="Voided List"
+      description="Voided and cancelled invoice records."
+      badge="Voids"
+    >
       {report.items.map((item) => (
-        <div key={item.invoiceId} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
-              <div className="text-sm text-muted-foreground">
-                {formatDateTime(item.voidedDate)} / {item.terminalName} / {item.cashierName}
-              </div>
-              {item.cancelledBy ? <div className="text-xs text-muted-foreground">Cancelled by {item.cancelledBy}</div> : null}
-            </div>
-            <div className="text-right">
-              <div className="font-semibold">{formatCurrency(item.amountDue)}</div>
-              <div className="text-xs text-muted-foreground">Gross {formatCurrency(item.grossSales)}</div>
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={item.invoiceId}
+          title={`#${formatInvoiceNumber(item.invoiceNumber)}`}
+          subtitle={`${formatDateTime(item.voidedDate)} / ${item.terminalName} / ${item.cashierName}`}
+          value={formatCurrency(item.amountDue)}
+          meta={
+            <>
+              <ReportField label="Gross Sales" value={formatCurrency(item.grossSales)} />
+              {item.cancelledBy ? (
+                <ReportField label="Cancelled By" value={item.cancelledBy} />
+              ) : null}
+            </>
+          }
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function DiscountReportPanel({ report }: { report: DiscountReportDto }) {
   if (report.items.length === 0) {
-    return <EmptyState message={`No ${report.type} transactions found for the selected filters.`} />;
+    return (
+      <EmptyState
+        title={`No ${report.type} transactions`}
+        message={`No ${report.type} transactions were found for the selected filters.`}
+      />
+    );
   }
 
   return (
-    <SimpleListCard title={`${report.type} List`} description="Discount-qualified transaction list.">
+    <ReportSectionCard
+      title={`${report.type} List`}
+      description="Discount-qualified transaction list."
+      badge="Discount"
+    >
       {report.items.map((item, index) => (
-        <div key={`${item.invoiceId}-${index}`} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
-              <div className="text-sm text-muted-foreground">
-                {formatDateTime(item.entryDate)} / {item.customerName}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="font-semibold">{formatCurrency(item.netOfSales)}</div>
-              <div className="text-xs text-muted-foreground">Discount {formatCurrency(item.lessDiscount)}</div>
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={`${item.invoiceId}-${index}`}
+          title={`#${formatInvoiceNumber(item.invoiceNumber)}`}
+          subtitle={`${formatDateTime(item.entryDate)} / ${item.customerName}`}
+          value={formatCurrency(item.netOfSales)}
+          meta={<ReportField label="Discount" value={formatCurrency(item.lessDiscount)} />}
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function RefundInvoicesPanel({ report }: { report: RefundInvoicesDto }) {
   if (report.items.length === 0) {
-    return <EmptyState message="No refunded invoices found for the selected filters." />;
+    return (
+      <EmptyState
+        title="No refunded invoices"
+        message="No refunded invoices were found for the selected filters."
+      />
+    );
   }
 
   return (
-    <SimpleListCard title="Refund Invoices" description="Fully and partially refunded invoice records.">
+    <ReportSectionCard
+      title="Refund Invoices"
+      description="Fully and partially refunded invoice records."
+      badge="Refunds"
+    >
       {report.items.map((item) => (
-        <div key={item.invoiceId} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
-                <Badge variant={item.isFullRefund ? "secondary" : "outline"} className="rounded-full uppercase">
-                  {item.isFullRefund ? "Full Return" : "Partial Return"}
-                </Badge>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Txn {formatDateTime(item.transactionDate)} / Refund {formatDateTime(item.refundDate)}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-right">
-                <div className="font-semibold">{formatCurrency(item.returnedAmount)}</div>
-                <div className="text-xs text-muted-foreground">Original {formatCurrency(item.totalAmount)}</div>
-              </div>
-              <ReportInvoicePrintButton invoiceId={item.invoiceId} invoiceNumber={item.invoiceNumber} />
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={item.invoiceId}
+          title={`#${formatInvoiceNumber(item.invoiceNumber)}`}
+          subtitle={`Txn ${formatDateTime(item.transactionDate)} / Refund ${formatDateTime(item.refundDate)}`}
+          badges={
+            <Badge
+              variant={item.isFullRefund ? "secondary" : "outline"}
+              className="rounded-full uppercase"
+            >
+              {item.isFullRefund ? "Full Return" : "Partial Return"}
+            </Badge>
+          }
+          value={formatCurrency(item.returnedAmount)}
+          meta={<ReportField label="Original Amount" value={formatCurrency(item.totalAmount)} />}
+          actions={
+            <ReportInvoicePrintButton
+              invoiceId={item.invoiceId}
+              invoiceNumber={item.invoiceNumber}
+            />
+          }
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function ReturnedItemsPanel({ report }: { report: ReturnedItemsDto }) {
   if (report.items.length === 0) {
-    return <EmptyState message="No returned items found for the selected filters." />;
+    return (
+      <EmptyState
+        title="No returned items"
+        message="No returned items were found for the selected filters."
+      />
+    );
   }
 
   return (
-    <SimpleListCard title="Returned Items" description="Returned line items with transaction and return dates.">
+    <ReportSectionCard
+      title="Returned Items"
+      description="Returned line items with transaction and return dates."
+      badge="Returns"
+    >
       {report.items.map((item) => (
-        <div key={item.itemId} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="font-semibold">{item.itemName}</div>
-              <div className="text-sm text-muted-foreground">
-                #{formatInvoiceNumber(item.invoiceNumber)} / Txn {formatDateTime(item.transactionDate)} / Return {formatDateTime(item.returnDate)}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="font-semibold">{formatCurrency(item.returnAmount)}</div>
-              <div className="text-xs text-muted-foreground">Qty {item.quantity}</div>
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={item.itemId}
+          title={item.itemName}
+          subtitle={`#${formatInvoiceNumber(item.invoiceNumber)} / Txn ${formatDateTime(item.transactionDate)} / Return ${formatDateTime(item.returnDate)}`}
+          value={formatCurrency(item.returnAmount)}
+          meta={<ReportField label="Quantity" value={item.quantity} />}
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }
 
 export function ReturnedInvoiceRecordsPanel({ report }: { report: ReturnedInvoiceRecordsDto }) {
   if (report.items.length === 0) {
-    return <EmptyState message="No returned invoice records found for the selected filters." />;
+    return (
+      <EmptyState
+        title="No returned records"
+        message="No returned invoice records were found for the selected filters."
+      />
+    );
   }
 
   return (
-    <SimpleListCard title="Returned Invoice Records" description="Refund records with source invoice context.">
+    <ReportSectionCard
+      title="Returned Invoice Records"
+      description="Refund records with source invoice context."
+      badge="Records"
+    >
       {report.items.map((item) => (
-        <div key={item.invoiceId} className="rounded-2xl border p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="font-semibold">#{formatInvoiceNumber(item.invoiceNumber)}</div>
-                <Badge variant="outline" className="rounded-full uppercase">{item.recordType.replace("_", " ")}</Badge>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {formatDateTime(item.transactionDate)} / {item.terminalName} / {item.cashierName}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="font-semibold">{formatCurrency(item.returnedAmount)}</div>
-              <div className="text-xs text-muted-foreground">Original {formatCurrency(item.totalAmount)}</div>
-            </div>
-          </div>
-        </div>
+        <ReportListCard
+          key={item.invoiceId}
+          title={`#${formatInvoiceNumber(item.invoiceNumber)}`}
+          subtitle={`${formatDateTime(item.transactionDate)} / ${item.terminalName} / ${item.cashierName}`}
+          badges={
+            <Badge variant="outline" className="rounded-full uppercase">
+              {item.recordType.replace("_", " ")}
+            </Badge>
+          }
+          value={formatCurrency(item.returnedAmount)}
+          meta={<ReportField label="Original Amount" value={formatCurrency(item.totalAmount)} />}
+        />
       ))}
-    </SimpleListCard>
+    </ReportSectionCard>
   );
 }

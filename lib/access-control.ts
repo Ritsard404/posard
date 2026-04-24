@@ -15,7 +15,6 @@ import {
   Boxes,
   Building2,
   CalendarDays,
-  ChevronRight,
   ClipboardList,
   CreditCard,
   FileBarChart2,
@@ -70,7 +69,7 @@ export const routes: RouteConfig[] = appRoutes.map((route) => ({
         ? ShoppingCart
         : route.href === "/product"
           ? Package
-          : route.href === "/report"
+          : route.href === "/reports"
             ? BarChart3
             : route.href === "/accounts"
               ? Users
@@ -184,14 +183,14 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Companies",
         icon: BarChart3,
         roles: ["admin"],
-        href: "/report",
+        href: "/reports",
         permission: "view.reports",
       },
       {
         id: "reports-overview",
         label: "Overview",
         icon: FileBarChart2,
-        href: "/report?view=overview",
+        href: "/reports",
         permission: "view.reports",
         roles: ["manager", "cashier"],
       },
@@ -200,7 +199,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Daily Transactions",
         icon: CalendarDays,
         roles: ["manager"],
-        href: "/report?view=daily-transactions",
+        href: "/reports/daily-transactions",
         permission: "view.reports",
       },
       {
@@ -208,7 +207,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Transaction List",
         icon: ClipboardList,
         roles: ["manager"],
-        href: "/report?view=transaction-list",
+        href: "/reports/transaction-list",
         permission: "view.reports",
       },
       {
@@ -216,7 +215,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Z-Reading",
         icon: Receipt,
         roles: ["manager"],
-        href: "/report?view=z-reading",
+        href: "/reports/z-reading",
         permission: "view.reports",
       },
       {
@@ -224,7 +223,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "X-Reading",
         icon: ScanSearch,
         roles: ["manager"],
-        href: "/report?view=x-reading",
+        href: "/reports/x-reading",
         permission: "view.reports",
       },
       {
@@ -232,7 +231,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Sales Reports",
         icon: BarChart3,
         roles: ["manager"],
-        href: "/report?view=sales",
+        href: "/reports/sales",
         permission: "view.reports",
       },
       {
@@ -240,7 +239,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Sales Book",
         icon: Receipt,
         roles: ["manager"],
-        href: "/report?view=sales-book",
+        href: "/reports/sales-book",
         permission: "view.reports",
       },
       {
@@ -248,7 +247,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Voided List",
         icon: ListX,
         roles: ["manager"],
-        href: "/report?view=voided-list",
+        href: "/reports/voided",
         permission: "view.reports",
       },
       {
@@ -256,7 +255,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "PWD List",
         icon: ShieldAlert,
         roles: ["manager"],
-        href: "/report?view=pwd-list",
+        href: "/reports/discounts",
         permission: "view.reports",
       },
       {
@@ -264,7 +263,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Senior List",
         icon: ShieldAlert,
         roles: ["manager"],
-        href: "/report?view=senior-list",
+        href: "/reports/discounts",
         permission: "view.reports",
       },
       {
@@ -272,7 +271,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Refund Invoices",
         icon: RotateCcw,
         roles: ["manager"],
-        href: "/report?view=refund-invoices",
+        href: "/reports/refunds",
         permission: "view.reports",
       },
       {
@@ -280,7 +279,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Returned Items",
         icon: RotateCcw,
         roles: ["manager"],
-        href: "/report?view=returned-items",
+        href: "/reports/returned-items",
         permission: "view.reports",
       },
       {
@@ -288,7 +287,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Returned Records",
         icon: FileClock,
         roles: ["manager"],
-        href: "/report?view=returned-records",
+        href: "/reports/returned-records",
         permission: "view.reports",
       },
       {
@@ -296,7 +295,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Audit Trail",
         icon: FileClock,
         roles: ["admin", "manager"],
-        href: "/report?view=audit",
+        href: "/reports/audit-trail",
         permission: "view.reports",
       },
       {
@@ -304,7 +303,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         label: "Transaction History",
         icon: ClipboardList,
         roles: ["manager", "cashier"],
-        href: "/report?view=transactions",
+        href: "/reports/sales",
         permission: "view.reports",
       },
     ],
