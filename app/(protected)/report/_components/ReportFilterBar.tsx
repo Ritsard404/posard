@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowRightLeft,
   CalendarDays,
+  Clock3,
   MonitorSmartphone,
   RotateCcw,
 } from "lucide-react";
@@ -15,7 +16,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { ReportPrintableView } from "./report-workspace-config";
+import {
+  supportsReportSort,
+  type ReportPrintableView,
+  type ReportSortOrder,
+} from "./report-workspace-config";
 
 type TerminalOption = {
   id: string;
@@ -33,6 +38,7 @@ export function ReportFilterBar({
   showTerminalScopeSwitcher,
   terminalOptions,
   terminalLocked,
+  sortOrder = "newest",
 }: {
   basePath: string;
   selectedView: ReportPrintableView;
@@ -43,7 +49,9 @@ export function ReportFilterBar({
   showTerminalScopeSwitcher: boolean;
   terminalOptions: TerminalOption[];
   terminalLocked?: boolean;
+  sortOrder?: ReportSortOrder;
 }) {
+  const canSort = supportsReportSort(selectedView);
   const todayHref = buildReportHref({
     basePath,
     view: selectedView,
@@ -51,6 +59,7 @@ export function ReportFilterBar({
     to,
     terminalId: terminalLocked ? undefined : activeTerminalId,
     page: 1,
+    sortOrder,
   });
 
   const resetHref = buildReportHref({
@@ -59,6 +68,7 @@ export function ReportFilterBar({
     from,
     to,
     page: 1,
+    sortOrder,
   });
 
   return (
@@ -75,6 +85,7 @@ export function ReportFilterBar({
           {!terminalLocked && activeTerminalId ? (
             <input type="hidden" name="terminalId" value={activeTerminalId} />
           ) : null}
+          {canSort ? <input type="hidden" name="sortOrder" value={sortOrder} /> : null}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -127,54 +138,109 @@ export function ReportFilterBar({
             <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Terminal Scope
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  buttonVariants({ variant: "outline" }),
-                  "h-11 w-full justify-between rounded-2xl md:w-auto md:min-w-[280px]",
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <MonitorSmartphone className="size-4" />
-                  {selectedTerminal ? selectedTerminal.name : "All terminals"}
-                </span>
-                <ArrowRightLeft className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 rounded-2xl">
-                <DropdownMenuItem asChild className="rounded-xl">
-                  <Link
-                    href={buildReportHref({
-                      basePath,
-                      view: selectedView,
-                      from,
-                      to,
-                      page: 1,
-                    })}
-                  >
+            <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className={cn(
+                    buttonVariants({ variant: "outline" }),
+                    "h-11 w-full justify-between rounded-2xl md:w-auto md:min-w-[280px]",
+                  )}
+                >
+                  <span className="flex items-center gap-2">
                     <MonitorSmartphone className="size-4" />
-                    <span className="flex-1">All terminals</span>
-                  </Link>
-                </DropdownMenuItem>
-                {terminalOptions.map((terminalOption) => (
-                  <DropdownMenuItem key={terminalOption.id} asChild className="rounded-xl">
+                    {selectedTerminal ? selectedTerminal.name : "All terminals"}
+                  </span>
+                  <ArrowRightLeft className="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72 rounded-2xl">
+                  <DropdownMenuItem asChild className="rounded-xl">
                     <Link
                       href={buildReportHref({
                         basePath,
                         view: selectedView,
                         from,
                         to,
-                        terminalId: terminalOption.id,
                         page: 1,
+                        sortOrder,
                       })}
                     >
                       <MonitorSmartphone className="size-4" />
-                      <span className="flex-1">{terminalOption.name}</span>
-                      {terminalOption.isActive ? <span className="text-xs text-muted-foreground">Live</span> : null}
+                      <span className="flex-1">All terminals</span>
                     </Link>
                   </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  {terminalOptions.map((terminalOption) => (
+                    <DropdownMenuItem key={terminalOption.id} asChild className="rounded-xl">
+                      <Link
+                        href={buildReportHref({
+                          basePath,
+                          view: selectedView,
+                          from,
+                          to,
+                          terminalId: terminalOption.id,
+                          page: 1,
+                          sortOrder,
+                        })}
+                      >
+                        <MonitorSmartphone className="size-4" />
+                        <span className="flex-1">{terminalOption.name}</span>
+                        {terminalOption.isActive ? <span className="text-xs text-muted-foreground">Live</span> : null}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {canSort ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      "h-11 w-full justify-between rounded-2xl md:w-auto md:min-w-[220px]",
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Clock3 className="size-4" />
+                      {sortOrder === "oldest" ? "Oldest first" : "Newest first"}
+                    </span>
+                    <ArrowRightLeft className="size-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 rounded-2xl">
+                    <DropdownMenuItem asChild className="rounded-xl">
+                      <Link
+                        href={buildReportHref({
+                          basePath,
+                          view: selectedView,
+                          from,
+                          to,
+                          terminalId: terminalLocked ? undefined : activeTerminalId,
+                          page: 1,
+                          sortOrder: "newest",
+                        })}
+                      >
+                        <Clock3 className="size-4" />
+                        <span className="flex-1">Newest first</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="rounded-xl">
+                      <Link
+                        href={buildReportHref({
+                          basePath,
+                          view: selectedView,
+                          from,
+                          to,
+                          terminalId: terminalLocked ? undefined : activeTerminalId,
+                          page: 1,
+                          sortOrder: "oldest",
+                        })}
+                      >
+                        <Clock3 className="size-4" />
+                        <span className="flex-1">Oldest first</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </CardContent>
@@ -189,6 +255,7 @@ function buildReportHref(input: {
   to: string;
   terminalId?: string;
   page?: number;
+  sortOrder?: ReportSortOrder;
 }) {
   const params = new URLSearchParams({
     view: input.view,
@@ -204,6 +271,9 @@ function buildReportHref(input: {
     params.set("page", String(input.page));
   }
 
+  if (input.sortOrder) {
+    params.set("sortOrder", input.sortOrder);
+  }
+
   return `${input.basePath}?${params.toString()}`;
 }
-

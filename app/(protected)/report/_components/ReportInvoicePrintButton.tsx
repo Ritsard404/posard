@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Monitor, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,47 +29,8 @@ export function ReportInvoicePrintButton({
   const [isPending, startTransition] = useTransition();
   const [payload, setPayload] = useState<ReportInvoicePrintPayloadDto | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const autoPrintStartedRef = useRef(false);
-
-  useEffect(() => {
-    if (!payload || autoPrintStartedRef.current) {
-      return;
-    }
-
-    autoPrintStartedRef.current = true;
-
-    void (async () => {
-      try {
-        const result = await printClientService.print({
-          title: `Invoice ${formatInvoiceNumber(payload.invoiceNumber)}`,
-          intent: "report-invoice",
-          previewContent: payload.previewContent,
-          printSegments: payload.printSegments,
-          printerConfig: payload.printerConfig,
-        }, {
-          fallbackToPreview: false,
-        });
-
-        if (result.status === "printed") {
-          toast.success(`Invoice #${formatInvoiceNumber(payload.invoiceNumber)} sent to printer.`, {
-            description: result.message,
-          });
-          return;
-        }
-
-        toast.error(result.message);
-      } catch (error) {
-        setIsPreviewOpen(true);
-        toast.error(
-          error instanceof Error ? error.message : "Unable to print invoice.",
-        );
-      }
-    })();
-  }, [payload]);
 
   const handleOpen = () => {
-    autoPrintStartedRef.current = false;
-
     startTransition(async () => {
       const result = await getReportInvoicePrintPayloadAction(invoiceId);
 
@@ -79,6 +40,7 @@ export function ReportInvoicePrintButton({
       }
 
       setPayload(result.data);
+      setIsPreviewOpen(true);
     });
   };
 
@@ -124,7 +86,7 @@ export function ReportInvoicePrintButton({
         disabled={isPending}
       >
         {isPending ? <Monitor className="size-4" /> : <Printer className="size-4" />}
-        Reprint #{formatInvoiceNumber(invoiceNumber)}
+        Reprint / Preview #{formatInvoiceNumber(invoiceNumber)}
       </Button>
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

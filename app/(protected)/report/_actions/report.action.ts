@@ -29,6 +29,7 @@ import type {
   XReadingDto,
   ZReadingDto,
 } from "../_services/_dto/report.dto";
+import type { ReportSortOrder } from "../_components/report-workspace-config";
 
 type DataResult<T> =
   | { success: true; data: T }
@@ -41,6 +42,7 @@ const ReportInputSchema = z.object({
   to: z.coerce.date().optional(),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  sortOrder: z.enum(["newest", "oldest"]).optional(),
 });
 
 const ReportWorkspaceInputSchema = ReportInputSchema.pick({
@@ -111,6 +113,7 @@ function resolvePagination(input: z.infer<typeof ReportInputSchema>) {
   return {
     page: input.page ?? 1,
     pageSize: input.pageSize ?? 25,
+    sortOrder: (input.sortOrder ?? "newest") as ReportSortOrder,
   };
 }
 
@@ -155,9 +158,10 @@ export async function getXReadingAction(
 ): Promise<DataResult<XReadingDto>> {
   try {
     const viewer = await reportAccessService.getViewer();
-    const validated = ReportInputSchema.pick({
-      companyId: true,
-      terminalId: true,
+    const validated = z.object({
+      companyId: z.string().uuid().optional(),
+      terminalId: z.string().uuid().optional(),
+      sortOrder: z.enum(["newest", "oldest"]).optional(),
     }).parse(input ?? {});
     const data = await reportService.getXReading(viewer, validated);
     return { success: true, data };

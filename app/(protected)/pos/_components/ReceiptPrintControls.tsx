@@ -97,19 +97,32 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
           return;
         }
 
-        if (result.status !== "unsupported") {
-          toast.error(result.message);
-        }
+        openPreview();
+        toast.error(result.message, {
+          description: "Receipt preview is still available on this device.",
+        });
       } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Unable to print receipt.",
-        );
+        openPreview();
+        toast.error(error instanceof Error ? error.message : "Unable to print receipt.", {
+          description: "Receipt preview is still available on this device.",
+        });
       }
     })();
   }, [job, payload, payload.previewContent, printerConfig]);
 
   const openPreview = () => {
     setIsPreviewOpen(true);
+  };
+
+  const openPreviewFallback = (message?: string) => {
+    setIsChoiceOpen(false);
+    openPreview();
+
+    if (message) {
+      toast.error(message, {
+        description: "Receipt preview is still available on this device.",
+      });
+    }
   };
 
   const handlePrint = async () => {
@@ -127,10 +140,9 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
         return;
       }
 
-      toast.error(result.message);
+      openPreviewFallback(result.message);
     } catch (error) {
-      setIsChoiceOpen(false);
-      toast.error(
+      openPreviewFallback(
         error instanceof Error ? error.message : "Printing failed.",
       );
     }

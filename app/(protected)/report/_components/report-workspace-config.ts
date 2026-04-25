@@ -39,6 +39,8 @@ export type ReportPrintableView =
   | "x-reading"
   | "z-reading";
 
+export type ReportSortOrder = "newest" | "oldest";
+
 export type ReportViewMeta = {
   id: ReportPrintableView;
   category: ReportCategory;
@@ -216,3 +218,6 @@ export function getReportViewGroups() {
   })).filter((group) => group.views.length > 0);
 }
 
+export function supportsReportSort(view: ReportPrintableView) {
+  return view !== "overview" && view !== "z-reading";
+}

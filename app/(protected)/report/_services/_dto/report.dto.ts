@@ -125,6 +125,24 @@ export interface XReadingDto {
   cashSales: number;
   otherPayments: ReportPaymentBreakdownDto[];
   paymentsReceived: number;
+  invoices: XReadingInvoiceDto[];
+}
+
+export interface XReadingInvoiceDto {
+  invoiceId: string;
+  invoiceNumber: number;
+  createdAt: Date;
+  status: "PENDING" | "PAID" | "RETURNED" | "VOID" | "CANCELLED";
+  cashierName: string;
+  terminalName: string;
+  customerName: string;
+  totalAmount: number;
+  cashCollected: number;
+  referencePayments: ReportPaymentBreakdownDto[];
+  referencePaymentAmount: number;
+  discountAmount: number;
+  returnedAmount: number;
+  isTrainMode: boolean;
 }
 
 export interface ZReadingDto {

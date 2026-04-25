@@ -20,6 +20,7 @@ import { formatInvoiceNumber } from "@/app/(protected)/pos/_services/print-forma
 import {
   EmptyState,
   ReportField,
+  ReportFieldList,
   ReportListCard,
   ReportSectionCard,
   ReportSummaryStrip,
@@ -119,24 +120,67 @@ export function XReadingPanel({ reading }: { reading: XReadingDto }) {
         metrics={[
           { label: "Terminal", value: reading.terminalName },
           { label: "Cashier", value: reading.cashierName },
-          { label: "Expected Cash", value: formatCurrency(reading.expectedCash) },
-          { label: "Actual Cash", value: formatCurrency(reading.actualCash) },
+          { label: "Session Invoices", value: String(reading.invoices.length) },
+          { label: "OR Range", value: `${reading.beginningOrNumber} - ${reading.endingOrNumber}` },
         ]}
       />
 
       <ReportSectionCard
-        title="Session Totals"
+        title="Session Details"
         description={`${formatDateTime(reading.range.from)} to ${formatDateTime(reading.range.to)}`}
         badge="X-Reading"
       >
-        <ReportSummaryStrip
-          metrics={[
-            { label: "Opening Fund", value: formatCurrency(reading.openingFund) },
-            { label: "Cash Sales", value: formatCurrency(reading.cashSales) },
-            { label: "Withdrawals", value: formatCurrency(reading.withdrawalAmount) },
-            { label: "Short / Over", value: formatCurrency(reading.shortOver) },
-          ]}
-        />
+        <ReportFieldList>
+          <ReportField label="Business" value={reading.businessName} />
+          <ReportField label="Terminal" value={reading.terminalName} />
+          <ReportField label="Cashier" value={reading.cashierName} />
+          <ReportField label="Operator" value={reading.operatorName} />
+          <ReportField label="Address" value={reading.addressLine} />
+          <ReportField label="VAT / TIN" value={reading.vatRegTin || "N/A"} />
+          <ReportField label="MIN" value={reading.minNumber || "N/A"} />
+          <ReportField label="Serial" value={reading.serialNumber || "N/A"} />
+          <ReportField label="Opening Fund" value={formatCurrency(reading.openingFund)} />
+          <ReportField label="Withdrawal" value={formatCurrency(reading.withdrawalAmount)} />
+          <ReportField label="Cash In Drawer" value={formatCurrency(reading.actualCash)} />
+        </ReportFieldList>
+      </ReportSectionCard>
+
+      <ReportSectionCard
+        title="Session Invoices"
+        description={`Invoices recorded for this terminal session. Each invoice can be previewed or reprinted individually.`}
+        badge="Invoices"
+      >
+        {reading.invoices.length === 0 ? (
+          <EmptyState
+            title="No session invoices"
+            message="No invoices were recorded for this X-reading session."
+          />
+        ) : (
+          reading.invoices.map((invoice) => (
+            <ReportListCard
+              key={invoice.invoiceId}
+              title={`#${formatInvoiceNumber(invoice.invoiceNumber)}`}
+              subtitle={`${formatDateTime(invoice.createdAt)} / ${invoice.terminalName} / ${invoice.cashierName}`}
+              badges={<Badge variant="secondary" className="rounded-full uppercase">{invoice.status}</Badge>}
+              value={formatCurrency(invoice.totalAmount)}
+              meta={
+                <>
+                  <ReportField label="Customer" value={invoice.customerName || "Walk-in"} />
+                  <ReportField label="Cash" value={formatCurrency(invoice.cashCollected)} />
+                  <ReportField label="Reference" value={formatCurrency(invoice.referencePaymentAmount)} />
+                  <ReportField label="Discount" value={formatCurrency(invoice.discountAmount)} />
+                  <ReportField label="Returned" value={formatCurrency(invoice.returnedAmount)} />
+                </>
+              }
+              actions={
+                <ReportInvoicePrintButton
+                  invoiceId={invoice.invoiceId}
+                  invoiceNumber={invoice.invoiceNumber}
+                />
+              }
+            />
+          ))
+        )}
       </ReportSectionCard>
     </div>
   );

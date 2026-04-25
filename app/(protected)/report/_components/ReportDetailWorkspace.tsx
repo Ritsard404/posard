@@ -63,6 +63,7 @@ import {
   getReportViewGroups,
   REPORT_VIEWS,
   type ReportPrintableView,
+  type ReportSortOrder,
 } from "./report-workspace-config";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -109,6 +110,7 @@ function buildReportHref(input: {
   to: string;
   terminalId?: string;
   page?: number;
+  sortOrder?: ReportSortOrder;
 }) {
   const params = new URLSearchParams({
     view: input.view,
@@ -124,6 +126,10 @@ function buildReportHref(input: {
     params.set("page", String(input.page));
   }
 
+  if (input.sortOrder) {
+    params.set("sortOrder", input.sortOrder);
+  }
+
   return `${input.basePath}?${params.toString()}`;
 }
 
@@ -135,6 +141,7 @@ async function getDetailData(
     to: Date;
     terminalId?: string;
     page: number;
+    sortOrder?: ReportSortOrder;
   },
 ) {
   switch (view) {
@@ -285,6 +292,8 @@ export async function ReportDetailWorkspace({
   const activeTerminalId = terminalId ?? queryTerminalId;
   const requestedPage = Number(getParam(resolvedSearchParams, "page") ?? "1");
   const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const activeSortOrder: ReportSortOrder =
+    getParam(resolvedSearchParams, "sortOrder") === "oldest" ? "oldest" : "newest";
   const workspaceResult = await getReportWorkspaceAction(companyId ? { companyId } : undefined);
 
   if (!workspaceResult.success) {
@@ -313,6 +322,7 @@ export async function ReportDetailWorkspace({
     from: fromDate,
     to: toDate,
     page,
+    sortOrder: activeSortOrder,
     ...(activeTerminalId ? { terminalId: activeTerminalId } : {}),
   };
 
@@ -336,6 +346,7 @@ export async function ReportDetailWorkspace({
         to: toInput,
         terminalId: terminalId ? undefined : activeTerminalId,
         page: view.id === selectedView ? page : 1,
+        sortOrder: activeSortOrder,
       }),
       isActive: view.id === selectedView,
     })),
@@ -392,6 +403,7 @@ export async function ReportDetailWorkspace({
         showTerminalScopeSwitcher={showTerminalScopeSwitcher}
         terminalOptions={workspaceResult.data.terminals}
         terminalLocked={Boolean(terminalId)}
+        sortOrder={activeSortOrder}
       />
 
       {showTerminalDrilldown && terminalReportBasePath ? (
@@ -417,6 +429,7 @@ export async function ReportDetailWorkspace({
                     view: selectedView,
                     from: fromInput,
                     to: toInput,
+                    sortOrder: activeSortOrder,
                   })}
                   className="flex min-h-32 cursor-pointer flex-col justify-between rounded-[24px] border border-border/70 bg-muted/10 p-4 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
                 >
@@ -471,6 +484,7 @@ export async function ReportDetailWorkspace({
                   from={fromInput}
                   to={toInput}
                   activeTerminalId={terminalId ? undefined : activeTerminalId}
+                  sortOrder={activeSortOrder}
                 />
               );
             })()}

@@ -54,9 +54,9 @@ export const printClientService = {
     if (config?.driver === "sunmi-native" && !support.sunmiNative) {
       return {
         tone: "fallback" as const,
-        label: "Native bridge missing",
+        label: "Preview fallback",
         description:
-          "Built-in Sunmi printing requires the Sunmi-enabled wrapper or native bridge runtime.",
+          "This saved built-in printer is not available in this runtime. You can still preview the receipt or pair another printer.",
         support,
       };
     }

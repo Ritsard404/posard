@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ReportPaginationDto } from "../_services/_dto/report.dto";
-import type { ReportPrintableView } from "./report-workspace-config";
+import type { ReportPrintableView, ReportSortOrder } from "./report-workspace-config";
 
 export function ReportPaginationBar({
   pagination,
@@ -11,6 +11,7 @@ export function ReportPaginationBar({
   from,
   to,
   activeTerminalId,
+  sortOrder,
 }: {
   pagination: ReportPaginationDto;
   basePath: string;
@@ -18,6 +19,7 @@ export function ReportPaginationBar({
   from: string;
   to: string;
   activeTerminalId?: string;
+  sortOrder?: ReportSortOrder;
 }) {
   if (pagination.totalItems <= pagination.pageSize) {
     return null;
@@ -45,6 +47,7 @@ export function ReportPaginationBar({
                   to,
                   terminalId: activeTerminalId,
                   page: Math.max(1, pagination.page - 1),
+                  sortOrder,
                 })}
               >
                 Previous
@@ -68,6 +71,7 @@ export function ReportPaginationBar({
                   to,
                   terminalId: activeTerminalId,
                   page: pagination.page + 1,
+                  sortOrder,
                 })}
               >
                 Next
@@ -89,6 +93,7 @@ function buildReportHref(input: {
   to: string;
   terminalId?: string;
   page?: number;
+  sortOrder?: ReportSortOrder;
 }) {
   const params = new URLSearchParams({
     view: input.view,
@@ -102,6 +107,10 @@ function buildReportHref(input: {
 
   if (input.page && input.page > 1) {
     params.set("page", String(input.page));
+  }
+
+  if (input.sortOrder) {
+    params.set("sortOrder", input.sortOrder);
   }
 
   return `${input.basePath}?${params.toString()}`;

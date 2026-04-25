@@ -43,10 +43,12 @@ import type {
   XReadingDto,
   ZReadingDto,
 } from "./_dto/report.dto";
+import type { ReportSortOrder } from "../_components/report-workspace-config";
 
 interface ReportScopeInput {
   companyId?: string;
   terminalId?: string;
+  sortOrder?: ReportSortOrder;
 }
 
 interface ReportRangeInput extends ReportScopeInput {
@@ -60,6 +62,10 @@ interface ReportPaginationInput {
 }
 
 interface ReportPagedRangeInput extends ReportRangeInput, ReportPaginationInput {}
+
+function isOldestFirst(sortOrder?: ReportSortOrder) {
+  return sortOrder === "oldest";
+}
 
 interface ReportCompaniesQueryInput {
   page: number;
@@ -385,7 +391,7 @@ async function buildXReadingFromTimestamp(timestamp: {
     isTrainMode: boolean;
     vat: Prisma.Decimal | number | null;
   };
-}, companyId: string): Promise<XReadingDto> {
+}, companyId: string, sortOrder?: ReportSortOrder): Promise<XReadingDto> {
   if (!timestamp.timestampIn) {
     throw new Error("No terminal session available for X-reading.");
   }
@@ -419,6 +425,37 @@ async function buildXReadingFromTimestamp(timestamp: {
   const sortedInvoiceNumbers = unreadInvoices
     .map((invoice) => invoice.invoiceNumber)
     .sort((a, b) => a - b);
+  const xReadingInvoices = unreadInvoices.map((invoice) => {
+    const referencePayments = invoice.ePayments.map((payment) => ({
+      name: getPaymentMethodName(payment.saleType.name),
+      count: 1,
+      amount: toNumber(payment.amount),
+    }));
+
+    return {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      createdAt: invoice.createdAt,
+      status: invoice.status,
+      cashierName: invoice.cashier.fullName ?? "Unknown",
+      terminalName: invoice.posTerminal.posName ?? "Unnamed terminal",
+      customerName: invoice.customerName,
+      totalAmount: toNumber(invoice.totalAmount),
+      cashCollected: calculateCashCollected(invoice),
+      referencePayments,
+      referencePaymentAmount: referencePayments.reduce(
+        (sum, payment) => sum + payment.amount,
+        0,
+      ),
+      discountAmount: toNumber(invoice.discountAmount),
+      returnedAmount: toNumber(invoice.returnedAmount),
+      isTrainMode: invoice.isTrainMode,
+    };
+  }).sort((a, b) =>
+    isOldestFirst(sortOrder)
+      ? a.createdAt.getTime() - b.createdAt.getTime()
+      : b.createdAt.getTime() - a.createdAt.getTime(),
+  );
 
   return {
     generatedAt: new Date(),
@@ -466,6 +503,7 @@ async function buildXReadingFromTimestamp(timestamp: {
           ),
         0,
       ),
+    invoices: xReadingInvoices,
   };
 }
 
@@ -821,7 +859,7 @@ export const reportService = {
       throw new Error("No terminal session available for X-reading.");
     }
 
-    return buildXReadingFromTimestamp(timestamp, companyId);
+    return buildXReadingFromTimestamp(timestamp, companyId, input.sortOrder);
   },
 
   async getZReading(
@@ -1124,7 +1162,7 @@ export const reportService = {
           },
         },
         orderBy: {
-          createdAt: "desc",
+          createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
         },
         skip,
         take: input.pageSize,
@@ -1232,7 +1270,7 @@ export const reportService = {
           },
           },
           orderBy: {
-            createdAt: "desc",
+            createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
           },
           take: mergeWindow,
         }),
@@ -1264,7 +1302,7 @@ export const reportService = {
             },
           },
           orderBy: {
-            timestampIn: "desc",
+            timestampIn: isOldestFirst(input.sortOrder) ? "asc" : "desc",
           },
           take: mergeWindow,
         }),
@@ -1302,7 +1340,7 @@ export const reportService = {
             },
           },
           orderBy: {
-            timestampOut: "desc",
+            timestampOut: isOldestFirst(input.sortOrder) ? "asc" : "desc",
           },
           take: mergeWindow,
         }),
@@ -1354,8 +1392,10 @@ export const reportService = {
       })),
     );
 
-    const sortedItems = auditItems.sort(
-      (a, b) => b.occurredAt.getTime() - a.occurredAt.getTime(),
+    const sortedItems = auditItems.sort((a, b) =>
+      isOldestFirst(input.sortOrder)
+        ? a.occurredAt.getTime() - b.occurredAt.getTime()
+        : b.occurredAt.getTime() - a.occurredAt.getTime(),
     );
     const startIndex = (input.page - 1) * input.pageSize;
     const totalItems = auditLogCount + timestampInCount + timestampOutCount;
@@ -1401,11 +1441,11 @@ export const reportService = {
         orderBy: [
           {
             invoice: {
-              createdAt: "desc",
+              createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
             },
           },
           {
-            createdAt: "desc",
+            createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
           },
         ],
         skip,
@@ -1514,7 +1554,7 @@ export const reportService = {
         },
       },
       orderBy: {
-        createdAt: "asc",
+        createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
       },
     });
 
@@ -1561,8 +1601,10 @@ export const reportService = {
       map.set(key, current);
     }
 
-    const items = [...map.values()].sort(
-      (a, b) => b.businessDate.getTime() - a.businessDate.getTime(),
+    const items = [...map.values()].sort((a, b) =>
+      isOldestFirst(input.sortOrder)
+        ? a.businessDate.getTime() - b.businessDate.getTime()
+        : b.businessDate.getTime() - a.businessDate.getTime(),
     );
     const start = (input.page - 1) * input.pageSize;
 
@@ -1618,7 +1660,7 @@ export const reportService = {
         },
       },
       orderBy: {
-        createdAt: "asc",
+        createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
       },
     });
 
@@ -1744,10 +1786,14 @@ export const reportService = {
 
     const sorted = items.sort((a, b) => {
       if (a.invoiceNumber === b.invoiceNumber) {
-        return a.entryDate.getTime() - b.entryDate.getTime();
+        return isOldestFirst(input.sortOrder)
+          ? a.entryDate.getTime() - b.entryDate.getTime()
+          : b.entryDate.getTime() - a.entryDate.getTime();
       }
 
-      return a.invoiceNumber - b.invoiceNumber;
+      return isOldestFirst(input.sortOrder)
+        ? a.invoiceNumber - b.invoiceNumber
+        : b.invoiceNumber - a.invoiceNumber;
     });
     const start = (input.page - 1) * input.pageSize;
 
@@ -1784,7 +1830,7 @@ export const reportService = {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc" },
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,
       }),
@@ -1923,7 +1969,7 @@ export const reportService = {
           posTerminal: { select: { posName: true } },
           items: { select: { id: true, status: true } },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { updatedAt: isOldestFirst(input.sortOrder) ? "asc" : "desc" },
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,
       }),
@@ -1980,7 +2026,7 @@ export const reportService = {
             },
           },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { updatedAt: isOldestFirst(input.sortOrder) ? "asc" : "desc" },
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,
       }),

@@ -127,10 +127,10 @@ function buildMetrics(
     case "x-reading": {
       const report = data as XReadingDto;
       return [
-        { label: "Invoice Count", value: formatCount(report.invoiceCount) },
-        { label: "Cash Sales", value: formatCurrency(report.cashSales) },
-        { label: "Expected Cash", value: formatCurrency(report.expectedCash) },
-        { label: "Short / Over", value: formatCurrency(report.shortOver) },
+        { label: "Invoice Count", value: formatCount(report.invoices.length) },
+        { label: "Terminal", value: report.terminalName },
+        { label: "Cashier", value: report.cashierName },
+        { label: "OR Range", value: `${report.beginningOrNumber} - ${report.endingOrNumber}` },
       ];
     }
     case "z-reading": {

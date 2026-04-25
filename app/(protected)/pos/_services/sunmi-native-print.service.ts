@@ -262,7 +262,8 @@ export const sunmiNativePrintService = {
 
     const bridge = getBridge();
     const available = bridge ? await bridge.isAvailable() : false;
-    const deviceInfo = bridge && available ? await bridge.getDeviceInfo() : null;
+    const deviceInfo =
+      bridge && available ? await bridge.getDeviceInfo() : null;
 
     return {
       available,

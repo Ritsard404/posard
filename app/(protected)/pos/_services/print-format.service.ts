@@ -288,28 +288,27 @@ export function buildInvoicePrintPackage(receipt: ReceiptDto) {
 
 export function buildXReadingPrintContent(reading: XReadingDto) {
   const generatedAt = reading.generatedAt;
-  const paymentLines = [
-    alignText("CASH", formatPeso(reading.cashSales)),
-    ...reading.otherPayments.map((payment) =>
+  const invoiceLines = reading.invoices.flatMap((invoice) => {
+    const paymentSummary =
+      invoice.referencePayments.length > 0
+        ? invoice.referencePayments
+            .map((payment) => `${payment.name} ${formatPeso(payment.amount)}`)
+            .join(", ")
+        : "No reference payments";
+
+    return [
       alignText(
-        formatPaymentLabel(payment.name, payment.count),
-        formatPeso(payment.amount),
+        `OR #${formatInvoiceNumber(invoice.invoiceNumber)}`,
+        formatPeso(invoice.totalAmount),
       ),
-    ),
-    alignText("Total Payments:", formatPeso(reading.paymentsReceived)),
-  ];
-  const summaryLines = [
-    alignText("Cash In Drawer:", formatPeso(reading.actualCash)),
-    ...reading.otherPayments.map((payment) =>
-      alignText(
-        formatPaymentLabel(payment.name, payment.count),
-        formatPeso(payment.amount),
-      ),
-    ),
-    alignText("Opening Fund:", formatPeso(reading.openingFund)),
-    alignText("Less Withdrawal:", formatPeso(reading.withdrawalAmount)),
-    alignText("Payments Received:", formatPeso(reading.paymentsReceived)),
-  ];
+      alignText("Time:", formatShortDateTime(invoice.createdAt)),
+      alignText("Customer:", valueOrNA(invoice.customerName)),
+      alignText("Status:", invoice.status),
+      alignText("Cash:", formatPeso(invoice.cashCollected)),
+      alignText("Reference:", paymentSummary),
+      separator("-"),
+    ];
+  });
 
   const content: string[] = [];
 
@@ -346,26 +345,15 @@ export function buildXReadingPrintContent(reading: XReadingDto) {
     alignText("End. OR #:", reading.endingOrNumber),
     alignText("Txn Count #:", String(reading.invoiceCount)),
     "",
+    separator("="),
+    centerText("SESSION INVOICES"),
+    "",
+    ...(invoiceLines.length
+      ? invoiceLines
+      : ["No invoices were recorded for this session.", separator("-")]),
     alignText("Opening Fund:", formatPeso(reading.openingFund)),
-    separator("="),
-    centerText("PAYMENTS RECEIVED"),
-    "",
-    ...paymentLines,
-    separator("="),
-    alignText(`VOID (${reading.voidCount})`, formatPeso(reading.voidAmount)),
-    separator("="),
-    alignText(
-      `REFUND (${reading.refundCount})`,
-      formatPeso(reading.refundAmount),
-    ),
-    separator("="),
-    alignText("WITHDRAWAL", formatPeso(reading.withdrawalAmount)),
-    separator("="),
-    centerText("TRANSACTION SUMMARY"),
-    "",
-    ...summaryLines,
-    separator("="),
-    alignText("SHORT/OVER:", formatPeso(reading.shortOver)),
+    alignText("Withdrawal:", formatPeso(reading.withdrawalAmount)),
+    alignText("Cash In Drawer:", formatPeso(reading.actualCash)),
     "",
   );
 

@@ -25,6 +25,7 @@ import {
   REPORT_ROUTE_DEFINITIONS,
   type ReportPreset,
 } from "../_components/reports-config";
+import type { ReportSortOrder } from "@/app/(protected)/report/_components/report-workspace-config";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 export type LoadedReportData =
@@ -262,6 +263,8 @@ export const reportPageService = {
     });
     const page = Number(getParam(searchParams, "page") ?? "1");
     const pageSize = 25;
+    const sortOrder: ReportSortOrder =
+      getParam(searchParams, "sortOrder") === "oldest" ? "oldest" : "newest";
     const workspace = await reportService.getWorkspace(viewer, { companyId });
     const overview = await reportService.getOverview(viewer, {
       companyId,
@@ -277,6 +280,7 @@ export const reportPageService = {
       to: range.to,
       page: Number.isFinite(page) ? Math.max(1, page) : 1,
       pageSize,
+      sortOrder,
     };
 
     let data: LoadedReportData;
@@ -295,7 +299,7 @@ export const reportPageService = {
         data = await reportService.getSalesBook(viewer, input);
         break;
       case "x-reading":
-        data = await reportService.getXReading(viewer, { companyId, terminalId });
+        data = await reportService.getXReading(viewer, { companyId, terminalId, sortOrder });
         break;
       case "z-reading":
         data = await reportService.getZReading(viewer, input);
@@ -350,13 +354,14 @@ export const reportPageService = {
         fromInput: formatDateInput(range.from),
         toInput: formatDateInput(range.to),
         label: `${formatDateLabel(range.from)} to ${formatDateLabel(range.to)}`,
+        sortOrder,
       },
       printPayload,
       isDateLockedToAllHistory: definition.view === "z-reading",
       isDateFilterOptional: definition.view === "x-reading",
       exportBaseUrl: `/reports/export?type=${definition.slug}&companyId=${companyId}${
         terminalId ? `&terminalId=${terminalId}` : ""
-      }&preset=${range.preset}&from=${formatDateInput(range.from)}&to=${formatDateInput(range.to)}`,
+      }&preset=${range.preset}&from=${formatDateInput(range.from)}&to=${formatDateInput(range.to)}&sortOrder=${sortOrder}`,
     };
   },
 
@@ -368,6 +373,7 @@ export const reportPageService = {
       preset: searchParams.get("preset") ?? undefined,
       from: searchParams.get("from") ?? undefined,
       to: searchParams.get("to") ?? undefined,
+      sortOrder: searchParams.get("sortOrder") ?? undefined,
       page: "1",
     });
 

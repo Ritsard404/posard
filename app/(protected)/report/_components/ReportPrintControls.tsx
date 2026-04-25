@@ -141,13 +141,15 @@ export function ReportPrintControls({
           return;
         }
 
-        toast.error(result.message);
+        setIsPreviewOpen(true);
+        toast.error(result.message, {
+          description: "Preview opened instead so you can still review or reprint this report.",
+        });
       } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : `Unable to print ${payload.title}.`,
-        );
+        setIsPreviewOpen(true);
+        toast.error(error instanceof Error ? error.message : `Unable to print ${payload.title}.`, {
+          description: "Preview opened instead so you can still review or reprint this report.",
+        });
       }
     })();
   }, [job, payload, printerConfig, terminalId]);
@@ -157,6 +159,17 @@ export function ReportPrintControls({
   }
 
   const printerName = printerConfig?.displayName ?? payload.printerName ?? null;
+
+  const openPreviewFallback = (message?: string) => {
+    setIsChoiceOpen(false);
+    setIsPreviewOpen(true);
+
+    if (message) {
+      toast.error(message, {
+        description: "Preview opened instead so you can still review or reprint this report.",
+      });
+    }
+  };
 
   const handlePrint = async () => {
     try {
@@ -199,10 +212,11 @@ export function ReportPrintControls({
         return;
       }
 
-      toast.error(result.message);
+      openPreviewFallback(result.message);
     } catch (error) {
-      setIsChoiceOpen(false);
-      toast.error(error instanceof Error ? error.message : "Printing failed.");
+      openPreviewFallback(
+        error instanceof Error ? error.message : "Printing failed.",
+      );
     }
   };
 

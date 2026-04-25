@@ -81,6 +81,8 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
         exportBaseUrl={data.exportBaseUrl}
         terminalOptions={data.workspace.terminals}
         dateControlsDisabled={data.isDateLockedToAllHistory}
+        view={data.definition.view}
+        sortOrder={data.range.sortOrder}
         dateHint={
           data.definition.slug === "z-reading"
             ? "Z-Reading always covers the full sales history of the selected terminal or current scope."
@@ -106,6 +108,7 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
           from={data.range.fromInput}
           to={data.range.toInput}
           activeTerminalId={data.scope.terminalId ?? undefined}
+          sortOrder={data.range.sortOrder}
         />
       ) : null}
     </div>
