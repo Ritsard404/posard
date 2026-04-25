@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ShoppingCart, Package, BarChart3, ShieldCheck, Zap, Globe } from "lucide-react";
+import { BrandLogo } from "@/components/branding/BrandLogo";
 import { Button } from "@/components/ui/button";
 import {
   absoluteUrl,
@@ -22,14 +23,16 @@ import {
 } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "POS System Philippines for Small Business Checkout",
-  description: siteConfig.description,
+  title: "POSard POS System for Retail Checkout and Inventory",
+  description:
+    "POSard is a retail POS system for Philippine stores, cafes, and small businesses with checkout, inventory, receipts, discounts, and sales reports.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "POSard POS System Philippines",
-    description: siteConfig.description,
+    title: "POSard POS System for Retail Checkout and Inventory",
+    description:
+      "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, receipts, discounts, and daily sales reports.",
     url: absoluteUrl("/"),
     siteName: siteConfig.name,
     images: [
@@ -45,8 +48,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "POSard POS System Philippines",
-    description: siteConfig.description,
+    title: "POSard POS System for Retail Checkout and Inventory",
+    description:
+      "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, receipts, discounts, and daily sales reports.",
     images: ["/opengraph-image"],
   },
   robots: {
@@ -64,39 +68,39 @@ export const metadata: Metadata = {
 
 const features = [
   {
-    title: "Point of Sale",
+    title: "Retail checkout",
     description:
-      "Terminal-ready checkout with intuitive touch controls and instant transaction processing.",
+      "Keep the counter moving with a cashier-friendly POS flow built for touch screens, quick sales, and accurate totals.",
     icon: ShoppingCart,
   },
   {
-    title: "Inventory Master",
+    title: "Inventory tracking",
     description:
-      "Real-time stock synchronization across all your locations with automated low-stock alerts.",
+      "Track products, stock levels, barcodes, and availability from one connected retail workspace.",
     icon: Package,
   },
   {
-    title: "Analytics Engine",
+    title: "Sales reports",
     description:
-      "Turn data into decisions with beautiful, real-time reports on sales, products, and employees.",
+      "Review daily sales, cashier activity, and product performance with reports built for operational decisions.",
     icon: BarChart3,
   },
   {
-    title: "Secure by Design",
+    title: "Role-based control",
     description:
-      "Enterprise-grade security with role-based access control and manager PIN overrides.",
+      "Separate owner, manager, and cashier access so sensitive POS actions stay under the right level of control.",
     icon: ShieldCheck,
   },
   {
-    title: "Blazing Fast",
+    title: "Discount-ready workflow",
     description:
-      "Built for performance. Zero-lag interface ensures your customers never have to wait.",
+      "Handle PWD, Senior Citizen, and custom discount flows without breaking the speed of checkout.",
     icon: Zap,
   },
   {
-    title: "Global Sync",
+    title: "Multi-terminal setup",
     description:
-      "Cloud-native architecture that keeps your business connected from anywhere in the world.",
+      "Run one store or multiple terminals with shared records for receipts, reports, subscriptions, and team activity.",
     icon: Globe,
   },
 ];
@@ -126,14 +130,7 @@ export default function Home() {
         {/* Navigation */}
         <nav className="w-full flex justify-center glass-header h-16 transition-all duration-300">
           <div className="w-full max-w-7xl flex justify-between items-center px-6 text-sm">
-            <div className="flex gap-2 items-center">
-              <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5 text-accent-foreground" />
-              </div>
-              <span className="text-xl font-heading font-extrabold tracking-tight text-foreground">
-                <span className="text-accent">POS</span>ard
-              </span>
-            </div>
+            <BrandLogo compact showSubtitle subtitle="Retail checkout suite" subtitleClassName="hidden lg:block" />
             
             <div className="hidden md:flex gap-8 items-center font-medium text-muted-foreground">
               <Link href={publicPages.features.path} className="hover:text-accent transition-colors">Features</Link>
@@ -165,11 +162,11 @@ export default function Home() {
               </div>
               
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-heading font-extrabold tracking-tighter leading-[1.1] text-foreground">
-                POS system Philippines for <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-emerald-500">faster checkout.</span>
+                POSard POS system for <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-emerald-500">retail checkout.</span>
               </h1>
               
               <p className="max-w-xl mx-auto lg:mx-0 text-lg md:text-xl text-muted-foreground leading-relaxed">
-                POSard helps retail stores, restaurants, cafes, and service businesses run checkout, inventory, discounts, receipts, terminal subscriptions, and sales reports from one cloud POS platform.
+                POSard helps Philippine retail stores, cafes, and service businesses run checkout, inventory, receipts, discounts, cashier roles, and sales reports from one mobile-first POS platform.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
@@ -225,11 +222,10 @@ export default function Home() {
         <section id="features" className="w-full max-w-7xl py-24 px-6 border-t border-white/5">
           <div className="text-center space-y-4 mb-20">
             <h2 className="text-3xl md:text-5xl font-heading font-bold tracking-tight">
-              Powerful tools for <span className="text-accent">growth.</span>
+              Built for <span className="text-accent">daily store operations.</span>
             </h2>
             <p className="max-w-2xl mx-auto text-muted-foreground text-lg">
-              Everything you need for checkout, inventory and sales tracking, 
-              PWD and Senior discounts, receipts, X-Reading, and Z-Reading.
+              Everything POSard needs to do well at the counter: checkout, stock tracking, receipts, discounts, cashier control, and X-Reading or Z-Reading reports.
             </p>
           </div>
 
@@ -262,14 +258,11 @@ export default function Home() {
         <footer className="w-full border-t border-white/5 bg-secondary/10 py-16 px-6">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
             <div className="space-y-4 text-center md:text-left">
-              <div className="flex gap-2 items-center justify-center md:justify-start">
-                <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-                  <ShieldCheck className="w-5 h-5 text-accent-foreground" />
-                </div>
-                <span className="text-2xl font-heading font-extrabold tracking-tight">POSard<span className="text-accent">POS</span></span>
+              <div className="flex justify-center md:justify-start">
+                <BrandLogo showSubtitle subtitle="Retail checkout, inventory, and reports" subtitleClassName="text-[11px] tracking-[0.16em]" />
               </div>
               <p className="max-w-xs text-muted-foreground text-sm uppercase tracking-widest font-bold">
-                The future of retail management.
+                Retail checkout, inventory, and reports in one system.
               </p>
             </div>
             

@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: `${siteConfig.name} | ${siteConfig.title}`,
+    default: siteConfig.name,
     template: "%s | POSard",
   },
   description: siteConfig.description,
@@ -16,15 +16,9 @@ export const metadata: Metadata = {
   authors: [{ name: siteConfig.creator }],
   creator: siteConfig.creator,
   publisher: siteConfig.name,
+  category: "business",
   alternates: {
     canonical: "/",
-  },
-  icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/branding/posard-favicon.png", type: "image/png" },
-      { url: "/branding/posard-favicon.svg", type: "image/svg+xml" },
-    ],
   },
   openGraph: {
     title: `${siteConfig.name} | ${siteConfig.title}`,

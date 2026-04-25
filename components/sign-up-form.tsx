@@ -89,16 +89,19 @@ export function SignUpForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="glass-card border-white/5">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-heading font-extrabold tracking-tight">
+      <Card className="rounded-[2rem] border border-white/10 bg-white/80 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
+        <CardHeader className="space-y-3 text-center">
+          <div className="mx-auto inline-flex rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
+            Merchant onboarding
+          </div>
+          <CardTitle className="text-3xl font-heading font-extrabold tracking-tight md:text-4xl">
             Sign up
           </CardTitle>
-          <CardDescription className="text-muted-foreground font-medium">
+          <CardDescription className="font-medium text-muted-foreground">
             Create your merchant account to get started
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-1">
           <form onSubmit={handleSignUp} aria-busy={isPending}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
@@ -116,7 +119,7 @@ export function SignUpForm({
                   value={fullName}
                   disabled={isPending}
                   aria-disabled={isPending}
-                  className="h-12 rounded-xl bg-background/50 border-white/10"
+                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
                   onChange={(e) => {
                     setFullName(e.target.value);
                     clearFeedback();
@@ -139,7 +142,7 @@ export function SignUpForm({
                   value={email}
                   disabled={isPending}
                   aria-disabled={isPending}
-                  className="h-12 rounded-xl bg-background/50 border-white/10"
+                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
                   onChange={(e) => {
                     setEmail(e.target.value);
                     clearFeedback();
@@ -160,7 +163,7 @@ export function SignUpForm({
                   value={password}
                   disabled={isPending}
                   aria-disabled={isPending}
-                  className="h-12 rounded-xl bg-background/50 border-white/10"
+                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
                   onChange={(e) => {
                     setPassword(e.target.value);
                     clearFeedback();
@@ -181,7 +184,7 @@ export function SignUpForm({
                   value={repeatPassword}
                   disabled={isPending}
                   aria-disabled={isPending}
-                  className="h-12 rounded-xl bg-background/50 border-white/10"
+                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
                   onChange={(e) => {
                     setRepeatPassword(e.target.value);
                     clearFeedback();
@@ -189,7 +192,7 @@ export function SignUpForm({
                 />
               </div>
 
-              <div className="flex items-start gap-3 rounded-md border border-white/10 bg-background/40 p-3">
+              <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-background/60 p-4 shadow-sm">
                 <Checkbox
                   id="terms-accepted"
                   checked={termsAccepted}
@@ -225,7 +228,7 @@ export function SignUpForm({
 
               <AuthFeedback state={feedback} />
               <AuthSubmitButton
-                className="h-12 w-full rounded-xl font-bold glow-on-hover"
+                className="h-12 w-full rounded-xl font-bold shadow-lg shadow-primary/20"
                 isPending={isPending}
                 idleLabel="Create My Merchant Account"
                 pendingLabel="Creating your account..."

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
 
+import { BrandLogo } from "@/components/branding/BrandLogo";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { Button } from "@/components/ui/button";
 import { publicPages } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -19,40 +20,36 @@ export default function AuthLayout({
 }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-background font-sans">
-      <div className="absolute top-0 -left-4 h-72 w-72 animate-blob rounded-full bg-accent/10 opacity-70 mix-blend-multiply blur-3xl" />
-      <div className="absolute top-0 -right-4 h-72 w-72 animate-blob rounded-full bg-emerald-500/10 opacity-70 mix-blend-multiply blur-3xl animation-delay-2000" />
-      <div className="absolute -bottom-8 left-20 h-72 w-72 animate-blob rounded-full bg-indigo-500/10 opacity-70 mix-blend-multiply blur-3xl animation-delay-4000" />
+      <div className="absolute inset-x-0 top-0 h-[30rem] bg-[radial-gradient(circle_at_top,rgba(20,71,230,0.18),transparent_58%)]" />
+      <div className="absolute top-0 -left-10 h-80 w-80 animate-blob rounded-full bg-accent/12 opacity-80 mix-blend-multiply blur-3xl" />
+      <div className="absolute top-8 right-0 h-72 w-72 animate-blob rounded-full bg-cyan-400/12 opacity-70 mix-blend-multiply blur-3xl animation-delay-2000" />
+      <div className="absolute bottom-0 left-1/3 h-72 w-72 animate-blob rounded-full bg-emerald-500/10 opacity-70 mix-blend-multiply blur-3xl animation-delay-4000" />
 
-      <header className="glass-header w-full">
-        <div className="container mx-auto flex h-16 max-w-screen-2xl items-center justify-between px-6">
-          <Link href="/" className="group flex items-center gap-2 transition-all">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20 transition-all group-hover:scale-105">
-              <ShieldCheck className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-heading font-extrabold tracking-tight text-foreground">
-              POS<span className="text-primary italic">ard</span>
-            </span>
+      <header className="relative z-10 flex w-full justify-center border-b border-white/10 bg-background/70 backdrop-blur-xl">
+        <div className="flex h-20 w-full max-w-7xl items-center justify-between gap-4 px-6">
+          <Link href="/" className="min-w-0">
+            <BrandLogo
+              compact
+              showSubtitle
+              subtitle="Retail checkout suite"
+              subtitleClassName="hidden sm:block"
+            />
           </Link>
 
-          <nav className="flex items-center gap-4">
-            <Link
-              href={publicPages.pricing.path}
-              className="hidden text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground sm:inline"
-            >
-              Pricing
-            </Link>
+          <div className="flex items-center gap-3">
+            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+              <Link href={publicPages.pricing.path}>Pricing</Link>
+            </Button>
             <ThemeSwitcher />
-          </nav>
+          </div>
         </div>
       </header>
 
-      <main className="relative z-10 flex flex-col items-center justify-center px-6 pb-20 pt-12">
-        <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
-          {children}
-        </div>
+      <main className="relative z-10 flex flex-1 items-center justify-center px-6 py-10 md:py-14">
+        {children}
       </main>
 
-      <footer className="absolute bottom-8 w-full text-center">
+      <footer className="relative z-10 px-6 pb-8 text-center">
         <p className="text-xs font-medium text-muted-foreground">
           (c) 2026 POSard.{" "}
           <Link

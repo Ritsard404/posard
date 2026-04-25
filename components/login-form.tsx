@@ -76,16 +76,19 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="glass-card border-white/5">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-heading font-extrabold tracking-tight">
+      <Card className="rounded-[2rem] border border-white/10 bg-white/80 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
+        <CardHeader className="space-y-3 text-center">
+          <div className="mx-auto inline-flex rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
+            Secure sign in
+          </div>
+          <CardTitle className="text-3xl font-heading font-extrabold tracking-tight md:text-4xl">
             Login
           </CardTitle>
-          <CardDescription className="text-muted-foreground font-medium">
+          <CardDescription className="font-medium text-muted-foreground">
             Enter your credentials to access your terminal
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-1">
           <form onSubmit={handleLogin} aria-busy={isPending}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
@@ -102,7 +105,7 @@ export function LoginForm({
                   required
                   value={email}
                   disabled={isPending}
-                  className="h-12 rounded-xl bg-background/50 border-white/10"
+                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
                   onChange={(e) => {
                     setEmail(e.target.value);
                     setError(null);
@@ -123,12 +126,20 @@ export function LoginForm({
                   placeholder="*******"
                   value={password}
                   disabled={isPending}
-                  className="h-12 rounded-xl bg-background/50 border-white/10"
+                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setError(null);
                   }}
                 />
+              </div>
+              <div className="-mt-2 text-right text-sm font-medium">
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Forgot password?
+                </Link>
               </div>
               {error && (
                 <p className="text-sm text-destructive" role="alert">
@@ -136,7 +147,7 @@ export function LoginForm({
                 </p>
               )}
               <AuthSubmitButton
-                className="h-12 w-full rounded-xl font-bold glow-on-hover"
+                className="h-12 w-full rounded-xl font-bold shadow-lg shadow-primary/20"
                 isPending={isPending}
                 idleLabel="Login"
                 pendingLabel="Signing you in..."

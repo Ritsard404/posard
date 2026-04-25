@@ -7,9 +7,9 @@ export const siteUrl = (
 export const siteConfig = {
   name: "POSard",
   url: siteUrl,
-  title: "POS System Philippines for Small Businesses",
+  title: "POS System for Retail Checkout, Inventory, and Sales Reports",
   description:
-    "POSard is a mobile-first POS system in the Philippines for checkout, inventory, discounts, receipts, terminal subscriptions, and sales reports.",
+    "POSard is a mobile-first POS system for Philippine retail stores, cafes, and small businesses that need checkout, inventory, receipts, discounts, and sales reports in one platform.",
   creator: "Ritsard",
   email: "support@posard.com",
   phone: "+63 XXX XXX XXXX",
@@ -20,6 +20,9 @@ export const siteConfig = {
     label: "PHP 500 per terminal per month",
   },
   keywords: [
+    "POSard",
+    "POSard POS",
+    "POSard POS system",
     "POS system Philippines",
     "mobile POS",
     "small business POS",
@@ -37,43 +40,43 @@ export const siteConfig = {
 export const publicPages = {
   about: {
     path: "/about",
-    title: "POS System Philippines for Modern Businesses",
+    title: "About POSard POS System for Philippine Businesses",
     description:
-      "Learn how POSard helps Philippine retail, restaurant, and service businesses run mobile POS checkout, inventory, reports, and terminals.",
+      "Learn how POSard helps Philippine retail, restaurant, cafe, and service businesses manage checkout, inventory, reports, and multi-terminal cashier operations.",
   },
   features: {
     path: "/features",
-    title: "Mobile POS Features for Sales, Inventory, and Reports",
+    title: "POSard Features for Checkout, Inventory, and Sales Reports",
     description:
-      "Explore POSard features for checkout, inventory tracking, PWD and Senior discounts, X and Z reports, receipts, terminals, and roles.",
+      "Explore POSard features for checkout, inventory tracking, PWD and Senior discounts, receipts, X and Z reports, terminals, and role-based cashier access.",
   },
   solutions: {
     path: "/solutions",
-    title: "POS Solutions for Retail, Restaurants, and Services",
+    title: "POSard Solutions for Retail, Cafes, Restaurants, and Services",
     description:
-      "POSard supports retail stores, restaurants, cafes, startups, and service businesses in the Philippines with one cloud POS platform.",
+      "POSard supports Philippine retail stores, cafes, restaurants, startups, and service businesses with one cloud POS platform built for daily operations.",
   },
   pricing: {
     path: "/pricing",
-    title: "Affordable POS System Pricing in the Philippines",
+    title: "POSard Pricing for Small Business POS Terminals",
     description:
-      "POSard pricing is PHP 500 per terminal per month with a default terminal for the first registered user and no hidden fees.",
+      "POSard pricing is PHP 500 per terminal per month for businesses that need branded POS checkout, inventory tracking, and sales reporting without hidden fees.",
   },
   contact: {
     path: "/contact",
-    title: "Contact POSard Support in Cebu, Philippines",
+    title: "Contact POSard Support and Sales",
     description:
-      "Contact POSard for POS system inquiries, support, and partnerships. Email support@posard.com or reach the Cebu, Philippines team.",
+      "Contact POSard for POS system inquiries, implementation questions, support, and partnerships. Reach the Cebu, Philippines team by email.",
   },
   privacy: {
     path: "/privacy",
-    title: "Privacy Policy for POSard POS System",
+    title: "POSard Privacy Policy",
     description:
       "Read how POSard protects business, user, terminal, sales, and inventory data for POS users in the Philippines.",
   },
   terms: {
     path: "/terms",
-    title: "Terms and Conditions for POSard",
+    title: "POSard Terms and Conditions",
     description:
       "Review POSard terms covering lawful use, account security, per-terminal subscription billing, service updates, and limitations.",
   },
@@ -140,8 +143,9 @@ export function organizationJsonLd() {
     "@type": "Organization",
     "@id": `${siteConfig.url}/#organization`,
     name: siteConfig.name,
+    alternateName: "POSard POS System",
     url: siteConfig.url,
-    logo: absoluteUrl("/branding/posard-favicon.png"),
+    logo: absoluteUrl("/branding/posard-logo.png"),
     email: siteConfig.email,
     telephone: siteConfig.phone,
     address: {
@@ -157,6 +161,7 @@ export function websiteJsonLd() {
     "@type": "WebSite",
     "@id": `${siteConfig.url}/#website`,
     name: siteConfig.name,
+    alternateName: "POSard POS System",
     url: siteConfig.url,
     publisher: {
       "@id": `${siteConfig.url}/#organization`,
@@ -169,19 +174,20 @@ export function softwareJsonLd() {
     "@type": "SoftwareApplication",
     "@id": `${siteConfig.url}/#software`,
     name: siteConfig.name,
+    alternateName: "POSard POS System",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     url: siteConfig.url,
     description: siteConfig.description,
     areaServed: "Philippines",
     featureList: [
-      "Mobile point-of-sale checkout",
-      "Inventory management",
-      "PWD, Senior Citizen, and custom discounts",
-      "X-Reading and Z-Reading reports",
-      "Receipt archive and reprinting",
+      "Retail checkout for small business counters",
+      "Inventory and stock tracking",
+      "PWD, Senior Citizen, and custom discount handling",
+      "X-Reading and Z-Reading sales reports",
+      "Receipt archive and receipt reprinting",
       "Role-based access for admins, managers, and cashiers",
-      "Per-terminal subscriptions",
+      "Per-terminal subscriptions and cashier assignment",
     ],
     offers: {
       "@type": "Offer",

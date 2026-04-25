@@ -67,12 +67,15 @@ export function ForgotPasswordForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       {success ? (
-        <Card className="glass-card border-white/5 shadow-2xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-heading font-extrabold tracking-tight text-emerald-500">
+        <Card className="rounded-[2rem] border border-white/10 bg-white/80 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
+          <CardHeader className="space-y-3 text-center">
+            <div className="mx-auto inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-600">
+              Email sent
+            </div>
+            <CardTitle className="text-3xl font-heading font-extrabold tracking-tight text-emerald-600 md:text-4xl">
               Check Your Email
             </CardTitle>
-            <CardDescription className="text-muted-foreground font-medium">
+            <CardDescription className="font-medium text-muted-foreground">
               Password reset link sent
             </CardDescription>
           </CardHeader>
@@ -84,23 +87,26 @@ export function ForgotPasswordForm({
             </p>
             <AuthFeedback state={feedback} />
             <Link href="/auth/login">
-              <Button className="w-full h-11 rounded-xl font-bold glow-on-hover shadow-lg">
+              <Button className="h-11 w-full rounded-xl font-bold shadow-lg shadow-primary/20">
                 Proceed to Login
               </Button>
             </Link>
           </CardContent>
         </Card>
       ) : (
-        <Card className="glass-card border-white/5 shadow-2xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-heading font-extrabold tracking-tight">
+        <Card className="rounded-[2rem] border border-white/10 bg-white/80 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
+          <CardHeader className="space-y-3 text-center">
+            <div className="mx-auto inline-flex rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
+              Account recovery
+            </div>
+            <CardTitle className="text-3xl font-heading font-extrabold tracking-tight md:text-4xl">
               Reset Password
             </CardTitle>
-            <CardDescription className="text-muted-foreground font-medium">
+            <CardDescription className="font-medium text-muted-foreground">
               We&apos;ll send a secure link to your inbox
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-1">
             <form onSubmit={handleForgotPassword} aria-busy={isPending}>
               <div className="flex flex-col gap-6">
                 <div className="grid gap-2">
@@ -118,7 +124,7 @@ export function ForgotPasswordForm({
                     value={email}
                     disabled={isPending}
                     aria-disabled={isPending}
-                    className="h-12 rounded-xl bg-background/50 border-white/10"
+                    className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
                     onChange={(e) => {
                       setEmail(e.target.value);
                       clearFeedback();
@@ -127,7 +133,7 @@ export function ForgotPasswordForm({
                 </div>
                 <AuthFeedback state={feedback} />
                 <AuthSubmitButton
-                  className="h-12 w-full rounded-xl font-bold glow-on-hover"
+                  className="h-12 w-full rounded-xl font-bold shadow-lg shadow-primary/20"
                   isPending={isPending}
                   idleLabel="Send Reset Link"
                   pendingLabel="Sending reset link..."

@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "POSard small business POS software";
+export const alt = "POSard POS system for retail checkout, inventory, and reports";
 export const size = {
   width: 1200,
   height: 630,
@@ -13,7 +13,7 @@ export default function Image() {
       <div
         style={{
           alignItems: "center",
-          background: "#07130f",
+          background: "#071a3d",
           color: "#f8fafc",
           display: "flex",
           fontFamily: "Arial, sans-serif",
@@ -37,9 +37,9 @@ export default function Image() {
             <div
               style={{
                 alignItems: "center",
-                background: "#22c55e",
+                background: "#ffffff",
                 borderRadius: 18,
-                color: "#052e16",
+                color: "#1447e6",
                 display: "flex",
                 height: 64,
                 justifyContent: "center",
@@ -61,7 +61,7 @@ export default function Image() {
               maxWidth: 680,
             }}
           >
-            Small business POS software
+            POSard retail POS system
           </div>
           <div
             style={{
@@ -72,15 +72,15 @@ export default function Image() {
               maxWidth: 680,
             }}
           >
-            Checkout, inventory, sales reports, and secure retail operations in
-            one cloud-based system.
+            Checkout, inventory, discounts, receipts, and sales reports for
+            Philippine stores, cafes, and service businesses.
           </div>
         </div>
         <div
           style={{
             background: "#f8fafc",
             borderRadius: 34,
-            boxShadow: "0 34px 90px rgba(34, 197, 94, 0.24)",
+            boxShadow: "0 34px 90px rgba(20, 71, 230, 0.28)",
             display: "flex",
             flexDirection: "column",
             gap: 22,
@@ -94,7 +94,7 @@ export default function Image() {
               key={label}
               style={{
                 alignItems: "center",
-                background: index === 0 ? "#dcfce7" : "#e2e8f0",
+                background: index === 0 ? "#dbeafe" : "#e2e8f0",
                 borderRadius: 18,
                 color: "#0f172a",
                 display: "flex",
@@ -106,7 +106,7 @@ export default function Image() {
               }}
             >
               <span>{label}</span>
-              <span style={{ color: "#16a34a" }}>Ready</span>
+              <span style={{ color: "#1447e6" }}>Ready</span>
             </div>
           ))}
         </div>

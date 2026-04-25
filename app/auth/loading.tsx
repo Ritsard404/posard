@@ -1,14 +1,20 @@
+import { AuthShell } from "@/components/auth-shell";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <Card className="glass-card border-white/5 shadow-2xl">
-          <CardHeader className="space-y-3">
-            <Skeleton className="mx-auto h-8 w-32 rounded-xl" />
-            <Skeleton className="mx-auto h-4 w-52 rounded-full" />
+    <AuthShell
+      eyebrow="Loading"
+      title="Preparing your secure workspace."
+      description="POSard is loading the auth experience and your next account action."
+    >
+      <div className="w-full max-w-md">
+        <Card className="rounded-[2rem] border border-white/10 bg-white/75 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
+          <CardHeader className="space-y-4 text-center">
+            <Skeleton className="mx-auto h-11 w-11 rounded-2xl" />
+            <Skeleton className="mx-auto h-8 w-40 rounded-xl" />
+            <Skeleton className="mx-auto h-4 w-56 rounded-full" />
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -19,11 +25,10 @@ export default function Loading() {
               <Skeleton className="h-3 w-28 rounded-full" />
               <Skeleton className="h-12 w-full rounded-xl" />
             </div>
-            <Skeleton className="mx-auto h-4 w-40 rounded-full" />
             <Skeleton className="h-12 w-full rounded-xl" />
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AuthShell>
   );
 }

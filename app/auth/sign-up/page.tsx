@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AuthShell } from "@/components/auth-shell";
 import { SignUpForm } from "@/components/sign-up-form";
 import { absoluteUrl, siteConfig } from "@/lib/seo";
 
@@ -38,10 +39,14 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
+    <AuthShell
+      eyebrow="Merchant onboarding"
+      title="Create your POSard merchant account."
+      description="Start with a branded POS workflow for checkout, receipts, inventory, and sales reporting, then wait for admin approval to activate access."
+    >
+      <div className="w-full max-w-md">
         <SignUpForm />
       </div>
-    </div>
+    </AuthShell>
   );
 }

@@ -45,6 +45,7 @@ import {
   type SidebarNavSection,
   type UserRole,
 } from "@/lib/access-control";
+import { BrandLogo } from "@/components/branding/BrandLogo";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -448,19 +449,15 @@ export function AppSidebar({
               href="/"
               prefetch
             >
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-transform duration-200 group-hover:scale-105 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-lg">
-                <span className="text-xl font-bold tracking-tighter group-data-[collapsible=icon]:text-lg">
-                  P
-                </span>
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate text-base font-extrabold tracking-tight text-foreground">
-                  POSard
-                </span>
-                <span className="truncate text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
-                  Business Suite
-                </span>
-              </div>
+              <BrandLogo
+                compact
+                showSubtitle
+                subtitle="Business Suite"
+                className="transition-transform duration-200 group-hover:scale-[1.02] group-data-[collapsible=icon]:gap-0"
+                markClassName="group-data-[collapsible=icon]:size-8"
+                titleClassName="group-data-[collapsible=icon]:hidden"
+                subtitleClassName="group-data-[collapsible=icon]:hidden"
+              />
             </Link>
           </SidebarMenuItem>
         </SidebarMenu>
