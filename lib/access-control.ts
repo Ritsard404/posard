@@ -342,6 +342,13 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         permission: "view.company.settings",
       },
       {
+        id: "sales-accounts",
+        label: "Sales Accounts",
+        icon: CreditCard,
+        href: "/companies/[companyId]/settings/sales-accounts",
+        permission: "view.company.settings",
+      },
+      {
         id: "printer",
         label: "Printer Setup",
         icon: Printer,

@@ -19,13 +19,14 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background font-sans">
-      <div className="absolute inset-x-0 top-0 h-[30rem] bg-[radial-gradient(circle_at_top,rgba(20,71,230,0.18),transparent_58%)]" />
-      <div className="absolute top-0 -left-10 h-80 w-80 animate-blob rounded-full bg-accent/12 opacity-80 mix-blend-multiply blur-3xl" />
-      <div className="absolute top-8 right-0 h-72 w-72 animate-blob rounded-full bg-cyan-400/12 opacity-70 mix-blend-multiply blur-3xl animation-delay-2000" />
-      <div className="absolute bottom-0 left-1/3 h-72 w-72 animate-blob rounded-full bg-emerald-500/10 opacity-70 mix-blend-multiply blur-3xl animation-delay-4000" />
+    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(216_45%_96%)_100%)] font-sans dark:bg-[linear-gradient(180deg,hsl(222_47%_6%)_0%,hsl(221_38%_8%)_100%)]">
+      <div className="absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(circle_at_top,rgba(36,99,235,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.16),transparent_58%)]" />
+      <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-blue-500/8 blur-3xl dark:bg-blue-400/10" />
+      <div className="absolute right-0 top-20 h-64 w-64 rounded-full bg-sky-400/8 blur-3xl dark:bg-sky-300/8" />
+      <div className="absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-slate-400/8 blur-3xl dark:bg-slate-300/5" />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_0%,rgba(255,255,255,0.5)_50%,transparent_100%)] opacity-40 dark:hidden" />
 
-      <header className="relative z-10 flex w-full justify-center border-b border-white/10 bg-background/70 backdrop-blur-xl">
+      <header className="relative z-10 flex w-full justify-center border-b border-border/60 bg-background/72 backdrop-blur-xl">
         <div className="flex h-20 w-full max-w-7xl items-center justify-between gap-4 px-6">
           <Link href="/" className="min-w-0">
             <BrandLogo
@@ -37,7 +38,7 @@ export default function AuthLayout({
           </Link>
 
           <div className="flex items-center gap-3">
-            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+            <Button asChild size="sm" variant="outline" className="hidden rounded-xl border-border/70 bg-background/70 text-foreground shadow-sm sm:inline-flex">
               <Link href={publicPages.pricing.path}>Pricing</Link>
             </Button>
             <ThemeSwitcher />

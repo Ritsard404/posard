@@ -10,7 +10,7 @@ export default function Loading() {
       description="POSard is loading the auth experience and your next account action."
     >
       <div className="w-full max-w-md">
-        <Card className="rounded-[2rem] border border-white/10 bg-white/75 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
+        <Card className="rounded-[2rem] border border-border/70 bg-card/92 shadow-[0_20px_60px_rgba(15,23,42,0.10)] backdrop-blur-sm">
           <CardHeader className="space-y-4 text-center">
             <Skeleton className="mx-auto h-11 w-11 rounded-2xl" />
             <Skeleton className="mx-auto h-8 w-40 rounded-xl" />

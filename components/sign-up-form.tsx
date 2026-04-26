@@ -89,9 +89,9 @@ export function SignUpForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="rounded-[2rem] border border-white/10 bg-white/80 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
+      <Card className="rounded-[2rem] border border-border/70 bg-card/92 shadow-[0_20px_60px_rgba(15,23,42,0.10)] backdrop-blur-sm dark:bg-card/94">
         <CardHeader className="space-y-3 text-center">
-          <div className="mx-auto inline-flex rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
+          <div className="mx-auto inline-flex rounded-full border border-primary/15 bg-primary/8 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
             Merchant onboarding
           </div>
           <CardTitle className="text-3xl font-heading font-extrabold tracking-tight md:text-4xl">
@@ -119,7 +119,7 @@ export function SignUpForm({
                   value={fullName}
                   disabled={isPending}
                   aria-disabled={isPending}
-                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
+                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
                   onChange={(e) => {
                     setFullName(e.target.value);
                     clearFeedback();
@@ -142,7 +142,7 @@ export function SignUpForm({
                   value={email}
                   disabled={isPending}
                   aria-disabled={isPending}
-                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
+                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
                   onChange={(e) => {
                     setEmail(e.target.value);
                     clearFeedback();
@@ -163,7 +163,7 @@ export function SignUpForm({
                   value={password}
                   disabled={isPending}
                   aria-disabled={isPending}
-                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
+                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
                   onChange={(e) => {
                     setPassword(e.target.value);
                     clearFeedback();
@@ -184,7 +184,7 @@ export function SignUpForm({
                   value={repeatPassword}
                   disabled={isPending}
                   aria-disabled={isPending}
-                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
+                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
                   onChange={(e) => {
                     setRepeatPassword(e.target.value);
                     clearFeedback();
@@ -192,7 +192,7 @@ export function SignUpForm({
                 />
               </div>
 
-              <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-background/60 p-4 shadow-sm">
+              <div className="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4 shadow-sm">
                 <Checkbox
                   id="terms-accepted"
                   checked={termsAccepted}
@@ -211,14 +211,14 @@ export function SignUpForm({
                   I agree to the{" "}
                   <Link
                     href="/terms"
-                    className="font-bold text-accent underline-offset-4 hover:underline"
+                    className="font-bold text-primary underline-offset-4 hover:underline"
                   >
                     Terms and Conditions
                   </Link>{" "}
                   and{" "}
                   <Link
                     href="/privacy"
-                    className="font-bold text-accent underline-offset-4 hover:underline"
+                    className="font-bold text-primary underline-offset-4 hover:underline"
                   >
                     Privacy Policy
                   </Link>
@@ -238,7 +238,7 @@ export function SignUpForm({
               Already have an account?{" "}
               <Link
                 href="/auth/login"
-                className="text-accent font-bold hover:underline underline-offset-4"
+                className="font-bold text-primary hover:underline underline-offset-4"
               >
                 Login
               </Link>

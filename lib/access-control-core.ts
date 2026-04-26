@@ -94,13 +94,48 @@ export interface AppRouteConfig {
 }
 
 export const appRoutes: AppRouteConfig[] = [
-  { href: "/pos", permission: "view.pos", label: "Point of Sale", showInNav: true },
-  { href: "/dashboard", permission: "view.dashboard", label: "Dashboard", showInNav: true },
-  { href: "/product", permission: "view.product", label: "Products & Inventory", showInNav: true },
-  { href: "/reports", permission: "view.reports", label: "Reports", showInNav: true },
-  { href: "/accounts", permission: "view.accounts", label: "User Management", showInNav: true },
-  { href: "/companies", permission: "view.company", label: "Manage Companies", showInNav: true },
-  { href: "/companies/[companyId]", permission: "view.company", label: "Company", showInNav: false },
+  {
+    href: "/pos",
+    permission: "view.pos",
+    label: "Point of Sale",
+    showInNav: true,
+  },
+  {
+    href: "/dashboard",
+    permission: "view.dashboard",
+    label: "Dashboard",
+    showInNav: true,
+  },
+  {
+    href: "/product",
+    permission: "view.product",
+    label: "Products & Inventory",
+    showInNav: true,
+  },
+  {
+    href: "/reports",
+    permission: "view.reports",
+    label: "Reports",
+    showInNav: true,
+  },
+  {
+    href: "/accounts",
+    permission: "view.accounts",
+    label: "User Management",
+    showInNav: true,
+  },
+  {
+    href: "/companies",
+    permission: "view.company",
+    label: "Manage Companies",
+    showInNav: true,
+  },
+  {
+    href: "/companies/[companyId]",
+    permission: "view.company",
+    label: "Company",
+    showInNav: false,
+  },
   {
     href: "/companies/[companyId]/terminals",
     permission: "view.company.terminals",
@@ -113,7 +148,12 @@ export const appRoutes: AppRouteConfig[] = [
     label: "Subscriptions",
     showInNav: false,
   },
-  { href: "/terminals", permission: "view.admin.terminals", label: "Terminals", showInNav: false },
+  {
+    href: "/terminals",
+    permission: "view.admin.terminals",
+    label: "Terminals",
+    showInNav: false,
+  },
   {
     href: "/subscriptions",
     permission: "view.admin.subscriptions",
@@ -132,10 +172,36 @@ export const appRoutes: AppRouteConfig[] = [
     label: "Business Info",
     showInNav: false,
   },
-  { href: "/profile", permission: "view.profile", label: "Profile", showInNav: false },
-  { href: "/accounts/[profileId]", permission: "view.profile", label: "Profile", showInNav: false },
-  { href: "/settings", permission: "view.company.settings", label: "Settings", showInNav: false },
-  { href: "/admin", permission: "view.admin", label: "Administration", showInNav: false },
+  {
+    href: "/companies/[companyId]/settings/sales-accounts",
+    permission: "view.company.settings",
+    label: "Sales Accounts",
+    showInNav: false,
+  },
+  {
+    href: "/profile",
+    permission: "view.profile",
+    label: "Profile",
+    showInNav: false,
+  },
+  {
+    href: "/accounts/[profileId]",
+    permission: "view.profile",
+    label: "Profile",
+    showInNav: false,
+  },
+  {
+    href: "/settings",
+    permission: "view.company.settings",
+    label: "Settings",
+    showInNav: false,
+  },
+  {
+    href: "/admin",
+    permission: "view.admin",
+    label: "Administration",
+    showInNav: false,
+  },
 ];
 
 function routeToRegExp(href: string) {
@@ -144,7 +210,9 @@ function routeToRegExp(href: string) {
 }
 
 function getMatchingRoute(pathname: string) {
-  const sortedRoutes = [...appRoutes].sort((a, b) => b.href.length - a.href.length);
+  const sortedRoutes = [...appRoutes].sort(
+    (a, b) => b.href.length - a.href.length,
+  );
   return sortedRoutes.find((route) => routeToRegExp(route.href).test(pathname));
 }
 
@@ -160,7 +228,10 @@ export function getPermissionsForRole(role: string | null): Permission[] {
   return rolePermissions[role];
 }
 
-export function hasPermissionForRoute(role: string | null, pathname: string): boolean {
+export function hasPermissionForRoute(
+  role: string | null,
+  pathname: string,
+): boolean {
   const userPermissions = getPermissionsForRole(role);
   const route = getMatchingRoute(pathname);
 
@@ -174,7 +245,8 @@ export function hasPermissionForRoute(role: string | null, pathname: string): bo
 export function getFirstAccessibleRoute(role: string | null): string {
   const userPermissions = getPermissionsForRole(role);
   const first = appRoutes.find(
-    (route) => isConcreteHref(route.href) && userPermissions.includes(route.permission),
+    (route) =>
+      isConcreteHref(route.href) && userPermissions.includes(route.permission),
   );
 
   return first?.href ?? "/auth/login";

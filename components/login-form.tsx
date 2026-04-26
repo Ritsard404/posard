@@ -76,9 +76,9 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="rounded-[2rem] border border-white/10 bg-white/80 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
+      <Card className="rounded-[2rem] border border-border/70 bg-card/92 shadow-[0_20px_60px_rgba(15,23,42,0.10)] backdrop-blur-sm dark:bg-card/94">
         <CardHeader className="space-y-3 text-center">
-          <div className="mx-auto inline-flex rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
+          <div className="mx-auto inline-flex rounded-full border border-primary/15 bg-primary/8 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
             Secure sign in
           </div>
           <CardTitle className="text-3xl font-heading font-extrabold tracking-tight md:text-4xl">
@@ -105,7 +105,7 @@ export function LoginForm({
                   required
                   value={email}
                   disabled={isPending}
-                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
+                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
                   onChange={(e) => {
                     setEmail(e.target.value);
                     setError(null);
@@ -126,7 +126,7 @@ export function LoginForm({
                   placeholder="*******"
                   value={password}
                   disabled={isPending}
-                  className="h-12 rounded-xl border-border/60 bg-background/70 shadow-sm"
+                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setError(null);
@@ -142,7 +142,7 @@ export function LoginForm({
                 </Link>
               </div>
               {error && (
-                <p className="text-sm text-destructive" role="alert">
+                <p className="rounded-2xl border border-destructive/20 bg-destructive/8 px-4 py-3 text-sm text-destructive" role="alert">
                   {error}
                 </p>
               )}
@@ -157,7 +157,7 @@ export function LoginForm({
               Don&apos;t have an account?{" "}
               <Link
                 href="/auth/sign-up"
-                className="text-accent font-bold hover:underline underline-offset-4"
+                className="font-bold text-primary hover:underline underline-offset-4"
               >
                 Sign up
               </Link>

@@ -15,9 +15,9 @@ export const siteConfig = {
   phone: "+63 XXX XXX XXXX",
   location: "Cebu, Philippines",
   price: {
-    amount: 500,
+    amount: 250,
     currency: "PHP",
-    label: "PHP 500 per terminal per month",
+    label: "PHP 250 per terminal per month",
   },
   keywords: [
     "POSard",
@@ -60,7 +60,7 @@ export const publicPages = {
     path: "/pricing",
     title: "POSard Pricing for Small Business POS Terminals",
     description:
-      "POSard pricing is PHP 500 per terminal per month for businesses that need branded POS checkout, inventory tracking, and sales reporting without hidden fees.",
+      "POSard pricing is PHP 250 per terminal per month for businesses that need branded POS checkout, inventory tracking, and sales reporting without hidden fees.",
   },
   contact: {
     path: "/contact",
