@@ -19,12 +19,14 @@ import { Label } from "@/components/ui/label";
 import { cashTrackPrintService } from "../_services/cash-track-print.service";
 import { printClientService } from "../_services/print-client.service";
 import { toast } from "sonner";
+import { usePOSStore } from "../_store/pos-store";
 
 interface OpenSessionModalProps {
   terminalId: string;
   terminalName: string;
   onSuccess: (sessionData: {
     success: true;
+    profileId: string;
     user: { name: string | null; role: string };
     sessionId: string;
     timestampId: string;
@@ -45,6 +47,7 @@ export function OpenSessionModal({
   onSuccess,
   onCancel,
 }: OpenSessionModalProps) {
+  const activeDeviceId = usePOSStore((state) => state.activeDeviceId);
   const [managerPin, setManagerPin] = useState("");
   const [openingCash, setOpeningCash] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +68,12 @@ export function OpenSessionModal({
     }
 
     setIsLoading(true);
-    const result = await openSessionAction(terminalId, managerPin, openingCash);
+    const result = await openSessionAction(
+      terminalId,
+      managerPin,
+      openingCash,
+      activeDeviceId,
+    );
     setIsLoading(false);
 
     if (result.success && result.user) {
@@ -103,6 +111,7 @@ export function OpenSessionModal({
 
       onSuccess({
         success: true,
+        profileId: result.profileId,
         user: result.user,
         sessionId: result.sessionId,
         timestampId: result.timestampId,
@@ -111,7 +120,11 @@ export function OpenSessionModal({
       return;
     }
 
-    setError(result.error || "Failed to open session. Terminal may be in use.");
+    setError(
+      "error" in result
+        ? result.error || "Failed to open session. Terminal may be in use."
+        : "Failed to open session. Terminal may be in use.",
+    );
     setManagerPin("");
   };
 

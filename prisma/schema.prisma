@@ -114,9 +114,10 @@ model Profile {
   companyId String?  @map("company_id") @db.Uuid
   company   Company? @relation(fields: [companyId], references: [id])
 
-  timestampsAsCashier    Timestamp[] @relation("CashierTimestamp")
-  timestampsAsManagerIn  Timestamp[] @relation("ManagerInTimestamp")
-  timestampsAsManagerOut Timestamp[] @relation("ManagerOutTimestamp")
+  timestampsAsCashier     Timestamp[] @relation("CashierTimestamp")
+  timestampsAsManagerIn   Timestamp[] @relation("ManagerInTimestamp")
+  timestampsAsManagerOut  Timestamp[] @relation("ManagerOutTimestamp")
+  timestampsAsForceClosed Timestamp[] @relation("ForceClosedByTimestamp")
 
   invoicesAsCashier  Invoice[] @relation("CashierInvoice")
   invoicesAsVoidedBy Invoice[] @relation("VoidedByInvoice")
@@ -436,6 +437,14 @@ model Timestamp {
   managerOutId String?  @map("manager_out_id") @db.Uuid
   managerOut   Profile? @relation("ManagerOutTimestamp", fields: [managerOutId], references: [id])
 
+  forceClosedById String?  @map("force_closed_by_id") @db.Uuid
+  forceClosedBy   Profile? @relation("ForceClosedByTimestamp", fields: [forceClosedById], references: [id])
+
+  deviceId String? @map("device_id")
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz
+  forceClosedAt DateTime? @map("force_closed_at") @db.Timestamptz
+  forceCloseReason String? @map("force_close_reason")
+
   //////////////////////////////////////////////////
   // AUDIT
   //////////////////////////////////////////////////
@@ -444,6 +453,7 @@ model Timestamp {
 
   @@index([posTerminalId])
   @@index([cashierId])
+  @@index([deviceId])
   @@map("timestamp")
   @@schema("public")
 }
@@ -688,6 +698,10 @@ model Invoice {
    */
 
   invoiceNumber Int @map("invoice_number")
+  idempotencyKey String? @unique @map("idempotency_key")
+  sourceDeviceId String? @map("source_device_id")
+  sourceTimestampId String? @map("source_timestamp_id") @db.Uuid
+  localInvoiceNo String? @map("local_invoice_no")
 
   /**
    * -------------------------

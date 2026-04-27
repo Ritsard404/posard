@@ -10,6 +10,7 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
   select: {
     id: true;
     invoiceNumber: true;
+    localInvoiceNo: true;
     createdAt: true;
     dueAmount: true;
     totalTendered: true;
@@ -82,6 +83,10 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
   return {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
+    localInvoiceNo: invoice.localInvoiceNo ?? null,
+    isProvisional: false,
+    syncStatus: "synced",
+    syncError: null,
     createdAt: invoice.createdAt.toISOString(),
     posTerminalName: invoice.posTerminal.posName ?? "Unnamed terminal",
     printerName: invoice.posTerminal.printerName || null,

@@ -2,12 +2,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import { auditLogService } from "@/lib/services/audit-log.service";
 import { printConfigService } from "../_services/print-config.service";
 import { reportService as posReportService } from "../_services/report.service";
-import { reportPrintService } from "@/app/(protected)/report/_services/report-print.service";
-import { reportService as reportFeatureService } from "@/app/(protected)/report/_services/report.service";
-import type { ReportPrintPayloadDto } from "@/app/(protected)/report/_services/_dto/report.dto";
+import { sessionMutationService } from "../_services/session-mutation.service";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -27,25 +24,28 @@ export async function getCurrentSessionAction() {
   try {
     const profile = await getCurrentProfile();
 
-    // Active session is now defined purely by an open Timestamp
     const timestamp = await prisma.timestamp.findFirst({
       where: { cashierId: profile.id, timestampOut: null },
       include: { posTerminal: true },
       orderBy: { createdAt: "desc" },
     });
 
-    if (!timestamp) return { success: true, data: null };
+    if (!timestamp) return { success: true as const, data: null };
 
     return {
-      success: true,
+      success: true as const,
       data: {
-        sessionId: timestamp.id, // Using timestampId mapping for backwards compatibility in UI
+        sessionId: timestamp.id,
         timestampId: timestamp.id,
+        deviceId: timestamp.deviceId ?? null,
+        profileId: profile.id,
         terminal: {
           id: timestamp.posTerminalId,
           name: timestamp.posTerminal.posName ?? "Unnamed terminal",
           vat: timestamp.posTerminal.vat ?? 0,
-          discountMax: timestamp.posTerminal.discountMax ? Number(timestamp.posTerminal.discountMax) : 0,
+          discountMax: timestamp.posTerminal.discountMax
+            ? Number(timestamp.posTerminal.discountMax)
+            : 0,
           printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
         },
         user: { name: profile.fullName || null, role: profile.role },
@@ -53,7 +53,7 @@ export async function getCurrentSessionAction() {
     };
   } catch (error) {
     return {
-      success: false,
+      success: false as const,
       error: error instanceof Error ? error.message : "Internal Error",
     };
   }
@@ -62,42 +62,41 @@ export async function getCurrentSessionAction() {
 export async function getTerminalsAction() {
   try {
     const profile = await getCurrentProfile();
-    if (!profile.companyId)
-      return { success: false, error: "No company associated with user." };
-    const companyId = profile.companyId;
+    if (!profile.companyId) {
+      return { success: false as const, error: "No company associated with user." };
+    }
 
     const terminals = await prisma.posTerminalInfo.findMany({
-      where: { companyId },
+      where: { companyId: profile.companyId },
       include: {
         timestamps: {
-          where: { timestampOut: null }, // Only active sessions
+          where: { timestampOut: null },
           include: { cashier: { select: { fullName: true } } },
         },
       },
       orderBy: { posName: "asc" },
     });
 
-    // Map `timestamps` to `sessions` format for UI compatibility
-    const mappedTerminals = terminals.map((terminal) => ({
-      id: terminal.id,
-      posName: terminal.posName ?? "Unnamed terminal",
-      isActive: terminal.timestamps.length > 0,
-      vat: terminal.vat ?? 0,
-      discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
-      printerConfig: printConfigService.mapPrinterConfig(terminal),
-      sessions: terminal.timestamps.map((timestamp) => ({
-        profile: {
-          fullName: timestamp.cashier.fullName ?? null,
-        },
+    return {
+      success: true as const,
+      data: terminals.map((terminal) => ({
+        id: terminal.id,
+        posName: terminal.posName ?? "Unnamed terminal",
+        isActive: terminal.timestamps.length > 0,
+        vat: terminal.vat ?? 0,
+        discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
+        printerConfig: printConfigService.mapPrinterConfig(terminal),
+        sessions: terminal.timestamps.map((timestamp) => ({
+          profile: {
+            fullName: timestamp.cashier.fullName ?? null,
+          },
+        })),
       })),
-    }));
-
-    return { success: true, data: mappedTerminals };
+    };
   } catch (error) {
     return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to fetch terminals",
+      success: false as const,
+      error: error instanceof Error ? error.message : "Failed to fetch terminals",
     };
   }
 }
@@ -106,106 +105,33 @@ export async function openSessionAction(
   terminalId: string,
   managerPin: string,
   openingCash: number = 0,
+  deviceId: string | null = null,
 ) {
   try {
     const profile = await getCurrentProfile();
-    if (!profile.companyId)
-      return { success: false, error: "No company associated with user." };
-    const companyId = profile.companyId;
+    if (!profile.companyId) {
+      return { success: false as const, error: "No company associated with user." };
+    }
 
     if (!managerPin.trim()) {
-      return { success: false, error: "Manager PIN is required." };
+      return { success: false as const, error: "Manager PIN is required." };
     }
 
-    const approver = await prisma.profile.findFirst({
-      where: {
-        companyId,
-        pin: managerPin,
-        role: { in: ["manager", "admin"] },
+    return await sessionMutationService.openSession(
+      {
+        profileId: profile.id,
+        companyId: profile.companyId,
+        role: profile.role,
+        fullName: profile.fullName ?? null,
       },
-      select: { id: true },
-    });
-
-    if (!approver) {
-      return { success: false, error: "Invalid Manager PIN" };
-    }
-
-    const terminal = await prisma.posTerminalInfo.findUnique({
-      where: { id: terminalId },
-    });
-
-    if (!terminal || terminal.companyId !== profile.companyId) {
-      return { success: false, error: "Invalid terminal" };
-    }
-
-    const activeTerminalSession = await prisma.timestamp.findFirst({
-      where: { posTerminalId: terminal.id, timestampOut: null },
-      select: { id: true },
-    });
-
-    if (activeTerminalSession) {
-      return {
-        success: false,
-        error: "Terminal is already in use by another session.",
-      };
-    }
-
-    const activeUserSession = await prisma.timestamp.findFirst({
-      where: { cashierId: profile.id, timestampOut: null },
-      select: { id: true, posTerminal: { select: { posName: true } } },
-    });
-
-    if (activeUserSession) {
-      return {
-        success: false,
-        error: `You already have an active POS session${activeUserSession.posTerminal.posName ? ` on ${activeUserSession.posTerminal.posName}` : ""}.`,
-      };
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const timestamp = await tx.timestamp.create({
-        data: {
-          posTerminalId: terminal.id,
-          cashierId: profile.id,
-          managerInId: approver.id,
-          timestampIn: new Date(),
-          cashInDrawerAmount: openingCash,
-        },
-      });
-
-      await tx.posTerminalInfo.update({
-        where: { id: terminal.id },
-        data: { isActive: true },
-      });
-
-      await auditLogService.create(tx, {
-        companyId,
-        actorProfileId: approver.id,
-        posTerminalId: terminal.id,
-        actionType: "OPEN_SESSION",
-        referenceId: timestamp.id,
-        amount: openingCash,
-      });
-
-      return { timestamp };
-    });
-
-    return {
-      success: true,
-      user: { name: profile.fullName, role: profile.role },
-      sessionId: result.timestamp.id,
-      timestampId: result.timestamp.id,
-      terminal: {
-        id: terminal.id,
-        name: terminal.posName ?? "Unnamed terminal",
-        vat: terminal.vat ?? 0,
-        discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
-        printerConfig: printConfigService.mapPrinterConfig(terminal),
-      },
-    };
+      terminalId,
+      managerPin,
+      openingCash,
+      deviceId,
+    );
   } catch (error) {
     return {
-      success: false,
+      success: false as const,
       error: error instanceof Error ? error.message : "Internal Error",
     };
   }
@@ -218,117 +144,46 @@ export async function withdrawCashAction(
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const profile = await getCurrentProfile();
-    if (!profile.companyId)
+    if (!profile.companyId) {
       return { success: false, error: "No company associated with user." };
-    const companyId = profile.companyId;
+    }
 
-    if (amount <= 0)
+    if (amount <= 0) {
       return { success: false, error: "Amount must be greater than 0" };
+    }
 
-    // 1. Validate Manager
     const approver = await prisma.profile.findFirst({
       where: {
-        companyId,
+        companyId: profile.companyId,
         pin: managerPin,
         role: { in: ["manager", "admin"] },
       },
+      select: { id: true },
     });
 
-    if (!approver) return { success: false, error: "Invalid Manager PIN" };
+    if (!approver) {
+      return { success: false, error: "Invalid Manager PIN" };
+    }
 
-    const timestamp = await prisma.timestamp.findUnique({
-      where: { id: timestampId },
-    });
+    await sessionMutationService.withdrawCashAuthorized(
+      {
+        profileId: profile.id,
+        companyId: profile.companyId,
+        role: profile.role,
+        fullName: profile.fullName ?? null,
+      },
+      timestampId,
+      amount,
+      approver.id,
+    );
 
-    if (!timestamp)
-      return { success: false, error: "Active session not found" };
-
-    // 2. Validate balance and Process in Transaction
-    await prisma.$transaction(async (tx) => {
-      // Logic for cash track must be consistent - maybe just fetch needed counts here
-      // But reportService.getTimestampCashTrack is async and uses prisma (not tx)
-      // So we'll do a quick manual check or trust the pre-fetch if we use locks
-
-      const reportData = await posReportService.getTimestampCashTrack(timestampId);
-      if (amount > reportData.expectedDrawerAmount) {
-        throw new Error(
-          `Insufficient cash in drawer. Available: ₱${reportData.expectedDrawerAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        );
-      }
-
-      await tx.timestamp.update({
-        where: { id: timestampId },
-        data: {
-          withdrawnDrawerAmount: { increment: amount },
-          withdrawnDrawerCount: { increment: 1 },
-        },
-      });
-
-      await auditLogService.create(tx, {
-        companyId,
-        actorProfileId: approver.id,
-        posTerminalId: timestamp.posTerminalId,
-        actionType: "CASH_WITHDRAWAL",
-        referenceId: timestamp.id,
-        amount,
-      });
-    });
-
-    return { success: true as const };
+    return { success: true };
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : "Internal Error",
     };
   }
-}
-
-async function buildSessionXReadingPrintPayload(
-  timestampId: string,
-): Promise<ReportPrintPayloadDto | null> {
-  const timestamp = await prisma.timestamp.findUnique({
-    where: { id: timestampId },
-    select: {
-      posTerminalId: true,
-      posTerminal: {
-        select: {
-          id: true,
-          posName: true,
-          isActive: true,
-          printerName: true,
-          printerDisplayName: true,
-          printerConnectionType: true,
-          printerTransport: true,
-          printerDriver: true,
-          printerVendorId: true,
-          printerProductId: true,
-          printerDeviceId: true,
-          printerServiceUuid: true,
-          printerCharacteristicUuid: true,
-          autoPrintEnabled: true,
-        },
-      },
-    },
-  });
-
-  if (!timestamp) {
-    return null;
-  }
-
-  const detail = await reportFeatureService.getXReadingByTimestampId(timestampId);
-
-  return reportPrintService.buildPayload({
-    view: "x-reading",
-    overview: null,
-    detail,
-    selectedTerminal: {
-      id: timestamp.posTerminal.id,
-      name: timestamp.posTerminal.posName ?? "Unnamed terminal",
-      isActive: timestamp.posTerminal.isActive,
-      printerName: timestamp.posTerminal.printerName,
-      printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
-    },
-  });
 }
 
 export async function closeSessionAction(
@@ -339,76 +194,40 @@ export async function closeSessionAction(
 ) {
   try {
     const profile = await getCurrentProfile();
-    if (!profile.companyId)
-      return { success: false, error: "No company associated with user." };
-    const companyId = profile.companyId;
-
-    // 1. Validate Manager or Authorized Role
-    const approver = await prisma.profile.findFirst({
-      where: {
-        companyId,
-        pin: managerPin,
-        role: { in: ["manager", "admin"] }, // Must have elevated role
-      },
-    });
-
-    if (!approver) return { success: false, error: "Invalid Manager PIN" };
-
-    // 2. Validate Session (Timestamp)
-    const timestamp = await prisma.timestamp.findUnique({
-      where: { id: timestampId },
-    });
-
-    if (!timestamp || timestamp.timestampOut !== null) {
-      return {
-        success: false,
-        error: "Session is not active or does not exist.",
-      };
+    if (!profile.companyId) {
+      return { success: false as const, error: "No company associated with user." };
     }
 
-    if (countedCash < 0)
-      return { success: false, error: "Counted cash cannot be negative." };
-
-    // 3. Process the Close
-    await prisma.$transaction(async (tx) => {
-      await tx.timestamp.update({
-        where: { id: timestampId },
-        data: {
-          timestampOut: new Date(),
-          cashOutDrawerAmount: countedCash,
-          managerOutId: approver.id,
-        },
-      });
-
-      await tx.posTerminalInfo.update({
-        where: { id: timestamp.posTerminalId },
-        data: { isActive: false },
-      });
-
-      // Log the action purely for auditing
-      await auditLogService.create(tx, {
-        companyId,
-        actorProfileId: approver.id,
-        posTerminalId: timestamp.posTerminalId,
-        actionType: "CLOSE_SESSION",
-        referenceId: timestamp.id,
-        amount: countedCash,
-      });
+    const approver = await prisma.profile.findFirst({
+      where: {
+        companyId: profile.companyId,
+        pin: managerPin,
+        role: { in: ["manager", "admin"] },
+      },
+      select: { id: true },
     });
 
-    const xReadingPayload = await buildSessionXReadingPrintPayload(timestampId);
+    if (!approver) {
+      return { success: false as const, error: "Invalid Manager PIN" };
+    }
 
-    return {
-      success: true as const,
-      data: {
-        sessionId,
-        timestampId,
-        xReadingPayload,
+    const data = await sessionMutationService.closeSessionAuthorized(
+      {
+        profileId: profile.id,
+        companyId: profile.companyId,
+        role: profile.role,
+        fullName: profile.fullName ?? null,
       },
-    };
+      sessionId,
+      timestampId,
+      countedCash,
+      approver.id,
+    );
+
+    return { success: true as const, data };
   } catch (error) {
     return {
-      success: false,
+      success: false as const,
       error: error instanceof Error ? error.message : "Internal Error",
     };
   }
@@ -417,10 +236,10 @@ export async function closeSessionAction(
 export async function getSessionCashTrackAction(timestampId: string) {
   try {
     const data = await posReportService.getTimestampCashTrack(timestampId);
-    return { success: true, data };
+    return { success: true as const, data };
   } catch (error) {
     return {
-      success: false,
+      success: false as const,
       error: error instanceof Error ? error.message : "Internal Error",
     };
   }
@@ -430,22 +249,22 @@ export async function getSessionXReadingPrintPayloadAction(timestampId: string) 
   try {
     const profile = await getCurrentProfile();
     if (!profile.companyId) {
-      return { success: false, error: "No company associated with user." };
+      return { success: false as const, error: "No company associated with user." };
     }
 
-    const payload = await buildSessionXReadingPrintPayload(timestampId);
+    const payload = await sessionMutationService.getSessionXReadingPayload(timestampId);
 
     if (!payload) {
       return {
-        success: false,
+        success: false as const,
         error: "Unable to build X-reading print payload.",
       };
     }
 
-    return { success: true, data: payload };
+    return { success: true as const, data: payload };
   } catch (error) {
     return {
-      success: false,
+      success: false as const,
       error: error instanceof Error ? error.message : "Internal Error",
     };
   }

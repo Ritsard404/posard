@@ -11,6 +11,7 @@ import type {
   PrinterCapabilityDto,
   PrinterConfigDto,
 } from "../_services/_dto/print.dto";
+import type { ManagerVerifierDto, OfflineSyncStatus } from "../_services/_dto/offline.dto";
 
 export type { Product, Category, VatType, ItemType };
 
@@ -50,6 +51,13 @@ interface ActiveTerminalState {
   printerConfig?: PrinterConfigDto | null;
 }
 
+interface OfflineReceiptState {
+  localId: string;
+  receiptId: string;
+  localInvoiceNo: string;
+  syncStatus: OfflineSyncStatus;
+}
+
 const defaultDiscount: POSDiscount = {
   type: "NONE",
   eligibleDiscName: "",
@@ -85,8 +93,19 @@ interface POSState {
   // Session Data
   activeSessionId: string | null;
   activeTimestampId: string | null;
+  activeDeviceId: string | null;
+  activeCompanyId: string | null;
+  activeProfileId: string | null;
   activeTerminal: ActiveTerminalState | null;
   activeUser: { name: string | null; role: string } | null;
+  isOnline: boolean;
+  offlineReady: boolean;
+  pendingSyncCount: number;
+  syncingCount: number;
+  needsReviewCount: number;
+  lastSyncMessage: string | null;
+  offlineReceipts: OfflineReceiptState[];
+  managerVerifiers: ManagerVerifierDto[];
 
   // Actions
   setProducts: (products: Product[]) => void;
@@ -95,11 +114,30 @@ interface POSState {
   setSession: (data: {
     sessionId: string | null;
     timestampId: string | null;
+    deviceId?: string | null;
+    profileId?: string | null;
     terminal: ActiveTerminalState | null;
     user: { name: string | null; role: string } | null;
   }) => void;
+  setCompanyId: (companyId: string | null) => void;
+  setDeviceId: (deviceId: string | null) => void;
   setActiveTerminalPrinterConfig: (printerConfig: PrinterConfigDto | null) => void;
   setPrinterCapabilities: (capabilities: PrinterCapabilityDto[]) => void;
+  setNetworkStatus: (isOnline: boolean) => void;
+  setOfflineReady: (ready: boolean) => void;
+  setSyncCounts: (data: {
+    pendingSyncCount: number;
+    syncingCount: number;
+    needsReviewCount: number;
+    lastSyncMessage?: string | null;
+  }) => void;
+  setManagerVerifiers: (verifiers: ManagerVerifierDto[]) => void;
+  upsertOfflineReceipt: (receipt: OfflineReceiptState) => void;
+  updateOfflineReceiptStatus: (
+    receiptId: string,
+    syncStatus: OfflineSyncStatus,
+  ) => void;
+  clearOfflineReceipts: () => void;
 
   addToCart: (product: Product) => CartMutationResult;
   removeFromCart: (cartItemId: string) => void;
@@ -144,8 +182,19 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
   activeSessionId: null,
   activeTimestampId: null,
+  activeDeviceId: null,
+  activeCompanyId: null,
+  activeProfileId: null,
   activeTerminal: null,
   activeUser: null,
+  isOnline: true,
+  offlineReady: false,
+  pendingSyncCount: 0,
+  syncingCount: 0,
+  needsReviewCount: 0,
+  lastSyncMessage: null,
+  offlineReceipts: [],
+  managerVerifiers: [],
 
   searchQuery: "",
   selectedCategoryId: null,
@@ -163,9 +212,15 @@ export const usePOSStore = create<POSState>((set, get) => ({
     set({
       activeSessionId: data.sessionId,
       activeTimestampId: data.timestampId,
+      activeDeviceId:
+        data.sessionId === null ? data.deviceId ?? null : data.deviceId ?? get().activeDeviceId,
+      activeProfileId:
+        data.sessionId === null ? data.profileId ?? null : data.profileId ?? get().activeProfileId,
       activeTerminal: data.terminal,
       activeUser: data.user,
     }),
+  setCompanyId: (activeCompanyId) => set({ activeCompanyId }),
+  setDeviceId: (activeDeviceId) => set({ activeDeviceId }),
   setPrinterCapabilities: (printerCapabilities) => set({ printerCapabilities }),
   setActiveTerminalPrinterConfig: (printerConfig) =>
     set((state) => ({
@@ -176,6 +231,32 @@ export const usePOSStore = create<POSState>((set, get) => ({
           }
         : null,
     })),
+  setNetworkStatus: (isOnline) => set({ isOnline }),
+  setOfflineReady: (offlineReady) => set({ offlineReady }),
+  setSyncCounts: (data) =>
+    set({
+      pendingSyncCount: data.pendingSyncCount,
+      syncingCount: data.syncingCount,
+      needsReviewCount: data.needsReviewCount,
+      lastSyncMessage: data.lastSyncMessage ?? null,
+    }),
+  setManagerVerifiers: (managerVerifiers) => set({ managerVerifiers }),
+  upsertOfflineReceipt: (receipt) =>
+    set((state) => ({
+      offlineReceipts: [
+        ...state.offlineReceipts.filter(
+          (item) => item.receiptId !== receipt.receiptId,
+        ),
+        receipt,
+      ],
+    })),
+  updateOfflineReceiptStatus: (receiptId, syncStatus) =>
+    set((state) => ({
+      offlineReceipts: state.offlineReceipts.map((receipt) =>
+        receipt.receiptId === receiptId ? { ...receipt, syncStatus } : receipt,
+      ),
+    })),
+  clearOfflineReceipts: () => set({ offlineReceipts: [] }),
 
   addToCart: (product) => {
     const { cart } = get();

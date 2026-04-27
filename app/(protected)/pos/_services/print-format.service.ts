@@ -164,7 +164,7 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
 
   content.push(
     "",
-    `INV: ${formatInvoiceNumber(receipt.invoiceNumber)}`.padEnd(RECEIPT_WIDTH),
+    `INV: ${receipt.isProvisional ? (receipt.localInvoiceNo ?? "OFFLINE-PENDING") : formatInvoiceNumber(receipt.invoiceNumber)}`.padEnd(RECEIPT_WIDTH),
     "",
     `Date: ${formatInvoiceDate(receipt.createdAt)}`.padEnd(RECEIPT_WIDTH),
     `Cashier: ${receipt.cashierName}`.padEnd(RECEIPT_WIDTH),

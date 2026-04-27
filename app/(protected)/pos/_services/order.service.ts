@@ -18,6 +18,7 @@ import {
   isDiscountWithRequiredMetadata,
   type PaymentCalculationItem,
 } from "./payment-calculation.service";
+import { mapInvoiceToReceipt } from "./_mappers/receipt.mapper";
 import { receiptPrintService } from "./receipt-print.service";
 import { printArchiveService } from "./print-archive.service";
 import { printConfigService } from "./print-config.service";
@@ -50,6 +51,8 @@ async function getActiveTimestampForOrder(companyId: string, timestampId: string
     select: {
       id: true,
       cashierId: true,
+      deviceId: true,
+      forceClosedAt: true,
       cashier: {
         select: {
           fullName: true,
@@ -89,6 +92,85 @@ async function getActiveTimestampForOrder(companyId: string, timestampId: string
   }
 
   return timestamp;
+}
+
+async function findInvoiceByIdempotencyKey(
+  db: Prisma.TransactionClient | typeof prisma,
+  idempotencyKey: string,
+) {
+  return db.invoice.findFirst({
+    where: { idempotencyKey },
+    select: {
+      id: true,
+      invoiceNumber: true,
+      createdAt: true,
+      dueAmount: true,
+      totalTendered: true,
+      discountType: true,
+      discountAmount: true,
+      eligibleDiscName: true,
+      customerName: true,
+      totalAmount: true,
+      cashTendered: true,
+      changeAmount: true,
+      vatSales: true,
+      vatExempt: true,
+      vatZero: true,
+      vatAmount: true,
+      isTrainMode: true,
+      localInvoiceNo: true,
+      posTerminal: {
+        select: {
+          posName: true,
+          printerName: true,
+          printerDisplayName: true,
+          printerConnectionType: true,
+          printerTransport: true,
+          printerDriver: true,
+          printerVendorId: true,
+          printerProductId: true,
+          printerDeviceId: true,
+          printerServiceUuid: true,
+          printerCharacteristicUuid: true,
+          autoPrintEnabled: true,
+          registeredName: true,
+          address: true,
+          vatTinNumber: true,
+          minNumber: true,
+          vat: true,
+        },
+      },
+      cashier: {
+        select: {
+          fullName: true,
+        },
+      },
+      ePayments: {
+        select: {
+          amount: true,
+          reference: true,
+          saleType: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+      items: {
+        select: {
+          id: true,
+          qty: true,
+          subTotal: true,
+          status: true,
+          product: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 async function generateInvoiceNumber(
@@ -209,6 +291,7 @@ function buildReceiptFromOrder(input: {
     invoiceNumber: number;
     createdAt: Date;
     isTrainMode: boolean;
+    localInvoiceNo?: string | null;
   };
   terminal: Awaited<ReturnType<typeof getActiveTimestampForOrder>>["posTerminal"];
   cashierName: string | null;
@@ -222,6 +305,10 @@ function buildReceiptFromOrder(input: {
   return {
     id: input.invoice.id,
     invoiceNumber: input.invoice.invoiceNumber,
+    localInvoiceNo: input.invoice.localInvoiceNo ?? null,
+    isProvisional: false,
+    syncStatus: "synced",
+    syncError: null,
     createdAt: input.invoice.createdAt.toISOString(),
     posTerminalName: input.terminal.posName ?? "Unnamed terminal",
     printerName: input.terminal.printerName || null,
@@ -358,11 +445,30 @@ export const orderService = {
     );
     const terminal = activeTimestamp.posTerminal;
 
+    if (activeTimestamp.forceClosedAt) {
+      throw new Error("This terminal session was force-closed and needs review before syncing.");
+    }
+
+    if (dto.deviceId && activeTimestamp.deviceId && dto.deviceId !== activeTimestamp.deviceId) {
+      throw new Error("This queued action belongs to a different device.");
+    }
+
     const ePaymentData = dto.ePayments?.length
       ? await buildEPaymentData(dto.ePayments)
       : undefined;
 
     const receipt = await prisma.$transaction(async (tx) => {
+      if (dto.idempotencyKey) {
+        const existingInvoice = await findInvoiceByIdempotencyKey(
+          tx,
+          dto.idempotencyKey,
+        );
+
+        if (existingInvoice) {
+          return mapInvoiceToReceipt(existingInvoice);
+        }
+      }
+
       const transactionProductMap = await loadAndValidateProducts(
         tx,
         dto.items,
@@ -389,6 +495,10 @@ export const orderService = {
       const invoice = await tx.invoice.create({
         data: {
           invoiceNumber,
+          idempotencyKey: dto.idempotencyKey ?? null,
+          sourceDeviceId: dto.deviceId ?? activeTimestamp.deviceId ?? null,
+          sourceTimestampId: activeTimestamp.id,
+          localInvoiceNo: dto.localInvoiceNo ?? null,
           posTerminalId: terminal.id,
           cashierId: activeTimestamp.cashierId,
 
@@ -448,6 +558,7 @@ export const orderService = {
           invoiceNumber: true,
           createdAt: true,
           isTrainMode: true,
+          localInvoiceNo: true,
         },
       });
 

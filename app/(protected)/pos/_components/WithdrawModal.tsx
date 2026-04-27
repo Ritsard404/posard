@@ -1,26 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ArrowRight, Loader2, ShieldCheck, Wallet } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
-  withdrawCashAction,
   getAvailableCashAction,
   getSessionCashTrackAction,
+  withdrawCashAction,
 } from "../_actions/session.action";
-import { toast } from "sonner";
-import { useEffect } from "react";
 import { cashTrackPrintService } from "../_services/cash-track-print.service";
 import { printClientService } from "../_services/print-client.service";
+import { usePOSStore } from "../_store/pos-store";
+import { verifyManagerPinOffline } from "../_services/offline-pin-verifier.client";
+import {
+  enqueueOfflineAction,
+  getOfflineQueueSnapshot,
+} from "../_services/offline-sync.client";
 
 interface WithdrawModalProps {
   timestampId: string;
@@ -33,6 +38,12 @@ export function WithdrawModal({
   onSuccess,
   onCancel,
 }: WithdrawModalProps) {
+  const activeDeviceId = usePOSStore((state) => state.activeDeviceId);
+  const activeCompanyId = usePOSStore((state) => state.activeCompanyId);
+  const activeProfileId = usePOSStore((state) => state.activeProfileId);
+  const activeTerminal = usePOSStore((state) => state.activeTerminal);
+  const isOnline = usePOSStore((state) => state.isOnline);
+  const managerVerifiers = usePOSStore((state) => state.managerVerifiers);
   const [amount, setAmount] = useState<number>(0);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,14 +51,19 @@ export function WithdrawModal({
   const [availableCash, setAvailableCash] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!isOnline) {
+      return;
+    }
+
     async function fetchAvailable() {
       const res = await getAvailableCashAction(timestampId);
       if (res.success) {
         setAvailableCash(res.availableCash ?? null);
       }
     }
-    fetchAvailable();
-  }, [timestampId]);
+
+    void fetchAvailable();
+  }, [isOnline, timestampId]);
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,10 +80,63 @@ export function WithdrawModal({
     }
 
     setIsLoading(true);
-    const result = await withdrawCashAction(timestampId, amount, pin);
-    setIsLoading(false);
 
-    if (result.success) {
+    try {
+      if (!isOnline) {
+        if (!activeDeviceId || !activeCompanyId || !activeProfileId || !activeTerminal) {
+          throw new Error("Offline withdrawal needs an active synced session.");
+        }
+
+        const manager = await verifyManagerPinOffline({
+          companyId: activeCompanyId,
+          deviceId: activeDeviceId,
+          pin,
+          verifiers: managerVerifiers,
+        });
+
+        if (!manager) {
+          throw new Error("Invalid Manager PIN");
+        }
+
+        const queue = await getOfflineQueueSnapshot();
+        await enqueueOfflineAction({
+          localId: crypto.randomUUID(),
+          type: "WITHDRAW_CASH",
+          idempotencyKey: `${activeTerminal.id}-${activeDeviceId}-${crypto.randomUUID()}`,
+          timestampId,
+          terminalId: activeTerminal.id,
+          deviceId: activeDeviceId,
+          cashierId: activeProfileId,
+          companyId: activeCompanyId,
+          createdAtLocal: new Date().toISOString(),
+          syncStatus: "pending",
+          lastError: null,
+          syncedAt: null,
+          payload: {
+            amount,
+            managerProfileId: manager.id,
+            managerEmail: manager.email,
+            managerName: manager.name,
+          },
+        });
+
+        usePOSStore.getState().setSyncCounts({
+          pendingSyncCount: queue.pendingCount + 1,
+          syncingCount: queue.syncingCount,
+          needsReviewCount: queue.needsReviewCount,
+          lastSyncMessage: "Withdrawal queued for sync.",
+        });
+        toast.success("Cash withdrawal queued offline.");
+        onSuccess();
+        return;
+      }
+
+      const result = await withdrawCashAction(timestampId, amount, pin);
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to withdraw cash.");
+      }
+
       toast.success("Cash withdrawn successfully");
       try {
         const reportResult = await getSessionCashTrackAction(timestampId);
@@ -101,53 +170,55 @@ export function WithdrawModal({
         // Keep cashier flow moving even if printer access fails.
       }
       onSuccess();
-    } else {
-      setError(result.error || "Failed to withdraw cash.");
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Failed to withdraw cash.",
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden border-white/5 glass-card backdrop-blur-3xl animate-in zoom-in-95 duration-500 shadow-2xl shadow-amber-900/10">
-        <div className="bg-amber-500/10 p-8 text-center flex flex-col items-center border-b border-white/5 relative">
-          <div className="absolute top-0 -left-10 size-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="size-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-6">
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="overflow-hidden border-white/5 p-0 shadow-2xl shadow-amber-900/10 backdrop-blur-3xl sm:max-w-md">
+        <div className="relative flex flex-col items-center border-b border-white/5 bg-amber-500/10 p-8 text-center">
+          <div className="pointer-events-none absolute -left-10 top-0 size-32 rounded-full bg-amber-500/10 blur-2xl" />
+          <div className="mb-6 flex size-16 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/20">
             <Wallet className="h-8 w-8 text-amber-500" />
           </div>
           <DialogHeader className="p-0">
-            <DialogTitle className="text-3xl font-heading font-black tracking-tight text-amber-500">
+            <DialogTitle className="font-heading text-3xl font-black tracking-tight text-amber-500">
               Withdraw Cash
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground/60 uppercase tracking-[0.1em] text-[10px] mt-2 font-bold">
-              {" "}
+            <DialogDescription className="mt-2 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/60">
               Adjusting physical register balances
-              {availableCash !== null && (
-                <span className="block mt-1 text-amber-500/80">
-                  Available: ₱
+              {availableCash !== null ? (
+                <span className="mt-1 block text-amber-500/80">
+                  Available: PHP{" "}
                   {availableCash.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
                 </span>
-              )}
+              ) : null}
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <form
-          onSubmit={handleWithdraw}
-          className="flex flex-col space-y-8 p-8 relative"
-        >
+        <form onSubmit={handleWithdraw} className="relative flex flex-col space-y-8 p-8">
           <div className="space-y-4">
             <Label
               htmlFor="amount"
-              className="font-black uppercase text-[10px] text-muted-foreground/40 tracking-[0.25em] ml-1"
+              className="ml-1 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40"
             >
               Withdrawal Amount
             </Label>
-            <div className="relative group">
-              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-amber-500/50 group-focus-within:text-amber-500 transition-colors font-black font-heading text-xl">
-                ₱
+            <div className="group relative">
+              <span className="absolute left-6 top-1/2 -translate-y-1/2 font-heading text-xl font-black text-amber-500/50 transition-colors group-focus-within:text-amber-500">
+                PHP
               </span>
               <Input
                 id="amount"
@@ -156,7 +227,7 @@ export function WithdrawModal({
                 step="0.01"
                 autoFocus
                 placeholder="0.00"
-                className="pl-12 pr-6 text-4xl h-20 rounded-2xl bg-white/5 border-white/5 focus:bg-white/10 transition-all font-heading font-black tracking-tighter"
+                className="h-20 rounded-2xl bg-white/5 pl-16 pr-6 font-heading text-4xl font-black tracking-tighter transition-all focus:bg-white/10"
                 value={amount || ""}
                 onChange={(e) => setAmount(Number(e.target.value))}
               />
@@ -166,12 +237,12 @@ export function WithdrawModal({
           <div className="space-y-4">
             <Label
               htmlFor="pin"
-              className="font-black uppercase text-[10px] text-muted-foreground/40 tracking-[0.25em] ml-1"
+              className="ml-1 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40"
             >
               Manager Signature (PIN)
             </Label>
-            <div className="relative group">
-              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-amber-500/50 group-focus-within:text-amber-500 transition-colors font-black font-heading text-xl">
+            <div className="group relative">
+              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-amber-500/50 transition-colors group-focus-within:text-amber-500">
                 <ShieldCheck className="h-5 w-5" />
               </span>
               <Input
@@ -180,24 +251,24 @@ export function WithdrawModal({
                 maxLength={6}
                 inputMode="numeric"
                 placeholder="••••••"
-                className="pl-12 pr-6 text-2xl h-16 rounded-2xl bg-white/5 border-white/5 focus:bg-white/10 transition-all font-heading font-black tracking-widest text-center"
+                className="h-16 rounded-2xl bg-white/5 pl-12 pr-6 text-center font-heading text-2xl font-black tracking-widest transition-all focus:bg-white/10"
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
               />
             </div>
           </div>
 
-          {error && (
-            <div className="animate-in slide-in-from-top-2 flex items-center gap-3 bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-500 text-xs font-bold uppercase tracking-widest">
+          {error ? (
+            <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-xs font-bold uppercase tracking-widest text-red-500">
               <span>{error}</span>
             </div>
-          )}
+          ) : null}
 
           <div className="flex gap-3 pt-4">
             <Button
               type="button"
               variant="ghost"
-              className="flex-1 h-14 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-muted-foreground/40 hover:bg-white/5 hover:text-muted-foreground transition-all"
+              className="h-14 flex-1 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 transition-all hover:bg-white/5 hover:text-muted-foreground"
               onClick={onCancel}
               disabled={isLoading}
             >
@@ -205,7 +276,7 @@ export function WithdrawModal({
             </Button>
             <Button
               type="submit"
-              className="flex-1 h-14 rounded-2xl bg-amber-600 text-white font-heading font-black text-lg uppercase tracking-widest glow-on-hover shadow-2xl shadow-amber-600/20 hover:bg-amber-500 active:scale-95 transition-all disabled:opacity-20 flex items-center justify-center gap-3"
+              className="flex h-14 flex-1 items-center justify-center gap-3 rounded-2xl bg-amber-600 font-heading text-lg font-black uppercase tracking-widest text-white shadow-2xl shadow-amber-600/20 transition-all hover:bg-amber-500 active:scale-95 disabled:opacity-20"
               disabled={isLoading || amount <= 0 || pin.length < 4}
             >
               {isLoading ? (
@@ -226,6 +297,3 @@ export function WithdrawModal({
     </Dialog>
   );
 }
-
-// Ensure icons are imported
-import { Wallet, ArrowRight, ShieldCheck } from "lucide-react";

@@ -18,6 +18,10 @@ import {
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePOSPaymentSummary } from "./checkout-shared";
+import {
+  enqueueOfflineAction,
+  getOfflineQueueSnapshot,
+} from "../_services/offline-sync.client";
 
 export function CartPanel() {
   const isMobile = useIsMobile();
@@ -29,6 +33,11 @@ export function CartPanel() {
     clearCart,
     updateItemSubtotal,
     setActiveMobileTab,
+    activeDeviceId,
+    activeCompanyId,
+    activeProfileId,
+    activeTerminal,
+    isOnline,
   } = usePOSStore();
   const { activeTimestampId } = usePOSStore();
 
@@ -39,7 +48,7 @@ export function CartPanel() {
   >("VOID_ITEM");
   const [approvalRefId, setApprovalRefId] = useState("");
   const [pendingAction, setPendingAction] = useState<
-    ((manager: { email: string; name: string }) => void | Promise<void>) | null
+    ((manager: { id: string; email: string; name: string }) => void | Promise<void>) | null
   >(null);
 
   const [isVoiding, setIsVoiding] = useState(false);
@@ -293,7 +302,7 @@ export function CartPanel() {
               setApprovalType("CANCEL_ORDER");
               setApprovalRefId(activeTimestampId || "");
               setPendingAction(
-                () => async (manager: { email: string; name: string }) => {
+                () => async (manager: { id: string; email: string; name: string }) => {
                   setIsVoiding(true);
                   try {
                     const reason =
@@ -302,6 +311,7 @@ export function CartPanel() {
 
                     const orderDto: OrderDto = {
                       timestampId: activeTimestampId ?? "",
+                      deviceId: activeDeviceId ?? undefined,
                       items: cart.map((i) => ({
                         productId: i.id,
                         qty: i.cartQuantity,
@@ -314,6 +324,52 @@ export function CartPanel() {
                       })),
                       cashTenderAmount: 0,
                     };
+
+                    if (!isOnline) {
+                      if (
+                        !activeTimestampId ||
+                        !activeTerminal ||
+                        !activeDeviceId ||
+                        !activeCompanyId ||
+                        !activeProfileId
+                      ) {
+                        alert("Offline void needs an active synced session.");
+                        return;
+                      }
+
+                      const queue = await getOfflineQueueSnapshot();
+                      await enqueueOfflineAction({
+                        localId: crypto.randomUUID(),
+                        type: "VOID_ORDER",
+                        idempotencyKey: `${activeTerminal.id}-${activeDeviceId}-${crypto.randomUUID()}`,
+                        timestampId: activeTimestampId,
+                        terminalId: activeTerminal.id,
+                        deviceId: activeDeviceId,
+                        cashierId: activeProfileId,
+                        companyId: activeCompanyId,
+                        createdAtLocal: new Date().toISOString(),
+                        syncStatus: "pending",
+                        lastError: null,
+                        syncedAt: null,
+                        payload: {
+                          order: orderDto,
+                          managerProfileId: manager.id,
+                          managerEmail: manager.email,
+                          managerName: manager.name,
+                          reason,
+                        },
+                      });
+
+                      usePOSStore.getState().setSyncCounts({
+                        pendingSyncCount: queue.pendingCount + 1,
+                        syncingCount: queue.syncingCount,
+                        needsReviewCount: queue.needsReviewCount,
+                        lastSyncMessage: "Void queued for sync.",
+                      });
+                      clearCart();
+                      toast.success("Order void queued offline.");
+                      return;
+                    }
 
                     const res = await cancelOrderAction({
                       order: orderDto,

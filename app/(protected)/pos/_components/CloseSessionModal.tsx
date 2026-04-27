@@ -16,6 +16,13 @@ import { Label } from "@/components/ui/label";
 import { closeSessionAction } from "../_actions/session.action";
 import { ReportPrintControls } from "@/app/(protected)/report/_components/ReportPrintControls";
 import type { ReportPrintPayloadDto } from "@/app/(protected)/report/_services/_dto/report.dto";
+import { toast } from "sonner";
+import { usePOSStore } from "../_store/pos-store";
+import { verifyManagerPinOffline } from "../_services/offline-pin-verifier.client";
+import {
+  enqueueOfflineAction,
+  getOfflineQueueSnapshot,
+} from "../_services/offline-sync.client";
 
 interface CloseSessionModalProps {
   sessionId: string;
@@ -32,6 +39,11 @@ export function CloseSessionModal({
   onSuccess,
   onCancel,
 }: CloseSessionModalProps) {
+  const activeDeviceId = usePOSStore((state) => state.activeDeviceId);
+  const activeCompanyId = usePOSStore((state) => state.activeCompanyId);
+  const activeProfileId = usePOSStore((state) => state.activeProfileId);
+  const managerVerifiers = usePOSStore((state) => state.managerVerifiers);
+  const isOnline = usePOSStore((state) => state.isOnline);
   const [countedCash, setCountedCash] = useState<number>(0);
   const [managerPin, setManagerPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +80,68 @@ export function CloseSessionModal({
     }
 
     setIsLoading(true);
+
+    if (!isOnline) {
+      try {
+        if (!activeDeviceId || !activeCompanyId || !activeProfileId || !terminalId) {
+          throw new Error("Offline close needs an active synced session.");
+        }
+
+        const manager = await verifyManagerPinOffline({
+          companyId: activeCompanyId,
+          deviceId: activeDeviceId,
+          pin: managerPin,
+          verifiers: managerVerifiers,
+        });
+
+        if (!manager) {
+          throw new Error("Invalid Manager PIN");
+        }
+
+        const queue = await getOfflineQueueSnapshot();
+        await enqueueOfflineAction({
+          localId: crypto.randomUUID(),
+          type: "CLOSE_SESSION",
+          idempotencyKey: `${terminalId}-${activeDeviceId}-${crypto.randomUUID()}`,
+          timestampId,
+          terminalId,
+          deviceId: activeDeviceId,
+          cashierId: activeProfileId,
+          companyId: activeCompanyId,
+          createdAtLocal: new Date().toISOString(),
+          syncStatus: "pending",
+          lastError: null,
+          syncedAt: null,
+          payload: {
+            sessionId,
+            countedCash,
+            managerProfileId: manager.id,
+            managerEmail: manager.email,
+            managerName: manager.name,
+          },
+        });
+
+        usePOSStore.getState().setSyncCounts({
+          pendingSyncCount: queue.pendingCount + 1,
+          syncingCount: queue.syncingCount,
+          needsReviewCount: queue.needsReviewCount,
+          lastSyncMessage: "Close session queued for sync.",
+        });
+        setDidCloseSession(true);
+        setXReadingPayload(null);
+        setManagerPin("");
+        toast.success("Session close queued offline.");
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Failed to queue session close.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     const result = await closeSessionAction(
       sessionId,

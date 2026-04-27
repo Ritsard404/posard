@@ -22,6 +22,10 @@ export interface ReceiptStockUpdateDto {
 export interface ReceiptDto {
   id: string;
   invoiceNumber: number;
+  localInvoiceNo?: string | null;
+  isProvisional?: boolean;
+  syncStatus?: "pending" | "syncing" | "synced" | "failed" | "needs_review";
+  syncError?: string | null;
   createdAt: string;
   posTerminalName: string;
   printerName: string | null;

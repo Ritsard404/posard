@@ -34,6 +34,9 @@ export interface DiscountDto {
 
 export interface OrderDto {
   timestampId: string;
+  deviceId?: string;
+  idempotencyKey?: string;
+  localInvoiceNo?: string;
   items: ItemRequestDto[];
   cashTenderAmount: number;
   ePayments?: EPaymentDto[];

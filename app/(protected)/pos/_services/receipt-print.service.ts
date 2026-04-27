@@ -19,6 +19,7 @@ export const receiptPrintService = {
       printerConfig?.displayName?.trim() || receipt.printerName?.trim() || null;
     const packageData = buildInvoicePrintPackage(receipt);
     const canAutoPrint = Boolean(
+      !receipt.isProvisional &&
       printerConfig &&
         printerConfig.autoPrintEnabled &&
         printerConfig.mode,

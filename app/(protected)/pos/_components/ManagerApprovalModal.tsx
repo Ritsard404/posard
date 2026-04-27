@@ -12,13 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { authorizeManagerAction } from "../_actions/pos-auth.action";
 import { Loader2 } from "lucide-react";
+import { usePOSStore } from "../_store/pos-store";
+import { verifyManagerPinOffline } from "../_services/offline-pin-verifier.client";
 
 interface ManagerApprovalModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   actionType: string;
   referenceId: string;
-  onSuccess: (manager: { email: string; name: string }) => void | Promise<void>;
+  onSuccess: (manager: { id: string; email: string; name: string; role?: string }) => void | Promise<void>;
 }
 
 export function ManagerApprovalModal({
@@ -28,6 +30,11 @@ export function ManagerApprovalModal({
   referenceId,
   onSuccess,
 }: ManagerApprovalModalProps) {
+  const isOnline = usePOSStore((state) => state.isOnline);
+  const activeDeviceId = usePOSStore((state) => state.activeDeviceId);
+  const activeCompanyId = usePOSStore((state) => state.activeCompanyId);
+  const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
+  const managerVerifiers = usePOSStore((state) => state.managerVerifiers);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,6 +58,33 @@ export function ManagerApprovalModal({
 
     try {
       setIsLoading(true);
+
+      if (!isOnline) {
+        if (!activeDeviceId || !activeCompanyId || !activeTimestampId) {
+          setError("Offline approval requires an active device session.");
+          setPin("");
+          return;
+        }
+
+        const match = await verifyManagerPinOffline({
+          companyId: activeCompanyId,
+          deviceId: activeDeviceId,
+          pin,
+          verifiers: managerVerifiers,
+        });
+
+        if (!match) {
+          setError("Invalid manager PIN.");
+          setPin("");
+          return;
+        }
+
+        setPin("");
+        setError(null);
+        await onSuccess(match);
+        onOpenChange(false);
+        return;
+      }
 
       const result = await authorizeManagerAction(pin, actionType, referenceId);
 

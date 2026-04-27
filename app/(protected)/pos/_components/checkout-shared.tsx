@@ -30,6 +30,12 @@ import { calculatePayment } from "../_services/payment-calculation.service";
 import { receiptPrintService } from "../_services/receipt-print.service";
 import { ReceiptPrintControls } from "./ReceiptPrintControls";
 import { printReceipt } from "@/src/lib/capacitor/printer-bridge";
+import { buildProvisionalReceipt } from "../_services/offline-receipt.client";
+import {
+  enqueueOfflineAction,
+  getOfflineQueueSnapshot,
+} from "../_services/offline-sync.client";
+import { getStockSnapshotVersion } from "../_services/offline-db.client";
 
 export const defaultDiscount = {
   type: "NONE" as const,
@@ -121,9 +127,15 @@ export function usePOSCheckoutFlow(
     setAmountTendered,
     activeTerminal,
     activeTimestampId,
+    activeDeviceId,
+    activeCompanyId,
+    activeProfileId,
+    activeUser,
     clearCart,
     applyStockUpdates,
+    upsertOfflineReceipt,
   } = usePOSStore();
+  const isOnline = usePOSStore((state) => state.isOnline);
 
   const [step, setStep] = useState<"PAYMENT" | "RECEIPT">("PAYMENT");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -201,6 +213,7 @@ export function usePOSCheckoutFlow(
 
     const orderDto: OrderDto = {
       timestampId: activeTimestampId ?? "",
+      deviceId: activeDeviceId ?? undefined,
       items: cart.map((item) => ({
         productId: item.id,
         qty: item.cartQuantity,
@@ -235,6 +248,92 @@ export function usePOSCheckoutFlow(
             }
           : undefined,
     };
+
+    if (!isOnline) {
+      if (!activeTimestampId || !activeTerminal || !activeDeviceId || !activeCompanyId || !activeProfileId) {
+        setIsProcessing(false);
+        toast.error("Offline checkout needs an active synced session on this device.");
+        return;
+      }
+
+      try {
+        const queueState = await getOfflineQueueSnapshot();
+        const stockSnapshotVersion = await getStockSnapshotVersion();
+        const queuedCounter =
+          queueState.actions.filter((action) => action.type === "PAY_ORDER").length + 1;
+        const { receipt: provisionalReceipt, localInvoiceNo, stockUpdates } =
+          buildProvisionalReceipt({
+            order: orderDto,
+            products: cart.map((item) => item),
+            cashierName: activeUser?.name ?? null,
+            terminalName: activeTerminal.name,
+            terminalVat: activeTerminal.vat,
+            printerConfig: activeTerminal.printerConfig ?? null,
+            counter: queuedCounter,
+          });
+
+        const localId = crypto.randomUUID();
+        await enqueueOfflineAction({
+          localId,
+          type: "PAY_ORDER",
+          idempotencyKey: `${activeTerminal.id}-${activeDeviceId}-${crypto.randomUUID()}`,
+          timestampId: activeTimestampId,
+          terminalId: activeTerminal.id,
+          deviceId: activeDeviceId,
+          cashierId: activeProfileId,
+          companyId: activeCompanyId,
+          createdAtLocal: new Date().toISOString(),
+          syncStatus: "pending",
+          lastError: null,
+          syncedAt: null,
+          payload: {
+            order: {
+              ...orderDto,
+              localInvoiceNo,
+            },
+            invoiceNoLocal: localInvoiceNo,
+            stockSnapshotVersion,
+          },
+        });
+
+        usePOSStore.getState().setSyncCounts({
+          pendingSyncCount: queueState.pendingCount + 1,
+          syncingCount: queueState.syncingCount,
+          needsReviewCount: queueState.needsReviewCount,
+          lastSyncMessage: "Sale queued for sync.",
+        });
+        applyStockUpdates(stockUpdates);
+        upsertOfflineReceipt({
+          localId,
+          receiptId: provisionalReceipt.id,
+          localInvoiceNo,
+          syncStatus: "pending",
+        });
+
+        if (fastCheckout) {
+          clearCart();
+          setStep("PAYMENT");
+          setReceipt(null);
+          options?.onFastComplete?.();
+        } else {
+          setReceipt(provisionalReceipt);
+          setStep("RECEIPT");
+        }
+
+        setIsProcessing(false);
+        toast.success("Offline sale queued.", {
+          description: "It will sync automatically when the device reconnects.",
+        });
+        return;
+      } catch (error) {
+        setIsProcessing(false);
+        toast.error("Unable to queue offline sale.", {
+          description:
+            error instanceof Error ? error.message : "Please try again.",
+        });
+        return;
+      }
+    }
 
     const res = await payOrderAction(orderDto);
     setIsProcessing(false);
@@ -775,10 +874,9 @@ export function POSReceiptContent({
     minute: "2-digit",
     second: "2-digit",
   }).format(new Date(receipt.createdAt));
-  const formattedInvoiceNumber = String(receipt.invoiceNumber).padStart(
-    12,
-    "0",
-  );
+  const formattedInvoiceNumber = receipt.isProvisional
+    ? (receipt.localInvoiceNo ?? "OFFLINE-PENDING")
+    : String(receipt.invoiceNumber).padStart(12, "0");
   const shouldShowTaxBreakdown = receipt.vatAmount > 0;
   const receiptPrintPayload = receiptPrintService.buildPayload(receipt);
   const hasCashPayment = receipt.cashTendered > 0;
@@ -801,7 +899,7 @@ export function POSReceiptContent({
           Transaction Done
         </h2>
         <p className="mt-2 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
-          Receipt Generated Successfully
+          {receipt.isProvisional ? "Queued Offline Receipt" : "Receipt Generated Successfully"}
         </p>
       </div>
 
@@ -811,7 +909,11 @@ export function POSReceiptContent({
             POSard
           </h3>
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">
-            {receipt.isTrainMode ? "Training Receipt" : "Official Receipt"}
+            {receipt.isProvisional
+              ? "Offline Pending Sync"
+              : receipt.isTrainMode
+                ? "Training Receipt"
+                : "Official Receipt"}
           </p>
           <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
             123 Business Avenue, Metro Suite
@@ -829,6 +931,14 @@ export function POSReceiptContent({
               <span>Invoice No.</span>
               <span className="text-foreground">{formattedInvoiceNumber}</span>
             </div>
+            {receipt.isProvisional ? (
+              <div className="flex justify-between">
+                <span>Sync Status</span>
+                <span className="text-foreground">
+                  {(receipt.syncStatus ?? "pending").replace("_", " ")}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
 

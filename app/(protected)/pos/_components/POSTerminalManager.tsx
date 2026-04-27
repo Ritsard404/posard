@@ -1,18 +1,39 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { usePOSStore } from '../_store/pos-store';
-import { fetchPOSMetaDataAction } from '../_actions/pos.action';
-import { getCurrentSessionAction } from '../_actions/session.action';
-import { TerminalSelection } from './TerminalSelection';
-import { OpenSessionModal } from './OpenSessionModal';
-import { POSLayout } from './POSLayout';
-import { ProductDisplay } from './ProductDisplay';
-import { CartPanel } from './CartPanel';
-import { TenderPanel } from './TenderPanel';
-import { Monitor } from 'lucide-react';
-import type { PrinterConfigDto } from '../_services/_dto/print.dto';
-import { printClientService } from '../_services/print-client.service';
+import { useEffect, useState } from "react";
+import { Monitor } from "lucide-react";
+import { fetchPOSMetaDataAction } from "../_actions/pos.action";
+import { getCurrentSessionAction } from "../_actions/session.action";
+import { usePOSStore } from "../_store/pos-store";
+import { POSLayout } from "./POSLayout";
+import { ProductDisplay } from "./ProductDisplay";
+import { CartPanel } from "./CartPanel";
+import { TenderPanel } from "./TenderPanel";
+import { TerminalSelection } from "./TerminalSelection";
+import { OpenSessionModal } from "./OpenSessionModal";
+import type { PrinterConfigDto } from "../_services/_dto/print.dto";
+import { printClientService } from "../_services/print-client.service";
+import { getDeviceIdentity } from "../_services/device-identity.client";
+import {
+  fetchOfflineBootstrap,
+  getOfflineQueueSnapshot,
+  registerPOSServiceWorker,
+  syncOfflineActions,
+} from "../_services/offline-sync.client";
+import {
+  getOfflineCatalogSnapshot,
+  getOfflineManagerVerifiers,
+  getOfflineSessionSnapshot,
+} from "../_services/offline-db.client";
+
+async function refreshQueueState(setSyncCounts: ReturnType<typeof usePOSStore.getState>["setSyncCounts"]) {
+  const queue = await getOfflineQueueSnapshot();
+  setSyncCounts({
+    pendingSyncCount: queue.pendingCount,
+    syncingCount: queue.syncingCount,
+    needsReviewCount: queue.needsReviewCount,
+  });
+}
 
 export function POSTerminalManager() {
   const [mounted, setMounted] = useState(false);
@@ -30,7 +51,13 @@ export function POSTerminalManager() {
     setCategories,
     setEPaymentMethods,
     setSession,
+    setDeviceId,
+    setCompanyId,
     setPrinterCapabilities,
+    setNetworkStatus,
+    setOfflineReady,
+    setSyncCounts,
+    setManagerVerifiers,
     activeSessionId,
   } = usePOSStore();
 
@@ -54,67 +81,260 @@ export function POSTerminalManager() {
   }, [mounted, setPrinterCapabilities]);
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [metaRes, sessionRes] = await Promise.all([
-          fetchPOSMetaDataAction(),
-          getCurrentSessionAction()
-        ]);
+    let cancelled = false;
 
-        if (metaRes.success) {
-          setProducts(metaRes.data.products);
-          setCategories(metaRes.data.categories);
-          setEPaymentMethods(metaRes.data.epaymentMethods);
-        }
+    async function hydrateOfflineFallback() {
+      const [catalog, sessionSnapshot, managerVerifiers] = await Promise.all([
+        getOfflineCatalogSnapshot(),
+        getOfflineSessionSnapshot(),
+        getOfflineManagerVerifiers(),
+      ]);
 
-        setPrinterCapabilities(printClientService.getCapabilities());
+      if (cancelled) {
+        return;
+      }
 
-        if (sessionRes.success && sessionRes.data) {
-          setSession(sessionRes.data);
-        } else {
-          setSession({ sessionId: null, timestampId: null, terminal: null, user: null });
-        }
-      } catch (error) {
-        console.error("Failed to load POS data:", error);
-      } finally {
-        setMounted(true);
-        setLoading(false);
+      if (catalog.products.length > 0) {
+        setProducts(catalog.products);
+      }
+      if (catalog.categories.length > 0) {
+        setCategories(catalog.categories);
+      }
+      if (catalog.epaymentMethods.length > 0) {
+        setEPaymentMethods(catalog.epaymentMethods);
+      }
+      setManagerVerifiers(managerVerifiers);
+      if (sessionSnapshot?.companyId) {
+        setCompanyId(sessionSnapshot.companyId);
+      }
+
+      if (sessionSnapshot) {
+        setSession({
+          sessionId: sessionSnapshot.timestampId,
+          timestampId: sessionSnapshot.timestampId,
+          deviceId: sessionSnapshot.deviceId,
+          profileId: sessionSnapshot.cashierId,
+          terminal: {
+            id: sessionSnapshot.terminalId,
+            name: sessionSnapshot.terminalName,
+            vat: sessionSnapshot.terminalVat,
+            discountMax: sessionSnapshot.discountMax,
+            printerConfig: sessionSnapshot.printerConfig,
+          },
+          user: {
+            name: sessionSnapshot.cashierName,
+            role: "cashier",
+          },
+        });
       }
     }
-    
-    loadData();
-  }, [setProducts, setCategories, setEPaymentMethods, setSession, setPrinterCapabilities]);
+
+    async function syncNow(deviceId: string) {
+      if (!navigator.onLine) {
+        return;
+      }
+
+      try {
+        await fetchOfflineBootstrap(deviceId);
+        const syncResult = await syncOfflineActions();
+        for (const result of syncResult.results) {
+          usePOSStore
+            .getState()
+            .offlineReceipts.filter((receipt) => receipt.localId === result.localId)
+            .forEach((receipt) => {
+              usePOSStore
+                .getState()
+                .updateOfflineReceiptStatus(receipt.receiptId, result.syncStatus);
+            });
+        }
+        if (!cancelled) {
+          const queue = await getOfflineQueueSnapshot();
+          const syncedCount = syncResult.results.filter(
+            (result) => result.syncStatus === "synced",
+          ).length;
+          setSyncCounts({
+            pendingSyncCount: queue.pendingCount,
+            syncingCount: queue.syncingCount,
+            needsReviewCount: queue.needsReviewCount,
+            lastSyncMessage:
+              syncedCount > 0 ? `Synced ${syncedCount} queued action(s).` : "Queue is up to date.",
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const queue = await getOfflineQueueSnapshot();
+          setSyncCounts({
+            pendingSyncCount: queue.pendingCount,
+            syncingCount: queue.syncingCount,
+            needsReviewCount: queue.needsReviewCount,
+            lastSyncMessage:
+              error instanceof Error ? error.message : "Unable to sync queued actions.",
+          });
+        }
+      }
+    }
+
+    async function loadData() {
+      const deviceId = getDeviceIdentity();
+      setDeviceId(deviceId);
+      setNetworkStatus(navigator.onLine);
+
+      try {
+        await registerPOSServiceWorker();
+      } catch {
+        // Offline foreground retries still work without a service worker.
+      }
+
+      try {
+        if (navigator.onLine) {
+          const [metaRes, sessionRes, bootstrap] = await Promise.all([
+            fetchPOSMetaDataAction(),
+            getCurrentSessionAction(),
+            fetchOfflineBootstrap(deviceId),
+          ]);
+
+          if (cancelled) {
+            return;
+          }
+
+          setProducts(bootstrap.metadata.products);
+          setCategories(bootstrap.metadata.categories);
+          setEPaymentMethods(bootstrap.metadata.epaymentMethods);
+          setManagerVerifiers(bootstrap.managerVerifiers);
+          setCompanyId(bootstrap.session?.companyId ?? null);
+
+          if (sessionRes.success && sessionRes.data) {
+            setSession({
+              ...sessionRes.data,
+              deviceId: sessionRes.data.deviceId ?? deviceId,
+            });
+          } else if (bootstrap.session) {
+              setSession({
+                sessionId: bootstrap.session.timestampId,
+                timestampId: bootstrap.session.timestampId,
+                deviceId: bootstrap.session.deviceId,
+                profileId: bootstrap.session.cashierId,
+                terminal: {
+                id: bootstrap.session.terminalId,
+                name: bootstrap.session.terminalName,
+                vat: bootstrap.session.terminalVat,
+                discountMax: bootstrap.session.discountMax,
+                printerConfig: bootstrap.session.printerConfig,
+              },
+              user: {
+                name: bootstrap.session.cashierName,
+                role: "cashier",
+              },
+            });
+          } else {
+              setSession({
+                sessionId: null,
+                timestampId: null,
+                deviceId,
+                profileId: null,
+                terminal: null,
+                user: null,
+              });
+          }
+
+          if (metaRes.success && bootstrap.metadata.products.length === 0) {
+            setProducts(metaRes.data.products);
+            setCategories(metaRes.data.categories);
+            setEPaymentMethods(metaRes.data.epaymentMethods);
+          }
+        } else {
+          await hydrateOfflineFallback();
+        }
+      } catch {
+        await hydrateOfflineFallback();
+      } finally {
+        setPrinterCapabilities(printClientService.getCapabilities());
+        await refreshQueueState(setSyncCounts);
+        if (!cancelled) {
+          setOfflineReady(true);
+          setMounted(true);
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadData();
+
+    const handleOnline = () => {
+      setNetworkStatus(true);
+      void syncNow(getDeviceIdentity());
+    };
+
+    const handleOffline = () => {
+      setNetworkStatus(false);
+    };
+
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === "POSARD_SYNC_TRIGGER") {
+        void syncNow(getDeviceIdentity());
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    navigator.serviceWorker?.addEventListener("message", handleServiceWorkerMessage);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      navigator.serviceWorker?.removeEventListener(
+        "message",
+        handleServiceWorkerMessage,
+      );
+    };
+  }, [
+    setCategories,
+    setCompanyId,
+    setDeviceId,
+    setEPaymentMethods,
+    setManagerVerifiers,
+    setNetworkStatus,
+    setOfflineReady,
+    setPrinterCapabilities,
+    setProducts,
+    setSession,
+    setSyncCounts,
+  ]);
 
   if (!mounted || loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] bg-background">
-        <div className="relative flex flex-col items-center gap-6 p-12 rounded-3xl bg-card border shadow-xl animate-in fade-in zoom-in-95 duration-500">
+      <div className="flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center bg-background">
+        <div className="relative flex flex-col items-center gap-6 rounded-3xl border bg-card p-12 shadow-xl animate-in fade-in zoom-in-95 duration-500">
           <div className="relative size-20">
-             <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-             <div className="absolute inset-4 rounded-full bg-primary/10 flex items-center justify-center">
-               <Monitor className="size-6 text-primary animate-pulse" />
-             </div>
+            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+            <div className="absolute inset-4 flex items-center justify-center rounded-full bg-primary/10">
+              <Monitor className="size-6 animate-pulse text-primary" />
+            </div>
           </div>
           <div className="flex flex-col items-center gap-1">
-            <span className="text-sm font-bold tracking-widest uppercase text-foreground">Initializing</span>
-            <span className="text-xs text-muted-foreground font-medium">Loading POS Terminal...</span>
+            <span className="text-sm font-bold uppercase tracking-widest text-foreground">
+              Initializing
+            </span>
+            <span className="text-xs font-medium text-muted-foreground">
+              Loading POS Terminal...
+            </span>
           </div>
         </div>
       </div>
     );
   }
 
-  // If no active session, show terminal selection
   if (!activeSessionId) {
     return (
-      <div className="relative min-h-[calc(100vh-10rem)] flex flex-col items-center justify-center p-4">
-        <TerminalSelection 
+      <div className="relative flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center p-4">
+        <TerminalSelection
           onSelectTerminal={(id, name, vat, discountMax, printerConfig) =>
             setSelectedTerminal({ id, name, vat, discountMax, printerConfig })
-          } 
+          }
         />
 
-        {selectedTerminal && (
+        {selectedTerminal ? (
           <OpenSessionModal
             terminalId={selectedTerminal.id}
             terminalName={selectedTerminal.name}
@@ -122,6 +342,8 @@ export function POSTerminalManager() {
               setSession({
                 sessionId: data.sessionId,
                 timestampId: data.timestampId,
+                deviceId: usePOSStore.getState().activeDeviceId,
+                profileId: data.profileId,
                 terminal: {
                   id: selectedTerminal.id,
                   name: selectedTerminal.name,
@@ -129,18 +351,17 @@ export function POSTerminalManager() {
                   discountMax: selectedTerminal.discountMax,
                   printerConfig: selectedTerminal.printerConfig ?? null,
                 },
-                user: data.user
+                user: data.user,
               });
               setSelectedTerminal(null);
             }}
             onCancel={() => setSelectedTerminal(null)}
           />
-        )}
+        ) : null}
       </div>
     );
   }
 
-  // Active Session
   return (
     <POSLayout cart={<CartPanel />} tender={<TenderPanel />}>
       <ProductDisplay />
