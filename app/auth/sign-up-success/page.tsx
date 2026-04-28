@@ -12,9 +12,9 @@ import {
 export default function Page() {
   return (
     <AuthShell
-      eyebrow="Account created"
-      title="Your POSard account is ready for review."
-      description="The account was created successfully. An admin still needs to approve and activate it before you can sign in."
+      eyebrow="Request submitted"
+      title="Your registration request is waiting for review."
+      description="An admin must approve your request before a Supabase Auth account is created for you."
     >
       <div className="w-full max-w-md">
         <Card className="rounded-[2rem] border border-white/10 bg-white/80 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
@@ -23,16 +23,16 @@ export default function Page() {
               Pending approval
             </div>
             <CardTitle className="text-3xl font-heading font-extrabold tracking-tight md:text-4xl">
-              Account Created
+              Request Submitted
             </CardTitle>
             <CardDescription className="font-medium text-muted-foreground">
-              Waiting for admin activation
+              Waiting for admin approval
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-center">
             <p className="text-sm leading-7 text-muted-foreground">
-              Your merchant account has been submitted. Once an admin approves it,
-              you can return and sign in to start using POSard.
+              Registration request submitted. Please wait for admin approval.
+              Once approved, you will receive the account invite needed to sign in to POSard.
             </p>
             <Link
               href="/auth/login"

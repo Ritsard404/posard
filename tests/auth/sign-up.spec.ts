@@ -1,28 +1,20 @@
 import { expect, type Page, test } from "@playwright/test";
 
-const signUpRoute = /\/auth\/v1\/signup$/;
-
-async function fillSignUpForm(page: Page) {
+async function fillSignUpForm(page: Page, email: string) {
   await page.getByLabel("Full Name").fill("Juan dela Cruz");
-  await page.getByLabel("Email Address").fill("juan@example.com");
-  await page.getByLabel("Password", { exact: true }).fill("strong-password");
-  await page.getByLabel("Repeat Password").fill("strong-password");
+  await page.getByLabel("Email Address").fill(email);
+  await page.getByLabel("Phone Number").fill("+63 900 000 0000");
+  await page.getByLabel("Company Name").fill("E2E Merchant Store");
 }
 
 test.describe("auth sign-up", () => {
-  test("requires terms and privacy consent before creating an account", async ({
+  test("requires terms and privacy consent before submitting a registration request", async ({
     page,
   }) => {
-    let signUpRequests = 0;
-    await page.route(signUpRoute, async (route) => {
-      signUpRequests += 1;
-      await route.abort();
-    });
-
     await page.goto("/auth/sign-up");
-    await fillSignUpForm(page);
+    await fillSignUpForm(page, `terms-${Date.now()}@example.com`);
     await page
-      .getByRole("button", { name: "Create My Merchant Account" })
+      .getByRole("button", { name: "Submit Registration Request" })
       .click();
 
     await expect(
@@ -30,48 +22,22 @@ test.describe("auth sign-up", () => {
         hasText: "Please accept the Terms and Conditions and Privacy Policy.",
       }),
     ).toBeVisible();
-    expect(signUpRequests).toBe(0);
     await expect(page).toHaveURL(/\/auth\/sign-up$/);
   });
 
-  test("sends accepted terms metadata during account creation", async ({
+  test("submits a registration request and redirects to the success page", async ({
     page,
   }) => {
-    let requestBody: {
-      data?: {
-        terms_accepted?: boolean;
-        terms_accepted_at?: string;
-      };
-    } | null = null;
-
-    await page.route(signUpRoute, async (route) => {
-      requestBody = route.request().postDataJSON();
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          id: "00000000-0000-0000-0000-000000000001",
-          aud: "authenticated",
-          role: "authenticated",
-          email: "juan@example.com",
-          user_metadata: requestBody?.data ?? {},
-          app_metadata: {},
-          identities: [],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }),
-      });
-    });
-
     await page.goto("/auth/sign-up");
-    await fillSignUpForm(page);
+    await fillSignUpForm(page, `signup-${Date.now()}@example.com`);
     await page.getByLabel(/I agree to the Terms and Conditions/).check();
     await page
-      .getByRole("button", { name: "Create My Merchant Account" })
+      .getByRole("button", { name: "Submit Registration Request" })
       .click();
 
     await expect(page).toHaveURL(/\/auth\/sign-up-success$/);
-    // expect(requestBody?.data?.terms_accepted).toBe(true);
-    // expect(requestBody?.data?.terms_accepted_at).toEqual(expect.any(String));
+    await expect(
+      page.getByText("Registration request submitted. Please wait for admin approval."),
+    ).toBeVisible();
   });
 });

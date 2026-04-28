@@ -141,7 +141,7 @@ export const dashboardService = {
         activeCashiers,
         activeTerminals,
         openSessions,
-        pendingManagers,
+        pendingRegistrations,
         pendingRequests,
         activeSubscriptions,
         expiringSubscriptions,
@@ -158,7 +158,7 @@ export const dashboardService = {
         prisma.profile.count({ where: { role: "cashier", status: "active" } }),
         prisma.posTerminalInfo.count({ where: { isActive: true } }),
         prisma.timestamp.count({ where: { timestampOut: null } }),
-        prisma.profile.count({ where: { role: "manager", status: "pending" } }),
+        prisma.registrationRequest.count({ where: { status: "pending" } }),
         prisma.terminalRequest.count({ where: { status: "pending" } }),
         prisma.terminalSubscription.count({ where: { status: "active" } }),
         prisma.terminalSubscription.count({
@@ -341,7 +341,7 @@ export const dashboardService = {
           { label: "Active Subscriptions", value: activeSubscriptions, tone: "success", hint: "Terminals with active plans" },
           { label: "Terminals Live", value: activeTerminals, hint: "Terminal records currently enabled" },
           { label: "Expiring in 30 Days", value: expiringSubscriptions + expiringPermits, tone: "warning", hint: "Subscriptions or permits nearing expiry" },
-          { label: "Pending Manager Approvals", value: pendingManagers, tone: pendingManagers > 0 ? "warning" : "default", hint: "Manager accounts waiting for approval" },
+          { label: "Pending Registration Requests", value: pendingRegistrations, tone: pendingRegistrations > 0 ? "warning" : "default", hint: "Merchant onboarding requests waiting for approval" },
           { label: "Pending Terminal Requests", value: pendingRequests, tone: pendingRequests > 0 ? "warning" : "default", hint: "Company requests needing review" },
         ],
         trend: [],
@@ -363,8 +363,8 @@ export const dashboardService = {
           occurredAt: log.createdAt,
         })),
         alerts: [
-          ...(pendingManagers > 0
-            ? [{ id: "pending-managers", title: "Pending manager approvals", description: `${pendingManagers} manager account(s) still waiting for approval.`, tone: "warning" as const }]
+          ...(pendingRegistrations > 0
+            ? [{ id: "pending-registrations", title: "Pending registration requests", description: `${pendingRegistrations} registration request(s) still waiting for approval.`, tone: "warning" as const }]
             : []),
           ...(pendingRequests > 0
             ? [{ id: "pending-requests", title: "Terminal requests pending", description: `${pendingRequests} terminal request(s) need review.`, tone: "info" as const }]

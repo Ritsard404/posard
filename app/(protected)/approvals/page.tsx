@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { accountsAccessService } from "@/app/(protected)/accounts/_services/accounts-access.service";
-import { accountsService } from "@/app/(protected)/accounts/_services/accounts.service";
+import { registrationApprovalService } from "./_services/registration-approval.service";
 import { PendingManagerApprovalsClient } from "./_components/PendingManagerApprovalsClient";
 
 export default async function ApprovalsPage() {
@@ -16,11 +16,7 @@ export default async function ApprovalsPage() {
     redirect("/dashboard");
   }
 
-  const pendingManagers = await accountsService.getAccounts(viewer, {
-    role: "manager",
-    status: "pending",
-  });
+  const pendingManagers = await registrationApprovalService.getPendingRequests(viewer);
 
   return <PendingManagerApprovalsClient accounts={pendingManagers} />;
 }
-

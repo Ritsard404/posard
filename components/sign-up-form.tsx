@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { submitRegistrationRequestAction } from "@/app/auth/_actions/registration-request.action";
 import { AuthFeedback, type AuthFeedbackState } from "@/components/auth-feedback";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +18,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 
 export function SignUpForm({
   className,
@@ -25,8 +25,8 @@ export function SignUpForm({
 }: React.ComponentPropsWithoutRef<"div">) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [repeatPassword, setRepeatPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [feedback, setFeedback] = useState<AuthFeedbackState>({ kind: "idle" });
   const [isPending, startTransition] = useTransition();
@@ -44,11 +44,6 @@ export function SignUpForm({
       return;
     }
 
-    if (password !== repeatPassword) {
-      setFeedback({ kind: "error", message: "Passwords do not match" });
-      return;
-    }
-
     if (!termsAccepted) {
       setFeedback({
         kind: "error",
@@ -57,24 +52,21 @@ export function SignUpForm({
       return;
     }
 
-    setFeedback({ kind: "pending", message: "Creating your account..." });
+    setFeedback({ kind: "pending", message: "Submitting your registration request..." });
 
     startTransition(async () => {
-      const supabase = createClient();
-
       try {
-        const { error } = await supabase.auth.signUp({
+        const result = await submitRegistrationRequestAction({
+          fullName,
           email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-              terms_accepted: true,
-              terms_accepted_at: new Date().toISOString(),
-            },
-          },
+          phone,
+          companyName,
+          requestedRole: "manager",
         });
-        if (error) throw error;
+
+        if (!result.success) {
+          throw new Error(result.error);
+        }
 
         router.push("/auth/sign-up-success");
       } catch (error: unknown) {
@@ -95,10 +87,10 @@ export function SignUpForm({
             Merchant onboarding
           </div>
           <CardTitle className="text-3xl font-heading font-extrabold tracking-tight md:text-4xl">
-            Sign up
+            Request Access
           </CardTitle>
           <CardDescription className="font-medium text-muted-foreground">
-            Create your merchant account to get started
+            Submit your merchant onboarding request for admin approval
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-1">
@@ -151,42 +143,42 @@ export function SignUpForm({
               </div>
               <div className="grid gap-2">
                 <Label
-                  htmlFor="password"
+                  htmlFor="phone"
                   className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
                 >
-                  Password
+                  Phone Number
                 </Label>
                 <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
+                  id="phone"
+                  type="tel"
+                  placeholder="+63 900 000 0000"
+                  value={phone}
                   disabled={isPending}
                   aria-disabled={isPending}
                   className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
                   onChange={(e) => {
-                    setPassword(e.target.value);
+                    setPhone(e.target.value);
                     clearFeedback();
                   }}
                 />
               </div>
               <div className="grid gap-2">
                 <Label
-                  htmlFor="repeat-password"
+                  htmlFor="company-name"
                   className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
                 >
-                  Repeat Password
+                  Company Name
                 </Label>
                 <Input
-                  id="repeat-password"
-                  type="password"
-                  required
-                  value={repeatPassword}
+                  id="company-name"
+                  type="text"
+                  placeholder="Acme Stores"
+                  value={companyName}
                   disabled={isPending}
                   aria-disabled={isPending}
                   className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
                   onChange={(e) => {
-                    setRepeatPassword(e.target.value);
+                    setCompanyName(e.target.value);
                     clearFeedback();
                   }}
                 />
@@ -230,8 +222,8 @@ export function SignUpForm({
               <AuthSubmitButton
                 className="h-12 w-full rounded-xl font-bold shadow-lg shadow-primary/20"
                 isPending={isPending}
-                idleLabel="Create My Merchant Account"
-                pendingLabel="Creating your account..."
+                idleLabel="Submit Registration Request"
+                pendingLabel="Submitting your request..."
               />
             </div>
             <div className="mt-6 text-center text-sm font-medium text-muted-foreground">

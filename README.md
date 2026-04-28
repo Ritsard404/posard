@@ -29,7 +29,7 @@ For end-user workflows, use the application screens directly: cashier operations
 POSard currently includes:
 
 - Public marketing pages for `/`, `/about`, `/features`, `/solutions`, `/pricing`, `/contact`, `/privacy`, and `/terms`.
-- Supabase authentication with login, sign-up, password recovery, password update, and manager registration approval.
+- Supabase authentication with login, password recovery, password update, and admin-approved registration requests.
 - Role-based protected navigation for admin, manager, and cashier users.
 - Company management with operational company records, settings, subscriptions, terminal lists, and terminal requests.
 - Terminal configuration with receipt metadata, invoice numbering scoped per terminal, printer settings, and subscription status.
@@ -243,7 +243,7 @@ On this Windows workspace, `npm.ps1` and `npx.ps1` can be blocked by PowerShell 
 - Cash is tracked as drawer tender. Non-cash payments use dynamic `SaleType` records and reference numbers through `EPayment`.
 - Invoice numbers are scoped per terminal, so different terminals can have the same invoice number sequence.
 - Product inventory tracking is controlled by `Product.trackInventory`; products do not need to be stock-tracked by default.
-- Company pages are operational screens. Manager sign-up approval belongs in the account/approval workflow.
+- Company pages are operational screens. Public onboarding creates `registration_requests`, and admin approval creates the actual Auth user and profile.
 - Public SEO pages must remain crawlable and should not depend on an authenticated app shell.
 
 ## Deployment

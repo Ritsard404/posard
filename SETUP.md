@@ -158,14 +158,16 @@ After Prisma migrations complete, run the RBAC SQL. Do not run this before the P
 The SQL file does these Supabase-specific tasks:
 
 - Ensures the `user_role` and `user_status` enum types exist.
+- Ensures the `registration_request_status` enum type exists.
 - Ensures the `profiles` table exists for Supabase Auth profile lookup.
+- Ensures the `registration_requests` table exists for public onboarding requests.
 - Enables row-level security on `public.profiles`.
+- Enables row-level security on `public.registration_requests`.
 - Creates the `is_admin(user_id uuid)` helper function.
-- Creates the `handle_new_user()` Auth trigger helper.
-- Creates the `on_auth_user_created` trigger on `auth.users`.
 - Creates policies that allow active admins to manage profiles.
 - Allows authenticated users to read their own profile.
-- Allows new authenticated sign-ups to insert their own pending manager profile.
+- Allows public users to insert pending registration requests without exposing read access.
+- Allows active admins to read and update registration requests.
 - Grants public schema usage and authenticated profile read access.
 
 Important: `supabase-rbac.sql` is for Supabase security setup. Prisma migrations remain the source of truth for the full application schema.
@@ -234,8 +236,8 @@ POSard uses these account paths:
 
 | Flow | What Happens |
 | --- | --- |
-| Public sign-up | Creates a Supabase Auth user; `supabase-rbac.sql` creates the matching pending manager profile through the `on_auth_user_created` trigger |
-| Admin approval | Admin activates pending manager accounts from the approvals/accounts workflow |
+| Public sign-up | Creates a `registration_requests` row only; no Supabase Auth user is created yet |
+| Admin approval | Admin reviews the request, creates the Supabase Auth user server-side, creates the matching active profile, and sends the invite email |
 | Manager onboarding | Approved managers without a company are sent to `/setup-company` |
 | Company setup | Creates the company, assigns the manager, creates the first terminal, and saves the manager PIN |
 | Cashier creation | Manager/admin creates cashier accounts from Accounts; cashier users are active after creation |
@@ -318,13 +320,13 @@ Fix:
 
 ### Account is pending approval
 
-The user has a profile, but `status = 'pending'`.
+The user submitted a registration request, but an admin has not approved it yet.
 
 Fix:
 
 1. Sign in as an active admin.
-2. Open the approvals/accounts workflow.
-3. Approve the pending manager account.
+2. Open the approvals workflow.
+3. Approve the pending registration request so the Auth user and active profile are created.
 
 For the first admin, update the row manually in SQL as shown in [Bootstrap The First Admin](#7-bootstrap-the-first-admin).
 

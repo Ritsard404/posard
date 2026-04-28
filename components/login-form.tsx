@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { getRegistrationRequestLoginStatusAction } from "@/app/auth/_actions/registration-request.action";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
 import {
   Card,
@@ -41,7 +42,27 @@ export function LoginForm({
           email,
           password,
         });
-        if (error) throw error;
+        if (error) {
+          const requestStatus = await getRegistrationRequestLoginStatusAction({
+            email,
+          });
+
+          if (requestStatus.success && requestStatus.data.status === "pending") {
+            throw new Error(
+              "Registration request submitted. Please wait for admin approval.",
+            );
+          }
+
+          if (requestStatus.success && requestStatus.data.status === "rejected") {
+            throw new Error(
+              requestStatus.data.rejectionReason
+                ? `Registration request was rejected: ${requestStatus.data.rejectionReason}`
+                : "Registration request was rejected. Contact an admin for details.",
+            );
+          }
+
+          throw error;
+        }
 
         const userId = data?.user?.id;
         if (!userId) throw new Error("Could not get logged in user id");

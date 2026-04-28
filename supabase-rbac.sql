@@ -14,6 +14,12 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE registration_request_status AS ENUM ('pending', 'approved', 'rejected');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 create table if not exists profiles (
   id uuid default gen_random_uuid() primary key,
   user_id uuid not null references auth.users(id),
@@ -26,8 +32,24 @@ create table if not exists profiles (
   unique (email)
 );
 
+create table if not exists registration_requests (
+  id uuid default gen_random_uuid() primary key,
+  full_name text not null,
+  email text not null,
+  phone text,
+  company_name text,
+  requested_role user_role not null default 'manager',
+  status registration_request_status not null default 'pending',
+  reviewed_by uuid references public.profiles(id),
+  reviewed_at timestamptz,
+  rejection_reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 -- We recommend adding RLS policies to restrict who can read/update.
 alter table profiles enable row level security;
+alter table registration_requests enable row level security;
 
 -- Function to check if user is admin, security definer to avoid RLS recursion
 create or replace function is_admin(user_id uuid)
@@ -40,43 +62,8 @@ as $$
   );
 $$ language sql;
 
--- Create an application profile automatically when a Supabase Auth user signs up.
--- Public sign-up users start as pending managers and must be approved by an admin.
-create or replace function public.handle_new_user()
-returns trigger
-security definer
-set search_path = public
-as $$
-begin
-  insert into public.profiles (
-    user_id,
-    email,
-    full_name,
-    role,
-    status
-  )
-  values (
-    new.id,
-    new.email,
-    nullif(new.raw_user_meta_data ->> 'full_name', ''),
-    'manager',
-    'pending'
-  )
-  on conflict (user_id) do update
-  set
-    email = excluded.email,
-    full_name = coalesce(public.profiles.full_name, excluded.full_name),
-    updated_at = now();
-
-  return new;
-end;
-$$ language plpgsql;
-
 drop trigger if exists on_auth_user_created on auth.users;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
+drop function if exists public.handle_new_user();
 
 -- Drop existing policies if they exist
 drop policy if exists "app_full_access_admin" on profiles;
@@ -84,6 +71,9 @@ drop policy if exists "users_can_read_own" on profiles;
 drop policy if exists "admins_can_update_status" on profiles;
 drop policy if exists "users_can_insert_self" on profiles;
 drop policy if exists "Users can read own profile" on profiles;
+drop policy if exists "admins_can_read_registration_requests" on registration_requests;
+drop policy if exists "admins_can_update_registration_requests" on registration_requests;
+drop policy if exists "public_can_insert_registration_requests" on registration_requests;
 
 create policy "app_full_access_admin" on profiles
   for all
@@ -98,10 +88,29 @@ create policy "admins_can_update_status" on profiles
   using (is_admin(auth.uid()))
   with check (status in ('pending', 'active', 'disabled'));
 
-create policy "users_can_insert_self" on profiles
+create policy "public_can_insert_registration_requests" on registration_requests
   for insert
-  with check (user_id = auth.uid() and role = 'manager' and status = 'pending');
+  to anon, authenticated
+  with check (
+    requested_role = 'manager'
+    and status = 'pending'
+    and reviewed_by is null
+    and reviewed_at is null
+    and rejection_reason is null
+  );
+
+create policy "admins_can_read_registration_requests" on registration_requests
+  for select
+  to authenticated
+  using (is_admin(auth.uid()));
+
+create policy "admins_can_update_registration_requests" on registration_requests
+  for update
+  to authenticated
+  using (is_admin(auth.uid()))
+  with check (is_admin(auth.uid()));
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT SELECT ON public.profiles TO authenticated;
-GRANT INSERT ON public.profiles TO authenticated;
+GRANT INSERT ON public.registration_requests TO anon, authenticated;
+GRANT SELECT, UPDATE ON public.registration_requests TO authenticated;

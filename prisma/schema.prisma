@@ -60,6 +60,15 @@ enum SubscriptionStatus {
   @@schema("public")
 }
 
+enum RegistrationRequestStatus {
+  pending
+  approved
+  rejected
+
+  @@map("registration_request_status")
+  @@schema("public")
+}
+
 enum PrinterConnectionType {
   usb
   bluetooth
@@ -127,6 +136,7 @@ model Profile {
   auditLogs    AuditLog[] @relation("ActorAuditLog")
   requestedTerminalRequests TerminalRequest[] @relation("RequestedTerminalRequest")
   reviewedTerminalRequests  TerminalRequest[] @relation("ReviewedTerminalRequest")
+  reviewedRegistrationRequests RegistrationRequest[] @relation("ReviewedRegistrationRequests")
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -137,6 +147,32 @@ model Profile {
 
   @@index([companyId])
   @@map("profiles")
+  @@schema("public")
+}
+
+model RegistrationRequest {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  fullName    String  @map("full_name")
+  email       String
+  phone       String?
+  companyName String? @map("company_name")
+
+  requestedRole UserRole @default(manager) @map("requested_role")
+  status        RegistrationRequestStatus @default(pending)
+
+  reviewedById   String?   @map("reviewed_by") @db.Uuid
+  reviewedBy     Profile?  @relation("ReviewedRegistrationRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz
+  rejectionReason String?  @map("rejection_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([email, status])
+  @@index([status, createdAt])
+  @@index([reviewedById])
+  @@map("registration_requests")
   @@schema("public")
 }
 

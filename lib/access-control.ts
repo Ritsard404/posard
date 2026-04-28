@@ -435,7 +435,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
       },
       {
         id: "pending-approvals",
-        label: "Pending Manager Approvals",
+        label: "Registration Approvals",
         icon: FileClock,
         href: "/approvals",
         permission: "view.admin.approvals",

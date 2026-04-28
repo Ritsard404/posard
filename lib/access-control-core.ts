@@ -163,7 +163,7 @@ export const appRoutes: AppRouteConfig[] = [
   {
     href: "/approvals",
     permission: "view.admin.approvals",
-    label: "Pending Manager Approvals",
+    label: "Registration Approvals",
     showInNav: false,
   },
   {

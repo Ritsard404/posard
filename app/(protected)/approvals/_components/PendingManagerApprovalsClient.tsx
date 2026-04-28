@@ -1,23 +1,61 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { AccountListItemDto } from "@/app/(protected)/accounts/_services/_dto/accounts.dto";
-import { approveAccountAction, deactivateAccountAction } from "@/app/(protected)/accounts/_actions/accounts.action";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { RegistrationApprovalListItemDto } from "../_services/_dto/registration-approval.dto";
+import {
+  approveRegistrationRequestAction,
+  rejectRegistrationRequestAction,
+} from "../_actions/registration-approval.action";
 
 interface PendingManagerApprovalsClientProps {
-  accounts: AccountListItemDto[];
+  accounts: RegistrationApprovalListItemDto[];
 }
 
-export function PendingManagerApprovalsClient({ accounts }: PendingManagerApprovalsClientProps) {
+function formatRequestedRole(role: string) {
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function formatDate(value: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+export function PendingManagerApprovalsClient({
+  accounts,
+}: PendingManagerApprovalsClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
-  function runMutation(task: () => Promise<{ success: boolean; error?: string }>, successMessage: string) {
+  const rejectTarget = useMemo(
+    () => accounts.find((account) => account.id === rejectTargetId) ?? null,
+    [accounts, rejectTargetId],
+  );
+
+  function runMutation(
+    task: () => Promise<{ success: boolean; error?: string }>,
+    successMessage: string,
+  ) {
     startTransition(() => {
       void (async () => {
         const result = await task();
@@ -33,98 +71,218 @@ export function PendingManagerApprovalsClient({ accounts }: PendingManagerApprov
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="p-5">
-        <h1 className="text-2xl font-bold">Pending Manager Approvals</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review manager registrations. Company approval is no longer part of this workflow.
-        </p>
-      </Card>
+    <>
+      <div className="space-y-6">
+        <Card className="p-5">
+          <h1 className="text-2xl font-bold">Pending Registration Requests</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Review merchant onboarding requests before creating Supabase Auth users.
+          </p>
+        </Card>
 
-      <Card className="overflow-hidden">
-        {accounts.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground">No pending manager registrations.</div>
-        ) : (
-          <>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40">
-                  <tr className="border-b">
-                    {["Manager", "Company", "Status", "Actions"].map((label) => (
-                      <th key={label} className={`px-4 py-3 text-left font-medium text-muted-foreground ${label === "Actions" ? "text-right" : ""}`}>
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {accounts.map((account) => (
-                    <tr key={account.id} className="border-b">
-                      <td className="px-4 py-3">
-                        <div className="font-semibold">{account.fullName ?? account.email}</div>
-                        <div className="text-xs text-muted-foreground">{account.email}</div>
-                      </td>
-                      <td className="px-4 py-3">{account.company.name ?? "Unassigned"}</td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-                          {account.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/accounts/${account.id}`}>Open</Link>
-                          </Button>
-                          <Button
-                            size="sm"
-                            disabled={isPending}
-                            onClick={() => runMutation(() => approveAccountAction(account.id), "Manager approved")}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={isPending}
-                            onClick={() => runMutation(() => deactivateAccountAction(account.id), "Manager rejected")}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      </td>
+        <Card className="overflow-hidden">
+          {accounts.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground">
+              No pending registration requests.
+            </div>
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40">
+                    <tr className="border-b">
+                      {[
+                        "Requester",
+                        "Company",
+                        "Contact",
+                        "Role",
+                        "Submitted",
+                        "Actions",
+                      ].map((label) => (
+                        <th
+                          key={label}
+                          className={`px-4 py-3 text-left font-medium text-muted-foreground ${label === "Actions" ? "text-right" : ""}`}
+                        >
+                          {label}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {accounts.map((account) => (
+                      <tr key={account.id} className="border-b">
+                        <td className="px-4 py-3">
+                          <div className="font-semibold">{account.fullName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {account.email}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {account.companyName ?? "Not provided"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {account.phone ?? "Not provided"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatRequestedRole(account.requestedRole)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatDate(account.createdAt)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              disabled={isPending}
+                              onClick={() =>
+                                runMutation(
+                                  () =>
+                                    approveRegistrationRequestAction(account.id),
+                                  "Registration request approved",
+                                )
+                              }
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={isPending}
+                              onClick={() => {
+                                setRejectTargetId(account.id);
+                                setRejectionReason("");
+                              }}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-            <div className="space-y-3 p-4 md:hidden">
-              {accounts.map((account) => (
-                <Card key={account.id} className="p-4">
-                  <div className="space-y-3">
-                    <div>
-                      <div className="font-semibold">{account.fullName ?? account.email}</div>
-                      <div className="text-xs text-muted-foreground">{account.email}</div>
-                      <div className="mt-1 text-sm text-muted-foreground">{account.company.name ?? "Unassigned"}</div>
+              <div className="space-y-3 p-4 md:hidden">
+                {accounts.map((account) => (
+                  <Card key={account.id} className="p-4">
+                    <div className="space-y-3">
+                      <div>
+                        <div className="font-semibold">{account.fullName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {account.email}
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {account.companyName ?? "No company name provided"}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {account.phone ?? "No phone provided"}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Requested role: {formatRequestedRole(account.requestedRole)}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Submitted {formatDate(account.createdAt)}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          disabled={isPending}
+                          onClick={() =>
+                            runMutation(
+                              () =>
+                                approveRegistrationRequestAction(account.id),
+                              "Registration request approved",
+                            )
+                          }
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={isPending}
+                          onClick={() => {
+                            setRejectTargetId(account.id);
+                            setRejectionReason("");
+                          }}
+                        >
+                          Reject
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/accounts/${account.id}`}>Open</Link>
-                      </Button>
-                      <Button size="sm" disabled={isPending} onClick={() => runMutation(() => approveAccountAction(account.id), "Manager approved")}>
-                        Approve
-                      </Button>
-                      <Button size="sm" variant="destructive" disabled={isPending} onClick={() => runMutation(() => deactivateAccountAction(account.id), "Manager rejected")}>
-                        Reject
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </>
-        )}
-      </Card>
-    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
+
+      <Dialog
+        open={rejectTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectTargetId(null);
+            setRejectionReason("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject Registration Request</DialogTitle>
+            <DialogDescription>
+              {rejectTarget
+                ? `Reject ${rejectTarget.fullName}'s registration request.`
+                : "Reject this registration request."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rejection-reason">Rejection Reason (Optional)</Label>
+            <Input
+              id="rejection-reason"
+              value={rejectionReason}
+              onChange={(event) => setRejectionReason(event.target.value)}
+              placeholder="Incomplete business details"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setRejectTargetId(null);
+                setRejectionReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!rejectTarget || isPending}
+              onClick={() => {
+                if (!rejectTarget) {
+                  return;
+                }
+
+                runMutation(
+                  () =>
+                    rejectRegistrationRequestAction(rejectTarget.id, {
+                      rejectionReason,
+                    }),
+                  "Registration request rejected",
+                );
+                setRejectTargetId(null);
+                setRejectionReason("");
+              }}
+            >
+              Reject Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

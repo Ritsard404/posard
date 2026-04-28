@@ -50,10 +50,12 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
   const [isChoiceOpen, setIsChoiceOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [autoPrintNotice, setAutoPrintNotice] = useState<string | null>(null);
   const autoPrintKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     setPrinterConfig(payload.printerConfig);
+    setAutoPrintNotice(null);
   }, [payload.printerConfig]);
 
   const job = useMemo(
@@ -91,6 +93,7 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
           fallbackToPreview: false,
         });
         if (result.status === "printed") {
+          setAutoPrintNotice(null);
           toast.success("Receipt sent to printer.", {
             description: result.message,
           });
@@ -98,14 +101,11 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
         }
 
         openPreview();
-        toast.error(result.message, {
-          description: "Receipt preview is still available on this device.",
-        });
+        setAutoPrintNotice("Printer not connected. Receipt preview is available.");
       } catch (error) {
+        console.error(error);
         openPreview();
-        toast.error(error instanceof Error ? error.message : "Unable to print receipt.", {
-          description: "Receipt preview is still available on this device.",
-        });
+        setAutoPrintNotice("Printer not connected. Receipt preview is available.");
       }
     })();
   }, [job, payload, payload.previewContent, printerConfig]);
@@ -134,6 +134,7 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
       setIsChoiceOpen(false);
 
       if (result.status === "printed") {
+        setAutoPrintNotice(null);
         toast.success("Printing in progress...", {
           description: result.message,
         });
@@ -201,7 +202,13 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex w-full flex-col gap-3">
+        {autoPrintNotice ? (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-700">
+            {autoPrintNotice}
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-end gap-2">
         {hasAssignedPrinter ? (
           <Badge
             variant={printerStatus.tone === "ready" ? "secondary" : "outline"}
@@ -223,6 +230,7 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
           )}
           {hasAssignedPrinter ? "Print / Preview" : "Receipt Options"}
         </Button>
+        </div>
       </div>
 
       <Dialog open={isChoiceOpen} onOpenChange={setIsChoiceOpen}>
