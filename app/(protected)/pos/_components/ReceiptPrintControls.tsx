@@ -100,11 +100,9 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
           return;
         }
 
-        openPreview();
         setAutoPrintNotice("Printer not connected. Receipt preview is available.");
       } catch (error) {
         console.error(error);
-        openPreview();
         setAutoPrintNotice("Printer not connected. Receipt preview is available.");
       }
     })();
@@ -112,17 +110,6 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
 
   const openPreview = () => {
     setIsPreviewOpen(true);
-  };
-
-  const openPreviewFallback = (message?: string) => {
-    setIsChoiceOpen(false);
-    openPreview();
-
-    if (message) {
-      toast.error(message, {
-        description: "Receipt preview is still available on this device.",
-      });
-    }
   };
 
   const handlePrint = async () => {
@@ -141,11 +128,10 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
         return;
       }
 
-      openPreviewFallback(result.message);
+      setAutoPrintNotice("Printer not connected. Receipt preview is available.");
     } catch (error) {
-      openPreviewFallback(
-        error instanceof Error ? error.message : "Printing failed.",
-      );
+      console.error(error);
+      setAutoPrintNotice("Printer not connected. Receipt preview is available.");
     }
   };
 

@@ -51,7 +51,7 @@ export function CheckoutModal({
           />
         </DialogContent>
       ) : (
-        <DialogContent className="flex h-[100dvh] max-w-[100vw] flex-col overflow-hidden p-0 sm:max-w-[820px] lg:h-[min(92vh,820px)]">
+        <DialogContent className="flex h-[100dvh] max-w-[100vw] flex-col overflow-hidden p-0 sm:max-w-[960px] xl:max-w-[1080px] lg:h-[min(92vh,840px)]">
           <div className="border-b bg-card px-5 py-4 sm:px-6 sm:py-5">
             <DialogHeader className="space-y-2 text-left">
               <DialogTitle className="flex items-center gap-3 font-heading text-2xl font-black tracking-tight sm:text-3xl">

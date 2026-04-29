@@ -304,7 +304,7 @@ export function POSTerminalManager() {
 
   if (!mounted || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center bg-background">
+      <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-hidden bg-background">
         <div className="relative flex flex-col items-center gap-6 rounded-3xl border bg-card p-12 shadow-xl animate-in fade-in zoom-in-95 duration-500">
           <div className="relative size-20">
             <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
@@ -327,7 +327,7 @@ export function POSTerminalManager() {
 
   if (!activeSessionId) {
     return (
-      <div className="relative flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center p-4">
+      <div className="relative flex h-full min-h-0 flex-col items-center justify-center overflow-hidden p-4">
         <TerminalSelection
           onSelectTerminal={(id, name, vat, discountMax, printerConfig) =>
             setSelectedTerminal({ id, name, vat, discountMax, printerConfig })

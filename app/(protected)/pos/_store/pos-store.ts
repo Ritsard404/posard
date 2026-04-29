@@ -64,6 +64,16 @@ const defaultDiscount: POSDiscount = {
   oscaIdNum: "",
 };
 
+const FAST_CHECKOUT_STORAGE_KEY = "posard.fast-checkout-enabled";
+
+function readFastCheckoutPreference() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem(FAST_CHECKOUT_STORAGE_KEY) === "true";
+}
+
 interface POSState {
   // Cart & Orders
   cart: CartItem[];
@@ -72,6 +82,7 @@ interface POSState {
   selectedEPaymentMethodId: string | null;
   paymentReference: string;
   amountTendered: number;
+  fastCheckoutEnabled: boolean;
 
   // View state
   searchQuery: string;
@@ -158,6 +169,7 @@ interface POSState {
   setSelectedEPaymentMethodId: (id: string | null) => void;
   setPaymentReference: (reference: string) => void;
   setAmountTendered: (amount: number) => void;
+  setFastCheckoutEnabled: (enabled: boolean) => void;
 
   setSearchQuery: (query: string) => void;
   setSelectedCategoryId: (id: string | null) => void;
@@ -174,6 +186,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   selectedEPaymentMethodId: null,
   paymentReference: "",
   amountTendered: 0,
+  fastCheckoutEnabled: readFastCheckoutPreference(),
 
   products: [],
   categories: [],
@@ -424,6 +437,16 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setPaymentReference: (paymentReference) => set({ paymentReference }),
   setAmountTendered: (amountTendered) =>
     set({ amountTendered: Math.round(amountTendered * 100) / 100 }),
+  setFastCheckoutEnabled: (fastCheckoutEnabled) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        FAST_CHECKOUT_STORAGE_KEY,
+        fastCheckoutEnabled ? "true" : "false",
+      );
+    }
+
+    set({ fastCheckoutEnabled });
+  },
 
   setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
   setSelectedCategoryId: (selectedCategoryId) =>
