@@ -82,6 +82,7 @@ export function CheckoutModal({
             isReferencePaymentValid={flow.isReferencePaymentValid}
             change={flow.change}
             canComplete={flow.canComplete}
+            terminalDiscountCapSummary={flow.terminalDiscountCapSummary}
             isProcessing={flow.isProcessing}
             fastCheckout={flow.fastCheckout}
             setDiscountType={flow.setDiscountType}
