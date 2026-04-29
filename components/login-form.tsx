@@ -28,6 +28,15 @@ export function LoginForm({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
+  const formatRetryDate = (value: string) =>
+    new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (isPending) return;
@@ -54,10 +63,18 @@ export function LoginForm({
           }
 
           if (requestStatus.success && requestStatus.data.status === "rejected") {
+            const retryMessage = requestStatus.data.canRegisterAgainAt
+              ? new Date(requestStatus.data.canRegisterAgainAt).getTime() <= Date.now()
+                ? " You can submit a new registration request now."
+                : ` You can submit a new registration request on ${formatRetryDate(
+                    requestStatus.data.canRegisterAgainAt,
+                  )}, unless an admin re-enables registration sooner.`
+              : " Contact an admin for details.";
+
             throw new Error(
               requestStatus.data.rejectionReason
-                ? `Registration request was rejected: ${requestStatus.data.rejectionReason}`
-                : "Registration request was rejected. Contact an admin for details.",
+                ? `Registration request was rejected: ${requestStatus.data.rejectionReason}.${retryMessage}`
+                : `Registration request was rejected.${retryMessage}`,
             );
           }
 

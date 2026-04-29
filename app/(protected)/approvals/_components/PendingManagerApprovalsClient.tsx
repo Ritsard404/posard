@@ -19,10 +19,12 @@ import type { RegistrationApprovalListItemDto } from "../_services/_dto/registra
 import {
   approveRegistrationRequestAction,
   rejectRegistrationRequestAction,
+  unlockRejectedRegistrationRequestAction,
 } from "../_actions/registration-approval.action";
 
 interface PendingManagerApprovalsClientProps {
-  accounts: RegistrationApprovalListItemDto[];
+  pendingAccounts: RegistrationApprovalListItemDto[];
+  rejectedAccounts: RegistrationApprovalListItemDto[];
 }
 
 function formatRequestedRole(role: string) {
@@ -40,7 +42,8 @@ function formatDate(value: Date) {
 }
 
 export function PendingManagerApprovalsClient({
-  accounts,
+  pendingAccounts,
+  rejectedAccounts,
 }: PendingManagerApprovalsClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -48,9 +51,22 @@ export function PendingManagerApprovalsClient({
   const [rejectionReason, setRejectionReason] = useState("");
 
   const rejectTarget = useMemo(
-    () => accounts.find((account) => account.id === rejectTargetId) ?? null,
-    [accounts, rejectTargetId],
+    () =>
+      pendingAccounts.find((account) => account.id === rejectTargetId) ?? null,
+    [pendingAccounts, rejectTargetId],
   );
+
+  const formatRetryStatus = (account: RegistrationApprovalListItemDto) => {
+    if (!account.canRegisterAgainAt) {
+      return "Retry date unavailable";
+    }
+
+    if (account.retryUnlockedAt) {
+      return `Re-registration allowed since ${formatDate(account.retryUnlockedAt)}`;
+    }
+
+    return `Locked until ${formatDate(account.canRegisterAgainAt)}`;
+  };
 
   function runMutation(
     task: () => Promise<{ success: boolean; error?: string }>,
@@ -81,7 +97,7 @@ export function PendingManagerApprovalsClient({
         </Card>
 
         <Card className="overflow-hidden">
-          {accounts.length === 0 ? (
+          {pendingAccounts.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
               No pending registration requests.
             </div>
@@ -109,7 +125,7 @@ export function PendingManagerApprovalsClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {accounts.map((account) => (
+                    {pendingAccounts.map((account) => (
                       <tr key={account.id} className="border-b">
                         <td className="px-4 py-3">
                           <div className="font-semibold">{account.fullName}</div>
@@ -164,7 +180,7 @@ export function PendingManagerApprovalsClient({
               </div>
 
               <div className="space-y-3 p-4 md:hidden">
-                {accounts.map((account) => (
+                {pendingAccounts.map((account) => (
                   <Card key={account.id} className="p-4">
                     <div className="space-y-3">
                       <div>
@@ -209,6 +225,136 @@ export function PendingManagerApprovalsClient({
                           }}
                         >
                           Reject
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+        </Card>
+
+        <Card className="overflow-hidden">
+          <div className="border-b px-5 py-4">
+            <h2 className="text-lg font-semibold">Rejected Requests</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Rejected emails are blocked from re-registering for 7 days unless an admin allows it sooner.
+            </p>
+          </div>
+
+          {rejectedAccounts.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground">
+              No rejected registration requests.
+            </div>
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40">
+                    <tr className="border-b">
+                      {[
+                        "Requester",
+                        "Company",
+                        "Rejected",
+                        "Retry Status",
+                        "Reason",
+                        "Actions",
+                      ].map((label) => (
+                        <th
+                          key={label}
+                          className={`px-4 py-3 text-left font-medium text-muted-foreground ${label === "Actions" ? "text-right" : ""}`}
+                        >
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rejectedAccounts.map((account) => (
+                      <tr key={account.id} className="border-b">
+                        <td className="px-4 py-3">
+                          <div className="font-semibold">{account.fullName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {account.email}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {account.companyName ?? "Not provided"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {account.reviewedAt ? formatDate(account.reviewedAt) : "Not recorded"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatRetryStatus(account)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {account.rejectionReason ?? "No reason provided"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isPending || account.retryUnlockedAt !== null}
+                              onClick={() =>
+                                runMutation(
+                                  () =>
+                                    unlockRejectedRegistrationRequestAction(
+                                      account.id,
+                                    ),
+                                  "Re-registration allowed",
+                                )
+                              }
+                            >
+                              {account.retryUnlockedAt ? "Unlocked" : "Allow Re-registration"}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="space-y-3 p-4 md:hidden">
+                {rejectedAccounts.map((account) => (
+                  <Card key={account.id} className="p-4">
+                    <div className="space-y-3">
+                      <div>
+                        <div className="font-semibold">{account.fullName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {account.email}
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {account.companyName ?? "No company name provided"}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Rejected {account.reviewedAt ? formatDate(account.reviewedAt) : "Not recorded"}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {formatRetryStatus(account)}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Reason: {account.rejectionReason ?? "No reason provided"}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isPending || account.retryUnlockedAt !== null}
+                          onClick={() =>
+                            runMutation(
+                              () =>
+                                unlockRejectedRegistrationRequestAction(
+                                  account.id,
+                                ),
+                              "Re-registration allowed",
+                            )
+                          }
+                        >
+                          {account.retryUnlockedAt ? "Unlocked" : "Allow Re-registration"}
                         </Button>
                       </div>
                     </div>

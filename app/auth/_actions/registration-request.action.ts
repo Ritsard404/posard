@@ -14,6 +14,7 @@ type RegistrationLookupResult =
       data: {
         status: "pending" | "approved" | "rejected" | "none";
         rejectionReason: string | null;
+        canRegisterAgainAt: string | null;
       };
     }
   | { success: false; error: string };

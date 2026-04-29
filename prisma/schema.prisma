@@ -137,6 +137,7 @@ model Profile {
   requestedTerminalRequests TerminalRequest[] @relation("RequestedTerminalRequest")
   reviewedTerminalRequests  TerminalRequest[] @relation("ReviewedTerminalRequest")
   reviewedRegistrationRequests RegistrationRequest[] @relation("ReviewedRegistrationRequests")
+  retryUnlockedRegistrationRequests RegistrationRequest[] @relation("RetryUnlockedRegistrationRequests")
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -165,6 +166,9 @@ model RegistrationRequest {
   reviewedBy     Profile?  @relation("ReviewedRegistrationRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
   reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz
   rejectionReason String?  @map("rejection_reason")
+  retryUnlockedById String? @map("retry_unlocked_by") @db.Uuid
+  retryUnlockedBy   Profile? @relation("RetryUnlockedRegistrationRequests", fields: [retryUnlockedById], references: [id], onDelete: SetNull)
+  retryUnlockedAt   DateTime? @map("retry_unlocked_at") @db.Timestamptz
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -172,6 +176,7 @@ model RegistrationRequest {
   @@index([email, status])
   @@index([status, createdAt])
   @@index([reviewedById])
+  @@index([retryUnlockedById])
   @@map("registration_requests")
   @@schema("public")
 }

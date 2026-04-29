@@ -56,8 +56,40 @@ export const registrationApprovalService = {
         requestedRole: true,
         status: true,
         createdAt: true,
+        reviewedAt: true,
+        rejectionReason: true,
+        retryUnlockedAt: true,
+        updatedAt: true,
       },
       orderBy: [{ createdAt: "asc" }],
+    });
+
+    return requests.map(mapRegistrationRequestToListItem);
+  },
+
+  async getRejectedRequests(
+    viewer: AccountsViewerDto,
+  ): Promise<RegistrationApprovalListItemDto[]> {
+    assertAdmin(viewer);
+
+    const requests = await prisma.registrationRequest.findMany({
+      where: { status: "rejected" },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        companyName: true,
+        requestedRole: true,
+        status: true,
+        createdAt: true,
+        reviewedAt: true,
+        rejectionReason: true,
+        retryUnlockedAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ reviewedAt: "desc" }, { createdAt: "desc" }],
+      take: 50,
     });
 
     return requests.map(mapRegistrationRequestToListItem);
@@ -166,11 +198,70 @@ export const registrationApprovalService = {
 
     await prisma.registrationRequest.update({
       where: { id: request.id },
+        data: {
+          status: "rejected",
+          reviewedById: viewer.profileId,
+          reviewedAt: new Date(),
+          rejectionReason: input.rejectionReason,
+          retryUnlockedById: null,
+          retryUnlockedAt: null,
+        },
+      });
+  },
+
+  async unlockRejectedRequest(
+    viewer: AccountsViewerDto,
+    requestId: string,
+  ): Promise<void> {
+    assertAdmin(viewer);
+
+    const request = await prisma.registrationRequest.findUnique({
+      where: { id: requestId },
+      select: {
+        id: true,
+        status: true,
+        email: true,
+      },
+    });
+
+    if (!request) {
+      throw new Error("Registration request not found.");
+    }
+
+    if (request.status !== "rejected") {
+      throw new Error("Only rejected registration requests can be unlocked.");
+    }
+
+    const email = normalizeEmail(request.email);
+
+    const [existingProfile, existingPendingRequest] = await Promise.all([
+      prisma.profile.findUnique({
+        where: { email },
+        select: { id: true },
+      }),
+      prisma.registrationRequest.findFirst({
+        where: {
+          email,
+          status: "pending",
+          id: { not: request.id },
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    if (existingProfile) {
+      throw new Error("An active account already exists for this email.");
+    }
+
+    if (existingPendingRequest) {
+      throw new Error("A pending registration request already exists for this email.");
+    }
+
+    await prisma.registrationRequest.update({
+      where: { id: request.id },
       data: {
-        status: "rejected",
-        reviewedById: viewer.profileId,
-        reviewedAt: new Date(),
-        rejectionReason: input.rejectionReason,
+        retryUnlockedById: viewer.profileId,
+        retryUnlockedAt: new Date(),
       },
     });
   },

@@ -75,3 +75,21 @@ export async function rejectRegistrationRequestAction(
     };
   }
 }
+
+export async function unlockRejectedRegistrationRequestAction(
+  requestId: string,
+): Promise<VoidResult> {
+  try {
+    const viewer = await accountsAccessService.getProfileViewer();
+    const validatedId = RegistrationRequestIdSchema.parse(requestId);
+    await registrationApprovalService.unlockRejectedRequest(viewer, validatedId);
+    revalidateApprovalPaths();
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to allow re-registration."),
+    };
+  }
+}

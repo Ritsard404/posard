@@ -9,6 +9,10 @@ export interface RegistrationApprovalListItemDto {
   requestedRole: UserRole;
   status: RegistrationRequestStatus;
   createdAt: Date;
+  reviewedAt: Date | null;
+  rejectionReason: string | null;
+  canRegisterAgainAt: Date | null;
+  retryUnlockedAt: Date | null;
 }
 
 export interface RejectRegistrationRequestInputDto {

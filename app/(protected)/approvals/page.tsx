@@ -16,7 +16,15 @@ export default async function ApprovalsPage() {
     redirect("/dashboard");
   }
 
-  const pendingManagers = await registrationApprovalService.getPendingRequests(viewer);
+  const [pendingManagers, rejectedManagers] = await Promise.all([
+    registrationApprovalService.getPendingRequests(viewer),
+    registrationApprovalService.getRejectedRequests(viewer),
+  ]);
 
-  return <PendingManagerApprovalsClient accounts={pendingManagers} />;
+  return (
+    <PendingManagerApprovalsClient
+      pendingAccounts={pendingManagers}
+      rejectedAccounts={rejectedManagers}
+    />
+  );
 }

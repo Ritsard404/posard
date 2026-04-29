@@ -1,219 +1,343 @@
 ---
 name: posard-workspace-enforcer
 description: >
-  Enforce strict POSARD workspace architecture including feature-based structure,
-  Prisma usage, service patterns, actions, DTOs, and TypeScript safety.
+  Enforce strict POSARD workspace architecture with reuse-first implementation,
+  minimal file changes, Prisma-driven contracts, and anti-duplication rules.
 ---
 
 # Purpose
-Maintain a scalable, consistent, and type-safe codebase for the POS system.
+Maintain a scalable, consistent, and type-safe POSard codebase while minimizing redundancy, token usage, and unnecessary file creation.
 
 # Preconditions
 - Next.js App Router
 - Prisma ORM
 - TypeScript strict mode
-- Zustand (optional per feature)
+- Zustand only when shared client state is truly needed
 
 ---
 
-# Core Principle
-> Prisma Schema = Source of Truth  
-All types, enums, and constraints MUST originate or align with Prisma.
+# Core Principles
+
+## Single Source Of Truth
+> Prisma schema = database truth  
+> DTOs = data contract  
+> Validators = input rules  
+> Services = business logic  
+> Actions = orchestration layer  
+> UI = presentation only
+
+No duplication across layers.
+
+## Reuse-First Rule
+- Reuse before create
+- Modify before duplicate
+- Inspect before implement
+- Keep output minimal and targeted
+
+Redundancy increases maintenance cost and complexity and should be avoided unless strictly necessary.
 
 ---
 
+# Workspace Structure
 
-# Rules
+## Feature Structure
+Follow this layout:
 
-## Folder Structure
-- Must follow:
-
+```txt
 app/(protected)/<feature>/
-- page.tsx (no logic)
-- _components/
-- _services/
-  - _dto/
-  - _mappers/ (NEW: Prisma → DTO mapping)
-  - _validators/ (NEW: Zod schemas)
-- _actions/
-- store/ (optional)
+  page.tsx
+  _components/
+  _services/
+    _dto/
+    _mappers/
+    _validators/
+  _actions/
+  store/            # optional
+```
 
-- No extra folders allowed
+## Structure Rules
+- `page.tsx` = composition only, no business logic
+- `_components` = UI only
+- `_services` = business logic and Prisma access
+- `_actions` = server orchestration only
+- `_dto` = pure types only
+- `_mappers` = Prisma to DTO mapping only
+- `_validators` = Zod schemas only
+- `store` = optional and only for shared client state
+- Do not create extra folders unless there is a clear architectural need
 
 ---
 
-## Layer Separation
-- page.tsx → UI composition only
-- components → UI only (no business logic)
-- services → business logic + Prisma access
-- actions → server orchestration
-- DTOs → pure types
-- mappers → Prisma → DTO transformation ONLY
-- validators → Zod schemas ONLY
+# Mandatory Agent Workflow (STRICT)
+
+All implementation work must follow this sequence.
+
+## Step 1: Inspect
+Scan the codebase before writing code.
+
+Identify existing:
+- services
+- DTOs
+- mappers
+- validators
+- components
+- hooks
+- utilities
+
+Also inspect:
+- related feature folders
+- `schema.prisma`
+- nearby actions and report/service patterns
+
+## Step 2: Plan
+Provide a short plan before implementation:
+- files to reuse
+- files to modify
+- files to create, if any
+
+Do not write code yet.
+
+## Step 3: Implement
+- Modify only required files
+- Do not regenerate full files unless necessary
+- Do not duplicate logic
+- Prefer targeted diffs over broad rewrites
+
+## Step 4: Validate
+Confirm:
+- structure compliance
+- no Prisma leakage outside services
+- no raw server error exposure
+- no duplicate logic or files
+- type safety
 
 ---
 
-## Prisma Rules (STRICT)
+# Anti-Duplication Rules (CRITICAL)
+
+The agent must not:
+- create duplicate services
+- create duplicate DTOs or types
+- create duplicate Zod schemas
+- create duplicate Prisma queries when existing service logic can be extended
+- create duplicate UI components
+- copy-paste business logic across files
+- recreate existing hooks or utilities
+
+If similar logic exists:
+- extend it
+- refactor it
+- or extract a shared helper
+
+Do not create parallel implementations for the same concern.
+
+---
+
+# File Creation Rule
+
+Before creating a new file:
+1. Confirm no existing file already satisfies the requirement
+2. Check related folders:
+   - `_services`
+   - `_components`
+   - `_actions`
+   - `_dto`
+   - `_mappers`
+   - `_validators`
+   - `lib`
+3. If a new file is still necessary, justify it in 1 to 2 lines
+
+New files are allowed only when extending an existing file would clearly reduce clarity or violate layer boundaries.
+
+---
+
+# Prisma Rules (STRICT)
+
 - Always inspect `schema.prisma` before coding
-- Prisma types MUST NOT leak outside services
-- Always map Prisma → DTO via mapper layer
-- Use `$transaction` for multi-operations
-- Inside transaction → use `tx.*` only
-- Never return raw Prisma model
+- Prisma types must not leak outside services
+- Always map Prisma models to DTOs through a mapper layer before returning data upward
+- Use `$transaction` for multi-step writes
+- Inside a transaction, use `tx.*` only
+- Never return raw Prisma models to UI or actions
+
+## Enum Rules
+- All enums must originate from Prisma schema or align directly with it
+- Do not redefine enum meaning in UI-only types when a Prisma enum already exists
 
 ---
 
-## Enum Rules (CRITICAL)
+# Layer Rules
 
-### 1. Source of Truth
-- All enums MUST come from Prisma schema
+## Services
+- Async only
+- Explicit input and return types
+- No imports from UI or actions
+- Throw errors
+- Do not format response payloads for the client
 
-Example:
-```prisma
-enum VatType {
-  VATABLE
-  ZERO_RATED
-  EXEMPT
-}
+## Actions
+- Must include `"use server"`
+- Must validate input first
+- Must wrap logic in `try/catch`
+- Must return:
+
+```ts
+{ success: true } as const
+```
+
+or
+
+```ts
+{ success: false, error: string } as const
+```
+
+- Never expose raw server errors
+
+## DTOs
+- No Prisma imports
+- Types only
+- Use `interface` for object shapes
+- Use `type` for unions and aliases
+
+## Mappers
+- Prisma to DTO transformation only
+- No business logic beyond output shaping
+
+## Validators
+- Zod schemas only
+- No Prisma queries
+- No side effects
+
+## UI Components
+- Explicit client or server usage
+- Fully typed props
+- Presentation only
+- Use Tailwind only
+- Use `sonner` for toasts
+- Use `lucide-react` for icons
+
+## Zustand
+- Use only when shared client state is needed
+- Store DTO-safe shapes only
+- Do not store raw server records
+
+## Forms
+- Use `react-hook-form`
+- Use `zod`
+- Validate before action call
+- No uncontrolled inputs for managed form flows
 
 ---
 
-## Error Handling Rules (CRITICAL)
+# Error Handling Rules (CRITICAL)
 
-### Client Safety
-- Server-side errors MUST NEVER be displayed directly to users
-- Do NOT expose:
-  - Prisma errors
-  - SQL/database errors
-  - stack traces
-  - internal exception messages
-  - framework/system errors
+## Client Safety
+Do not expose:
+- Prisma errors
+- SQL or database errors
+- stack traces
+- internal exception messages
+- framework or system errors
 
-### Action Layer Responsibility
-- Services → throw raw errors
-- Actions → catch errors and sanitize them
-- UI → only consume safe messages
+## Responsibility Split
+- Services throw raw errors
+- Actions catch and sanitize errors
+- UI consumes only safe messages
 
-### Required Action Pattern
+## Required Action Pattern
 
 ```ts
 try {
   // logic
   return { success: true } as const;
 } catch (error) {
-  console.error(error); // log full error internally
+  console.error(error);
 
   return {
     success: false,
     error: "Something went wrong. Please try again.",
   } as const;
 }
+```
 
 ---
 
-## Actions Rules
-- Must include `"use server"`
-- Must return:
+# Token Optimization Rules
 
-{ success: true } OR { success: false; error: string }
-
-- Use `as const`
-- Wrap in try/catch
-- Validate input first
-- Never expose raw errors
-
----
-
-## Service Rules
-- Async only
-- Explicit types (input + return)
-- No imports from UI or actions
-- Throw errors, do not handle response formatting
+To reduce token usage:
+- do not output unchanged files
+- do not rewrite entire modules without need
+- only show changed functions or changed sections when explaining work
+- prefer diff-style updates
+- avoid verbose explanations unless requested
+- keep plans short and implementation targeted
 
 ---
 
-## DTO Rules
-- No Prisma imports
-- Types only (no logic)
-- Use interface for objects
-- Use type for unions
+# Code Simplicity Rules
+
+- Avoid unnecessary abstraction
+- Avoid extra layers and extra files
+- Prefer simple direct logic
+- Remove unused code when safe
+- Do not build generic infrastructure for one narrow use case unless it will clearly be reused
+
+Simpler code reduces errors and maintenance cost.
 
 ---
 
-## Zustand Rules
-- Only if shared state is needed
-- No raw server data
-- Use DTOs only
+# Naming Rules
+
+- Components = `PascalCase.tsx`
+- Services = `*.service.ts`
+- Actions = `*.action.ts`
+- DTOs = `*.dto.ts`
+- Mappers = `*.mapper.ts`
+- Validators = `*.schema.ts`
+- Stores = `*.store.ts`
 
 ---
 
-## Forms Rules
-- Must use:
-  - react-hook-form
-  - zod
-- Validate before action call
-- No uncontrolled inputs
+# Prompt Behavior Rules
+
+- If the request is unclear, ask for clarification before coding
+- If similar implementation exists, show the reuse strategy before rewriting
+- If the task is large, break it into phases
+- If the current approach would introduce duplication, stop and correct the approach first
 
 ---
 
-## Component Rules
-- Explicit client/server usage
-- Fully typed props
-- Use:
-  - sonner (toast)
-  - lucide-react (icons)
-- Tailwind only
+# Optional Advanced Mode For Complex Features
+
+Use this structure when the task is large:
+1. Analysis
+2. Reuse Mapping
+3. Minimal Changes Plan
+4. Implementation (diff-only)
+5. Validation Checklist
 
 ---
 
-## TypeScript Rules
-- No `any`
-- No `@ts-ignore`
-- Use discriminated unions
-- Prefer strict typing always
+# Required Response Format
+
+At the end of every task, include:
+
+## Summary
+- Reused:
+- Modified:
+- Created:
+- Removed duplicates:
+
+## Notes
+- Why new files were created, if any
+- What redundancy was avoided
 
 ---
 
-## Naming Rules
-- Components → PascalCase
-- Services → `.service.ts`
-- Actions → `.action.ts`
-- DTOs → `.dto.ts`
-- Stores → `.store.ts
+# Goal Outcome
 
----
-
-# Workflow
-
-## Step 1: Analyze Feature
-- Identify feature scope
-- Check existing structure
-- Review Prisma schema
-
-## Step 2: Plan Files
-- Define:
-  - components
-  - services
-  - DTOs
-  - actions
-  - store (if needed)
-
-## Step 3: Implement
-- Start with service
-- Create DTOs
-- Add actions
-- Build components
-
-## Step 4: Validate
-- Check structure compliance
-- Ensure no Prisma leaks
-- Validate types
-- Ensure no duplication
-
----
-
-# Output Format
-- Feature-based structure
-- Strict typing
-- Clean separation of concerns
-- No redundant files
+- Zero redundant code
+- Minimal file changes
+- Faster execution
+- Lower token usage
+- Maintainable architecture

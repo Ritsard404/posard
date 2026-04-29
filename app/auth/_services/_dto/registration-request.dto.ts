@@ -11,4 +11,5 @@ export interface SubmitRegistrationRequestInputDto {
 export interface RegistrationRequestLoginStatusDto {
   status: RegistrationRequestStatus | "none";
   rejectionReason: string | null;
+  canRegisterAgainAt: string | null;
 }
