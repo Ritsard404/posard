@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { accountsAccessService } from "@/app/(protected)/accounts/_services/accounts-access.service";
 import { registrationApprovalService } from "../_services/registration-approval.service";
 import {
+  ApproveRegistrationRequestSchema,
   RegistrationRequestIdSchema,
   RejectRegistrationRequestSchema,
 } from "../_services/_validators/registration-approval.validator";
@@ -40,11 +41,13 @@ export async function getPendingRegistrationRequestsAction(): Promise<
 
 export async function approveRegistrationRequestAction(
   requestId: string,
+  input: unknown,
 ): Promise<VoidResult> {
   try {
     const viewer = await accountsAccessService.getProfileViewer();
     const validatedId = RegistrationRequestIdSchema.parse(requestId);
-    await registrationApprovalService.approveRequest(viewer, validatedId);
+    const validated = ApproveRegistrationRequestSchema.parse(input);
+    await registrationApprovalService.approveRequest(viewer, validatedId, validated);
     revalidateApprovalPaths();
     return { success: true };
   } catch (error) {

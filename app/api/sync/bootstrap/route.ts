@@ -83,6 +83,7 @@ export async function GET(request: Request) {
                 posName: true,
                 isTrainMode: true,
                 vat: true,
+                discountCapType: true,
                 discountMax: true,
                 printerName: true,
                 printerDisplayName: true,
@@ -126,6 +127,7 @@ export async function GET(request: Request) {
               terminalId: timestamp.posTerminal.id,
               terminalName: timestamp.posTerminal.posName ?? "Unnamed terminal",
               terminalVat: timestamp.posTerminal.vat ?? 0,
+              discountCapType: timestamp.posTerminal.discountCapType,
               discountMax: timestamp.posTerminal.discountMax
                 ? Number(timestamp.posTerminal.discountMax)
                 : 0,

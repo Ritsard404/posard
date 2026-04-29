@@ -92,6 +92,7 @@ export interface PosTerminalDto {
   address: string | null;
   vatTinNumber: string | null;
   vat: number | null;
+  discountCapType: "amount" | "percent";
   discountMax: number | null;
   printerName: string | null;
   resetCounterNo: number;

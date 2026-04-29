@@ -47,6 +47,7 @@ interface ActiveTerminalState {
   id: string;
   name: string;
   vat: number;
+  discountCapType: "amount" | "percent";
   discountMax: number;
   printerConfig?: PrinterConfigDto | null;
 }

@@ -34,6 +34,7 @@ interface OpenSessionModalProps {
       id: string;
       name: string;
       vat: number;
+      discountCapType: "amount" | "percent";
       discountMax: number;
       printerConfig: import("../_services/_dto/print.dto").PrinterConfigDto | null;
     };

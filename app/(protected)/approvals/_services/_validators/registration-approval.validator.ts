@@ -16,3 +16,11 @@ export const RegistrationRequestIdSchema = z.string().uuid(
 export const RejectRegistrationRequestSchema = z.object({
   rejectionReason: nullableTextInput,
 });
+
+export const ApproveRegistrationRequestSchema = z.object({
+  password: z
+    .string()
+    .trim()
+    .min(4, "Password must be at least 4 characters")
+    .max(72, "Password must be 72 characters or fewer"),
+});

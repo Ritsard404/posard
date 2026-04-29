@@ -15,7 +15,8 @@ export interface PaymentCalculationInput {
   items: PaymentCalculationItem[];
   discount?: DiscountDto;
   vatRate: number;
-  maxDiscount: number;
+  discountCapType?: "amount" | "percent" | null;
+  discountCapValue?: number | null;
   cashTenderAmount?: number;
   ePayments?: Pick<EPaymentDto, "amount">[];
 }
@@ -28,15 +29,15 @@ export function isDiscountWithRequiredMetadata(
 
 export function getEffectiveDiscountPercent(
   discount?: DiscountDto,
-  maxDiscount?: number,
+  maxDiscountPercent?: number,
 ): number | undefined {
   if (!discount?.discountType) return discount?.discountPercent;
   if (isDiscountWithRequiredMetadata(discount.discountType)) return 20;
   if (!discount.discountPercent || discount.discountPercent <= 0) return undefined;
 
-  return maxDiscount === undefined
+  return maxDiscountPercent === undefined
     ? discount.discountPercent
-    : Math.min(discount.discountPercent, maxDiscount);
+    : Math.min(discount.discountPercent, maxDiscountPercent);
 }
 
 function round2(value: number): number {
@@ -59,7 +60,8 @@ function calculateDiscountAmount(
   vatExemptTotal: number,
   vatZeroTotal: number,
   vatRate: number,
-  maxDiscount: number,
+  discountCapType?: "amount" | "percent" | null,
+  discountCapValue?: number | null,
 ): number {
   if (!discount) return 0;
 
@@ -74,7 +76,12 @@ function calculateDiscountAmount(
     );
   }
 
-  const maxDiscountAmount = round2((grossTotal * maxDiscount) / 100);
+  const maxDiscountAmount =
+    discountCapValue == null
+      ? Number.MAX_SAFE_INTEGER
+      : discountCapType === "percent"
+        ? round2((grossTotal * discountCapValue) / 100)
+        : round2(discountCapValue);
 
   if (discount.discountAmount && discount.discountAmount > 0) {
     return round2(Math.min(discount.discountAmount, maxDiscountAmount));
@@ -82,11 +89,16 @@ function calculateDiscountAmount(
 
   const effectiveDiscountPercent = getEffectiveDiscountPercent(
     discount,
-    maxDiscount,
+    discountCapType === "percent" ? discountCapValue ?? undefined : undefined,
   );
 
   if (effectiveDiscountPercent && effectiveDiscountPercent > 0) {
-    return round2((grossTotal * effectiveDiscountPercent) / 100);
+    return round2(
+      Math.min(
+        (grossTotal * effectiveDiscountPercent) / 100,
+        maxDiscountAmount,
+      ),
+    );
   }
 
   return 0;
@@ -115,7 +127,8 @@ export function calculatePayment(
     vatExemptTotal,
     vatZeroTotal,
     input.vatRate,
-    input.maxDiscount,
+    input.discountCapType,
+    input.discountCapValue,
   );
   const totalAmount = round2(grossTotal - discountAmount);
   const dueAmount = totalAmount;

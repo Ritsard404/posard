@@ -42,6 +42,7 @@ export function POSTerminalManager() {
     id: string;
     name: string;
     vat: number;
+    discountCapType: "amount" | "percent";
     discountMax: number;
     printerConfig?: PrinterConfigDto | null;
   } | null>(null);
@@ -118,6 +119,7 @@ export function POSTerminalManager() {
             id: sessionSnapshot.terminalId,
             name: sessionSnapshot.terminalName,
             vat: sessionSnapshot.terminalVat,
+            discountCapType: sessionSnapshot.discountCapType,
             discountMax: sessionSnapshot.discountMax,
             printerConfig: sessionSnapshot.printerConfig,
           },
@@ -218,6 +220,7 @@ export function POSTerminalManager() {
                 id: bootstrap.session.terminalId,
                 name: bootstrap.session.terminalName,
                 vat: bootstrap.session.terminalVat,
+                discountCapType: bootstrap.session.discountCapType,
                 discountMax: bootstrap.session.discountMax,
                 printerConfig: bootstrap.session.printerConfig,
               },
@@ -329,8 +332,8 @@ export function POSTerminalManager() {
     return (
       <div className="relative flex h-full min-h-0 flex-col items-center justify-center overflow-hidden p-4">
         <TerminalSelection
-          onSelectTerminal={(id, name, vat, discountMax, printerConfig) =>
-            setSelectedTerminal({ id, name, vat, discountMax, printerConfig })
+          onSelectTerminal={(id, name, vat, discountCapType, discountMax, printerConfig) =>
+            setSelectedTerminal({ id, name, vat, discountCapType, discountMax, printerConfig })
           }
         />
 
@@ -348,6 +351,7 @@ export function POSTerminalManager() {
                   id: selectedTerminal.id,
                   name: selectedTerminal.name,
                   vat: selectedTerminal.vat,
+                  discountCapType: selectedTerminal.discountCapType,
                   discountMax: selectedTerminal.discountMax,
                   printerConfig: selectedTerminal.printerConfig ?? null,
                 },

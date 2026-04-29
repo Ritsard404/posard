@@ -63,6 +63,7 @@ async function getActiveTimestampForOrder(companyId: string, timestampId: string
           id: true,
           posName: true,
           vat: true,
+          discountCapType: true,
           discountMax: true,
           isTrainMode: true,
           resetCounterNo: true,
@@ -479,7 +480,8 @@ export const orderService = {
         items: buildCalculationItems(dto.items, transactionProductMap),
         discount,
         vatRate: terminal.vat ?? 0,
-        maxDiscount: terminal.discountMax ? Number(terminal.discountMax) : 0,
+        discountCapType: terminal.discountCapType,
+        discountCapValue: terminal.discountMax ? Number(terminal.discountMax) : null,
         cashTenderAmount: dto.cashTenderAmount,
         ePayments: dto.ePayments,
       });
@@ -524,7 +526,9 @@ export const orderService = {
           discountType: discount?.discountType,
           discountPercent: getEffectiveDiscountPercent(
             discount,
-            terminal.discountMax ? Number(terminal.discountMax) : 0,
+            terminal.discountCapType === "percent"
+              ? (terminal.discountMax ? Number(terminal.discountMax) : 0)
+              : undefined,
           ),
 
           status: "PAID" satisfies InvoiceStatusType,
@@ -626,7 +630,8 @@ export const orderService = {
       items: buildCalculationItems(dto.order.items, productMap),
       discount,
       vatRate: terminal.vat ?? 0,
-      maxDiscount: terminal.discountMax ? Number(terminal.discountMax) : 0,
+      discountCapType: terminal.discountCapType,
+      discountCapValue: terminal.discountMax ? Number(terminal.discountMax) : null,
       cashTenderAmount: dto.order.cashTenderAmount,
       ePayments: dto.order.ePayments,
     });

@@ -47,6 +47,7 @@ export default function TerminalConfigurationForm({
     register,
     handleSubmit,
     reset,
+    watch,
     setValue,
     formState: { errors },
   } = useForm<TerminalConfigurationPayload>({
@@ -57,6 +58,7 @@ export default function TerminalConfigurationForm({
     if (!terminal) {
       reset({
         vat: undefined,
+        discountCapType: "amount",
         discountMax: undefined,
         vatTinNumber: "",
         printerName: "",
@@ -68,6 +70,7 @@ export default function TerminalConfigurationForm({
 
     reset({
       vat: terminal.vat ?? undefined,
+      discountCapType: terminal.discountCapType,
       discountMax: terminal.discountMax ?? undefined,
       vatTinNumber: terminal.vatTinNumber ?? "",
       printerName: terminal.printerName ?? "",
@@ -80,6 +83,7 @@ export default function TerminalConfigurationForm({
     () => printClientService.getStatus(printerConfig),
     [printerConfig],
   );
+  const discountCapType = watch("discountCapType");
   const printerCapabilities = useMemo(
     () => printClientService.getCapabilities(),
     [],
@@ -237,16 +241,39 @@ export default function TerminalConfigurationForm({
     >
       <SectionCard
         title="Financial"
-        description="Set the VAT rate and maximum discount allowed on this terminal."
+        description="Set the VAT rate and choose whether this terminal's max discount is capped by amount or by percent."
       >
         <div className="grid gap-4 md:grid-cols-2">
           <FieldGroup label="VAT Rate" error={errors.vat?.message}>
             <PercentInput {...register("vat")} placeholder="12" />
           </FieldGroup>
-          <FieldGroup label="Max Discount" error={errors.discountMax?.message}>
-            <PercentInput {...register("discountMax")} placeholder="20" />
+          <FieldGroup label="Discount Cap Type" error={errors.discountCapType?.message}>
+            <select
+              {...register("discountCapType")}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="amount">Amount</option>
+              <option value="percent">Percent</option>
+            </select>
+          </FieldGroup>
+          <FieldGroup
+            label={discountCapType === "percent" ? "Discount Cap (%)" : "Discount Cap Amount"}
+            error={errors.discountMax?.message}
+          >
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              {...register("discountMax")}
+              placeholder={discountCapType === "percent" ? "20" : "100"}
+            />
           </FieldGroup>
         </div>
+        <p className="text-xs text-muted-foreground">
+          {discountCapType === "percent"
+            ? "When Max Discount is used during checkout, the discount will be capped by this percentage."
+            : "When Max Discount is used during checkout, the discount will be capped by this peso amount."}
+        </p>
       </SectionCard>
 
       <SectionCard

@@ -8,6 +8,16 @@ import type { TerminalDTO } from "../../_services/terminal.dto";
 import TerminalConfigurationForm from "./TerminalConfigurationForm";
 import type { TerminalConfigurationPayload } from "../../_services/terminal.dto";
 
+function formatDiscountCap(terminal: TerminalDTO) {
+  if (terminal.discountMax === null) {
+    return "Not set";
+  }
+
+  return terminal.discountCapType === "amount"
+    ? `PHP ${terminal.discountMax.toFixed(2)}`
+    : `${terminal.discountMax}%`;
+}
+
 interface TerminalDetailPanelProps {
   terminal: TerminalDTO | null;
   canUpdateConfiguration: boolean;
@@ -76,7 +86,8 @@ export default function TerminalDetailPanel({
             ["Operated By", terminal.operatedBy ?? "Not set"],
             ["Address", terminal.address ?? "Not set"],
             ["VAT", `${terminal.vat ?? 0}%`],
-            ["Max Discount", `${terminal.discountMax ?? 0}%`],
+            ["Discount Cap Type", terminal.discountCapType],
+            ["Discount Cap", formatDiscountCap(terminal)],
             ["Printer", terminal.printerDisplayName ?? terminal.printerName ?? "Not set"],
             ["Printer Mode", getPrinterModeLabel(terminal.printerConfig?.mode)],
           ]}

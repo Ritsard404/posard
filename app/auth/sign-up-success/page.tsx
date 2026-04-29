@@ -32,7 +32,7 @@ export default function Page() {
           <CardContent className="space-y-4 text-center">
             <p className="text-sm leading-7 text-muted-foreground">
               Registration request submitted. Please wait for admin approval.
-              Once approved, you will receive the account invite needed to sign in to POSard.
+              Once approved, your admin can give you the login password directly so you can sign in even without a working email inbox.
             </p>
             <Link
               href="/auth/login"

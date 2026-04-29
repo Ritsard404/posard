@@ -142,20 +142,21 @@ export const sessionMutationService = {
       return { timestamp };
     });
 
-    return {
-      success: true as const,
-      profileId: actor.profileId,
-      user: { name: actor.fullName, role: actor.role },
-      sessionId: result.timestamp.id,
-      timestampId: result.timestamp.id,
-      terminal: {
-        id: terminal.id,
-        name: terminal.posName ?? "Unnamed terminal",
-        vat: terminal.vat ?? 0,
-        discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
-        printerConfig: printConfigService.mapPrinterConfig(terminal),
-      },
-    };
+      return {
+        success: true as const,
+        profileId: actor.profileId,
+        user: { name: actor.fullName, role: actor.role },
+        sessionId: result.timestamp.id,
+        timestampId: result.timestamp.id,
+        terminal: {
+          id: terminal.id,
+          name: terminal.posName ?? "Unnamed terminal",
+          vat: terminal.vat ?? 0,
+          discountCapType: terminal.discountCapType,
+          discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
+          printerConfig: printConfigService.mapPrinterConfig(terminal),
+        },
+      };
   },
 
   async withdrawCashAuthorized(

@@ -46,6 +46,8 @@ const nullablePercentageInput = nullableNumberInput.refine(
   "Percentage cannot exceed 100%",
 );
 
+const DiscountCapTypeSchema = z.enum(["amount", "percent"]);
+
 const requiredDateInput = z
   .union([z.string(), z.date()])
   .transform((value, ctx) => {
@@ -83,6 +85,7 @@ export const TerminalSchema = z.object({
   address: z.string().nullable(),
   vatTinNumber: z.string().nullable(),
   vat: z.number().int().min(0).nullable(),
+  discountCapType: DiscountCapTypeSchema,
   discountMax: z.number().min(0).nullable(),
   printerName: z.string().nullable(),
   printerDisplayName: z.string().nullable().optional(),
@@ -121,6 +124,19 @@ export interface TerminalPrinterConfigurationDTO {
   printerConfig: PrinterConfigDto | null;
 }
 
+const TerminalDiscountCapFieldsSchema = z.object({
+  discountCapType: DiscountCapTypeSchema.default("amount"),
+  discountMax: nullableNumberInput,
+}).superRefine((value, ctx) => {
+  if (value.discountCapType === "percent" && value.discountMax !== null && value.discountMax > 100) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["discountMax"],
+      message: "Percentage cannot exceed 100%",
+    });
+  }
+});
+
 export const CreateTerminalSchema = z.object({
   minNumber: nullableStringInput.optional(),
   accreditationNumber: nullableStringInput.optional(),
@@ -130,9 +146,10 @@ export const CreateTerminalSchema = z.object({
   operatedBy: nullableStringInput.optional(),
   vatTinNumber: nullableStringInput.optional(),
   vat: nullablePercentageInput.optional(),
-  discountMax: nullablePercentageInput.optional(),
   printerName: nullableStringInput.optional(),
-});
+}).merge(TerminalDiscountCapFieldsSchema.partial({
+  discountMax: true,
+}));
 
 export type CreateTerminalPayload = z.input<typeof CreateTerminalSchema>;
 export type CreateTerminalInput = z.infer<typeof CreateTerminalSchema>;
@@ -146,14 +163,13 @@ const vatTinPattern = /^\d{3}-\d{3}-\d{3}-\d{3,4}$/;
 
 export const TerminalConfigurationSchema = z.object({
   vat: nullablePercentageInput,
-  discountMax: nullablePercentageInput,
   vatTinNumber: nullableStringInput.refine(
     (value) => value === null || vatTinPattern.test(value),
     "Use VAT TIN format ###-###-###-####",
   ),
   printerName: nullableStringInput,
   printerConfig: PrinterConfigSchema.nullable().optional(),
-});
+}).merge(TerminalDiscountCapFieldsSchema);
 
 export type TerminalConfigurationPayload = z.input<typeof TerminalConfigurationSchema>;
 export type TerminalConfigurationInput = z.infer<typeof TerminalConfigurationSchema>;

@@ -62,6 +62,32 @@ export const discountOptions: { id: DiscountType; label: string }[] = [
   { id: "SENIOR", label: "Senior (20% + VAT Exempt)" },
 ];
 
+function buildOtherDiscountPayload(activeTerminal: {
+  discountCapType: "amount" | "percent";
+  discountMax: number;
+} | null) {
+  if (!activeTerminal) {
+    return undefined;
+  }
+
+  return activeTerminal.discountCapType === "amount"
+    ? { discountAmount: activeTerminal.discountMax }
+    : { discountPercent: activeTerminal.discountMax };
+}
+
+function formatTerminalDiscountCap(activeTerminal: {
+  discountCapType: "amount" | "percent";
+  discountMax: number;
+} | null) {
+  if (!activeTerminal || activeTerminal.discountMax <= 0) {
+    return "No terminal max discount cap is configured.";
+  }
+
+  return activeTerminal.discountCapType === "amount"
+    ? `Terminal Max Discount cap: PHP ${formatCurrency(activeTerminal.discountMax)}`
+    : `Terminal Max Discount cap: ${activeTerminal.discountMax}%`;
+}
+
 export function usePOSPaymentSummary() {
   const cart = usePOSStore((state) => state.cart);
   const discount = usePOSStore((state) => state.discount);
@@ -81,14 +107,14 @@ export function usePOSPaymentSummary() {
               discountType: discount.type,
               eligibleDiscName: discount.eligibleDiscName,
               oscaIdNum: discount.oscaIdNum,
-              discountPercent:
-                discount.type === "OTHERS"
-                  ? (activeTerminal?.discountMax ?? 0)
-                  : undefined,
+              ...(discount.type === "OTHERS"
+                ? buildOtherDiscountPayload(activeTerminal)
+                : {}),
             }
           : undefined,
       vatRate: activeTerminal?.vat ?? 12,
-      maxDiscount: activeTerminal?.discountMax ?? Number.MAX_SAFE_INTEGER,
+      discountCapType: activeTerminal?.discountCapType ?? null,
+      discountCapValue: activeTerminal?.discountMax ?? null,
     });
 
     return {
@@ -102,7 +128,7 @@ export function usePOSPaymentSummary() {
       total: paymentSummary.totalAmount,
       taxDerived: paymentSummary.vatAmount,
     };
-  }, [activeTerminal?.discountMax, activeTerminal?.vat, cart, discount]);
+  }, [activeTerminal, cart, discount]);
 }
 
 export function usePOSCheckoutFlow(
@@ -169,6 +195,7 @@ export function usePOSCheckoutFlow(
     ? amountTendered >= totalAmount
     : totalAmount > 0 && isReferencePaymentValid;
   const canComplete = isTenderValid && isDiscountMetadataValid;
+  const terminalDiscountCapSummary = formatTerminalDiscountCap(activeTerminal);
 
   const selectCashPayment = () => {
     setPaymentMethod("cash");
@@ -243,10 +270,9 @@ export function usePOSCheckoutFlow(
               discountType: discount.type,
               eligibleDiscName: trimmedEligibleName || undefined,
               oscaIdNum: trimmedOscaIdNum || undefined,
-              discountPercent:
-                discount.type === "OTHERS"
-                  ? (activeTerminal?.discountMax ?? 0)
-                  : undefined,
+              ...(discount.type === "OTHERS"
+                ? buildOtherDiscountPayload(activeTerminal)
+                : {}),
             }
           : undefined,
     };
@@ -398,6 +424,7 @@ export function usePOSCheckoutFlow(
     isReferencePaymentValid,
     change,
     canComplete,
+    terminalDiscountCapSummary,
     setFastCheckout,
     setDiscountType,
     updateDiscountDetails,
@@ -428,6 +455,7 @@ interface POSTenderFormProps {
   isReferencePaymentValid: boolean;
   change: number;
   canComplete: boolean;
+  terminalDiscountCapSummary: string;
   isProcessing: boolean;
   fastCheckout: boolean;
   setDiscountType: (type: DiscountType) => void;
@@ -460,6 +488,7 @@ export function POSTenderForm({
   isReferencePaymentValid,
   change,
   canComplete,
+  terminalDiscountCapSummary,
   isProcessing,
   fastCheckout,
   setDiscountType,
@@ -790,10 +819,15 @@ export function POSTenderForm({
                                 >
                                   {option.label}
                                 </DropdownMenuRadioItem>
-                              ))}
-                            </DropdownMenuRadioGroup>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                            ))}
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      {discountType === "OTHERS" ? (
+                        <p className="text-[10px] font-medium text-muted-foreground">
+                          {terminalDiscountCapSummary}
+                        </p>
+                      ) : null}
 
                         {requiresDiscountMetadata ? (
                           <div className="grid gap-1.5 border-t pt-1.5">
@@ -924,6 +958,11 @@ export function POSTenderForm({
                           </DropdownMenuRadioGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      {discountType === "OTHERS" ? (
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {terminalDiscountCapSummary}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 

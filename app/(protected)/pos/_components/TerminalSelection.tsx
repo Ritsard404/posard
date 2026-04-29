@@ -12,6 +12,7 @@ interface Terminal {
   posName: string;
   isActive: boolean;
   vat: number;
+  discountCapType: "amount" | "percent";
   discountMax: number;
   printerConfig?: PrinterConfigDto | null;
   sessions: {
@@ -26,6 +27,7 @@ interface TerminalSelectionProps {
     terminalId: string,
     terminalName: string,
     vat: number,
+    discountCapType: "amount" | "percent",
     discountMax: number,
     printerConfig?: PrinterConfigDto | null,
   ) => void;
@@ -97,6 +99,7 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                     t.id,
                     t.posName,
                     t.vat,
+                    t.discountCapType,
                     Number(t.discountMax),
                     t.printerConfig ?? null,
                   )

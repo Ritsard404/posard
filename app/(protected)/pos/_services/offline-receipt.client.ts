@@ -44,7 +44,8 @@ export function buildProvisionalReceipt(input: {
     })),
     discount: input.order.discount,
     vatRate: input.terminalVat,
-    maxDiscount: Number.MAX_SAFE_INTEGER,
+    discountCapType: null,
+    discountCapValue: null,
     cashTenderAmount: input.order.cashTenderAmount,
     ePayments: input.order.ePayments,
   });

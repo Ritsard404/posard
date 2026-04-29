@@ -99,6 +99,7 @@ export interface SessionSnapshotDto {
   terminalId: string;
   terminalName: string;
   terminalVat: number;
+  discountCapType: "amount" | "percent";
   discountMax: number;
   printerConfig: PrinterConfigDto | null;
   cashierId: string;

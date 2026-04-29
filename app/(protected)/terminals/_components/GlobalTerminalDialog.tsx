@@ -41,6 +41,7 @@ export function GlobalTerminalDialog({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<GlobalTerminalFormValues>({
     resolver: zodResolver(GlobalTerminalFormSchema),
@@ -61,10 +62,13 @@ export function GlobalTerminalDialog({
       operatedBy: terminal?.operatedBy ?? "",
       vatTinNumber: terminal?.vatTinNumber ?? "",
       vat: terminal?.vat ?? undefined,
+      discountCapType: terminal?.discountCapType ?? "amount",
       discountMax: terminal?.discountMax ?? undefined,
       printerName: terminal?.printerName ?? "",
     });
   }, [companyId, companyOptions, open, reset, terminal]);
+
+  const discountCapType = watch("discountCapType");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,13 +126,31 @@ export function GlobalTerminalDialog({
             <Field label="VAT" error={errors.vat?.message}>
               <PercentInput {...register("vat")} />
             </Field>
-            <Field label="Max Discount" error={errors.discountMax?.message}>
-              <PercentInput {...register("discountMax")} />
+            <Field label="Discount Cap Type" error={errors.discountCapType?.message}>
+              <select
+                {...register("discountCapType")}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="amount">Amount</option>
+                <option value="percent">Percent</option>
+              </select>
+            </Field>
+            <Field
+              label={discountCapType === "percent" ? "Discount Cap (%)" : "Discount Cap Amount"}
+              error={errors.discountMax?.message}
+            >
+              <Input type="number" min="0" step="0.01" {...register("discountMax")} />
             </Field>
             <Field label="Printer Name" error={errors.printerName?.message}>
               <Input {...register("printerName")} />
             </Field>
           </section>
+
+          <p className="text-xs text-muted-foreground">
+            {discountCapType === "percent"
+              ? "This terminal will apply Max Discount as a percentage cap."
+              : "This terminal will apply Max Discount as a fixed amount cap."}
+          </p>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>

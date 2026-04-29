@@ -39,7 +39,7 @@ function getInviteRedirectTo() {
     return undefined;
   }
 
-  return `${baseUrl.replace(/\/$/, "")}/auth/login`;
+  return `${baseUrl.replace(/\/$/, "")}/auth/update-password`;
 }
 
 function normalizeAuthError(message: string) {

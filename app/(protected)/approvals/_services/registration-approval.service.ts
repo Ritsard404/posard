@@ -7,6 +7,7 @@ import {
   mapRegistrationRequestToListItem,
 } from "./_mappers/registration-approval.mapper";
 import type {
+  ApproveRegistrationRequestInputDto,
   RegistrationApprovalListItemDto,
   RejectRegistrationRequestInputDto,
 } from "./_dto/registration-approval.dto";
@@ -19,16 +20,6 @@ function assertAdmin(viewer: AccountsViewerDto) {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
-}
-
-function getInviteRedirectTo() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-
-  if (!baseUrl) {
-    return undefined;
-  }
-
-  return `${baseUrl.replace(/\/$/, "")}/auth/login`;
 }
 
 function normalizeAuthError(message: string) {
@@ -95,7 +86,11 @@ export const registrationApprovalService = {
     return requests.map(mapRegistrationRequestToListItem);
   },
 
-  async approveRequest(viewer: AccountsViewerDto, requestId: string): Promise<void> {
+  async approveRequest(
+    viewer: AccountsViewerDto,
+    requestId: string,
+    input: ApproveRegistrationRequestInputDto,
+  ): Promise<void> {
     assertAdmin(viewer);
 
     const request = await prisma.registrationRequest.findUnique({
@@ -128,19 +123,21 @@ export const registrationApprovalService = {
     }
 
     const adminClient = createAdminClient();
-    const inviteResult = await adminClient.auth.admin.inviteUserByEmail(email, {
-      ...(getInviteRedirectTo() ? { redirectTo: getInviteRedirectTo() } : {}),
-      data: {
+    const createUserResult = await adminClient.auth.admin.createUser({
+      email,
+      password: input.password,
+      email_confirm: true,
+      user_metadata: {
         full_name: request.fullName,
       },
     });
 
-    const invitedUser = inviteResult.data.user;
+    const invitedUser = createUserResult.data.user;
 
-    if (inviteResult.error || !invitedUser?.id || !invitedUser.email) {
+    if (createUserResult.error || !invitedUser?.id || !invitedUser.email) {
       throw new Error(
         normalizeAuthError(
-          inviteResult.error?.message ?? "Failed to create the Supabase Auth user.",
+          createUserResult.error?.message ?? "Failed to create the Supabase Auth user.",
         ),
       );
     }

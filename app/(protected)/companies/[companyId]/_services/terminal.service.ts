@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   type TerminalDTO,
@@ -8,49 +9,26 @@ import {
 } from "./terminal.dto";
 import { printConfigService } from "@/app/(protected)/pos/_services/print-config.service";
 
-function mapTerminal(terminal: {
-  id: string;
-  minNumber: string | null;
-  accreditationNumber: string | null;
-  ptuNumber: string | null;
-  dateIssued: Date;
-  validUntil: Date;
-  posName: string | null;
-  registeredName: string | null;
-  operatedBy: string | null;
-  address: string | null;
-  vatTinNumber: string | null;
-  vat: number | null;
-  discountMax: { toNumber(): number } | null;
-  printerName: string | null;
-  printerDisplayName: string | null;
-  printerConnectionType: "usb" | "bluetooth" | "serial" | "built_in" | null;
-  printerTransport: "usb" | "bluetooth" | "built_in" | null;
-  printerDriver: "webusb" | "webbluetooth" | "webserial" | "sunmi_native" | null;
-  printerVendorId: number | null;
-  printerProductId: number | null;
-  printerDeviceId: string | null;
-  printerServiceUuid: string | null;
-  printerCharacteristicUuid: string | null;
-  autoPrintEnabled: boolean;
-  resetCounterNo: number;
-  resetCounterTrainNo: number;
-  zCounterNo: number;
-  zCounterTrainNo: number;
-  isTrainMode: boolean;
-  isActive: boolean;
-  companyId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  company?: { name: string } | null;
-  subscription?: { status: "pending" | "active" | "expired" | "suspended" | "cancelled"; expiresAt: Date | null } | null;
-  sessions?: Array<{ profile: { fullName: string | null; email: string } }>;
-}): TerminalDTO {
+type TerminalRecord = Prisma.PosTerminalInfoGetPayload<{
+  include: {
+    company: { select: { name: true } };
+    subscription: { select: { status: true; expiresAt: true } };
+    sessions: {
+      where: { isActive: true };
+      take: 1;
+      orderBy: { loginTime: "desc" };
+      select: { profile: { select: { fullName: true; email: true } } };
+    };
+  };
+}>;
+
+function mapTerminal(terminal: TerminalRecord): TerminalDTO {
   const activeSession = terminal.sessions?.[0];
 
   return {
     ...terminal,
     printerConfig: printConfigService.mapPrinterConfig(terminal),
+    discountCapType: terminal.discountCapType,
     discountMax: terminal.discountMax?.toNumber() ?? null,
     companyName: terminal.company?.name ?? null,
     subscriptionStatus: terminal.subscription?.status ?? null,
@@ -239,6 +217,7 @@ export const terminalService = {
       where: { id },
       data: {
         vat: payload.vat,
+        discountCapType: payload.discountCapType,
         discountMax: payload.discountMax,
         vatTinNumber: payload.vatTinNumber,
         printerName:

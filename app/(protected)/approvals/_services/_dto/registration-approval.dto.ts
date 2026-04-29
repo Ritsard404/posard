@@ -18,3 +18,7 @@ export interface RegistrationApprovalListItemDto {
 export interface RejectRegistrationRequestInputDto {
   rejectionReason: string | null;
 }
+
+export interface ApproveRegistrationRequestInputDto {
+  password: string;
+}

@@ -42,6 +42,7 @@ export default function TerminalFormModal({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<CreateTerminalPayload>({
     resolver: zodResolver(CreateTerminalSchema) as Resolver<CreateTerminalPayload>,
@@ -62,6 +63,7 @@ export default function TerminalFormModal({
         operatedBy: terminal.operatedBy,
         vatTinNumber: terminal.vatTinNumber,
         vat: terminal.vat ?? undefined,
+        discountCapType: terminal.discountCapType,
         discountMax: terminal.discountMax ?? undefined,
         printerName: terminal.printerName,
       });
@@ -77,10 +79,13 @@ export default function TerminalFormModal({
       operatedBy: "",
       vatTinNumber: "",
       vat: undefined,
+      discountCapType: "amount",
       discountMax: undefined,
       printerName: "",
     });
   }, [isOpen, terminal, reset]);
+
+  const discountCapType = watch("discountCapType");
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : null)}>
@@ -132,10 +137,33 @@ export default function TerminalFormModal({
               <FieldGroup label="VAT (%)" error={errors.vat?.message}>
                 <PercentInput {...register("vat")} placeholder="Optional" />
               </FieldGroup>
-              <FieldGroup label="Max Discount" error={errors.discountMax?.message}>
-                <PercentInput {...register("discountMax")} placeholder="Optional" />
+              <FieldGroup label="Discount Cap Type" error={errors.discountCapType?.message}>
+                <select
+                  {...register("discountCapType")}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="amount">Amount</option>
+                  <option value="percent">Percent</option>
+                </select>
+              </FieldGroup>
+              <FieldGroup
+                label={discountCapType === "percent" ? "Discount Cap (%)" : "Discount Cap Amount"}
+                error={errors.discountMax?.message}
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  {...register("discountMax")}
+                  placeholder={discountCapType === "percent" ? "Optional percent" : "Optional amount"}
+                />
               </FieldGroup>
             </div>
+            <p className="text-xs text-muted-foreground">
+              {discountCapType === "percent"
+                ? "Percent cap keeps Max Discount limited by percentage."
+                : "Amount cap keeps Max Discount limited by fixed peso amount."}
+            </p>
           </section>
 
           <section className="space-y-4">

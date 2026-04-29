@@ -98,6 +98,14 @@ enum PrinterDriver {
   @@schema("public")
 }
 
+enum DiscountCapType {
+  percent
+  amount
+
+  @@map("discount_cap_type")
+  @@schema("public")
+}
+
 /////////////////////////////////////////////////
 // PROFILE (Single User Source)
 /////////////////////////////////////////////////
@@ -256,6 +264,7 @@ model PosTerminalInfo {
   address        String?
   vatTinNumber   String?  @map("vat_tin_number")
   vat            Int?
+  discountCapType DiscountCapType @default(percent) @map("discount_cap_type")
   discountMax    Decimal? @map("discount_max") @db.Decimal(10, 2)
 
   // System

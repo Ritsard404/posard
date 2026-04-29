@@ -47,8 +47,16 @@ export function PendingManagerApprovalsClient({
 }: PendingManagerApprovalsClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
+  const [approvalPassword, setApprovalPassword] = useState("");
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+
+  const approveTarget = useMemo(
+    () =>
+      pendingAccounts.find((account) => account.id === approveTargetId) ?? null,
+    [pendingAccounts, approveTargetId],
+  );
 
   const rejectTarget = useMemo(
     () =>
@@ -150,13 +158,10 @@ export function PendingManagerApprovalsClient({
                             <Button
                               size="sm"
                               disabled={isPending}
-                              onClick={() =>
-                                runMutation(
-                                  () =>
-                                    approveRegistrationRequestAction(account.id),
-                                  "Registration request approved",
-                                )
-                              }
+                              onClick={() => {
+                                setApproveTargetId(account.id);
+                                setApprovalPassword("");
+                              }}
                             >
                               Approve
                             </Button>
@@ -205,13 +210,10 @@ export function PendingManagerApprovalsClient({
                         <Button
                           size="sm"
                           disabled={isPending}
-                          onClick={() =>
-                            runMutation(
-                              () =>
-                                approveRegistrationRequestAction(account.id),
-                              "Registration request approved",
-                            )
-                          }
+                          onClick={() => {
+                            setApproveTargetId(account.id);
+                            setApprovalPassword("");
+                          }}
                         >
                           Approve
                         </Button>
@@ -365,6 +367,73 @@ export function PendingManagerApprovalsClient({
           )}
         </Card>
       </div>
+
+      <Dialog
+        open={approveTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApproveTargetId(null);
+            setApprovalPassword("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Approve Registration Request</DialogTitle>
+            <DialogDescription>
+              {approveTarget
+                ? `Create ${approveTarget.fullName}'s initial login password now. Share the credentials manually after approval.`
+                : "Create the initial login password for this request."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="approval-password">Initial Password</Label>
+            <Input
+              id="approval-password"
+              type="password"
+              value={approvalPassword}
+              onChange={(event) => setApprovalPassword(event.target.value)}
+              placeholder="Enter initial password"
+            />
+            <p className="text-xs text-muted-foreground">
+              The user will log in with the registered email/login identifier and this password, then can change it later inside the app.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setApproveTargetId(null);
+                setApprovalPassword("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!approveTarget || isPending}
+              onClick={() => {
+                if (!approveTarget) {
+                  return;
+                }
+
+                runMutation(
+                  () =>
+                    approveRegistrationRequestAction(approveTarget.id, {
+                      password: approvalPassword,
+                    }),
+                  "Registration request approved",
+                );
+                setApproveTargetId(null);
+                setApprovalPassword("");
+              }}
+            >
+              Approve Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={rejectTarget !== null}

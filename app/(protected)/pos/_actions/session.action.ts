@@ -43,6 +43,7 @@ export async function getCurrentSessionAction() {
           id: timestamp.posTerminalId,
           name: timestamp.posTerminal.posName ?? "Unnamed terminal",
           vat: timestamp.posTerminal.vat ?? 0,
+          discountCapType: timestamp.posTerminal.discountCapType,
           discountMax: timestamp.posTerminal.discountMax
             ? Number(timestamp.posTerminal.discountMax)
             : 0,
@@ -84,6 +85,7 @@ export async function getTerminalsAction() {
         posName: terminal.posName ?? "Unnamed terminal",
         isActive: terminal.timestamps.length > 0,
         vat: terminal.vat ?? 0,
+        discountCapType: terminal.discountCapType,
         discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
         printerConfig: printConfigService.mapPrinterConfig(terminal),
         sessions: terminal.timestamps.map((timestamp) => ({

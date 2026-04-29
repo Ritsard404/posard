@@ -78,6 +78,12 @@ export function LoginForm({
             );
           }
 
+          if (requestStatus.success && requestStatus.data.status === "approved") {
+            throw new Error(
+              "Your account has already been approved. Use the password given by your admin to log in. If you do not have it yet, contact your admin to set or reset your login password.",
+            );
+          }
+
           throw error;
         }
 

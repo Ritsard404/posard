@@ -237,7 +237,7 @@ POSard uses these account paths:
 | Flow | What Happens |
 | --- | --- |
 | Public sign-up | Creates a `registration_requests` row only; no Supabase Auth user is created yet |
-| Admin approval | Admin reviews the request, creates the Supabase Auth user server-side, creates the matching active profile, and sends the invite email |
+| Admin approval | Admin reviews the request, creates the Supabase Auth user server-side with an initial password, creates the matching active profile, and shares the credentials manually when email delivery is not available |
 | Manager onboarding | Approved managers without a company are sent to `/setup-company` |
 | Company setup | Creates the company, assigns the manager, creates the first terminal, and saves the manager PIN |
 | Cashier creation | Manager/admin creates cashier accounts from Accounts; cashier users are active after creation |
