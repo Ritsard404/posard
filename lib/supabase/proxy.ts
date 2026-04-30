@@ -4,9 +4,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   getFirstAccessibleRoute,
   hasPermissionForRoute,
+  isBillingRestrictedRole,
+  isBillingRestrictedRoute,
   isAuthRoute,
   isPublicRoute,
 } from "@/lib/access-control-core";
+import { getCompanyBillingAccess } from "@/lib/billing-access";
 import { hasEnvVars } from "../utils";
 
 export async function updateSession(request: NextRequest) {
@@ -65,6 +68,18 @@ export async function updateSession(request: NextRequest) {
     }
 
     userRole = profile?.role ?? null;
+
+    if (
+      isBillingRestrictedRole(userRole) &&
+      profile?.company_id &&
+      isBillingRestrictedRoute(userRole, pathname)
+    ) {
+      const billingAccess = await getCompanyBillingAccess(profile.company_id);
+
+      if (billingAccess.isRestricted) {
+        return NextResponse.redirect(new URL("/dashboard?billing=restricted", request.url));
+      }
+    }
 
     if (
       userRole === "manager" &&

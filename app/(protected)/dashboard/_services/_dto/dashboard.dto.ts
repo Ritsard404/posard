@@ -108,9 +108,15 @@ export interface DashboardAdminTerminalWatchDto {
 export interface DashboardDataDto {
   role: UserRole;
   viewerName: string;
+  companyId?: string | null;
   scopeLabel: string;
   heroTitle: string;
   heroDescription: string;
+  billingRestriction?: {
+    isRestricted: boolean;
+    reason: string;
+    affectedAreas: string[];
+  } | null;
   summary: DashboardMetricDto[];
   trend: DashboardTrendPointDto[];
   paymentMix: DashboardPaymentMixDto[];

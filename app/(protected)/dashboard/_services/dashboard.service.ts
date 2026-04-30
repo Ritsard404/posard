@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getCompanyBillingAccess } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import type { DashboardDataDto, DashboardViewerDto } from "./_dto/dashboard.dto";
@@ -393,6 +394,24 @@ export const dashboardService = {
       throw new Error("Company not found.");
     }
 
+    const billingAccess =
+      viewer.role === "manager" || viewer.role === "cashier"
+        ? await getCompanyBillingAccess(companyId)
+        : null;
+    const billingRestriction =
+      billingAccess?.isRestricted
+        ? {
+            isRestricted: true,
+            reason:
+              billingAccess.reason ??
+              "This company currently has no active terminal subscription.",
+            affectedAreas:
+              viewer.role === "manager"
+                ? ["POS terminal access", "cashier management"]
+                : ["POS terminal access"],
+          }
+        : null;
+
     const baseWhere = { posTerminal: { companyId } } as const;
 
     const [
@@ -615,6 +634,7 @@ export const dashboardService = {
       return {
         role: viewer.role,
         viewerName: viewer.fullName ?? viewer.email,
+        companyId,
         scopeLabel: company.name,
         heroTitle: "Store floor performance today",
         heroDescription: "Monitor live terminals, sales momentum, and stock pressure before it becomes an issue.",
@@ -660,6 +680,15 @@ export const dashboardService = {
           sales: toNumber(product.price),
         })),
         alerts: [
+          ...(billingRestriction
+            ? [{
+                id: "billing-restricted",
+                title: "Billing restriction is active",
+                description:
+                  "POS terminal access and cashier management are suspended until a terminal subscription is reactivated.",
+                tone: "danger" as const,
+              }]
+            : []),
           ...(lowStockProducts.length > 0
             ? [{ id: "low-stock", title: "Low stock items detected", description: `${lowStockProducts.length} tracked product(s) are at or below 10 units.`, tone: "warning" as const }]
             : []),
@@ -667,6 +696,7 @@ export const dashboardService = {
             ? [{ id: "no-open-session", title: "No open sessions", description: "No cashier drawer is currently open.", tone: "info" as const }]
             : []),
         ],
+        billingRestriction,
         ...commonData,
       };
     }
@@ -690,6 +720,7 @@ export const dashboardService = {
     return {
       role: viewer.role,
       viewerName: viewer.fullName ?? viewer.email,
+      companyId,
       scopeLabel: company.name,
       heroTitle: "Your shift, receipts, and pace",
       heroDescription: "Focus on your terminal, today's sales, and the receipts you've already handled.",
@@ -700,9 +731,21 @@ export const dashboardService = {
         { label: "Returns", value: returnsToday, tone: "warning", hint: "Returned amount on your invoices" },
       ],
       shift: latestCashierShift,
-      alerts: latestCashierShift.isOpen
-        ? []
-        : [{ id: "shift-closed", title: "No open shift", description: "Open a cashier session to start recording drawer activity.", tone: "info" }],
+      alerts: [
+        ...(billingRestriction
+          ? [{
+              id: "billing-restricted",
+              title: "Billing restriction is active",
+              description:
+                "POS terminal access is suspended until a terminal subscription is reactivated.",
+              tone: "danger" as const,
+            }]
+          : []),
+        ...(!latestCashierShift.isOpen
+          ? [{ id: "shift-closed", title: "No open shift", description: "Open a cashier session to start recording drawer activity.", tone: "info" as const }]
+          : []),
+      ],
+      billingRestriction,
       ...commonData,
     };
   },

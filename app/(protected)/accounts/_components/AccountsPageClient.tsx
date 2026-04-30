@@ -127,7 +127,8 @@ export function AccountsPageClient({
   );
   const cashierCapacity = selectedCompanyForCapacity ?? aggregateCapacity;
   const canCreateCashier =
-    viewer.role === "admin" || cashierCapacity.cashierSlotsAvailable > 0;
+    !viewer.billingRestricted &&
+    (viewer.role === "admin" || cashierCapacity.cashierSlotsAvailable > 0);
 
   function refreshAccounts(nextFilters: FiltersState = filters) {
     startTransition(() => {
@@ -299,6 +300,21 @@ export function AccountsPageClient({
 
   return (
     <div className="space-y-8">
+      {viewer.role === "manager" && viewer.billingRestricted ? (
+        <Card className="border-amber-300 bg-amber-50 p-5 text-amber-950 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-700">
+            Billing Restriction
+          </p>
+          <p className="mt-2 text-sm font-medium">
+            {viewer.billingRestrictionReason ??
+              "Cashier management is currently suspended for this company."}
+          </p>
+          <p className="mt-2 text-xs text-amber-800/80">
+            Manager cashier actions are disabled until at least one terminal subscription is active again.
+          </p>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="glass-card border-white/5 p-5">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
@@ -552,6 +568,7 @@ export function AccountsPageClient({
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={viewer.role === "manager" && viewer.billingRestricted}
                               onClick={() =>
                                 runMutation(async () => {
                                   const result = await approveAccountAction(account.id);
@@ -570,6 +587,7 @@ export function AccountsPageClient({
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={viewer.role === "manager" && viewer.billingRestricted}
                               onClick={() =>
                                 runMutation(async () => {
                                   const result = await activateAccountAction(account.id);
@@ -588,6 +606,7 @@ export function AccountsPageClient({
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={viewer.role === "manager" && viewer.billingRestricted}
                               onClick={() =>
                                 runMutation(async () => {
                                   const result = await deactivateAccountAction(account.id);
@@ -606,6 +625,7 @@ export function AccountsPageClient({
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={viewer.role === "manager" && viewer.billingRestricted}
                               onClick={() => setDialogState({ type: "edit", account })}
                             >
                               <Pencil className="size-4" />
@@ -616,6 +636,7 @@ export function AccountsPageClient({
                             <Button
                               size="sm"
                               variant="destructive"
+                              disabled={viewer.role === "manager" && viewer.billingRestricted}
                               onClick={() => handleDelete(account)}
                             >
                               <Trash2 className="size-4" />

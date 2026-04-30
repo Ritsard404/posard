@@ -95,6 +95,7 @@ export interface SidebarNavContext {
   companyId?: string | null;
   profileId?: string | null;
   posStatus?: "available" | "in_use";
+  billingRestricted?: boolean;
 }
 
 export interface SidebarNavItem {
@@ -355,6 +356,13 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         href: "/companies/[companyId]/terminals",
         permission: "view.company.terminals",
       },
+      {
+        id: "company-subscription",
+        label: "Subscription",
+        icon: CreditCard,
+        href: "/companies/[companyId]/subscription",
+        permission: "view.company.subscription",
+      },
     ],
   },
   {
@@ -540,15 +548,30 @@ function buildSidebarItem(
     label: item.label,
     icon: item.icon,
     href,
-    disabled: item.disabled || (Boolean(item.href) && !href),
+    disabled:
+      item.disabled ||
+      (Boolean(item.href) && !href) ||
+      Boolean(
+        context.billingRestricted &&
+          ((role === "manager" && (item.id === "pos" || item.id === "user-management")) ||
+            (role === "cashier" && item.id === "pos")),
+      ),
     badge:
-      item.id === "pos"
+      context.billingRestricted &&
+      ((role === "manager" && item.id === "user-management") ||
+        item.id === "pos")
+        ? "Suspended"
+        : item.id === "pos"
         ? context.posStatus === "in_use"
           ? "In use"
           : "Available"
         : item.badge,
     badgeTone:
-      item.id === "pos"
+      context.billingRestricted &&
+      ((role === "manager" && item.id === "user-management") ||
+        item.id === "pos")
+        ? "neutral"
+        : item.id === "pos"
         ? context.posStatus === "in_use"
           ? "active"
           : "success"

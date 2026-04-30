@@ -11,6 +11,8 @@ interface Terminal {
   id: string;
   posName: string;
   isActive: boolean;
+  billingLocked?: boolean;
+  billingMessage?: string | null;
   vat: number;
   discountCapType: "amount" | "percent";
   discountMax: number;
@@ -92,9 +94,10 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
               style={{ animationDelay: `${idx * 100}ms` }}
             >
               <Card 
-                className={`group relative overflow-hidden glass-card p-2 border-white/5 transition-all duration-300 ${t.isActive ? "opacity-60 grayscale-[0.5]" : "hover:scale-[1.03] active:scale-[0.98] cursor-pointer hover:border-accent/30 hover:shadow-2xl group-hover:shadow-accent/5"}`}
+                className={`group relative overflow-hidden glass-card p-2 border-white/5 transition-all duration-300 ${t.isActive || t.billingLocked ? "opacity-60 grayscale-[0.5]" : "hover:scale-[1.03] active:scale-[0.98] cursor-pointer hover:border-accent/30 hover:shadow-2xl group-hover:shadow-accent/5"}`}
                 onClick={() =>
                   !t.isActive &&
+                  !t.billingLocked &&
                   onSelectTerminal(
                     t.id,
                     t.posName,
@@ -117,6 +120,11 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                           <span className="size-2 rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]" /> 
                           In Use
                         </span>
+                      ) : t.billingLocked ? (
+                        <span className="text-amber-600 font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.45)]" />
+                          Subscription Locked
+                        </span>
                       ) : (
                         <span className="text-emerald-500 font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
                           <span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" /> 
@@ -133,6 +141,15 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Current Cashier</p>
                         <p className="font-bold text-sm text-foreground truncate">{t.sessions[0].profile.fullName || "Unknown Staff"}</p>
                       </div>
+                    ) : t.billingLocked ? (
+                      <div className="rounded-xl border border-amber-300/60 bg-amber-50 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 mb-1">
+                          Billing Restriction
+                        </p>
+                        <p className="text-sm font-medium text-amber-950">
+                          {t.billingMessage ?? "Subscription is not active for this terminal."}
+                        </p>
+                      </div>
                     ) : (
                       <div className="px-1">
                         <p className="text-sm font-medium text-muted-foreground/80 leading-relaxed">
@@ -143,11 +160,15 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                   </div>
                   
                   <Button 
-                    className={`w-full mt-6 h-12 rounded-xl font-bold transition-all ${t.isActive ? "bg-white/5 text-muted-foreground border-white/5" : "bg-primary hover:bg-primary/90 glow-on-hover"}`} 
-                    disabled={t.isActive}
-                    variant={t.isActive ? "secondary" : "default"}
+                    className={`w-full mt-6 h-12 rounded-xl font-bold transition-all ${t.isActive || t.billingLocked ? "bg-white/5 text-muted-foreground border-white/5" : "bg-primary hover:bg-primary/90 glow-on-hover"}`} 
+                    disabled={t.isActive || t.billingLocked}
+                    variant={t.isActive || t.billingLocked ? "secondary" : "default"}
                   >
-                    {t.isActive ? "Terminal Locked" : "Initialize Session"}
+                    {t.isActive
+                      ? "Terminal Locked"
+                      : t.billingLocked
+                        ? "Subscription Required"
+                        : "Initialize Session"}
                   </Button>
                 </CardContent>
               </Card>

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { assertTerminalBillingAllowsPos } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { printConfigService } from "./print-config.service";
@@ -71,6 +72,8 @@ export const sessionMutationService = {
     openingCash: number,
     deviceId: string | null,
   ) {
+    await assertTerminalBillingAllowsPos(actor.companyId, terminalId);
+
     const approver = await prisma.profile.findFirst({
       where: {
         companyId: actor.companyId,
@@ -165,6 +168,20 @@ export const sessionMutationService = {
     amount: number,
     approverProfileId: string,
   ) {
+    const timestampForBilling = await prisma.timestamp.findUnique({
+      where: { id: timestampId },
+      select: { posTerminalId: true },
+    });
+
+    if (!timestampForBilling) {
+      throw new Error("Active session not found");
+    }
+
+    await assertTerminalBillingAllowsPos(
+      actor.companyId,
+      timestampForBilling.posTerminalId,
+    );
+
     if (amount <= 0) {
       throw new Error("Amount must be greater than 0");
     }
@@ -225,6 +242,20 @@ export const sessionMutationService = {
     countedCash: number,
     approverProfileId: string,
   ) {
+    const timestampForBilling = await prisma.timestamp.findUnique({
+      where: { id: timestampId },
+      select: { posTerminalId: true },
+    });
+
+    if (!timestampForBilling) {
+      throw new Error("Session is not active or does not exist.");
+    }
+
+    await assertTerminalBillingAllowsPos(
+      actor.companyId,
+      timestampForBilling.posTerminalId,
+    );
+
     const approver = await prisma.profile.findFirst({
       where: {
         id: approverProfileId,

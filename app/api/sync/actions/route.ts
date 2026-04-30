@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertCompanyBillingAllowsPos } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { orderService } from "@/app/(protected)/pos/_services/order.service";
@@ -226,6 +227,7 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     }
+    await assertCompanyBillingAllowsPos(profile.companyId);
 
     const body = (await request.json()) as { actions?: QueuedPosAction[] };
     const actions = Array.isArray(body.actions) ? body.actions : [];

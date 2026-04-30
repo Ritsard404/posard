@@ -1,5 +1,10 @@
 "use server";
 
+import {
+  assertCompanyBillingAllowsPos,
+  assertTerminalBillingAllowsPos,
+  TERMINAL_BILLING_RESTRICTION_MESSAGE,
+} from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { printConfigService } from "../_services/print-config.service";
@@ -23,6 +28,9 @@ async function getCurrentProfile() {
 export async function getCurrentSessionAction() {
   try {
     const profile = await getCurrentProfile();
+    if (profile.companyId) {
+      await assertCompanyBillingAllowsPos(profile.companyId);
+    }
 
     const timestamp = await prisma.timestamp.findFirst({
       where: { cashierId: profile.id, timestampOut: null },
@@ -66,6 +74,7 @@ export async function getTerminalsAction() {
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
+    const billingAccess = await assertCompanyBillingAllowsPos(profile.companyId);
 
     const terminals = await prisma.posTerminalInfo.findMany({
       where: { companyId: profile.companyId },
@@ -84,6 +93,10 @@ export async function getTerminalsAction() {
         id: terminal.id,
         posName: terminal.posName ?? "Unnamed terminal",
         isActive: terminal.timestamps.length > 0,
+        billingLocked: !billingAccess.activeTerminalIds.has(terminal.id),
+        billingMessage: billingAccess.activeTerminalIds.has(terminal.id)
+          ? null
+          : TERMINAL_BILLING_RESTRICTION_MESSAGE,
         vat: terminal.vat ?? 0,
         discountCapType: terminal.discountCapType,
         discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
@@ -114,6 +127,7 @@ export async function openSessionAction(
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
+    await assertTerminalBillingAllowsPos(profile.companyId, terminalId);
 
     if (!managerPin.trim()) {
       return { success: false as const, error: "Manager PIN is required." };
@@ -149,6 +163,7 @@ export async function withdrawCashAction(
     if (!profile.companyId) {
       return { success: false, error: "No company associated with user." };
     }
+    await assertCompanyBillingAllowsPos(profile.companyId);
 
     if (amount <= 0) {
       return { success: false, error: "Amount must be greater than 0" };
@@ -199,6 +214,7 @@ export async function closeSessionAction(
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
+    await assertCompanyBillingAllowsPos(profile.companyId);
 
     const approver = await prisma.profile.findFirst({
       where: {
@@ -253,6 +269,7 @@ export async function getSessionXReadingPrintPayloadAction(timestampId: string) 
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
+    await assertCompanyBillingAllowsPos(profile.companyId);
 
     const payload = await sessionMutationService.getSessionXReadingPayload(timestampId);
 

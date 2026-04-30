@@ -1,5 +1,6 @@
 import "server-only";
 
+import { assertManagerBillingAllowsCashierManagement } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -281,6 +282,7 @@ export const accountsService = {
     input: CreateAccountInputDto,
   ): Promise<AccountDetailDto> {
     assertViewerCanManageAccounts(viewer);
+    await assertManagerBillingAllowsCashierManagement(viewer);
 
     if (viewer.role === "manager" && input.role !== "cashier") {
       throw new Error("Managers can only create cashier accounts");
@@ -372,6 +374,7 @@ export const accountsService = {
     id: string,
     input: UpdateAccountInputDto,
   ): Promise<AccountDetailDto> {
+    await assertManagerBillingAllowsCashierManagement(viewer);
     const target = await getTargetAccountOrThrow(id);
     assertViewerCanMutateTarget(viewer, target);
 
@@ -412,6 +415,7 @@ export const accountsService = {
   },
 
   async deleteAccount(viewer: AccountsViewerDto, id: string): Promise<void> {
+    await assertManagerBillingAllowsCashierManagement(viewer);
     const target = await getTargetAccountOrThrow(id);
     assertViewerCanMutateTarget(viewer, target);
 
@@ -448,6 +452,7 @@ export const accountsService = {
   },
 
   async activateAccount(viewer: AccountsViewerDto, id: string): Promise<void> {
+    await assertManagerBillingAllowsCashierManagement(viewer);
     const target = await getTargetAccountOrThrow(id);
     assertViewerCanMutateTarget(viewer, target);
 
@@ -464,6 +469,7 @@ export const accountsService = {
     viewer: AccountsViewerDto,
     id: string,
   ): Promise<void> {
+    await assertManagerBillingAllowsCashierManagement(viewer);
     const target = await getTargetAccountOrThrow(id);
     assertViewerCanMutateTarget(viewer, target);
 

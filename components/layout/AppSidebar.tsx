@@ -57,6 +57,8 @@ interface UserProfile {
   email?: string | null;
   company_id?: string | null;
   pos_status?: "available" | "in_use";
+  billing_restricted?: boolean;
+  billing_restriction_reason?: string | null;
 }
 
 function getInitials(name?: string | null, email?: string | null): string {
@@ -264,6 +266,7 @@ export function AppSidebar({
           : (params?.companyId as string) || profile?.company_id || null,
       profileId: profile?.id || null,
       posStatus: profile?.pos_status ?? "available",
+      billingRestricted: profile?.billing_restricted ?? false,
     }),
     [
       params?.companyId,
@@ -271,6 +274,7 @@ export function AppSidebar({
       profile?.id,
       profile?.pos_status,
       profile?.role,
+      profile?.billing_restricted,
     ],
   );
 
@@ -474,6 +478,21 @@ export function AppSidebar({
           </SidebarGroup>
         ) : (
           <>
+            {profile?.billing_restricted ? (
+              <SidebarGroup className="px-0">
+                <SidebarGroupContent>
+                  <div className="mx-3 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-3 text-xs text-amber-950 group-data-[collapsible=icon]:hidden">
+                    <div className="font-bold uppercase tracking-[0.16em] text-amber-700">
+                      Billing Suspended
+                    </div>
+                    <div className="mt-1 leading-5">
+                      {profile.billing_restriction_reason ??
+                        "POS access is paused until billing is restored."}
+                    </div>
+                  </div>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ) : null}
             {contentSections.map(renderSection)}
             <SidebarSeparator className="mt-1" />
           </>

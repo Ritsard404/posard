@@ -1,4 +1,5 @@
 import "server-only";
+import { assertTerminalBillingAllowsPos } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import type { Prisma } from "@prisma/client";
@@ -91,6 +92,8 @@ async function getActiveTimestampForOrder(companyId: string, timestampId: string
   if (!timestamp) {
     throw new Error("Active POS session not found for this terminal");
   }
+
+  await assertTerminalBillingAllowsPos(companyId, timestamp.posTerminal.id);
 
   return timestamp;
 }

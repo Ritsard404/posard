@@ -82,6 +82,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "view.company",
     "view.company.settings",
     "view.company.terminals",
+    "view.company.subscription",
   ],
   cashier: ["view.dashboard", "view.pos", "view.transactions", "view.profile"],
 };
@@ -91,6 +92,25 @@ export interface AppRouteConfig {
   permission: Permission;
   label: string;
   showInNav: boolean;
+}
+
+export function isBillingRestrictedRole(role: string | null): role is "manager" | "cashier" {
+  return role === "manager" || role === "cashier";
+}
+
+export function isBillingRestrictedRoute(
+  role: string | null,
+  pathname: string,
+): boolean {
+  if (role === "manager") {
+    return pathname.startsWith("/pos") || pathname === "/accounts";
+  }
+
+  if (role === "cashier") {
+    return pathname.startsWith("/pos");
+  }
+
+  return false;
 }
 
 export const appRoutes: AppRouteConfig[] = [

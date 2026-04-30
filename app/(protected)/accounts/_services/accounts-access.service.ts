@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getCompanyBillingAccess } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import type { AccountsViewerDto } from "./_dto/accounts.dto";
@@ -30,6 +31,11 @@ async function getCurrentProfile(): Promise<AccountsViewerDto> {
     throw new Error("Profile not found");
   }
 
+  const billingAccess =
+    profile.role === "manager" && profile.companyId
+      ? await getCompanyBillingAccess(profile.companyId)
+      : null;
+
   return {
     profileId: profile.id,
     userId: profile.userId,
@@ -37,6 +43,8 @@ async function getCurrentProfile(): Promise<AccountsViewerDto> {
     role: profile.role,
     fullName: profile.fullName,
     email: profile.email,
+    billingRestricted: billingAccess?.isRestricted ?? false,
+    billingRestrictionReason: billingAccess?.reason ?? null,
   };
 }
 

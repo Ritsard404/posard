@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { getCurrentProfile } from "@/lib/auth/current-user";
+import { getCompanyBillingAccess } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 
 export default async function DashboardLayout({
@@ -24,6 +25,10 @@ export default async function DashboardLayout({
         select: { id: true },
       })
     : null;
+  const billingAccess =
+    profile?.companyId && (profile.role === "manager" || profile.role === "cashier")
+      ? await getCompanyBillingAccess(profile.companyId)
+      : null;
 
   return (
     <SidebarProvider>
@@ -37,6 +42,8 @@ export default async function DashboardLayout({
                 email: profile.email,
                 company_id: profile.companyId,
                 pos_status: activePosSession ? "in_use" : "available",
+                billing_restricted: billingAccess?.isRestricted ?? false,
+                billing_restriction_reason: billingAccess?.reason ?? null,
               }
             : null
         }

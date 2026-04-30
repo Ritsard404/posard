@@ -711,11 +711,23 @@ function OperationsDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
 
 export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) {
   const primaryAction =
-    dashboard.role === "admin"
+    dashboard.billingRestriction?.isRestricted
+      ? dashboard.role === "manager"
+        ? {
+            href: dashboard.companyId
+              ? `/companies/${dashboard.companyId}/subscription`
+              : "/dashboard",
+            label: "Review Subscription",
+            icon: Clock3,
+          }
+        : { href: "/dashboard", label: "View Dashboard", icon: Building2 }
+      : dashboard.role === "admin"
       ? { href: "/companies", label: "Manage Companies", icon: Building2 }
       : { href: "/pos", label: "Open POS", icon: ShoppingCart };
   const secondaryAction =
-    dashboard.role === "cashier"
+    dashboard.billingRestriction?.isRestricted
+      ? null
+      : dashboard.role === "cashier"
       ? null
       : dashboard.role === "admin"
         ? { href: "/subscriptions", label: "Review Subscriptions", icon: Clock3 }
@@ -723,6 +735,33 @@ export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) 
 
   return (
     <div className="space-y-6">
+      {dashboard.billingRestriction?.isRestricted ? (
+        <Card className="border-amber-300 bg-amber-50 text-amber-950 shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
+                  Billing Restriction
+                </div>
+                <div className="mt-2 text-lg font-bold">
+                  Terminal access is suspended
+                </div>
+                <div className="mt-1 text-sm leading-6 text-amber-900/90">
+                  {dashboard.billingRestriction.reason}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {dashboard.billingRestriction.affectedAreas.map((item) => (
+                  <Badge key={item} variant="outline" className="rounded-full border-amber-300 bg-amber-100 text-amber-900">
+                    {item}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card className="overflow-hidden rounded-[2rem] border-border/60 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(6,182,212,0.2),_transparent_32%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92))] shadow-sm">
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">

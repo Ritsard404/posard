@@ -10,6 +10,8 @@ export interface AccountsViewerDto {
   role: AccountsViewerRole;
   fullName: string | null;
   email: string;
+  billingRestricted?: boolean;
+  billingRestrictionReason?: string | null;
 }
 
 export interface AccountCompanyOptionDto {

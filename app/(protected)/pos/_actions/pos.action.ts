@@ -1,5 +1,6 @@
 "use server";
 
+import { assertCompanyBillingAllowsPos } from "@/lib/billing-access";
 import { z } from "zod";
 import { POSMetaDataDto } from "../_services/_dto/pos.dto";
 import type { PrinterConfigDto } from "../_services/_dto/print.dto";
@@ -52,6 +53,9 @@ export async function fetchPOSMetaDataAction(): Promise<{ success: true; data: P
   try {
     const profile = await getCurrentProfile();
     const companyId = profile.companyId ?? undefined;
+    if (companyId) {
+      await assertCompanyBillingAllowsPos(companyId);
+    }
 
     const [categories, products, epaymentMethods] = await Promise.all([
       categoryService.getCategories(companyId),
@@ -81,6 +85,10 @@ export async function saveSessionPrinterConfigAction(
 ) {
   try {
     const profile = await getCurrentProfile();
+    if (!profile.companyId) {
+      return { success: false as const, error: "No company associated with user." };
+    }
+    await assertCompanyBillingAllowsPos(profile.companyId);
     const validated = printerConfig === null ? null : PrinterConfigSchema.parse(printerConfig);
 
     const timestamp = await prisma.timestamp.findFirst({
