@@ -55,6 +55,11 @@ export async function getCurrentSessionAction() {
           discountMax: timestamp.posTerminal.discountMax
             ? Number(timestamp.posTerminal.discountMax)
             : 0,
+          allowCashierDebtCreate: timestamp.posTerminal.allowCashierDebtCreate,
+          allowCashierDebtCollect: timestamp.posTerminal.allowCashierDebtCollect,
+          requireManagerApprovalForDebt:
+            timestamp.posTerminal.requireManagerApprovalForDebt,
+          defaultDebtDueDays: timestamp.posTerminal.defaultDebtDueDays ?? null,
           printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
         },
         user: { name: profile.fullName || null, role: profile.role },
@@ -100,6 +105,10 @@ export async function getTerminalsAction() {
         vat: terminal.vat ?? 0,
         discountCapType: terminal.discountCapType,
         discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
+        allowCashierDebtCreate: terminal.allowCashierDebtCreate,
+        allowCashierDebtCollect: terminal.allowCashierDebtCollect,
+        requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
+        defaultDebtDueDays: terminal.defaultDebtDueDays ?? null,
         printerConfig: printConfigService.mapPrinterConfig(terminal),
         sessions: terminal.timestamps.map((timestamp) => ({
           profile: {

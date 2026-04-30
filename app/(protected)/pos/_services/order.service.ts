@@ -1,9 +1,10 @@
 import "server-only";
 import { assertTerminalBillingAllowsPos } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
+import { auditLogService } from "@/lib/services/audit-log.service";
 import { createClient } from "@/lib/supabase/server";
 import type { Prisma } from "@prisma/client";
-import { InvoiceDocumentType, InvoiceStatusType } from "@prisma/client";
+import { DebtStatus, InvoiceDocumentType, InvoiceStatusType } from "@prisma/client";
 import type {
   CancelOrderDto,
   DiscountDto,
@@ -31,11 +32,19 @@ async function getCurrentProfile() {
 
   const profile = await prisma.profile.findFirst({
     where: { userId: data.user.id },
-    select: { id: true, companyId: true, role: true },
+    select: { id: true, companyId: true, role: true, fullName: true },
   });
 
   if (!profile) throw new Error("Profile not found");
   return profile;
+}
+
+function toIsoDateString(value: Date) {
+  return value.toISOString();
+}
+
+function round2(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 async function getActiveTimestampForOrder(companyId: string, timestampId: string) {
@@ -66,6 +75,10 @@ async function getActiveTimestampForOrder(companyId: string, timestampId: string
           vat: true,
           discountCapType: true,
           discountMax: true,
+          allowCashierDebtCreate: true,
+          allowCashierDebtCollect: true,
+          requireManagerApprovalForDebt: true,
+          defaultDebtDueDays: true,
           isTrainMode: true,
           resetCounterNo: true,
           resetCounterTrainNo: true,
@@ -173,6 +186,28 @@ async function findInvoiceByIdempotencyKey(
           },
         },
       },
+      customerDebt: {
+        select: {
+          id: true,
+          customerId: true,
+          status: true,
+          dueDate: true,
+          originalAmount: true,
+          paidAmount: true,
+          remainingAmount: true,
+          notes: true,
+          approvedBy: {
+            select: {
+              fullName: true,
+            },
+          },
+          customer: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
     },
   });
 }
@@ -219,6 +254,20 @@ function validateOrderRequest(dto: OrderDto) {
     throw new Error("Cash tender amount is required");
   }
 
+  if (dto.settlementMode === "debt") {
+    if (!dto.debt?.customerId?.trim()) {
+      throw new Error("Customer is required for debt checkout");
+    }
+
+    if (!dto.debt?.dueDate?.trim()) {
+      throw new Error("Due date is required for debt checkout");
+    }
+
+    if (dto.ePayments?.length) {
+      throw new Error("Reference payments are not supported during debt issuance");
+    }
+  }
+
   for (const item of dto.items) {
     if (item.qty <= 0) throw new Error("Quantity must be greater than zero");
     if (item.price < 0) throw new Error("Price cannot be negative");
@@ -240,6 +289,16 @@ function validatePayment(calc: ReturnType<typeof calculatePayment>) {
     throw new Error(
       `Insufficient payment. Required: PHP ${calc.totalAmount.toFixed(2)}, Tendered: PHP ${calc.totalTendered.toFixed(2)}`,
     );
+  }
+}
+
+function validateDebtPayment(calc: ReturnType<typeof calculatePayment>, upfrontCashAmount: number) {
+  if (upfrontCashAmount < 0) {
+    throw new Error("Upfront cash amount cannot be negative");
+  }
+
+  if (upfrontCashAmount > calc.totalAmount) {
+    throw new Error("Upfront cash amount cannot exceed the total amount");
   }
 }
 
@@ -305,6 +364,7 @@ function buildReceiptFromOrder(input: {
   productMap: ProductLookup;
   otherPayments: ReceiptDto["otherPayments"];
   stockUpdates: ReceiptDto["stockUpdates"];
+  debt?: ReceiptDto["debt"];
 }): ReceiptDto {
   return {
     id: input.invoice.id,
@@ -339,6 +399,7 @@ function buildReceiptFromOrder(input: {
     vatAmount: input.calc.vatAmount,
     otherPayments: input.otherPayments,
     stockUpdates: input.stockUpdates,
+    debt: input.debt ?? null,
     items: input.items.map((item) => ({
       id: item.productId,
       productName: input.productMap.get(item.productId)?.name ?? "Unknown",
@@ -436,15 +497,86 @@ async function deductStock(
   return stockUpdates;
 }
 
+async function resolveDebtApproval(params: {
+  db: Prisma.TransactionClient;
+  companyId: string;
+  currentProfileId: string;
+  currentRole: string;
+  managerPin?: string;
+  requiresApproval: boolean;
+}) {
+  if (!params.requiresApproval) {
+    return null;
+  }
+
+  if (!params.managerPin?.trim()) {
+    throw new Error("Manager approval PIN is required for debt checkout.");
+  }
+
+  const approver = await params.db.profile.findFirst({
+    where: {
+      companyId: params.companyId,
+      pin: params.managerPin.trim(),
+      role: { in: ["manager", "admin"] },
+      status: "active",
+    },
+    select: {
+      id: true,
+      fullName: true,
+    },
+  });
+
+  if (!approver) {
+    throw new Error("Invalid manager PIN.");
+  }
+
+  return approver;
+}
+
+function buildDebtReceiptDetails(input: {
+  debtId: string;
+  customerId: string;
+  customerName: string;
+  dueDate: Date;
+  originalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  notes: string | null;
+  approvedByName?: string | null;
+}) {
+  const status =
+    input.remainingAmount <= 0
+      ? ("PAID" as const)
+      : input.paidAmount > 0
+        ? ("PARTIAL" as const)
+        : ("UNPAID" as const);
+
+  return {
+    debtId: input.debtId,
+    customerId: input.customerId,
+    customerName: input.customerName,
+    status,
+    dueDate: toIsoDateString(input.dueDate),
+    originalAmount: round2(input.originalAmount),
+    paidAmount: round2(input.paidAmount),
+    remainingAmount: round2(input.remainingAmount),
+    notes: input.notes,
+    upfrontCashAmount: round2(input.paidAmount),
+    approvedByName: input.approvedByName ?? null,
+  };
+}
+
 export const orderService = {
   async payOrder(dto: OrderDto): Promise<ReceiptDto> {
     validateOrderRequest(dto);
     const discount = normalizeDiscount(dto.discount);
+    const settlementMode = dto.settlementMode ?? "pay_now";
 
     const profile = await getCurrentProfile();
     if (!profile.companyId) throw new Error("User has no assigned company");
+    const companyId = profile.companyId;
     const activeTimestamp = await getActiveTimestampForOrder(
-      profile.companyId,
+      companyId,
       dto.timestampId,
     );
     const terminal = activeTimestamp.posTerminal;
@@ -489,13 +621,247 @@ export const orderService = {
         ePayments: dto.ePayments,
       });
 
-      validatePayment(calc);
+      const upfrontCashAmount =
+        settlementMode === "debt"
+          ? round2(dto.debt?.upfrontCashAmount ?? dto.cashTenderAmount ?? 0)
+          : calc.totalTendered;
+
+      if (settlementMode === "debt") {
+        validateDebtPayment(calc, upfrontCashAmount);
+      } else {
+        validatePayment(calc);
+      }
 
       const invoiceNumber = await generateInvoiceNumber(
         tx,
         terminal.id,
         terminal.isTrainMode,
       );
+
+      let debtReceipt: ReceiptDto["debt"] = null;
+      let customerNameOverride: string | undefined;
+      let approvedById: string | null = null;
+      let approvedByName: string | null = null;
+
+      if (settlementMode === "debt") {
+        if (
+          profile.role === "cashier" &&
+          !terminal.allowCashierDebtCreate
+        ) {
+          throw new Error("Cashier debt issuance is not allowed for this terminal.");
+        }
+
+        const debtCustomer = await tx.customer.findFirst({
+          where: {
+            id: dto.debt!.customerId,
+            companyId,
+            isActive: true,
+          },
+          select: {
+            id: true,
+            name: true,
+          },
+        });
+
+        if (!debtCustomer) {
+          throw new Error("Debt customer not found.");
+        }
+
+        customerNameOverride = debtCustomer.name;
+
+        const dueDate = new Date(dto.debt!.dueDate);
+        if (Number.isNaN(dueDate.getTime())) {
+          throw new Error("Debt due date is invalid.");
+        }
+
+        if (upfrontCashAmount < 0 || upfrontCashAmount > calc.totalAmount) {
+          throw new Error("Invalid upfront cash amount.");
+        }
+
+        const approver = await resolveDebtApproval({
+          db: tx,
+          companyId,
+          currentProfileId: profile.id,
+          currentRole: profile.role,
+          managerPin: dto.debt?.managerPin,
+          requiresApproval: terminal.requireManagerApprovalForDebt,
+        });
+        approvedById = approver?.id ?? null;
+        approvedByName = approver?.fullName ?? null;
+
+        const paidAmount = round2(upfrontCashAmount);
+        const remainingAmount = round2(calc.totalAmount - paidAmount);
+        const debtStatus =
+          remainingAmount <= 0
+            ? DebtStatus.PAID
+            : paidAmount > 0
+              ? DebtStatus.PARTIAL
+              : DebtStatus.UNPAID;
+
+        const invoice = await tx.invoice.create({
+          data: {
+            invoiceNumber,
+            idempotencyKey: dto.idempotencyKey ?? null,
+            sourceDeviceId: dto.deviceId ?? activeTimestamp.deviceId ?? null,
+            sourceTimestampId: activeTimestamp.id,
+            localInvoiceNo: dto.localInvoiceNo ?? null,
+            posTerminalId: terminal.id,
+            cashierId: activeTimestamp.cashierId,
+
+            grossAmount: calc.grossAmount,
+            totalAmount: calc.totalAmount,
+            subTotal: calc.subTotal,
+            cashTendered: paidAmount,
+            dueAmount: remainingAmount,
+            totalTendered: paidAmount,
+            changeAmount: 0,
+            vatSales: calc.vatSales,
+            vatExempt: calc.vatExempt,
+            vatAmount: calc.vatAmount,
+            vatZero: calc.vatZero,
+            discountAmount: calc.discountAmount,
+
+            customerName: customerNameOverride,
+            eligibleDiscName: discount?.eligibleDiscName,
+            oscaIdNum: discount?.oscaIdNum,
+            discountType: discount?.discountType,
+            discountPercent: getEffectiveDiscountPercent(
+              discount,
+              terminal.discountCapType === "percent"
+                ? (terminal.discountMax ? Number(terminal.discountMax) : 0)
+                : undefined,
+            ),
+
+            status:
+              debtStatus === DebtStatus.PAID
+                ? ("PAID" satisfies InvoiceStatusType)
+                : ("PENDING" satisfies InvoiceStatusType),
+            isTrainMode: terminal.isTrainMode,
+
+            items: {
+              create: dto.items.map((item) => ({
+                productId: item.productId,
+                qty: item.qty,
+                price: item.price,
+                subTotal: item.status === "VOID" ? 0 : item.subTotal,
+                status: item.status || ("PAID" satisfies InvoiceStatusType),
+                isTrainingMode: terminal.isTrainMode,
+              })),
+            },
+          },
+          select: {
+            id: true,
+            invoiceNumber: true,
+            createdAt: true,
+            isTrainMode: true,
+            localInvoiceNo: true,
+          },
+        });
+
+        const debt = await tx.customerDebt.create({
+          data: {
+            companyId,
+            terminalId: terminal.id,
+            customerId: debtCustomer.id,
+            invoiceId: invoice.id,
+            originalAmount: calc.totalAmount,
+            paidAmount,
+            remainingAmount,
+            status: debtStatus,
+            dueDate,
+            paidAt: remainingAmount <= 0 ? invoice.createdAt : null,
+            notes: dto.debt?.notes?.trim() || null,
+            createdById: profile.id,
+            approvedById,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (paidAmount > 0) {
+          await tx.customerDebtPayment.create({
+            data: {
+              debtId: debt.id,
+              companyId,
+              terminalId: terminal.id,
+              timestampId: activeTimestamp.id,
+              amount: paidAmount,
+              method: "CASH",
+              referenceNo: null,
+              notes: "Upfront cash collected during debt issuance",
+              receivedById: profile.id,
+            },
+          });
+        }
+
+        const stockUpdates =
+          !terminal.isTrainMode
+            ? await deductStock(tx, dto.items, transactionProductMap)
+            : [];
+
+        await updateTerminalCounter(tx, terminal.id, terminal.isTrainMode, terminal);
+
+        await auditLogService.create(tx, {
+          companyId,
+          actorProfileId: profile.id,
+          posTerminalId: terminal.id,
+          actionType: "DEBT_CREATED",
+          referenceId: debt.id,
+          changes: JSON.stringify({
+            invoiceId: invoice.id,
+            customerId: debtCustomer.id,
+            dueDate: dueDate.toISOString(),
+            originalAmount: calc.totalAmount,
+            paidAmount,
+            remainingAmount,
+          }),
+          amount: calc.totalAmount,
+        });
+
+        if (approvedById) {
+          await auditLogService.create(tx, {
+            companyId,
+            actorProfileId: approvedById,
+            posTerminalId: terminal.id,
+            actionType: "DEBT_APPROVED",
+            referenceId: debt.id,
+            changes: `Approved debt issuance for invoice ${invoice.id}`,
+            amount: calc.totalAmount,
+          });
+        }
+
+        debtReceipt = buildDebtReceiptDetails({
+          debtId: debt.id,
+          customerId: debtCustomer.id,
+          customerName: debtCustomer.name,
+          dueDate,
+          originalAmount: calc.totalAmount,
+          paidAmount,
+          remainingAmount,
+          notes: dto.debt?.notes?.trim() || null,
+          approvedByName,
+        });
+
+        return buildReceiptFromOrder({
+          invoice,
+          terminal,
+          cashierName: activeTimestamp.cashier.fullName,
+          calc: {
+            ...calc,
+            cashTendered: paidAmount,
+            totalTendered: paidAmount,
+            dueAmount: remainingAmount,
+            changeAmount: 0,
+          },
+          discount,
+          items: dto.items,
+          productMap: transactionProductMap,
+          otherPayments: [],
+          stockUpdates,
+          debt: debtReceipt,
+        });
+      }
 
       const invoice = await tx.invoice.create({
         data: {
@@ -590,6 +956,7 @@ export const orderService = {
           reference: payment.reference,
         })) ?? [],
         stockUpdates,
+        debt: null,
       });
     });
 

@@ -63,6 +63,10 @@ export default function TerminalConfigurationForm({
         vatTinNumber: "",
         printerName: "",
         printerConfig: null,
+        allowCashierDebtCreate: false,
+        allowCashierDebtCollect: false,
+        requireManagerApprovalForDebt: false,
+        defaultDebtDueDays: undefined,
       });
       setPrinterConfig(null);
       return;
@@ -75,6 +79,10 @@ export default function TerminalConfigurationForm({
       vatTinNumber: terminal.vatTinNumber ?? "",
       printerName: terminal.printerName ?? "",
       printerConfig: terminal.printerConfig ?? null,
+      allowCashierDebtCreate: terminal.allowCashierDebtCreate,
+      allowCashierDebtCollect: terminal.allowCashierDebtCollect,
+      requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
+      defaultDebtDueDays: terminal.defaultDebtDueDays ?? undefined,
     });
     setPrinterConfig(terminal.printerConfig ?? null);
   }, [terminal, reset]);
@@ -274,6 +282,44 @@ export default function TerminalConfigurationForm({
             ? "When Max Discount is used during checkout, the discount will be capped by this percentage."
             : "When Max Discount is used during checkout, the discount will be capped by this peso amount."}
         </p>
+      </SectionCard>
+
+      <SectionCard
+        title="Debt Controls"
+        description="Control who can create or collect utang and whether a manager PIN is required during debt issuance."
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="flex items-start gap-3 rounded-xl border p-3">
+            <input type="checkbox" className="mt-1" {...register("allowCashierDebtCreate")} />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium text-foreground">Allow cashier debt issuance</span>
+              <span className="block text-xs text-muted-foreground">
+                Cashiers can record an invoice as utang during checkout.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 rounded-xl border p-3">
+            <input type="checkbox" className="mt-1" {...register("allowCashierDebtCollect")} />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium text-foreground">Allow cashier debt collection</span>
+              <span className="block text-xs text-muted-foreground">
+                Cashiers can accept later debt payments from the debts workspace.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 rounded-xl border p-3 md:col-span-2">
+            <input type="checkbox" className="mt-1" {...register("requireManagerApprovalForDebt")} />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium text-foreground">Require manager approval for debt</span>
+              <span className="block text-xs text-muted-foreground">
+                Reuse the existing manager PIN approval flow before an utang invoice can be issued.
+              </span>
+            </span>
+          </label>
+          <FieldGroup label="Default Due Days" error={errors.defaultDebtDueDays?.message}>
+            <Input type="number" min="1" max="365" {...register("defaultDebtDueDays")} placeholder="7" />
+          </FieldGroup>
+        </div>
       </SectionCard>
 
       <SectionCard

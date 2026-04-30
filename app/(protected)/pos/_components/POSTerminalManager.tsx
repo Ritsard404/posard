@@ -44,6 +44,10 @@ export function POSTerminalManager() {
     vat: number;
     discountCapType: "amount" | "percent";
     discountMax: number;
+    allowCashierDebtCreate: boolean;
+    allowCashierDebtCollect: boolean;
+    requireManagerApprovalForDebt: boolean;
+    defaultDebtDueDays: number | null;
     printerConfig?: PrinterConfigDto | null;
   } | null>(null);
 
@@ -115,14 +119,18 @@ export function POSTerminalManager() {
           timestampId: sessionSnapshot.timestampId,
           deviceId: sessionSnapshot.deviceId,
           profileId: sessionSnapshot.cashierId,
-          terminal: {
-            id: sessionSnapshot.terminalId,
-            name: sessionSnapshot.terminalName,
-            vat: sessionSnapshot.terminalVat,
-            discountCapType: sessionSnapshot.discountCapType,
-            discountMax: sessionSnapshot.discountMax,
-            printerConfig: sessionSnapshot.printerConfig,
-          },
+            terminal: {
+              id: sessionSnapshot.terminalId,
+              name: sessionSnapshot.terminalName,
+              vat: sessionSnapshot.terminalVat,
+              discountCapType: sessionSnapshot.discountCapType,
+              discountMax: sessionSnapshot.discountMax,
+              allowCashierDebtCreate: false,
+              allowCashierDebtCollect: false,
+              requireManagerApprovalForDebt: false,
+              defaultDebtDueDays: null,
+              printerConfig: sessionSnapshot.printerConfig,
+            },
           user: {
             name: sessionSnapshot.cashierName,
             role: "cashier",
@@ -222,6 +230,10 @@ export function POSTerminalManager() {
                 vat: bootstrap.session.terminalVat,
                 discountCapType: bootstrap.session.discountCapType,
                 discountMax: bootstrap.session.discountMax,
+                allowCashierDebtCreate: false,
+                allowCashierDebtCollect: false,
+                requireManagerApprovalForDebt: false,
+                defaultDebtDueDays: null,
                 printerConfig: bootstrap.session.printerConfig,
               },
               user: {
@@ -332,8 +344,30 @@ export function POSTerminalManager() {
     return (
       <div className="relative flex h-full min-h-0 flex-col items-center justify-center overflow-hidden p-4">
         <TerminalSelection
-          onSelectTerminal={(id, name, vat, discountCapType, discountMax, printerConfig) =>
-            setSelectedTerminal({ id, name, vat, discountCapType, discountMax, printerConfig })
+          onSelectTerminal={(
+            id,
+            name,
+            vat,
+            discountCapType,
+            discountMax,
+            allowCashierDebtCreate,
+            allowCashierDebtCollect,
+            requireManagerApprovalForDebt,
+            defaultDebtDueDays,
+            printerConfig,
+          ) =>
+            setSelectedTerminal({
+              id,
+              name,
+              vat,
+              discountCapType,
+              discountMax,
+              allowCashierDebtCreate,
+              allowCashierDebtCollect,
+              requireManagerApprovalForDebt,
+              defaultDebtDueDays,
+              printerConfig,
+            })
           }
         />
 
@@ -353,6 +387,11 @@ export function POSTerminalManager() {
                   vat: selectedTerminal.vat,
                   discountCapType: selectedTerminal.discountCapType,
                   discountMax: selectedTerminal.discountMax,
+                  allowCashierDebtCreate: selectedTerminal.allowCashierDebtCreate,
+                  allowCashierDebtCollect: selectedTerminal.allowCashierDebtCollect,
+                  requireManagerApprovalForDebt:
+                    selectedTerminal.requireManagerApprovalForDebt,
+                  defaultDebtDueDays: selectedTerminal.defaultDebtDueDays,
                   printerConfig: selectedTerminal.printerConfig ?? null,
                 },
                 user: data.user,

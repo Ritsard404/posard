@@ -168,6 +168,13 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
     "",
     `Date: ${formatInvoiceDate(receipt.createdAt)}`.padEnd(RECEIPT_WIDTH),
     `Cashier: ${receipt.cashierName}`.padEnd(RECEIPT_WIDTH),
+    ...(receipt.debt
+      ? [
+          `Customer: ${receipt.debt.customerName}`.padEnd(RECEIPT_WIDTH),
+          `Debt Status: ${receipt.debt.status}`.padEnd(RECEIPT_WIDTH),
+          `Due Date: ${formatInvoiceDate(receipt.debt.dueDate)}`.padEnd(RECEIPT_WIDTH),
+        ]
+      : []),
     separator(),
     formatItemLine("Qty", "Description", "Amount"),
     separator(),
@@ -207,6 +214,17 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
       `${"Due Amount:".padEnd(15)}${formatAmount(receipt.dueAmount).padStart(17)}`,
     ),
   );
+
+  if (receipt.debt) {
+    content.push(
+      centerText(
+        `${"Debt Paid:".padEnd(15)}${formatAmount(receipt.debt.paidAmount).padStart(17)}`,
+      ),
+      centerText(
+        `${"Debt Balance:".padEnd(15)}${formatAmount(receipt.debt.remainingAmount).padStart(17)}`,
+      ),
+    );
+  }
 
   for (const payment of receipt.otherPayments) {
     content.push(

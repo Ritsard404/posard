@@ -49,6 +49,10 @@ interface ActiveTerminalState {
   vat: number;
   discountCapType: "amount" | "percent";
   discountMax: number;
+  allowCashierDebtCreate: boolean;
+  allowCashierDebtCollect: boolean;
+  requireManagerApprovalForDebt: boolean;
+  defaultDebtDueDays: number | null;
   printerConfig?: PrinterConfigDto | null;
 }
 

@@ -5,6 +5,7 @@
 export type DiscountType = "PWD" | "SENIOR" | "OTHERS";
 export type InvoiceStatusType = "CANCELLED" | "RETURNED" | "VOID" | "PENDING" | "PAID";
 export type VatType = "VATABLE" | "EXEMPT" | "ZERO";
+export type SettlementMode = "pay_now" | "debt";
 
 // ─────────────────────────────────────────────
 // Request DTOs
@@ -41,6 +42,14 @@ export interface OrderDto {
   cashTenderAmount: number;
   ePayments?: EPaymentDto[];
   discount?: DiscountDto;
+  settlementMode?: SettlementMode;
+  debt?: {
+    customerId: string;
+    dueDate: string;
+    notes?: string;
+    upfrontCashAmount?: number;
+    managerPin?: string;
+  };
 }
 
 export interface CancelOrderDto {

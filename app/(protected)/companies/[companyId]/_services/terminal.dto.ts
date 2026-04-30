@@ -87,6 +87,10 @@ export const TerminalSchema = z.object({
   vat: z.number().int().min(0).nullable(),
   discountCapType: DiscountCapTypeSchema,
   discountMax: z.number().min(0).nullable(),
+  allowCashierDebtCreate: z.boolean().default(false),
+  allowCashierDebtCollect: z.boolean().default(false),
+  requireManagerApprovalForDebt: z.boolean().default(false),
+  defaultDebtDueDays: z.number().int().min(1).max(365).nullable().optional(),
   printerName: z.string().nullable(),
   printerDisplayName: z.string().nullable().optional(),
   printerConnectionType: z.enum(["usb", "bluetooth", "serial", "built_in"]).nullable().optional(),
@@ -169,6 +173,16 @@ export const TerminalConfigurationSchema = z.object({
   ),
   printerName: nullableStringInput,
   printerConfig: PrinterConfigSchema.nullable().optional(),
+  allowCashierDebtCreate: z.boolean().default(false),
+  allowCashierDebtCollect: z.boolean().default(false),
+  requireManagerApprovalForDebt: z.boolean().default(false),
+  defaultDebtDueDays: z.preprocess((value) => {
+    if (value === "" || value === null || value === undefined) {
+      return null;
+    }
+
+    return value;
+  }, z.coerce.number().int().min(1).max(365).nullable()),
 }).merge(TerminalDiscountCapFieldsSchema);
 
 export type TerminalConfigurationPayload = z.input<typeof TerminalConfigurationSchema>;

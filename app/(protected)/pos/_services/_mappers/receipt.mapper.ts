@@ -76,6 +76,28 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
         };
       };
     };
+    customerDebt: {
+      select: {
+        id: true;
+        customerId: true;
+        status: true;
+        dueDate: true;
+        originalAmount: true;
+        paidAmount: true;
+        remainingAmount: true;
+        notes: true;
+        approvedBy: {
+          select: {
+            fullName: true;
+          };
+        };
+        customer: {
+          select: {
+            name: true;
+          };
+        };
+      };
+    };
   };
 }>;
 
@@ -116,6 +138,21 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
       amount: Number(payment.amount),
       reference: payment.reference,
     })),
+    debt: invoice.customerDebt
+      ? {
+          debtId: invoice.customerDebt.id,
+          customerId: invoice.customerDebt.customerId,
+          customerName: invoice.customerDebt.customer.name,
+          status: invoice.customerDebt.status,
+          dueDate: invoice.customerDebt.dueDate.toISOString(),
+          originalAmount: Number(invoice.customerDebt.originalAmount),
+          paidAmount: Number(invoice.customerDebt.paidAmount),
+          remainingAmount: Number(invoice.customerDebt.remainingAmount),
+          notes: invoice.customerDebt.notes ?? null,
+          upfrontCashAmount: Number(invoice.cashTendered ?? 0) - Number(invoice.changeAmount ?? 0),
+          approvedByName: invoice.customerDebt.approvedBy?.fullName ?? null,
+        }
+      : null,
     stockUpdates: [],
     items: invoice.items.map((item) => ({
       id: item.id,

@@ -16,6 +16,10 @@ interface Terminal {
   vat: number;
   discountCapType: "amount" | "percent";
   discountMax: number;
+  allowCashierDebtCreate: boolean;
+  allowCashierDebtCollect: boolean;
+  requireManagerApprovalForDebt: boolean;
+  defaultDebtDueDays: number | null;
   printerConfig?: PrinterConfigDto | null;
   sessions: {
     profile: {
@@ -31,6 +35,10 @@ interface TerminalSelectionProps {
     vat: number,
     discountCapType: "amount" | "percent",
     discountMax: number,
+    allowCashierDebtCreate: boolean,
+    allowCashierDebtCollect: boolean,
+    requireManagerApprovalForDebt: boolean,
+    defaultDebtDueDays: number | null,
     printerConfig?: PrinterConfigDto | null,
   ) => void;
 }
@@ -104,6 +112,10 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                     t.vat,
                     t.discountCapType,
                     Number(t.discountMax),
+                    t.allowCashierDebtCreate,
+                    t.allowCashierDebtCollect,
+                    t.requireManagerApprovalForDebt,
+                    t.defaultDebtDueDays,
                     t.printerConfig ?? null,
                   )
                 }

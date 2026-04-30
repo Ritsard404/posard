@@ -19,6 +19,20 @@ export interface ReceiptStockUpdateDto {
   remainingQuantity: number;
 }
 
+export interface ReceiptDebtDetailsDto {
+  debtId: string;
+  customerId: string;
+  customerName: string;
+  status: "UNPAID" | "PARTIAL" | "PAID" | "CANCELLED";
+  dueDate: string;
+  originalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  notes: string | null;
+  upfrontCashAmount: number;
+  approvedByName?: string | null;
+}
+
 export interface ReceiptDto {
   id: string;
   invoiceNumber: number;
@@ -53,4 +67,5 @@ export interface ReceiptDto {
   otherPayments: ReceiptOtherPaymentDto[];
   items: ReceiptItemDto[];
   stockUpdates: ReceiptStockUpdateDto[];
+  debt?: ReceiptDebtDetailsDto | null;
 }

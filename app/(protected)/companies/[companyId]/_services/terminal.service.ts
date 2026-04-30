@@ -30,6 +30,10 @@ function mapTerminal(terminal: TerminalRecord): TerminalDTO {
     printerConfig: printConfigService.mapPrinterConfig(terminal),
     discountCapType: terminal.discountCapType,
     discountMax: terminal.discountMax?.toNumber() ?? null,
+    allowCashierDebtCreate: terminal.allowCashierDebtCreate,
+    allowCashierDebtCollect: terminal.allowCashierDebtCollect,
+    requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
+    defaultDebtDueDays: terminal.defaultDebtDueDays ?? null,
     companyName: terminal.company?.name ?? null,
     subscriptionStatus: terminal.subscription?.status ?? null,
     subscriptionExpiresAt: terminal.subscription?.expiresAt ?? null,
@@ -219,6 +223,10 @@ export const terminalService = {
         vat: payload.vat,
         discountCapType: payload.discountCapType,
         discountMax: payload.discountMax,
+        allowCashierDebtCreate: payload.allowCashierDebtCreate,
+        allowCashierDebtCollect: payload.allowCashierDebtCollect,
+        requireManagerApprovalForDebt: payload.requireManagerApprovalForDebt,
+        defaultDebtDueDays: payload.defaultDebtDueDays,
         vatTinNumber: payload.vatTinNumber,
         printerName:
           payload.printerConfig?.displayName?.trim() ||

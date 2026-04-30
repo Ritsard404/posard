@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Banknote,
   Check,
@@ -21,6 +21,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import {
+  createDebtCustomerAction,
+  listDebtCustomersAction,
+} from "@/app/(protected)/debts/_actions/debt.actions";
 import { usePOSStore, type DiscountType, type PaymentMethodType } from "../_store/pos-store";
 import { payOrderAction } from "../_actions/order.action";
 import type { OrderDto } from "../_services/_dto/order.dto";
@@ -167,6 +171,13 @@ export function usePOSCheckoutFlow(
   const [step, setStep] = useState<"PAYMENT" | "RECEIPT">("PAYMENT");
   const [isProcessing, setIsProcessing] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptDto | null>(null);
+  const [settlementMode, setSettlementMode] = useState<"pay_now" | "debt">("pay_now");
+  const [debtCustomers, setDebtCustomers] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedDebtCustomerId, setSelectedDebtCustomerId] = useState<string>("");
+  const [newDebtCustomerName, setNewDebtCustomerName] = useState("");
+  const [debtDueDate, setDebtDueDate] = useState("");
+  const [debtNotes, setDebtNotes] = useState("");
+  const [debtManagerPin, setDebtManagerPin] = useState("");
   const fastCheckout = fastCheckoutEnabled;
   const setFastCheckout = setFastCheckoutEnabled;
 
@@ -191,11 +202,37 @@ export function usePOSCheckoutFlow(
   const change = isCashPayment ? amountTendered - totalAmount : 0;
   const isReferencePaymentValid =
     isCashPayment || Boolean(selectedEPaymentMethod && trimmedReference);
-  const isTenderValid = isCashPayment
-    ? amountTendered >= totalAmount
-    : totalAmount > 0 && isReferencePaymentValid;
-  const canComplete = isTenderValid && isDiscountMetadataValid;
+  const debtUpfrontCashAmount = settlementMode === "debt" ? Math.max(0, amountTendered) : 0;
+  const isTenderValid =
+    settlementMode === "debt"
+      ? isCashPayment && debtUpfrontCashAmount <= totalAmount
+      : isCashPayment
+        ? amountTendered >= totalAmount
+        : totalAmount > 0 && isReferencePaymentValid;
+  const isDebtFormValid =
+    settlementMode === "pay_now" ||
+    (!!debtDueDate && isCashPayment && (!!selectedDebtCustomerId || !!newDebtCustomerName.trim()));
+  const canComplete = isTenderValid && isDiscountMetadataValid && isDebtFormValid;
   const terminalDiscountCapSummary = formatTerminalDiscountCap(activeTerminal);
+
+  useEffect(() => {
+    if (settlementMode !== "debt") {
+      return;
+    }
+
+    let cancelled = false;
+    void listDebtCustomersAction().then((result) => {
+      if (cancelled || !result.success) {
+        return;
+      }
+
+      setDebtCustomers(result.customers.map((customer) => ({ id: customer.id, name: customer.name })));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settlementMode]);
 
   const selectCashPayment = () => {
     setPaymentMethod("cash");
@@ -219,6 +256,12 @@ export function usePOSCheckoutFlow(
     setAmountTendered(0);
     setDiscount(defaultDiscount);
     setPaymentMethod("cash");
+    setSettlementMode("pay_now");
+    setSelectedDebtCustomerId("");
+    setNewDebtCustomerName("");
+    setDebtDueDate("");
+    setDebtNotes("");
+    setDebtManagerPin("");
 
     if (shouldClearCart) {
       clearCart();
@@ -228,6 +271,11 @@ export function usePOSCheckoutFlow(
   const handleComplete = async () => {
     if (!canComplete) return;
 
+    if (settlementMode === "debt" && !isCashPayment) {
+      toast.error("Debt issuance only supports cash upfront in v1.");
+      return;
+    }
+
     if (!isCashPayment && !selectedEPaymentMethod) {
       toast.error("Select a reference payment method.");
       return;
@@ -236,6 +284,26 @@ export function usePOSCheckoutFlow(
     if (!isCashPayment && !trimmedReference) {
       toast.error("Enter a reference number.");
       return;
+    }
+
+    let debtCustomerId = selectedDebtCustomerId;
+    if (settlementMode === "debt" && !debtCustomerId && newDebtCustomerName.trim()) {
+      const created = await createDebtCustomerAction({
+        name: newDebtCustomerName.trim(),
+        phone: null,
+        address: null,
+        notes: null,
+      });
+
+      if (!created.success) {
+        setIsProcessing(false);
+        toast.error(created.error);
+        return;
+      }
+
+      debtCustomerId = created.customer.id;
+      setSelectedDebtCustomerId(created.customer.id);
+      setDebtCustomers((state) => [...state, { id: created.customer.id, name: created.customer.name }]);
     }
 
     setIsProcessing(true);
@@ -255,7 +323,7 @@ export function usePOSCheckoutFlow(
       })),
       cashTenderAmount: isCashPayment ? amountTendered : 0,
       ePayments:
-        !isCashPayment && selectedEPaymentMethod
+        settlementMode === "pay_now" && !isCashPayment && selectedEPaymentMethod
           ? [
               {
                 saleTypeId: selectedEPaymentMethod.id,
@@ -275,9 +343,26 @@ export function usePOSCheckoutFlow(
                 : {}),
             }
           : undefined,
+      settlementMode,
+      debt:
+        settlementMode === "debt"
+          ? {
+              customerId: debtCustomerId,
+              dueDate: debtDueDate,
+              notes: debtNotes.trim() || undefined,
+              upfrontCashAmount: debtUpfrontCashAmount,
+              managerPin: debtManagerPin.trim() || undefined,
+            }
+          : undefined,
     };
 
     if (!isOnline) {
+      if (settlementMode === "debt") {
+        setIsProcessing(false);
+        toast.error("Debt issuance is online-only in v1.");
+        return;
+      }
+
       if (!activeTimestampId || !activeTerminal || !activeDeviceId || !activeCompanyId || !activeProfileId) {
         setIsProcessing(false);
         toast.error("Offline checkout needs an active synced session on this device.");
@@ -425,6 +510,19 @@ export function usePOSCheckoutFlow(
     change,
     canComplete,
     terminalDiscountCapSummary,
+    settlementMode,
+    setSettlementMode,
+    debtCustomers,
+    selectedDebtCustomerId,
+    setSelectedDebtCustomerId,
+    newDebtCustomerName,
+    setNewDebtCustomerName,
+    debtDueDate,
+    setDebtDueDate,
+    debtNotes,
+    setDebtNotes,
+    debtManagerPin,
+    setDebtManagerPin,
     setFastCheckout,
     setDiscountType,
     updateDiscountDetails,
@@ -456,6 +554,19 @@ interface POSTenderFormProps {
   change: number;
   canComplete: boolean;
   terminalDiscountCapSummary: string;
+  settlementMode: "pay_now" | "debt";
+  setSettlementMode: (mode: "pay_now" | "debt") => void;
+  debtCustomers: Array<{ id: string; name: string }>;
+  selectedDebtCustomerId: string;
+  setSelectedDebtCustomerId: (value: string) => void;
+  newDebtCustomerName: string;
+  setNewDebtCustomerName: (value: string) => void;
+  debtDueDate: string;
+  setDebtDueDate: (value: string) => void;
+  debtNotes: string;
+  setDebtNotes: (value: string) => void;
+  debtManagerPin: string;
+  setDebtManagerPin: (value: string) => void;
   isProcessing: boolean;
   fastCheckout: boolean;
   setDiscountType: (type: DiscountType) => void;
@@ -489,6 +600,19 @@ export function POSTenderForm({
   change,
   canComplete,
   terminalDiscountCapSummary,
+  settlementMode,
+  setSettlementMode,
+  debtCustomers,
+  selectedDebtCustomerId,
+  setSelectedDebtCustomerId,
+  newDebtCustomerName,
+  setNewDebtCustomerName,
+  debtDueDate,
+  setDebtDueDate,
+  debtNotes,
+  setDebtNotes,
+  debtManagerPin,
+  setDebtManagerPin,
   isProcessing,
   fastCheckout,
   setDiscountType,
@@ -575,6 +699,106 @@ export function POSTenderForm({
                   : "space-y-4"
               }
             >
+              <div className={isMobileVariant ? "rounded-2xl border bg-card p-2" : "rounded-2xl border bg-card p-4"}>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      Settlement
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Choose whether this invoice is settled now or recorded as utang.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={settlementMode === "pay_now" ? "default" : "outline"}
+                      className="rounded-2xl"
+                      onClick={() => setSettlementMode("pay_now")}
+                    >
+                      Pay Now
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={settlementMode === "debt" ? "default" : "outline"}
+                      className="rounded-2xl"
+                      onClick={() => {
+                        setSettlementMode("debt");
+                        selectCashPayment();
+                      }}
+                    >
+                      Record as Utang
+                    </Button>
+                  </div>
+                  {settlementMode === "debt" ? (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                          Existing Customer
+                        </Label>
+                        <select
+                          className="h-10 w-full rounded-2xl border border-input bg-background px-3 text-sm"
+                          value={selectedDebtCustomerId}
+                          onChange={(event) => setSelectedDebtCustomerId(event.target.value)}
+                        >
+                          <option value="">Select customer</option>
+                          {debtCustomers.map((customer) => (
+                            <option key={customer.id} value={customer.id}>
+                              {customer.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                          New Customer
+                        </Label>
+                        <Input
+                          value={newDebtCustomerName}
+                          onChange={(event) => setNewDebtCustomerName(event.target.value)}
+                          className={isMobileVariant ? "h-9 rounded-2xl text-[11px]" : "h-10 rounded-2xl text-sm"}
+                          placeholder="Add customer name"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                          Due Date
+                        </Label>
+                        <Input
+                          type="date"
+                          value={debtDueDate}
+                          onChange={(event) => setDebtDueDate(event.target.value)}
+                          className={isMobileVariant ? "h-9 rounded-2xl text-[11px]" : "h-10 rounded-2xl text-sm"}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                          Manager PIN
+                        </Label>
+                        <Input
+                          type="password"
+                          value={debtManagerPin}
+                          onChange={(event) => setDebtManagerPin(event.target.value)}
+                          className={isMobileVariant ? "h-9 rounded-2xl text-[11px]" : "h-10 rounded-2xl text-sm"}
+                          placeholder="Required only if terminal enforces approval"
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <Label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                          Notes
+                        </Label>
+                        <Input
+                          value={debtNotes}
+                          onChange={(event) => setDebtNotes(event.target.value)}
+                          className={isMobileVariant ? "h-9 rounded-2xl text-[11px]" : "h-10 rounded-2xl text-sm"}
+                          placeholder="Optional debt notes"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
               {paymentMethod === "cash" && isMobileVariant ? (
                 <div className={mobileCashCardClassName}>
                   <div className="space-y-2">
@@ -1477,6 +1701,29 @@ export function POSReceiptContent({
             </div>
           </div>
         </div>
+
+        {receipt.debt ? (
+          <div className="mb-8 space-y-2 rounded-xl border bg-card p-4">
+            <div className="flex justify-between border-b pb-2 font-bold uppercase tracking-widest text-muted-foreground/60">
+              <span>Debt Details</span>
+              <span className="text-foreground">{receipt.debt.status}</span>
+            </div>
+            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+              <span>Customer</span>
+              <span className="text-foreground">{receipt.debt.customerName}</span>
+            </div>
+            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+              <span>Due Date</span>
+              <span className="text-foreground">
+                {new Date(receipt.debt.dueDate).toLocaleDateString()}
+              </span>
+            </div>
+            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+              <span>Balance</span>
+              <span className="text-foreground">PHP {formatCurrency(receipt.debt.remainingAmount)}</span>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mb-8 space-y-3">
           <div className="flex justify-between border-b pb-2 text-[10px] font-black uppercase tracking-widest text-foreground">

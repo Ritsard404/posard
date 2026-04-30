@@ -113,6 +113,7 @@ export function buildProvisionalReceipt(input: {
       status: item.status ?? "PAID",
     })),
     stockUpdates,
+    debt: null,
   };
 
   return { receipt, localInvoiceNo, stockUpdates };

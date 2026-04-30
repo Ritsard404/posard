@@ -2229,6 +2229,7 @@ export const reportService = {
         status: item.status,
       })),
       stockUpdates: [],
+      debt: null,
     });
 
     const archivedDocument = await printArchiveService.getLatestInvoiceArchive(invoice.id);

@@ -138,6 +138,9 @@ model Profile {
 
   invoicesAsCashier  Invoice[] @relation("CashierInvoice")
   invoicesAsVoidedBy Invoice[] @relation("VoidedByInvoice")
+  debtsCreated       CustomerDebt[] @relation("DebtCreatedBy")
+  debtsApproved      CustomerDebt[] @relation("DebtApprovedBy")
+  debtPaymentsReceived CustomerDebtPayment[] @relation("DebtPaymentReceivedBy")
 
   posSessions  PosSession[]
   approvalLogs ApprovalLog[]
@@ -212,6 +215,9 @@ model Company {
   images       CompanyImage[]
   posTerminals PosTerminalInfo[]
   terminalRequests TerminalRequest[]
+  customers      Customer[]
+  customerDebts  CustomerDebt[]
+  debtPayments   CustomerDebtPayment[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -266,6 +272,10 @@ model PosTerminalInfo {
   vat            Int?
   discountCapType DiscountCapType @default(percent) @map("discount_cap_type")
   discountMax    Decimal? @map("discount_max") @db.Decimal(10, 2)
+  allowCashierDebtCreate Boolean @default(false) @map("allow_cashier_debt_create")
+  allowCashierDebtCollect Boolean @default(false) @map("allow_cashier_debt_collect")
+  requireManagerApprovalForDebt Boolean @default(false) @map("require_manager_approval_for_debt")
+  defaultDebtDueDays Int? @map("default_debt_due_days")
 
   // System
   printerName  String? @map("printer_name")
@@ -309,6 +319,8 @@ model PosTerminalInfo {
   invoices  Invoice[]
   sessions  PosSession[]
   auditLogs AuditLog[]
+  customerDebts CustomerDebt[]
+  debtPayments CustomerDebtPayment[]
 
   @@index([companyId])
   @@map("pos_terminal_info")
@@ -494,6 +506,7 @@ model Timestamp {
   lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz
   forceClosedAt DateTime? @map("force_closed_at") @db.Timestamptz
   forceCloseReason String? @map("force_close_reason")
+  debtPayments CustomerDebtPayment[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -819,6 +832,7 @@ model Invoice {
   items     Item[]
   ePayments EPayment[]
   documents InvoiceDocument[]
+  customerDebt CustomerDebt?
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -833,6 +847,111 @@ model Invoice {
   @@index([posTerminalId, isTrainMode, invoiceNumber])
   @@unique([posTerminalId, invoiceNumber], name: "uk_invoice_terminal_invoice_number")
   @@map("invoice")
+  @@schema("public")
+}
+
+enum DebtStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  CANCELLED
+
+  @@map("debt_status")
+  @@schema("public")
+}
+
+model Customer {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name String
+  phone String?
+  address String?
+  notes String?
+  isActive Boolean @default(true) @map("is_active")
+
+  debts CustomerDebt[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, isActive])
+  @@index([companyId, name])
+  @@map("customer")
+  @@schema("public")
+}
+
+model CustomerDebt {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  companyId String @map("company_id") @db.Uuid
+  terminalId String? @map("terminal_id") @db.Uuid
+  customerId String @map("customer_id") @db.Uuid
+  invoiceId String @unique @map("invoice_id") @db.Uuid
+
+  originalAmount Decimal @map("original_amount") @db.Decimal(15, 2)
+  paidAmount Decimal @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  remainingAmount Decimal @map("remaining_amount") @db.Decimal(15, 2)
+  status DebtStatus @default(UNPAID)
+  dueDate DateTime @map("due_date") @db.Timestamptz
+  paidAt DateTime? @map("paid_at") @db.Timestamptz
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz
+  notes String?
+
+  createdById String @map("created_by_id") @db.Uuid
+  approvedById String? @map("approved_by_id") @db.Uuid
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminal PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  createdBy Profile @relation("DebtCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy Profile? @relation("DebtApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  payments CustomerDebtPayment[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, status])
+  @@index([terminalId])
+  @@index([customerId])
+  @@index([dueDate])
+  @@index([createdById])
+  @@index([approvedById])
+  @@map("customer_debt")
+  @@schema("public")
+}
+
+model CustomerDebtPayment {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  debtId String @map("debt_id") @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  terminalId String? @map("terminal_id") @db.Uuid
+  timestampId String? @map("timestamp_id") @db.Uuid
+  amount Decimal @db.Decimal(15, 2)
+  method String
+  referenceNo String? @map("reference_no")
+  notes String?
+  receivedById String @map("received_by_id") @db.Uuid
+
+  debt CustomerDebt @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminal PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  timestamp Timestamp? @relation(fields: [timestampId], references: [id], onDelete: SetNull)
+  receivedBy Profile @relation("DebtPaymentReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([debtId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([terminalId])
+  @@index([timestampId])
+  @@index([receivedById])
+  @@map("customer_debt_payment")
   @@schema("public")
 }
 

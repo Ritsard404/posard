@@ -424,6 +424,10 @@ export const dashboardService = {
       lowStockProducts,
       recentInvoices,
       latestShift,
+      debtOutstanding,
+      debtDueToday,
+      debtOverdue,
+      debtCollectedToday,
     ] = await Promise.all([
       prisma.invoice.findMany({
         where: { ...baseWhere, createdAt: { gte: todayStart, lte: todayEnd } },
@@ -551,6 +555,36 @@ export const dashboardService = {
           posTerminal: { select: { posName: true } },
         },
       }),
+      prisma.customerDebt.aggregate({
+        where: {
+          companyId,
+          status: { in: ["UNPAID", "PARTIAL"] },
+        },
+        _sum: { remainingAmount: true },
+      }),
+      prisma.customerDebt.aggregate({
+        where: {
+          companyId,
+          status: { in: ["UNPAID", "PARTIAL"] },
+          dueDate: { gte: todayStart, lte: todayEnd },
+        },
+        _sum: { remainingAmount: true },
+      }),
+      prisma.customerDebt.aggregate({
+        where: {
+          companyId,
+          status: { in: ["UNPAID", "PARTIAL"] },
+          dueDate: { lt: todayStart },
+        },
+        _sum: { remainingAmount: true },
+      }),
+      prisma.customerDebtPayment.aggregate({
+        where: {
+          companyId,
+          createdAt: { gte: todayStart, lte: todayEnd },
+        },
+        _sum: { amount: true },
+      }),
     ]);
 
     const todayScopedInvoices =
@@ -646,6 +680,10 @@ export const dashboardService = {
           { label: "Returns Today", value: returnsToday, tone: "warning", hint: "Returned amount today" },
           { label: "Voids Today", value: voidsToday, tone: "danger", hint: "Voided or cancelled totals" },
           { label: "Active Cashiers", value: activeCashiers, hint: "Enabled cashier accounts" },
+          { label: "Debt Outstanding", value: toNumber(debtOutstanding._sum.remainingAmount), tone: "warning", hint: "Open receivables still pending collection" },
+          { label: "Due Today", value: toNumber(debtDueToday._sum.remainingAmount), hint: "Debt balances due today" },
+          { label: "Overdue Debt", value: toNumber(debtOverdue._sum.remainingAmount), tone: "danger", hint: "Receivables past due date" },
+          { label: "Collected Today", value: toNumber(debtCollectedToday._sum.amount), tone: "success", hint: "Debt payments received today" },
         ],
         terminals: terminals.map((terminal) => ({
           id: terminal.id,
@@ -729,6 +767,8 @@ export const dashboardService = {
         { label: "My Transactions", value: todayScopedInvoices.filter((item) => item.status === "PAID").length, hint: "Paid invoices handled today" },
         { label: "Average Basket", value: todayScopedInvoices.filter((item) => item.status === "PAID").length > 0 ? salesToday / todayScopedInvoices.filter((item) => item.status === "PAID").length : 0, hint: "Average paid receipt value" },
         { label: "Returns", value: returnsToday, tone: "warning", hint: "Returned amount on your invoices" },
+        { label: "Debt Outstanding", value: toNumber(debtOutstanding._sum.remainingAmount), tone: "warning", hint: "Company receivables still unpaid" },
+        { label: "Collected Today", value: toNumber(debtCollectedToday._sum.amount), tone: "success", hint: "Debt payments recorded today" },
       ],
       shift: latestCashierShift,
       alerts: [
