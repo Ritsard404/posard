@@ -8,6 +8,8 @@ import { reportPrintService } from "@/app/(protected)/report/_services/report-pr
 import { reportService } from "@/app/(protected)/report/_services/report.service";
 import type {
   AuditTrailDto,
+  DebtCollectionsDto,
+  DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
   RefundInvoicesDto,
@@ -30,6 +32,8 @@ import type { ReportSortOrder } from "@/app/(protected)/report/_components/repor
 type SearchParams = Record<string, string | string[] | undefined>;
 export type LoadedReportData =
   | AuditTrailDto
+  | DebtCollectionsDto
+  | DebtOutstandingDto
   | DailyTransactionsDto
   | DiscountReportDto
   | RefundInvoicesDto
@@ -291,6 +295,12 @@ export const reportPageService = {
         break;
       case "daily-transactions":
         data = await reportService.getDailyTransactions(viewer, input);
+        break;
+      case "debt-outstanding":
+        data = await reportService.getDebtOutstanding(viewer, input);
+        break;
+      case "debt-collections":
+        data = await reportService.getDebtCollections(viewer, input);
         break;
       case "transaction-list":
         data = await reportService.getTransactionList(viewer, input);

@@ -1,5 +1,7 @@
 import type {
   AuditTrailDto,
+  DebtCollectionsDto,
+  DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
   RefundInvoicesDto,
@@ -104,6 +106,24 @@ function buildMetrics(
           label: "Reference Payments",
           value: formatCurrency(report.items.reduce((sum, item) => sum + item.ePaymentSales, 0)),
         },
+      ];
+    }
+    case "debt-outstanding": {
+      const report = data as DebtOutstandingDto;
+      return [
+        { label: "Outstanding", value: formatCurrency(report.totalOutstanding) },
+        { label: "Due Today", value: formatCurrency(report.dueToday) },
+        { label: "Overdue", value: formatCurrency(report.overdue) },
+        { label: "Accounts", value: formatCount(report.pagination.totalItems) },
+      ];
+    }
+    case "debt-collections": {
+      const report = data as DebtCollectionsDto;
+      return [
+        { label: "Collected", value: formatCurrency(report.totalCollected) },
+        { label: "Cash", value: formatCurrency(report.cashCollected) },
+        { label: "Reference", value: formatCurrency(report.referenceCollected) },
+        { label: "Payments", value: formatCount(report.pagination.totalItems) },
       ];
     }
     case "transaction-list": {

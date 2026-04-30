@@ -500,6 +500,56 @@ export interface SalesReportDto {
   totals: SalesReportTotalsDto;
 }
 
+export interface DebtOutstandingItemDto {
+  debtId: string;
+  invoiceId: string;
+  invoiceNumber: number;
+  customerId: string;
+  customerName: string;
+  terminalName: string;
+  createdByName: string;
+  status: "UNPAID" | "PARTIAL" | "PAID" | "CANCELLED";
+  originalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  dueDate: Date;
+  createdAt: Date;
+  notes: string | null;
+}
+
+export interface DebtOutstandingDto {
+  range: ReportDateRangeDto;
+  items: DebtOutstandingItemDto[];
+  pagination: ReportPaginationDto;
+  totalOutstanding: number;
+  dueToday: number;
+  overdue: number;
+}
+
+export interface DebtCollectionItemDto {
+  paymentId: string;
+  debtId: string;
+  invoiceId: string;
+  invoiceNumber: number;
+  customerName: string;
+  terminalName: string;
+  receivedByName: string;
+  method: string;
+  referenceNo: string | null;
+  amount: number;
+  createdAt: Date;
+  remainingAmount: number;
+}
+
+export interface DebtCollectionsDto {
+  range: ReportDateRangeDto;
+  items: DebtCollectionItemDto[];
+  pagination: ReportPaginationDto;
+  totalCollected: number;
+  cashCollected: number;
+  referenceCollected: number;
+}
+
 export type ReportPrintableView =
   | "overview"
   | "x-reading"
@@ -514,6 +564,8 @@ export type ReportPrintableView =
   | "refund-invoices"
   | "returned-items"
   | "returned-records"
+  | "debt-outstanding"
+  | "debt-collections"
   | "audit"
   | "transactions";
 

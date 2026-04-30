@@ -4,6 +4,8 @@ import { ReportPaginationBar } from "@/app/(protected)/report/_components/Report
 import { ReportPrintControls } from "@/app/(protected)/report/_components/ReportPrintControls";
 import {
   AuditPanel,
+  DebtCollectionsPanel,
+  DebtOutstandingPanel,
   DailyTransactionsPanel,
   DiscountReportPanel,
   RefundInvoicesPanel,
@@ -121,6 +123,10 @@ function renderReportPanel(data: NonNullable<DirectPageData>) {
       return <TransactionsPanel history={data.data as Parameters<typeof TransactionsPanel>[0]["history"]} />;
     case "daily-transactions":
       return <DailyTransactionsPanel report={data.data as Parameters<typeof DailyTransactionsPanel>[0]["report"]} />;
+    case "debt-outstanding":
+      return <DebtOutstandingPanel report={data.data as Parameters<typeof DebtOutstandingPanel>[0]["report"]} />;
+    case "debt-collections":
+      return <DebtCollectionsPanel report={data.data as Parameters<typeof DebtCollectionsPanel>[0]["report"]} />;
     case "transaction-list":
       return <TransactionListPanel report={data.data as Parameters<typeof TransactionListPanel>[0]["report"]} />;
     case "sales-book":

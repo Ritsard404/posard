@@ -16,6 +16,7 @@ import {
 export type ReportCategory =
   | "Overview"
   | "Sales Reports"
+  | "Debt Reports"
   | "Daily Transactions"
   | "Voids & Returns"
   | "Discount Reports"
@@ -35,6 +36,8 @@ export type ReportPrintableView =
   | "refund-invoices"
   | "returned-items"
   | "returned-records"
+  | "debt-outstanding"
+  | "debt-collections"
   | "audit"
   | "x-reading"
   | "z-reading";
@@ -157,6 +160,24 @@ export const REPORT_VIEWS: ReportViewMeta[] = [
     icon: FileClock,
   },
   {
+    id: "debt-outstanding",
+    category: "Debt Reports",
+    label: "Debt Outstanding",
+    description: "Open receivables by customer and due date.",
+    supportingCopy:
+      "Track balances still unpaid without mixing them into settled sales totals.",
+    icon: CreditCard,
+  },
+  {
+    id: "debt-collections",
+    category: "Debt Reports",
+    label: "Debt Collections",
+    description: "Collected debt payments by date, method, and cashier.",
+    supportingCopy:
+      "Review receivable collections separately from original invoice issuance.",
+    icon: Receipt,
+  },
+  {
     id: "audit",
     category: "Audit Trail",
     label: "Audit Trail",
@@ -188,6 +209,7 @@ export const REPORT_VIEWS: ReportViewMeta[] = [
 export const REPORT_CATEGORY_ORDER: ReportCategory[] = [
   "Overview",
   "Sales Reports",
+  "Debt Reports",
   "Daily Transactions",
   "Voids & Returns",
   "Discount Reports",
@@ -199,6 +221,8 @@ export const REPORT_CATEGORY_DESCRIPTIONS: Record<ReportCategory, string> = {
   Overview: "Quick summary before drilling into detailed activity.",
   "Sales Reports":
     "Invoice history, sales performance, and day-by-day sales summaries.",
+  "Debt Reports":
+    "Receivable balances and later collections without rewriting sales settlement history.",
   "Daily Transactions":
     "Daily terminal rollups for fast closeout and day review.",
   "Voids & Returns":

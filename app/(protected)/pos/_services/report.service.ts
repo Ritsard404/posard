@@ -44,34 +44,47 @@ export const reportService = {
       throw new Error("Active session not found or invalid.");
     }
 
-    // Fetch all paid invoices for this cashier on this terminal since login
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        posTerminalId: timestamp.posTerminalId,
-        cashierId: timestamp.cashierId,
-        status: 'PAID',
-        createdAt: { gte: timestamp.timestampIn },
-        isTrainMode: timestamp.posTerminal.isTrainMode,
-        isRead: false // Only include invoices not yet processed in a Z-report
-      },
-      include: {
-        ePayments: true
-      }
-    });
+    const [invoices, debtPayments] = await Promise.all([
+      prisma.invoice.findMany({
+        where: {
+          posTerminalId: timestamp.posTerminalId,
+          cashierId: timestamp.cashierId,
+          status: { in: ["PAID", "PENDING"] },
+          createdAt: { gte: timestamp.timestampIn },
+          isTrainMode: timestamp.posTerminal.isTrainMode,
+          isRead: false,
+        },
+        include: {
+          ePayments: true,
+        },
+      }),
+      prisma.customerDebtPayment.findMany({
+        where: {
+          timestampId: timestamp.id,
+          createdAt: { gte: timestamp.timestampIn },
+        },
+      }),
+    ]);
 
-    // Calculate Cash Sales: Sum(Tendered - Change - Returned)
-    const totalCashSales = invoices.reduce((sum, invoice) => {
-      const tendered = Number(invoice.cashTendered || 0);
-      const change = Number(invoice.changeAmount || 0);
-      const returnedVal = Number(invoice.returnedAmount || 0);
-      return sum + (tendered - change - returnedVal);
-    }, 0);
+    const totalCashSales =
+      invoices.reduce((sum, invoice) => {
+        const tendered = Number(invoice.cashTendered || 0);
+        const change = Number(invoice.changeAmount || 0);
+        const returnedVal = Number(invoice.returnedAmount || 0);
+        return sum + (tendered - change - returnedVal);
+      }, 0) +
+      debtPayments
+        .filter((payment) => payment.method.toUpperCase() === "CASH")
+        .reduce((sum, payment) => sum + Number(payment.amount), 0);
 
-    // Calculate E-Payment Sales for reference
-    const totalEPaymentSales = invoices.reduce((sum, invoice) => {
-      const epayTotal = invoice.ePayments.reduce((eSum, ep) => eSum + Number(ep.amount), 0);
-      return sum + epayTotal;
-    }, 0);
+    const totalEPaymentSales =
+      invoices.reduce((sum, invoice) => {
+        const epayTotal = invoice.ePayments.reduce((eSum, ep) => eSum + Number(ep.amount), 0);
+        return sum + epayTotal;
+      }, 0) +
+      debtPayments
+        .filter((payment) => payment.method.toUpperCase() !== "CASH")
+        .reduce((sum, payment) => sum + Number(payment.amount), 0);
 
     const openingCash = Number(timestamp.cashInDrawerAmount);
     const totalWithdrawals = Number(timestamp.withdrawnDrawerAmount);

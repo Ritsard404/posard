@@ -14,6 +14,8 @@ import type { ReportPrintableView } from "@/app/(protected)/report/_services/_dt
 export type ReportsRouteSlug =
   | "sales"
   | "daily-transactions"
+  | "debt-outstanding"
+  | "debt-collections"
   | "x-reading"
   | "z-reading"
   | "audit-trail"
@@ -36,6 +38,7 @@ export interface ReportRouteDefinition {
   icon: LucideIcon;
   category:
     | "Sales"
+    | "Debt"
     | "Operations"
     | "Readings"
     | "Compliance"
@@ -79,6 +82,24 @@ export const REPORT_ROUTE_DEFINITIONS: ReportRouteDefinition[] = [
     description: "Daily summarized book for sales, VAT, and totals.",
     icon: Receipt,
     category: "Sales",
+  },
+  {
+    slug: "debt-outstanding",
+    view: "debt-outstanding",
+    label: "Debt Outstanding",
+    shortLabel: "Outstanding",
+    description: "Open receivables by customer, terminal, and due date.",
+    icon: Receipt,
+    category: "Debt",
+  },
+  {
+    slug: "debt-collections",
+    view: "debt-collections",
+    label: "Debt Collections",
+    shortLabel: "Collections",
+    description: "Later debt payments grouped separately from original sales.",
+    icon: ClipboardList,
+    category: "Debt",
   },
   {
     slug: "x-reading",

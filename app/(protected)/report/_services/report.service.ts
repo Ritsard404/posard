@@ -9,6 +9,8 @@ import { printArchiveService } from "@/app/(protected)/pos/_services/print-archi
 import type {
   AuditTrailDto,
   AuditTrailItemDto,
+  DebtCollectionsDto,
+  DebtOutstandingDto,
   DailyTransactionsDto,
   DailyTransactionItemDto,
   DiscountReportDto,
@@ -136,6 +138,66 @@ function calculateCashCollected(invoice: {
     toNumber(invoice.changeAmount) -
     toNumber(invoice.returnedAmount)
   );
+}
+
+function isSettledSalesInvoice(invoice: { status: string }) {
+  return invoice.status === "PAID";
+}
+
+function isCashAffectingInvoice(invoice: {
+  status: string;
+  cashTendered: unknown;
+  changeAmount: unknown;
+  returnedAmount: unknown;
+}) {
+  if (isVoidInvoice(invoice)) {
+    return false;
+  }
+
+  return calculateCashCollected(invoice) > 0;
+}
+
+function sumInvoiceReferencePayments(
+  invoices: Array<{
+    ePayments: Array<{
+      amount: unknown;
+    }>;
+  }>,
+) {
+  return invoices.reduce(
+    (sum, invoice) =>
+      sum +
+      invoice.ePayments.reduce(
+        (paymentTotal, payment) => paymentTotal + toNumber(payment.amount),
+        0,
+      ),
+    0,
+  );
+}
+
+function buildNamedPaymentBreakdown(
+  entries: Array<{ name: string; amount: number }>,
+): ReportPaymentBreakdownDto[] {
+  const paymentMap = new Map<string, ReportPaymentBreakdownDto>();
+
+  for (const entry of entries) {
+    const key = getPaymentMethodName(entry.name);
+    const current = paymentMap.get(key);
+
+    if (current) {
+      current.count += 1;
+      current.amount += entry.amount;
+      continue;
+    }
+
+    paymentMap.set(key, {
+      name: key,
+      count: 1,
+      amount: entry.amount,
+    });
+  }
+
+  return [...paymentMap.values()].sort((a, b) => b.amount - a.amount);
 }
 
 function buildPaymentBreakdown(
@@ -294,6 +356,34 @@ async function getInvoicesForRange(
   });
 }
 
+async function getDebtPaymentsForRange(
+  companyId: string,
+  from: Date,
+  to: Date,
+  terminalId?: string | null,
+) {
+  return prisma.customerDebtPayment.findMany({
+    where: {
+      companyId,
+      ...(terminalId ? { terminalId } : {}),
+      createdAt: {
+        gte: from,
+        lte: to,
+      },
+    },
+    include: {
+      debt: {
+        select: {
+          invoiceId: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+}
+
 function createInvoiceWhere(
   companyId: string,
   from: Date,
@@ -338,6 +428,22 @@ function createItemWhere(
   };
 }
 
+function createDebtWhere(
+  companyId: string,
+  from: Date,
+  to: Date,
+  terminalId?: string | null,
+): Prisma.CustomerDebtWhereInput {
+  return {
+    companyId,
+    ...(terminalId ? { terminalId } : {}),
+    createdAt: {
+      gte: from,
+      lte: to,
+    },
+  };
+}
+
 function calculateRefundRatio(totalAmount: unknown, returnedAmount: unknown) {
   const total = toNumber(totalAmount);
 
@@ -369,6 +475,7 @@ function getTerminalSerialNumber(terminal: {
 }
 
 async function buildXReadingFromTimestamp(timestamp: {
+  id: string;
   timestampIn: Date | null;
   timestampOut: Date | null;
   cashInDrawerAmount: unknown;
@@ -397,14 +504,28 @@ async function buildXReadingFromTimestamp(timestamp: {
   }
 
   const readingEnd = timestamp.timestampOut ?? new Date();
-  const invoices = await getInvoicesForRange(
-    companyId,
-    timestamp.timestampIn,
-    readingEnd,
-    timestamp.posTerminalId,
-  );
+  const [invoices, debtPayments] = await Promise.all([
+    getInvoicesForRange(
+      companyId,
+      timestamp.timestampIn,
+      readingEnd,
+      timestamp.posTerminalId,
+    ),
+    prisma.customerDebtPayment.findMany({
+      where: {
+        companyId,
+        timestampId: timestamp.id,
+        createdAt: {
+          gte: timestamp.timestampIn,
+          lte: readingEnd,
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
   const unreadInvoices = invoices.filter((invoice) => !invoice.isRead);
-  const paidInvoices = unreadInvoices.filter((invoice) => invoice.status === "PAID");
+  const paidInvoices = unreadInvoices.filter(isSettledSalesInvoice);
+  const cashAffectingInvoices = unreadInvoices.filter(isCashAffectingInvoice);
   const voidInvoices = unreadInvoices.filter(isVoidInvoice);
   const returnedInvoices = unreadInvoices.filter(
     (invoice) => invoice.status === "RETURNED",
@@ -416,10 +537,17 @@ async function buildXReadingFromTimestamp(timestamp: {
     (sum, invoice) => sum + toNumber(invoice.returnedAmount),
     0,
   );
-  const cashSales = paidInvoices.reduce(
+  const cashInvoiceCollections = cashAffectingInvoices.reduce(
     (sum, invoice) => sum + calculateCashCollected(invoice),
     0,
   );
+  const debtCashCollections = debtPayments
+    .filter((payment) => payment.method.toUpperCase() === "CASH")
+    .reduce((sum, payment) => sum + toNumber(payment.amount), 0);
+  const debtReferenceCollections = debtPayments
+    .filter((payment) => payment.method.toUpperCase() !== "CASH")
+    .reduce((sum, payment) => sum + toNumber(payment.amount), 0);
+  const cashSales = cashInvoiceCollections + debtCashCollections;
   const expectedCash = openingFund + cashSales - withdrawalAmount;
   const actualCash = toNumber(timestamp.cashOutDrawerAmount);
   const sortedInvoiceNumbers = unreadInvoices
@@ -491,18 +619,22 @@ async function buildXReadingFromTimestamp(timestamp: {
     actualCash,
     shortOver: actualCash - expectedCash - refundAmount,
     cashSales,
-    otherPayments: buildPaymentBreakdown(paidInvoices),
+    otherPayments: buildNamedPaymentBreakdown([
+      ...buildPaymentBreakdown(paidInvoices).map((entry) => ({
+        name: entry.name,
+        amount: entry.amount,
+      })),
+      ...debtPayments
+        .filter((payment) => payment.method.toUpperCase() !== "CASH")
+        .map((payment) => ({
+          name: payment.method,
+          amount: toNumber(payment.amount),
+        })),
+    ]),
     paymentsReceived:
       cashSales +
-      paidInvoices.reduce(
-        (sum, invoice) =>
-          sum +
-          invoice.ePayments.reduce(
-            (paymentTotal, payment) => paymentTotal + toNumber(payment.amount),
-            0,
-          ),
-        0,
-      ),
+      sumInvoiceReferencePayments(paidInvoices) +
+      debtReferenceCollections,
     invoices: xReadingInvoices,
   };
 }
@@ -736,7 +868,10 @@ export const reportService = {
     input: ReportRangeInput,
   ): Promise<ReportOverviewDto> {
     const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
-    const invoices = await getInvoicesForRange(companyId, input.from, input.to, terminalId);
+    const [invoices, debtPayments] = await Promise.all([
+      getInvoicesForRange(companyId, input.from, input.to, terminalId),
+      getDebtPaymentsForRange(companyId, input.from, input.to, terminalId),
+    ]);
 
     const [activeSessionCount, unreadInvoiceCount, pendingTerminalRequests] =
       await Promise.all([
@@ -766,7 +901,8 @@ export const reportService = {
         }),
       ]);
 
-    const paidInvoices = invoices.filter((invoice) => invoice.status === "PAID");
+    const paidInvoices = invoices.filter(isSettledSalesInvoice);
+    const cashAffectingInvoices = invoices.filter(isCashAffectingInvoice);
     const voidInvoices = invoices.filter(isVoidInvoice);
     const returnedInvoices = invoices.filter(
       (invoice) => invoice.status === "RETURNED",
@@ -795,23 +931,34 @@ export const reportService = {
         (sum, invoice) => sum + toNumber(invoice.discountAmount),
         0,
       ),
-      totalCashSales: paidInvoices.reduce(
-        (sum, invoice) => sum + calculateCashCollected(invoice),
-        0,
-      ),
-      totalEPaymentSales: paidInvoices.reduce(
-        (sum, invoice) =>
-          sum +
-          invoice.ePayments.reduce(
-            (paymentTotal, payment) => paymentTotal + toNumber(payment.amount),
-            0,
-          ),
-        0,
-      ),
+      totalCashSales:
+        cashAffectingInvoices.reduce(
+          (sum, invoice) => sum + calculateCashCollected(invoice),
+          0,
+        ) +
+        debtPayments
+          .filter((payment) => payment.method.toUpperCase() === "CASH")
+          .reduce((sum, payment) => sum + toNumber(payment.amount), 0),
+      totalEPaymentSales:
+        sumInvoiceReferencePayments(paidInvoices) +
+        debtPayments
+          .filter((payment) => payment.method.toUpperCase() !== "CASH")
+          .reduce((sum, payment) => sum + toNumber(payment.amount), 0),
       activeSessionCount,
       unreadInvoiceCount,
       pendingTerminalRequests,
-      paymentBreakdown: buildPaymentBreakdown(paidInvoices),
+      paymentBreakdown: buildNamedPaymentBreakdown([
+        ...buildPaymentBreakdown(paidInvoices).map((entry) => ({
+          name: entry.name,
+          amount: entry.amount,
+        })),
+        ...debtPayments
+          .filter((payment) => payment.method.toUpperCase() !== "CASH")
+          .map((payment) => ({
+            name: payment.method,
+            amount: toNumber(payment.amount),
+          })),
+      ]),
     };
   },
 
@@ -867,52 +1014,56 @@ export const reportService = {
     input: ReportRangeInput,
   ): Promise<ZReadingDto> {
     const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
-    const invoices = await getInvoicesForRange(companyId, input.from, input.to, terminalId);
-    const timestamps = await prisma.timestamp.findMany({
-      where: {
-        posTerminal: {
-          companyId,
-          ...(terminalId ? { id: terminalId } : {}),
+    const [invoices, timestamps, debtPayments] = await Promise.all([
+      getInvoicesForRange(companyId, input.from, input.to, terminalId),
+      prisma.timestamp.findMany({
+        where: {
+          posTerminal: {
+            companyId,
+            ...(terminalId ? { id: terminalId } : {}),
+          },
+          OR: [
+            {
+              timestampIn: {
+                gte: input.from,
+                lte: input.to,
+              },
+            },
+            {
+              timestampOut: {
+                gte: input.from,
+                lte: input.to,
+              },
+            },
+          ],
         },
-        OR: [
-          {
-            timestampIn: {
-              gte: input.from,
-              lte: input.to,
+        include: {
+          posTerminal: {
+            select: {
+              id: true,
+              posName: true,
+              registeredName: true,
+              operatedBy: true,
+              address: true,
+              vatTinNumber: true,
+              minNumber: true,
+              ptuNumber: true,
+              accreditationNumber: true,
+              isTrainMode: true,
+              vat: true,
+              resetCounterNo: true,
+              resetCounterTrainNo: true,
+              zCounterNo: true,
+              zCounterTrainNo: true,
             },
           },
-          {
-            timestampOut: {
-              gte: input.from,
-              lte: input.to,
-            },
-          },
-        ],
-      },
-      include: {
-        posTerminal: {
-          select: {
-            id: true,
-            posName: true,
-            registeredName: true,
-            operatedBy: true,
-            address: true,
-            vatTinNumber: true,
-            minNumber: true,
-            ptuNumber: true,
-            accreditationNumber: true,
-            isTrainMode: true,
-            vat: true,
-            resetCounterNo: true,
-            resetCounterTrainNo: true,
-            zCounterNo: true,
-            zCounterTrainNo: true,
-          },
         },
-      },
-    });
+      }),
+      getDebtPaymentsForRange(companyId, input.from, input.to, terminalId),
+    ]);
 
-    const paidInvoices = invoices.filter((invoice) => invoice.status === "PAID");
+    const paidInvoices = invoices.filter(isSettledSalesInvoice);
+    const cashAffectingInvoices = invoices.filter(isCashAffectingInvoice);
     const voidInvoices = invoices.filter(isVoidInvoice);
     const returnedInvoices = invoices.filter(
       (invoice) => invoice.status === "RETURNED",
@@ -934,19 +1085,19 @@ export const reportService = {
       (sum, invoice) => sum + toNumber(invoice.discountAmount),
       0,
     );
-    const cashSales = paidInvoices.reduce(
-      (sum, invoice) => sum + calculateCashCollected(invoice),
-      0,
-    );
-    const ePaymentSales = paidInvoices.reduce(
-      (sum, invoice) =>
-        sum +
-        invoice.ePayments.reduce(
-          (paymentTotal, payment) => paymentTotal + toNumber(payment.amount),
-          0,
-        ),
-      0,
-    );
+    const cashSales =
+      cashAffectingInvoices.reduce(
+        (sum, invoice) => sum + calculateCashCollected(invoice),
+        0,
+      ) +
+      debtPayments
+        .filter((payment) => payment.method.toUpperCase() === "CASH")
+        .reduce((sum, payment) => sum + toNumber(payment.amount), 0);
+    const ePaymentSales =
+      sumInvoiceReferencePayments(paidInvoices) +
+      debtPayments
+        .filter((payment) => payment.method.toUpperCase() !== "CASH")
+        .reduce((sum, payment) => sum + toNumber(payment.amount), 0);
     const openingFund = timestamps.reduce(
       (sum, timestamp) => sum + toNumber(timestamp.cashInDrawerAmount),
       0,
@@ -1111,7 +1262,18 @@ export const reportService = {
       pwdCount: discountBreakdown.pwdCount,
       otherDiscount: discountBreakdown.otherDiscount,
       otherCount: discountBreakdown.otherCount,
-      paymentBreakdown: buildPaymentBreakdown(paidInvoices),
+      paymentBreakdown: buildNamedPaymentBreakdown([
+        ...buildPaymentBreakdown(paidInvoices).map((entry) => ({
+          name: entry.name,
+          amount: entry.amount,
+        })),
+        ...debtPayments
+          .filter((payment) => payment.method.toUpperCase() !== "CASH")
+          .map((payment) => ({
+            name: payment.method,
+            amount: toNumber(payment.amount),
+          })),
+      ]),
     };
   },
 
@@ -1531,32 +1693,52 @@ export const reportService = {
     input: ReportPagedRangeInput,
   ): Promise<DailyTransactionsDto> {
     const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
-    const invoices = await prisma.invoice.findMany({
-      where: createInvoiceWhere(companyId, input.from, input.to, terminalId),
-      select: {
-        createdAt: true,
-        grossAmount: true,
-        totalAmount: true,
-        discountAmount: true,
-        returnedAmount: true,
-        status: true,
-        cashTendered: true,
-        changeAmount: true,
-        ePayments: {
-          select: {
-            amount: true,
+    const [invoices, debtPayments] = await Promise.all([
+      prisma.invoice.findMany({
+        where: createInvoiceWhere(companyId, input.from, input.to, terminalId),
+        select: {
+          createdAt: true,
+          grossAmount: true,
+          totalAmount: true,
+          discountAmount: true,
+          returnedAmount: true,
+          status: true,
+          cashTendered: true,
+          changeAmount: true,
+          ePayments: {
+            select: {
+              amount: true,
+            },
+          },
+          posTerminal: {
+            select: {
+              posName: true,
+            },
           },
         },
-        posTerminal: {
-          select: {
-            posName: true,
+        orderBy: {
+          createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
+        },
+      }),
+      prisma.customerDebtPayment.findMany({
+        where: {
+          companyId,
+          ...(terminalId ? { terminalId } : {}),
+          createdAt: { gte: input.from, lte: input.to },
+          terminal: { companyId },
+        },
+        select: {
+          createdAt: true,
+          amount: true,
+          method: true,
+          terminal: {
+            select: {
+              posName: true,
+            },
           },
         },
-      },
-      orderBy: {
-        createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
-      },
-    });
+      }),
+    ]);
 
     const map = new Map<string, DailyTransactionItemDto>();
 
@@ -1577,26 +1759,56 @@ export const reportService = {
         ePaymentSales: 0,
       };
 
-      current.invoiceCount += 1;
-       current.grossSales += toNumber(invoice.totalAmount);
-      current.totalDiscounts += toNumber(invoice.discountAmount);
-      current.totalReturns += toNumber(invoice.returnedAmount);
-      if (invoice.status === "PAID") {
-        current.cashSales += calculateCashCollected(invoice);
-        current.ePaymentSales += invoice.ePayments.reduce(
-          (sum, payment) => sum + toNumber(payment.amount),
-          0,
-        );
+      if (isSettledSalesInvoice(invoice)) {
+        current.invoiceCount += 1;
+        current.grossSales += toNumber(invoice.totalAmount);
+        current.totalDiscounts += toNumber(invoice.discountAmount);
+        current.totalReturns += toNumber(invoice.returnedAmount);
+        current.netSales +=
+          toNumber(invoice.totalAmount) -
+          toNumber(invoice.discountAmount) -
+          toNumber(invoice.returnedAmount);
+      } else if (invoice.status === "RETURNED") {
+        current.totalReturns += toNumber(invoice.returnedAmount);
       }
+
+      if (isCashAffectingInvoice(invoice)) {
+        current.cashSales += calculateCashCollected(invoice);
+      }
+      current.ePaymentSales += invoice.ePayments.reduce(
+        (sum, payment) => sum + toNumber(payment.amount),
+        0,
+      );
 
       if (isVoidInvoice(invoice)) {
         current.totalVoids += calculateVoidAmount(invoice);
       }
 
-      current.netSales +=
-        toNumber(invoice.totalAmount) -
-        toNumber(invoice.discountAmount) -
-        toNumber(invoice.returnedAmount);
+      map.set(key, current);
+    }
+
+    for (const payment of debtPayments) {
+      const businessDate = normalizeStartOfDay(payment.createdAt);
+      const terminalName = payment.terminal?.posName ?? "Unnamed terminal";
+      const key = `${businessDate.toISOString()}-${terminalName}`;
+      const current = map.get(key) ?? {
+        businessDate,
+        terminalName,
+        invoiceCount: 0,
+        grossSales: 0,
+        totalDiscounts: 0,
+        totalReturns: 0,
+        totalVoids: 0,
+        netSales: 0,
+        cashSales: 0,
+        ePaymentSales: 0,
+      };
+
+      if (payment.method.toUpperCase() === "CASH") {
+        current.cashSales += toNumber(payment.amount);
+      } else {
+        current.ePaymentSales += toNumber(payment.amount);
+      }
 
       map.set(key, current);
     }
@@ -1946,6 +2158,164 @@ export const reportService = {
         vatableSales: items.reduce((sum, item) => sum + item.vatableSales, 0),
         vatAmount: items.reduce((sum, item) => sum + item.vatAmount, 0),
       },
+    };
+  },
+
+  async getDebtOutstanding(
+    viewer: ReportViewerDto,
+    input: ReportPagedRangeInput,
+  ): Promise<DebtOutstandingDto> {
+    const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
+    const where = createDebtWhere(companyId, input.from, input.to, terminalId);
+
+    const [totalItems, rows, dueTodayAggregate, overdueAggregate, outstandingAggregate] =
+      await Promise.all([
+        prisma.customerDebt.count({ where }),
+        prisma.customerDebt.findMany({
+          where,
+          include: {
+            customer: { select: { id: true, name: true } },
+            invoice: { select: { id: true, invoiceNumber: true } },
+            terminal: { select: { posName: true } },
+            createdBy: { select: { fullName: true } },
+          },
+          orderBy: { createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc" },
+          skip: (input.page - 1) * input.pageSize,
+          take: input.pageSize,
+        }),
+        prisma.customerDebt.aggregate({
+          where: {
+            companyId,
+            ...(terminalId ? { terminalId } : {}),
+            status: { in: ["UNPAID", "PARTIAL"] },
+            dueDate: { gte: normalizeStartOfDay(new Date()), lte: normalizeEndOfDay(new Date()) },
+          },
+          _sum: { remainingAmount: true },
+        }),
+        prisma.customerDebt.aggregate({
+          where: {
+            companyId,
+            ...(terminalId ? { terminalId } : {}),
+            status: { in: ["UNPAID", "PARTIAL"] },
+            dueDate: { lt: normalizeStartOfDay(new Date()) },
+          },
+          _sum: { remainingAmount: true },
+        }),
+        prisma.customerDebt.aggregate({
+          where: {
+            companyId,
+            ...(terminalId ? { terminalId } : {}),
+            status: { in: ["UNPAID", "PARTIAL"] },
+          },
+          _sum: { remainingAmount: true },
+        }),
+      ]);
+
+    return {
+      range: createRange(input.from, input.to),
+      items: rows.map((row) => ({
+        debtId: row.id,
+        invoiceId: row.invoice.id,
+        invoiceNumber: row.invoice.invoiceNumber,
+        customerId: row.customer.id,
+        customerName: row.customer.name,
+        terminalName: row.terminal?.posName ?? "Unnamed terminal",
+        createdByName: row.createdBy.fullName ?? "Unknown",
+        status: row.status,
+        originalAmount: toNumber(row.originalAmount),
+        paidAmount: toNumber(row.paidAmount),
+        remainingAmount: toNumber(row.remainingAmount),
+        dueDate: row.dueDate,
+        createdAt: row.createdAt,
+        notes: row.notes,
+      })),
+      pagination: createPagination(input.page, input.pageSize, totalItems),
+      totalOutstanding: toNumber(outstandingAggregate._sum.remainingAmount),
+      dueToday: toNumber(dueTodayAggregate._sum.remainingAmount),
+      overdue: toNumber(overdueAggregate._sum.remainingAmount),
+    };
+  },
+
+  async getDebtCollections(
+    viewer: ReportViewerDto,
+    input: ReportPagedRangeInput,
+  ): Promise<DebtCollectionsDto> {
+    const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
+    const where = {
+      companyId,
+      createdAt: { gte: input.from, lte: input.to },
+      ...(terminalId ? { terminalId } : {}),
+    } satisfies Prisma.CustomerDebtPaymentWhereInput;
+
+    const [totalItems, rows, cashAggregate, referenceRows] = await Promise.all([
+      prisma.customerDebtPayment.count({ where }),
+      prisma.customerDebtPayment.findMany({
+        where,
+        include: {
+          debt: {
+            select: {
+              id: true,
+              invoiceId: true,
+              remainingAmount: true,
+              customer: { select: { name: true } },
+              invoice: { select: { invoiceNumber: true } },
+            },
+          },
+          terminal: { select: { posName: true } },
+          receivedBy: { select: { fullName: true } },
+        },
+        orderBy: { createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc" },
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize,
+      }),
+      prisma.customerDebtPayment.aggregate({
+        where: {
+          ...where,
+          method: { equals: "CASH", mode: "insensitive" },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.customerDebtPayment.findMany({
+        where,
+        select: {
+          amount: true,
+          method: true,
+        },
+      }),
+    ]);
+
+    const totals = referenceRows.reduce(
+      (acc, row) => {
+        const amount = toNumber(row.amount);
+        acc.total += amount;
+        if (row.method.toUpperCase() !== "CASH") {
+          acc.reference += amount;
+        }
+        return acc;
+      },
+      { total: 0, cash: toNumber(cashAggregate._sum.amount), reference: 0 },
+    );
+
+    return {
+      range: createRange(input.from, input.to),
+      items: rows.map((row) => ({
+        paymentId: row.id,
+        debtId: row.debt.id,
+        invoiceId: row.debt.invoiceId,
+        invoiceNumber: row.debt.invoice.invoiceNumber,
+        customerName: row.debt.customer.name,
+        terminalName: row.terminal?.posName ?? "Unnamed terminal",
+        receivedByName: row.receivedBy.fullName ?? "Unknown",
+        method: row.method,
+        referenceNo: row.referenceNo,
+        amount: toNumber(row.amount),
+        createdAt: row.createdAt,
+        remainingAmount: toNumber(row.debt.remainingAmount),
+      })),
+      pagination: createPagination(input.page, input.pageSize, totalItems),
+      totalCollected: totals.total,
+      cashCollected: totals.cash,
+      referenceCollected: totals.reference,
     };
   },
 

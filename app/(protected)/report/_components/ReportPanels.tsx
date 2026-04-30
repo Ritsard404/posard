@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import type {
   AuditTrailDto,
+  DebtCollectionsDto,
+  DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
   RefundInvoicesDto,
@@ -245,6 +247,91 @@ export function DailyTransactionsPanel({ report }: { report: DailyTransactionsDt
             <>
               <ReportField label="Gross Sales" value={formatCurrency(item.grossSales)} />
             </>
+          }
+        />
+      ))}
+    </ReportSectionCard>
+  );
+}
+
+export function DebtOutstandingPanel({ report }: { report: DebtOutstandingDto }) {
+  if (report.items.length === 0) {
+    return (
+      <EmptyState
+        title="No outstanding debt"
+        message="No debt balances were found for the selected filters."
+      />
+    );
+  }
+
+  return (
+    <ReportSectionCard
+      title="Debt Outstanding"
+      description="Invoice-linked receivables that remain unpaid or partially paid."
+      badge="Debt"
+    >
+      {report.items.map((item) => (
+        <ReportListCard
+          key={item.debtId}
+          title={`#${formatInvoiceNumber(item.invoiceNumber)} / ${item.customerName}`}
+          subtitle={`${formatDateTime(item.createdAt)} / ${item.terminalName} / ${item.createdByName}`}
+          badges={<Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>}
+          value={formatCurrency(item.remainingAmount)}
+          meta={
+            <>
+              <ReportField label="Original" value={formatCurrency(item.originalAmount)} />
+              <ReportField label="Paid" value={formatCurrency(item.paidAmount)} />
+              <ReportField label="Due Date" value={formatDateTime(item.dueDate)} />
+            </>
+          }
+          actions={
+            <ReportInvoicePrintButton
+              invoiceId={item.invoiceId}
+              invoiceNumber={item.invoiceNumber}
+            />
+          }
+        />
+      ))}
+    </ReportSectionCard>
+  );
+}
+
+export function DebtCollectionsPanel({ report }: { report: DebtCollectionsDto }) {
+  if (report.items.length === 0) {
+    return (
+      <EmptyState
+        title="No debt collections"
+        message="No debt payments were found for the selected filters."
+      />
+    );
+  }
+
+  return (
+    <ReportSectionCard
+      title="Debt Collections"
+      description="Later payments collected against previously issued utang."
+      badge="Collections"
+    >
+      {report.items.map((item) => (
+        <ReportListCard
+          key={item.paymentId}
+          title={`#${formatInvoiceNumber(item.invoiceNumber)} / ${item.customerName}`}
+          subtitle={`${formatDateTime(item.createdAt)} / ${item.terminalName} / ${item.receivedByName}`}
+          badges={<Badge variant="outline" className="rounded-full uppercase">{item.method}</Badge>}
+          value={formatCurrency(item.amount)}
+          meta={
+            <>
+              <ReportField label="Remaining" value={formatCurrency(item.remainingAmount)} />
+              {item.referenceNo ? (
+                <ReportField label="Reference" value={item.referenceNo} />
+              ) : null}
+            </>
+          }
+          actions={
+            <ReportInvoicePrintButton
+              invoiceId={item.invoiceId}
+              invoiceNumber={item.invoiceNumber}
+            />
           }
         />
       ))}

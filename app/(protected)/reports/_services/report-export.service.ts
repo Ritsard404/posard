@@ -3,6 +3,8 @@ import "server-only";
 import * as XLSX from "xlsx";
 import type {
   AuditTrailDto,
+  DebtCollectionsDto,
+  DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
   RefundInvoicesDto,
@@ -19,6 +21,8 @@ import type { ReportsRouteSlug } from "../_components/reports-config";
 
 type ExportableReportData =
   | AuditTrailDto
+  | DebtCollectionsDto
+  | DebtOutstandingDto
   | DailyTransactionsDto
   | DiscountReportDto
   | RefundInvoicesDto
@@ -134,6 +138,60 @@ function mapRows(slug: ReportsRouteSlug, data: ExportableReportData) {
           stringifyCell(item.netSales),
           stringifyCell(item.cashSales),
           stringifyCell(item.ePaymentSales),
+        ]),
+      };
+    }
+    case "debt-outstanding": {
+      const report = data as DebtOutstandingDto;
+      return {
+        headers: [
+          "Invoice No.",
+          "Customer",
+          "Terminal",
+          "Status",
+          "Original Amount",
+          "Paid Amount",
+          "Remaining Amount",
+          "Due Date",
+          "Created At",
+        ],
+        rows: report.items.map((item) => [
+          String(item.invoiceNumber),
+          item.customerName,
+          item.terminalName,
+          item.status,
+          stringifyCell(item.originalAmount),
+          stringifyCell(item.paidAmount),
+          stringifyCell(item.remainingAmount),
+          formatDateTime(item.dueDate),
+          formatDateTime(item.createdAt),
+        ]),
+      };
+    }
+    case "debt-collections": {
+      const report = data as DebtCollectionsDto;
+      return {
+        headers: [
+          "Invoice No.",
+          "Customer",
+          "Terminal",
+          "Received By",
+          "Method",
+          "Reference No.",
+          "Amount",
+          "Remaining Amount",
+          "Collected At",
+        ],
+        rows: report.items.map((item) => [
+          String(item.invoiceNumber),
+          item.customerName,
+          item.terminalName,
+          item.receivedByName,
+          item.method,
+          item.referenceNo ?? "",
+          stringifyCell(item.amount),
+          stringifyCell(item.remainingAmount),
+          formatDateTime(item.createdAt),
         ]),
       };
     }
@@ -382,4 +440,3 @@ export const reportExportService = {
     return buildWorkbook(mapped.headers, mapped.rows);
   },
 };
-

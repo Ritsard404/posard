@@ -2,6 +2,8 @@ import "server-only";
 
 import type {
   AuditTrailDto,
+  DebtCollectionsDto,
+  DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
   RefundInvoicesDto,
@@ -30,6 +32,8 @@ const LINE_WIDTH = 42;
 
 type ReportDetailDto =
   | AuditTrailDto
+  | DebtCollectionsDto
+  | DebtOutstandingDto
   | DailyTransactionsDto
   | DiscountReportDto
   | RefundInvoicesDto
@@ -219,6 +223,44 @@ function buildDailyTransactionLines(report: DailyTransactionsDto) {
   ];
 }
 
+function buildDebtOutstandingLines(report: DebtOutstandingDto) {
+  return [
+    labelValue("Range", `${formatDate(report.range.from)} - ${formatDate(report.range.to)}`),
+    labelValue("Rows", String(report.pagination.totalItems)),
+    labelValue("Outstanding", formatCurrency(report.totalOutstanding)),
+    labelValue("Due Today", formatCurrency(report.dueToday)),
+    labelValue("Overdue", formatCurrency(report.overdue)),
+    divider(),
+    "DEBT OUTSTANDING",
+    ...report.items.flatMap((item) => [
+      `#${String(item.invoiceNumber).padStart(12, "0")} / ${item.customerName}`,
+      labelValue("Status", item.status),
+      labelValue("Remaining", formatCurrency(item.remainingAmount)),
+      labelValue("Due", formatDateTime(item.dueDate)),
+      divider(),
+    ]),
+  ];
+}
+
+function buildDebtCollectionLines(report: DebtCollectionsDto) {
+  return [
+    labelValue("Range", `${formatDate(report.range.from)} - ${formatDate(report.range.to)}`),
+    labelValue("Rows", String(report.pagination.totalItems)),
+    labelValue("Collected", formatCurrency(report.totalCollected)),
+    labelValue("Cash", formatCurrency(report.cashCollected)),
+    labelValue("Reference", formatCurrency(report.referenceCollected)),
+    divider(),
+    "DEBT COLLECTIONS",
+    ...report.items.flatMap((item) => [
+      `#${String(item.invoiceNumber).padStart(12, "0")} / ${item.customerName}`,
+      labelValue("Method", item.method),
+      labelValue("Amount", formatCurrency(item.amount)),
+      labelValue("When", formatDateTime(item.createdAt)),
+      divider(),
+    ]),
+  ];
+}
+
 function buildTransactionLedgerLines(report: TransactionListDto | DiscountReportDto) {
   return [
     labelValue("Range", `${formatDate(report.range.from)} - ${formatDate(report.range.to)}`),
@@ -363,6 +405,10 @@ function buildBody(view: ReportPrintableView, overview: ReportOverviewDto | null
       return detail ? [] : null;
     case "daily-transactions":
       return detail ? buildDailyTransactionLines(detail as DailyTransactionsDto) : null;
+    case "debt-outstanding":
+      return detail ? buildDebtOutstandingLines(detail as DebtOutstandingDto) : null;
+    case "debt-collections":
+      return detail ? buildDebtCollectionLines(detail as DebtCollectionsDto) : null;
     case "transaction-list":
       return detail ? buildTransactionLedgerLines(detail as TransactionListDto) : null;
     case "transactions":
@@ -399,6 +445,10 @@ function getTitle(view: ReportPrintableView) {
       return "Z-Reading";
     case "daily-transactions":
       return "Daily Transactions";
+    case "debt-outstanding":
+      return "Debt Outstanding";
+    case "debt-collections":
+      return "Debt Collections";
     case "transaction-list":
       return "Transaction List";
     case "transactions":
