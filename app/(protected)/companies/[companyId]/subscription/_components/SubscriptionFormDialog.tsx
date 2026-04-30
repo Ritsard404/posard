@@ -44,6 +44,8 @@ const subscriptionFormSchema = z.object({
   renewedAt: z.string(),
   autoRenew: z.boolean(),
   price: z.string(),
+  billingMethod: z.string(),
+  paymentReference: z.string(),
   notes: z.string(),
 });
 
@@ -74,6 +76,8 @@ export function SubscriptionFormDialog({
       renewedAt: "",
       autoRenew: false,
       price: "",
+      billingMethod: "",
+      paymentReference: "",
       notes: "",
     },
   });
@@ -91,7 +95,9 @@ export function SubscriptionFormDialog({
       renewedAt: subscription?.renewedAt ? toDateInputValue(subscription.renewedAt) : "",
       autoRenew: subscription?.autoRenew ?? false,
       price: subscription?.price?.toString() ?? "",
-      notes: subscription?.notes ?? "",
+      billingMethod: extractSubscriptionMeta(subscription?.notes, "Billing method"),
+      paymentReference: extractSubscriptionMeta(subscription?.notes, "Payment reference"),
+      notes: extractGeneralNotes(subscription?.notes),
     });
   }, [open, reset, subscription]);
 
@@ -110,7 +116,7 @@ export function SubscriptionFormDialog({
       renewedAt: values.renewedAt,
       autoRenew: values.autoRenew,
       price: values.price,
-      notes: values.notes,
+      notes: buildSubscriptionNotes(values),
     });
   };
 
@@ -169,9 +175,39 @@ export function SubscriptionFormDialog({
             </FieldGroup>
           </div>
 
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="subscription-billing-method">Billing Method</Label>
+              <Input
+                id="subscription-billing-method"
+                placeholder="Cash, bank transfer, GCash, invoiced"
+                {...register("billingMethod")}
+              />
+              {errors.billingMethod ? (
+                <p className="text-xs text-red-500">{errors.billingMethod.message}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="subscription-payment-reference">Payment Reference</Label>
+              <Input
+                id="subscription-payment-reference"
+                placeholder="Receipt no., OR, transfer ref"
+                {...register("paymentReference")}
+              />
+              {errors.paymentReference ? (
+                <p className="text-xs text-red-500">{errors.paymentReference.message}</p>
+              ) : null}
+            </div>
+          </div>
+
           <div className="space-y-1.5">
-            <Label htmlFor="subscription-notes">Notes</Label>
-            <Input id="subscription-notes" placeholder="Renewal or billing notes" {...register("notes")} />
+            <Label htmlFor="subscription-notes">Billing Notes</Label>
+            <Input
+              id="subscription-notes"
+              placeholder="Renewal instructions, collector notes, or reminders"
+              {...register("notes")}
+            />
             {errors.notes ? <p className="text-xs text-red-500">{errors.notes.message}</p> : null}
           </div>
 
@@ -227,4 +263,38 @@ function FieldGroup({
 
 function toDateInputValue(value: Date | string) {
   return new Date(value).toISOString().split("T")[0];
+}
+
+function extractSubscriptionMeta(notes: string | null | undefined, label: string) {
+  if (!notes) {
+    return "";
+  }
+
+  const prefix = `${label}:`;
+  const line = notes.split("\n").find((entry) => entry.startsWith(prefix));
+  return line ? line.slice(prefix.length).trim() : "";
+}
+
+function extractGeneralNotes(notes: string | null | undefined) {
+  if (!notes) {
+    return "";
+  }
+
+  return notes
+    .split("\n")
+    .filter((line) => !line.startsWith("Billing method:") && !line.startsWith("Payment reference:"))
+    .join("\n")
+    .trim();
+}
+
+function buildSubscriptionNotes(values: SubscriptionFormValues) {
+  return [
+    values.billingMethod.trim() ? `Billing method: ${values.billingMethod.trim()}` : null,
+    values.paymentReference.trim()
+      ? `Payment reference: ${values.paymentReference.trim()}`
+      : null,
+    values.notes.trim() || null,
+  ]
+    .filter((entry): entry is string => Boolean(entry))
+    .join("\n");
 }

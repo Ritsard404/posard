@@ -6,6 +6,19 @@ import { Button } from "@/components/ui/button";
 import { BarChart3, Loader2, Terminal, Pencil, Trash2, PlusCircle, ShieldCheck } from "lucide-react";
 import type { TerminalDTO } from "../_services/terminal.dto";
 
+function getBillingClasses(tone: TerminalDTO["billingStatusTone"]) {
+  switch (tone) {
+    case "danger":
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    case "warning":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "success":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    default:
+      return "border-zinc-200 bg-zinc-100 text-zinc-700";
+  }
+}
+
 interface TerminalTableProps {
   terminals: TerminalDTO[];
   isLoading?: boolean;
@@ -77,6 +90,7 @@ export default function TerminalTable({
                   <th className="px-4 py-3">Registered Name</th>
                   <th className="px-4 py-3">Valid Until</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Billing</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -121,6 +135,18 @@ export default function TerminalTable({
                           <ShieldCheck className="w-3 h-3" />
                           {t.isTrainMode ? "Training" : "Live"}
                         </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${getBillingClasses(t.billingStatusTone)}`}
+                        >
+                          {t.billingStatusLabel ?? "No billing status"}
+                        </span>
+                        {t.billingStatusReason ? (
+                          <p className="max-w-xs text-xs text-gray-500">{t.billingStatusReason}</p>
+                        ) : null}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -207,22 +233,30 @@ export default function TerminalTable({
                     <div className="font-semibold text-gray-900">{t.posName ?? "Unnamed terminal"}</div>
                     <div className="text-xs text-gray-500">{t.registeredName ?? "No registered name"}</div>
                   </div>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      t.isInUse
-                        ? "bg-sky-100 text-sky-700"
-                        : t.isActive
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-zinc-100 text-zinc-700"
-                    }`}
-                  >
-                    {t.isInUse ? "In Use" : t.isActive ? "Active" : "Inactive"}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        t.isInUse
+                          ? "bg-sky-100 text-sky-700"
+                          : t.isActive
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-zinc-100 text-zinc-700"
+                      }`}
+                    >
+                      {t.isInUse ? "In Use" : t.isActive ? "Active" : "Inactive"}
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium border ${getBillingClasses(t.billingStatusTone)}`}
+                    >
+                      {t.billingStatusLabel ?? "No billing status"}
+                    </span>
+                  </div>
                 </div>
                 <div className="text-xs text-gray-500 space-y-1">
                   <div>MIN: {t.minNumber ?? "Not set"}</div>
                   <div>PTU: {t.ptuNumber ?? "Not set"}</div>
                   <div>Valid until: {new Date(t.validUntil).toLocaleDateString()}</div>
+                  <div>Billing: {t.billingStatusReason ?? "No billing guidance"}</div>
                 </div>
                 <div className="flex gap-2 pt-1">
                   {onSelect && (

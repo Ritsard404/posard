@@ -76,7 +76,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${nunitoSans.variable} ${rubik.variable} font-sans antialiased`}>
+      <body
+        suppressHydrationWarning
+        className={`${nunitoSans.variable} ${rubik.variable} font-sans antialiased`}
+      >
         <AppProviders>
           {children}
         </AppProviders>

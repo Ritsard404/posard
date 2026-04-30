@@ -20,6 +20,7 @@ export const publicRoutes = [
   "/contact",
   "/privacy",
   "/terms",
+  "/manifest.webmanifest",
   "/auth/login",
   "/auth/sign-up",
   "/auth/sign-up-success",
@@ -103,11 +104,7 @@ export function isBillingRestrictedRoute(
   pathname: string,
 ): boolean {
   if (role === "manager") {
-    return pathname.startsWith("/pos") || pathname === "/accounts";
-  }
-
-  if (role === "cashier") {
-    return pathname.startsWith("/pos");
+    return pathname === "/accounts";
   }
 
   return false;

@@ -97,85 +97,75 @@ export const companyService = {
   },
 
   async getCompanyById(id: string): Promise<CompanyDetailDTO | null> {
-    const company = await withOptionalCompanyTable(
+    const baseCompany = await prisma.company.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        email: true,
+        phone: true,
+        address: true,
+        logoImageUrl: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!baseCompany) return null;
+
+    const terminalSnapshot = await withOptionalCompanyTable(
       () =>
-        prisma.company.findUnique({
-          where: { id },
+        prisma.posTerminalInfo.findMany({
+          where: { companyId: id },
           select: {
             id: true,
-            name: true,
-            code: true,
-            email: true,
-            phone: true,
-            address: true,
-            logoImageUrl: true,
-            createdAt: true,
-            updatedAt: true,
-            posTerminals: {
-              select: {
-                id: true,
-                isActive: true,
-                subscription: {
-                  select: {
-                    status: true,
-                  },
-                },
-              },
-            },
-            terminalRequests: {
+            isActive: true,
+            subscription: {
               select: {
                 status: true,
               },
             },
           },
         }),
-      await prisma.company.findUnique({
-        where: { id },
+      await prisma.posTerminalInfo.findMany({
+        where: { companyId: id },
         select: {
           id: true,
-          name: true,
-          code: true,
-          email: true,
-          phone: true,
-          address: true,
-          logoImageUrl: true,
-          createdAt: true,
-          updatedAt: true,
-          posTerminals: {
-            select: {
-              id: true,
-              isActive: true,
-            },
-          },
+          isActive: true,
         },
-      }).then((item) =>
-        item
-          ? {
-              ...item,
-              posTerminals: item.posTerminals.map((terminal) => ({
-                ...terminal,
-                subscription: null,
-              })),
-              terminalRequests: [],
-            }
-          : null,
+      }).then((items) =>
+        items.map((terminal) => ({
+          ...terminal,
+          subscription: null,
+        })),
       ),
-      ["public.terminal_request", "public.terminal_subscription"],
+      "public.terminal_subscription",
     );
 
-    if (!company) return null;
+    const requestSnapshot = await withOptionalCompanyTable(
+      () =>
+        prisma.terminalRequest.findMany({
+          where: { companyId: id },
+          select: {
+            status: true,
+          },
+        }),
+      [],
+      "public.terminal_request",
+    );
 
-    const terminalCount = company.posTerminals.length;
-    const activeTerminalCount = company.posTerminals.filter((terminal) => terminal.isActive).length;
-    const activeSubscriptionCount = company.posTerminals.filter(
+    const terminalCount = terminalSnapshot.length;
+    const activeTerminalCount = terminalSnapshot.filter((terminal) => terminal.isActive).length;
+    const activeSubscriptionCount = terminalSnapshot.filter(
       (terminal) => terminal.subscription?.status === "active",
     ).length;
-    const pendingTerminalRequestCount = company.terminalRequests.filter(
+    const pendingTerminalRequestCount = requestSnapshot.filter(
       (request) => request.status === "pending",
     ).length;
 
     return {
-      ...mapCompanyBase(company),
+      ...mapCompanyBase(baseCompany),
       terminalCount,
       activeTerminalCount,
       activeSubscriptionCount,

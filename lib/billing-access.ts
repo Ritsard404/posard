@@ -37,6 +37,12 @@ function isTerminalSubscriptionActive(
   return subscription?.status === "active" && !hasDatePassed(subscription.expiresAt);
 }
 
+export function isTerminalPosAccessible(
+  subscription: TerminalBillingSnapshot["subscription"],
+) {
+  return !subscription || isTerminalSubscriptionActive(subscription);
+}
+
 export async function getCompanyBillingAccess(
   companyId: string,
 ): Promise<CompanyBillingAccess> {
@@ -88,13 +94,30 @@ export async function assertTerminalBillingAllowsPos(
   companyId: string,
   terminalId: string,
 ) {
-  const access = await assertCompanyBillingAllowsPos(companyId);
+  const terminal = await prisma.posTerminalInfo.findFirst({
+    where: {
+      id: terminalId,
+      companyId,
+    },
+    select: {
+      subscription: {
+        select: {
+          status: true,
+          expiresAt: true,
+        },
+      },
+    },
+  });
 
-  if (!access.activeTerminalIds.has(terminalId)) {
+  if (!terminal) {
+    throw new Error("Terminal not found.");
+  }
+
+  if (!isTerminalPosAccessible(terminal.subscription)) {
     throw new Error(TERMINAL_BILLING_RESTRICTION_MESSAGE);
   }
 
-  return access;
+  return terminal;
 }
 
 export async function assertManagerBillingAllowsCashierManagement(input: {

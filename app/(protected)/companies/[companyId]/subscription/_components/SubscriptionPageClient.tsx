@@ -12,9 +12,13 @@ import type { TerminalDTO } from "../../_services/terminal.dto";
 
 interface SubscriptionPageClientProps {
   companyId: string;
+  canManage: boolean;
 }
 
-export default function SubscriptionPageClient({ companyId }: SubscriptionPageClientProps) {
+export default function SubscriptionPageClient({
+  companyId,
+  canManage,
+}: SubscriptionPageClientProps) {
   const [terminals, setTerminals] = useState<TerminalDTO[]>([]);
   const [subscriptions, setSubscriptions] = useState<TerminalSubscriptionDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -109,36 +113,52 @@ export default function SubscriptionPageClient({ companyId }: SubscriptionPageCl
                     </div>
                     <div className="flex flex-wrap gap-2 text-xs">
                       <StatusPill
-                        label={subscription?.status ?? "unassigned"}
+                        label={terminal.billingStatusLabel ?? subscription?.status ?? "unassigned"}
                         tone={
-                          subscription?.status === "active"
+                          terminal.billingStatusTone ??
+                          (subscription?.status === "active"
                             ? "success"
                             : subscription?.status
                               ? "warning"
-                              : "neutral"
+                              : "neutral")
                         }
                       />
                       <StatusPill
                         label={subscription?.billingCycle ?? "no plan"}
                         tone="neutral"
                       />
-                      <StatusPill label={terminal.isActive ? "terminal active" : "terminal inactive"} tone={terminal.isActive ? "success" : "neutral"} />
+                      <StatusPill
+                        label={terminal.isActive ? "terminal active" : "terminal inactive"}
+                        tone={terminal.isActive ? "success" : "neutral"}
+                      />
                       <StatusPill label={terminal.isTrainMode ? "training" : "live"} tone="neutral" />
                     </div>
                     <div className="grid grid-cols-1 gap-2 text-sm text-muted-foreground sm:grid-cols-2">
                       <p>Starts: {formatDate(subscription?.startsAt)}</p>
                       <p>Expires: {formatDate(subscription?.expiresAt)}</p>
                       <p>Renewed: {formatDate(subscription?.renewedAt)}</p>
-                      <p>Price: {subscription?.price != null ? `₱${subscription.price.toFixed(2)}` : "Not set"}</p>
+                      <p>Price: {formatPrice(subscription?.price)}</p>
                     </div>
-                    {subscription?.notes ? (
-                      <p className="text-sm text-muted-foreground">{subscription.notes}</p>
+                    {terminal.billingStatusReason ? (
+                      <p className="text-sm text-muted-foreground">{terminal.billingStatusReason}</p>
                     ) : null}
+                    {subscription?.notes ? (
+                      <p className="whitespace-pre-line text-sm text-muted-foreground">{subscription.notes}</p>
+                    ) : null}
+                    <p className="text-xs text-muted-foreground">
+                      Use billing notes to record the payment channel, collection method, transfer reference, or renewal instructions for this terminal.
+                    </p>
                   </div>
 
-                  <Button onClick={() => setSelectedTerminalId(terminal.id)}>
-                    {subscription ? "Edit Subscription" : "Add Subscription"}
-                  </Button>
+                  {canManage ? (
+                    <Button onClick={() => setSelectedTerminalId(terminal.id)}>
+                      {subscription ? "Edit Subscription" : "Add Subscription"}
+                    </Button>
+                  ) : (
+                    <Button variant="outline" disabled>
+                      View Only
+                    </Button>
+                  )}
                 </div>
               </Card>
             );
@@ -146,14 +166,16 @@ export default function SubscriptionPageClient({ companyId }: SubscriptionPageCl
         </div>
       )}
 
-      <SubscriptionFormDialog
-        open={selectedTerminalId !== null}
-        terminal={selectedTerminal}
-        subscription={selectedSubscription}
-        isSubmitting={isSubmitting}
-        onOpenChange={(open) => (!open ? setSelectedTerminalId(null) : null)}
-        onSubmit={handleSubmit}
-      />
+      {canManage ? (
+        <SubscriptionFormDialog
+          open={selectedTerminalId !== null}
+          terminal={selectedTerminal}
+          subscription={selectedSubscription}
+          isSubmitting={isSubmitting}
+          onOpenChange={(open) => (!open ? setSelectedTerminalId(null) : null)}
+          onSubmit={handleSubmit}
+        />
+      ) : null}
     </div>
   );
 }
@@ -163,11 +185,12 @@ function StatusPill({
   tone,
 }: {
   label: string;
-  tone: "success" | "warning" | "neutral";
+  tone: "success" | "warning" | "danger" | "neutral";
 }) {
   const classes = {
     success: "border-emerald-200 bg-emerald-50 text-emerald-700",
     warning: "border-amber-200 bg-amber-50 text-amber-700",
+    danger: "border-rose-200 bg-rose-50 text-rose-700",
     neutral: "border-zinc-200 bg-zinc-100 text-zinc-700",
   } satisfies Record<typeof tone, string>;
 
@@ -180,4 +203,8 @@ function StatusPill({
 
 function formatDate(value?: Date | null) {
   return value ? new Date(value).toLocaleDateString() : "Not set";
+}
+
+function formatPrice(value?: number | null) {
+  return value != null ? `PHP ${value.toFixed(2)}` : "Not set";
 }

@@ -13,6 +13,9 @@ interface Terminal {
   isActive: boolean;
   billingLocked?: boolean;
   billingMessage?: string | null;
+  statusLabel?: string;
+  statusTone?: "success" | "warning" | "danger";
+  actionLabel?: string | null;
   vat: number;
   discountCapType: "amount" | "percent";
   discountMax: number;
@@ -26,6 +29,26 @@ interface Terminal {
       fullName: string | null;
     }
   }[];
+}
+
+function getStatusClasses(tone: Terminal["statusTone"]) {
+  switch (tone) {
+    case "danger":
+      return {
+        text: "text-rose-600",
+        dot: "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.45)]",
+      };
+    case "warning":
+      return {
+        text: "text-amber-600",
+        dot: "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.45)]",
+      };
+    default:
+      return {
+        text: "text-emerald-500",
+        dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+      };
+  }
 }
 
 interface TerminalSelectionProps {
@@ -132,15 +155,16 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                           <span className="size-2 rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]" /> 
                           In Use
                         </span>
-                      ) : t.billingLocked ? (
-                        <span className="text-amber-600 font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.45)]" />
-                          Subscription Locked
-                        </span>
                       ) : (
-                        <span className="text-emerald-500 font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" /> 
-                          Available
+                        <span
+                          className={`${getStatusClasses(t.statusTone).text} font-bold text-[10px] uppercase tracking-widest flex items-center gap-2`}
+                        >
+                          <span
+                            className={`size-2 rounded-full ${getStatusClasses(t.statusTone).dot} ${
+                              t.statusTone === "success" ? "animate-pulse" : ""
+                            }`}
+                          />
+                          {t.statusLabel ?? "Available"}
                         </span>
                       )}
                     </div>
@@ -156,16 +180,19 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                     ) : t.billingLocked ? (
                       <div className="rounded-xl border border-amber-300/60 bg-amber-50 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 mb-1">
-                          Billing Restriction
+                          {t.actionLabel ?? "Billing Restriction"}
                         </p>
                         <p className="text-sm font-medium text-amber-950">
                           {t.billingMessage ?? "Subscription is not active for this terminal."}
                         </p>
                       </div>
                     ) : (
-                      <div className="px-1">
-                        <p className="text-sm font-medium text-muted-foreground/80 leading-relaxed">
-                          Securely access this terminal to manage inventory and process customer transactions.
+                      <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/80 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 mb-1">
+                          {t.actionLabel ?? "Ready for POS"}
+                        </p>
+                        <p className="text-sm font-medium text-emerald-950 leading-relaxed">
+                          {t.billingMessage ?? "Securely access this terminal to manage inventory and process customer transactions."}
                         </p>
                       </div>
                     )}
@@ -179,7 +206,7 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                     {t.isActive
                       ? "Terminal Locked"
                       : t.billingLocked
-                        ? "Subscription Required"
+                        ? (t.actionLabel ?? "Subscription Required")
                         : "Initialize Session"}
                   </Button>
                 </CardContent>

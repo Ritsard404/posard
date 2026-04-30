@@ -28,7 +28,7 @@ const solutions = [
   {
     title: "Small businesses and startups",
     description:
-      "Start with one default terminal and up to 3 cashier accounts, then add terminals as the business grows without changing systems.",
+      "Start with one default terminal and up to 2 cashier accounts, then add terminals as the business grows without changing systems.",
   },
   {
     title: "Service-based businesses",

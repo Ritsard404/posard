@@ -346,6 +346,7 @@ function SelfAccountDialog(props: AccountDialogProps) {
     defaultValues: {
       fullName: props.initialValues?.fullName ?? "",
       password: "",
+      pin: "",
     },
   });
 
@@ -353,6 +354,7 @@ function SelfAccountDialog(props: AccountDialogProps) {
     form.reset({
       fullName: props.initialValues?.fullName ?? "",
       password: "",
+      pin: "",
     });
   }, [form, props.initialValues, props.open]);
 
@@ -370,6 +372,10 @@ function SelfAccountDialog(props: AccountDialogProps) {
             props.onSelfSubmit?.({
               fullName: values.fullName,
               password: values.password,
+              pin:
+                props.viewerRole === "manager" || props.viewerRole === "admin"
+                  ? values.pin
+                  : undefined,
             }),
           )}
         >
@@ -402,6 +408,30 @@ function SelfAccountDialog(props: AccountDialogProps) {
               </p>
             )}
           </div>
+
+          {props.viewerRole === "manager" || props.viewerRole === "admin" ? (
+            <div className="space-y-2">
+              <Label htmlFor="self-pin">Access PIN</Label>
+              <Input
+                id="self-pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="4 to 6 digits"
+                maxLength={6}
+                {...form.register("pin")}
+              />
+              {form.formState.errors.pin ? (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.pin.message}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Update the POS manager approval PIN used for protected actions.
+                </p>
+              )}
+            </div>
+          ) : null}
 
           <DialogFooter>
             <Button

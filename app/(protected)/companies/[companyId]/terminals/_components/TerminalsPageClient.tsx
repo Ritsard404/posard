@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -42,9 +42,14 @@ import type {
 interface TerminalsPageClientProps {
   companyId: string;
   role: "admin" | "manager";
+  initialView?: "list" | "terminal" | "printer";
 }
 
-export default function TerminalsPageClient({ companyId, role }: TerminalsPageClientProps) {
+export default function TerminalsPageClient({
+  companyId,
+  role,
+  initialView = "list",
+}: TerminalsPageClientProps) {
   const [terminals, setTerminals] = useState<TerminalDTO[]>([]);
   const [requests, setRequests] = useState<TerminalRequestDTO[]>([]);
   const [isLoadingTerminals, setIsLoadingTerminals] = useState(true);
@@ -58,6 +63,9 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [selectedTerminalId, setSelectedTerminalId] = useState<string | null>(null);
+  const terminalListRef = useRef<HTMLDivElement | null>(null);
+  const terminalDetailRef = useRef<HTMLDivElement | null>(null);
+  const printerSectionRef = useRef<HTMLDivElement | null>(null);
 
   const loadTerminals = useCallback(async () => {
     setIsLoadingTerminals(true);
@@ -96,6 +104,19 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
     void loadTerminals();
     void loadRequests();
   }, [loadRequests, loadTerminals]);
+
+  useEffect(() => {
+    const scrollTarget =
+      initialView === "terminal"
+        ? terminalDetailRef.current
+        : initialView === "printer"
+          ? printerSectionRef.current
+          : terminalListRef.current;
+
+    if (scrollTarget) {
+      scrollTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [initialView, terminals.length]);
 
   const handleAdd = () => {
     setModalTerminal(undefined);
@@ -258,37 +279,43 @@ export default function TerminalsPageClient({ companyId, role }: TerminalsPageCl
         </Card>
       )}
 
-      <TerminalTable
-        terminals={terminals}
-        isLoading={isLoadingTerminals}
-        addLabel="Add Terminal"
-        emptyDescription={
-          role === "admin"
-            ? "Add a terminal to get started."
-            : "No terminals are assigned to this company yet."
-        }
-        selectedTerminalId={selectedTerminalId}
-        onAdd={role === "admin" ? handleAdd : undefined}
-        onSelect={role === "manager" ? handleSelect : undefined}
-        onEdit={role === "admin" ? handleEdit : undefined}
-        onToggleActive={role === "admin" ? (terminal) => void handleToggleActive(terminal) : undefined}
-        onDelete={role === "admin" ? (id) => setDeleteTargetId(id) : undefined}
-        getReportHref={
-          role === "admin"
-            ? (terminal) => `/companies/${companyId}/terminals/${terminal.id}/report`
-            : undefined
-        }
-      />
+      <div ref={terminalListRef}>
+        <TerminalTable
+          terminals={terminals}
+          isLoading={isLoadingTerminals}
+          addLabel="Add Terminal"
+          emptyDescription={
+            role === "admin"
+              ? "Add a terminal to get started."
+              : "No terminals are assigned to this company yet."
+          }
+          selectedTerminalId={selectedTerminalId}
+          onAdd={role === "admin" ? handleAdd : undefined}
+          onSelect={role === "manager" ? handleSelect : undefined}
+          onEdit={role === "admin" ? handleEdit : undefined}
+          onToggleActive={role === "admin" ? (terminal) => void handleToggleActive(terminal) : undefined}
+          onDelete={role === "admin" ? (id) => setDeleteTargetId(id) : undefined}
+          getReportHref={
+            role === "admin"
+              ? (terminal) => `/companies/${companyId}/terminals/${terminal.id}/report`
+              : undefined
+          }
+        />
+      </div>
 
       {role === "manager" ? (
-        <TerminalDetailPanel
-          terminal={selectedTerminal}
-          canUpdateConfiguration
-          isSubmittingConfiguration={isConfigurationSubmitting}
-          isTogglingTrainingMode={isTrainingModeSubmitting}
-          onSubmitConfiguration={(terminal, data) => void handleConfigurationSubmit(terminal, data)}
-          onTrainingModeChange={(terminal, nextValue) => void handleTrainingModeChange(terminal, nextValue)}
-        />
+        <div ref={terminalDetailRef}>
+          <TerminalDetailPanel
+            terminal={selectedTerminal}
+            canUpdateConfiguration
+            isSubmittingConfiguration={isConfigurationSubmitting}
+            isTogglingTrainingMode={isTrainingModeSubmitting}
+            onSubmitConfiguration={(terminal, data) => void handleConfigurationSubmit(terminal, data)}
+            onTrainingModeChange={(terminal, nextValue) => void handleTrainingModeChange(terminal, nextValue)}
+            focusSection={initialView === "printer" ? "printer" : initialView === "terminal" ? "terminal" : "overview"}
+            printerSectionRef={printerSectionRef}
+          />
+        </div>
       ) : (
         <TerminalRequestList
           requests={requests}

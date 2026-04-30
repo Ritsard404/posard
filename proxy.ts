@@ -15,6 +15,6 @@ export const config = {
      * - public/static assets by extension
      * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:html|txt|svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.webmanifest|.*\\.(?:html|txt|svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

@@ -1,6 +1,5 @@
 import "server-only";
 
-import { getCompanyBillingAccess } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import type { DashboardDataDto, DashboardViewerDto } from "./_dto/dashboard.dto";
@@ -394,23 +393,7 @@ export const dashboardService = {
       throw new Error("Company not found.");
     }
 
-    const billingAccess =
-      viewer.role === "manager" || viewer.role === "cashier"
-        ? await getCompanyBillingAccess(companyId)
-        : null;
-    const billingRestriction =
-      billingAccess?.isRestricted
-        ? {
-            isRestricted: true,
-            reason:
-              billingAccess.reason ??
-              "This company currently has no active terminal subscription.",
-            affectedAreas:
-              viewer.role === "manager"
-                ? ["POS terminal access", "cashier management"]
-                : ["POS terminal access"],
-          }
-        : null;
+    const billingRestriction = null;
 
     const baseWhere = { posTerminal: { companyId } } as const;
 

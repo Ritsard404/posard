@@ -8,12 +8,19 @@ import { CompanyBackLink } from "../_components/CompanyBackLink";
 
 interface TerminalsPageProps {
   params: Promise<{ companyId: string }>;
+  searchParams?: Promise<{ view?: string }>;
 }
 
-export default async function TerminalsPage({ params }: TerminalsPageProps) {
+export default async function TerminalsPage({ params, searchParams }: TerminalsPageProps) {
   await connection();
   const { companyId } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const viewer = await companyAccessService.assertCompanyAccess(companyId);
+  const requestedView = resolvedSearchParams?.view;
+  const initialView =
+    requestedView === "terminal" || requestedView === "printer" || requestedView === "list"
+      ? requestedView
+      : "list";
 
   return (
     <div className="space-y-6">
@@ -42,7 +49,7 @@ export default async function TerminalsPage({ params }: TerminalsPageProps) {
         </Button>
       </div>
 
-      <TerminalsPageClient companyId={companyId} role={viewer.role} />
+      <TerminalsPageClient companyId={companyId} role={viewer.role} initialView={initialView} />
     </div>
   );
 }

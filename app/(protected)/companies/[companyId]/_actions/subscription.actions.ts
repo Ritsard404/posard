@@ -13,7 +13,7 @@ export async function getSubscriptionsAction(companyId: string): Promise<
   { success: true; data: TerminalSubscriptionDTO[] } | { success: false; error: string }
 > {
   try {
-    await companyAccessService.assertAdminAccess(companyId);
+    await companyAccessService.assertCompanyAccess(companyId);
     const data = await subscriptionService.getSubscriptionsByCompany(companyId);
     return { success: true, data };
   } catch (error) {

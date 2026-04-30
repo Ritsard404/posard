@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type Resolver, useForm } from "react-hook-form";
 import { Bluetooth, Cable, Info, Loader2, Printer, RotateCcw, Smartphone, Usb } from "lucide-react";
@@ -25,12 +25,16 @@ import {
 
 interface TerminalConfigurationFormProps {
   terminal: TerminalDTO | null;
+  focusSection?: "overview" | "terminal" | "printer";
+  printerSectionRef?: RefObject<HTMLDivElement | null>;
   isSubmitting?: boolean;
   onSubmit: (terminal: TerminalDTO, data: TerminalConfigurationPayload) => void;
 }
 
 export default function TerminalConfigurationForm({
   terminal,
+  focusSection = "overview",
+  printerSectionRef,
   isSubmitting = false,
   onSubmit,
 }: TerminalConfigurationFormProps) {
@@ -40,6 +44,7 @@ export default function TerminalConfigurationForm({
   const [isPairing, setIsPairing] = useState(false);
   const [isTestingPrinter, setIsTestingPrinter] = useState(false);
   const [isCheckingNative, setIsCheckingNative] = useState(false);
+  const financialSectionRef = useRef<HTMLDivElement | null>(null);
   const [nativeDiagnostics, setNativeDiagnostics] = useState<Awaited<
     ReturnType<typeof printClientService.getNativeDiagnostics>
   > | null>(null);
@@ -86,6 +91,23 @@ export default function TerminalConfigurationForm({
     });
     setPrinterConfig(terminal.printerConfig ?? null);
   }, [terminal, reset]);
+
+  useEffect(() => {
+    if (!terminal) {
+      return;
+    }
+
+    const target =
+      focusSection === "printer"
+        ? printerSectionRef?.current ?? null
+        : focusSection === "terminal"
+          ? financialSectionRef.current
+          : null;
+
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [focusSection, printerSectionRef, terminal]);
 
   const printerStatus = useMemo(
     () => printClientService.getStatus(printerConfig),
@@ -248,6 +270,7 @@ export default function TerminalConfigurationForm({
       className="space-y-4"
     >
       <SectionCard
+        sectionRef={financialSectionRef}
         title="Financial"
         description="Set the VAT rate and choose whether this terminal's max discount is capped by amount or by percent."
       >
@@ -336,6 +359,7 @@ export default function TerminalConfigurationForm({
       <SectionCard
         title="Device"
         description="Configure USB, Bluetooth BLE, Bluetooth Serial, or built-in Sunmi printing and confirm the active route with a test print."
+        sectionRef={printerSectionRef}
       >
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -477,13 +501,15 @@ function SectionCard({
   title,
   description,
   children,
+  sectionRef,
 }: {
   title: string;
   description: string;
   children: React.ReactNode;
+  sectionRef?: RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <Card className="p-5">
+    <Card ref={sectionRef} className="p-5">
       <div className="mb-4">
         <h3 className="font-semibold">{title}</h3>
         <p className="text-sm text-muted-foreground">{description}</p>

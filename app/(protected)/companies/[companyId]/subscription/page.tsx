@@ -1,5 +1,4 @@
 import { connection } from "next/server";
-import { redirect } from "next/navigation";
 import { CreditCard } from "lucide-react";
 import { CompanyBackLink } from "../_components/CompanyBackLink";
 import { companyAccessService } from "../_services/company-access.service";
@@ -14,10 +13,6 @@ export default async function SubscriptionPage({ params }: SubscriptionPageProps
   const { companyId } = await params;
   const viewer = await companyAccessService.assertCompanyAccess(companyId);
 
-  if (viewer.role !== "admin") {
-    redirect(`/companies/${companyId}`);
-  }
-
   return (
     <div className="space-y-6">
       <CompanyBackLink href={`/companies/${companyId}`} label="Back to Company Details" />
@@ -29,12 +24,14 @@ export default async function SubscriptionPage({ params }: SubscriptionPageProps
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Subscription</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Manage billing, renewal dates, and status per terminal.
+            {viewer.role === "admin"
+              ? "Manage billing, renewal dates, and status per terminal."
+              : "Review billing, renewal dates, and status per terminal."}
           </p>
         </div>
       </div>
 
-      <SubscriptionPageClient companyId={companyId} />
+      <SubscriptionPageClient companyId={companyId} canManage={viewer.role === "admin"} />
     </div>
   );
 }

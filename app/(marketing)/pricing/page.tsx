@@ -22,7 +22,7 @@ const pricingDetails = [
   {
     title: "Per-terminal subscription",
     description:
-      "Each active POS terminal has its own monthly subscription and supports up to 3 cashier accounts.",
+      "Each active POS terminal has its own monthly subscription and supports up to 2 cashier accounts.",
   },
   {
     title: "Default terminal included",
@@ -80,7 +80,7 @@ export default function PricingPage() {
 
       <ContentSection
         title="What the plan includes"
-        description="The plan gives each terminal access to the POSard workflow for checkout, inventory and sales tracking, reports, receipts, roles, terminal configuration, and up to 3 cashier accounts per terminal."
+        description="The plan gives each terminal access to the POSard workflow for checkout, inventory and sales tracking, reports, receipts, roles, terminal configuration, and up to 2 cashier accounts per terminal."
       >
         <BulletGrid items={pricingDetails} />
       </ContentSection>

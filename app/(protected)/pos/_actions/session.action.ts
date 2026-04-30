@@ -1,15 +1,83 @@
 "use server";
 
 import {
-  assertCompanyBillingAllowsPos,
   assertTerminalBillingAllowsPos,
   TERMINAL_BILLING_RESTRICTION_MESSAGE,
+  isTerminalPosAccessible,
 } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { printConfigService } from "../_services/print-config.service";
 import { reportService as posReportService } from "../_services/report.service";
 import { sessionMutationService } from "../_services/session-mutation.service";
+
+function getTerminalBillingSummary(subscription: {
+  status: "pending" | "active" | "expired" | "suspended" | "cancelled";
+  expiresAt: Date | null;
+} | null): {
+  statusLabel: string;
+  statusTone: "success" | "warning" | "danger";
+  actionLabel: string | null;
+  message: string | null;
+} {
+  if (!subscription) {
+    return {
+      statusLabel: "Free access",
+      statusTone: "success",
+      actionLabel: "Optional paid plan",
+      message: "This terminal has no paid subscription record yet, but POS access remains available.",
+    };
+  }
+
+  const isExpired = subscription.expiresAt
+    ? subscription.expiresAt.getTime() < Date.now()
+    : false;
+
+  if (subscription.status === "active" && !isExpired) {
+    return {
+      statusLabel: subscription.expiresAt ? "Active plan" : "Active open plan",
+      statusTone: "success",
+      actionLabel: subscription.expiresAt ? "Monitor renewal" : "Review billing setup",
+      message: subscription.expiresAt
+        ? `Subscription is covered until ${subscription.expiresAt.toLocaleDateString()}.`
+        : "Subscription is active without an expiry date.",
+    };
+  }
+
+  if (subscription.status === "pending") {
+    return {
+      statusLabel: "Pending payment",
+      statusTone: "warning",
+      actionLabel: "Collect payment",
+      message: "Billing is waiting for payment confirmation or activation.",
+    };
+  }
+
+  if (subscription.status === "suspended") {
+    return {
+      statusLabel: "Suspended",
+      statusTone: "danger",
+      actionLabel: "Settle balance",
+      message: TERMINAL_BILLING_RESTRICTION_MESSAGE,
+    };
+  }
+
+  if (subscription.status === "cancelled") {
+    return {
+      statusLabel: "Cancelled",
+      statusTone: "danger",
+      actionLabel: "Restore plan",
+      message: TERMINAL_BILLING_RESTRICTION_MESSAGE,
+    };
+  }
+
+  return {
+    statusLabel: "Expired",
+    statusTone: "danger",
+    actionLabel: "Renew now",
+    message: TERMINAL_BILLING_RESTRICTION_MESSAGE,
+  };
+}
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -28,9 +96,6 @@ async function getCurrentProfile() {
 export async function getCurrentSessionAction() {
   try {
     const profile = await getCurrentProfile();
-    if (profile.companyId) {
-      await assertCompanyBillingAllowsPos(profile.companyId);
-    }
 
     const timestamp = await prisma.timestamp.findFirst({
       where: { cashierId: profile.id, timestampOut: null },
@@ -79,11 +144,16 @@ export async function getTerminalsAction() {
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
-    const billingAccess = await assertCompanyBillingAllowsPos(profile.companyId);
 
     const terminals = await prisma.posTerminalInfo.findMany({
       where: { companyId: profile.companyId },
       include: {
+        subscription: {
+          select: {
+            status: true,
+            expiresAt: true,
+          },
+        },
         timestamps: {
           where: { timestampOut: null },
           include: { cashier: { select: { fullName: true } } },
@@ -94,28 +164,33 @@ export async function getTerminalsAction() {
 
     return {
       success: true as const,
-      data: terminals.map((terminal) => ({
-        id: terminal.id,
-        posName: terminal.posName ?? "Unnamed terminal",
-        isActive: terminal.timestamps.length > 0,
-        billingLocked: !billingAccess.activeTerminalIds.has(terminal.id),
-        billingMessage: billingAccess.activeTerminalIds.has(terminal.id)
-          ? null
-          : TERMINAL_BILLING_RESTRICTION_MESSAGE,
-        vat: terminal.vat ?? 0,
-        discountCapType: terminal.discountCapType,
-        discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
-        allowCashierDebtCreate: terminal.allowCashierDebtCreate,
-        allowCashierDebtCollect: terminal.allowCashierDebtCollect,
-        requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
-        defaultDebtDueDays: terminal.defaultDebtDueDays ?? null,
-        printerConfig: printConfigService.mapPrinterConfig(terminal),
-        sessions: terminal.timestamps.map((timestamp) => ({
-          profile: {
-            fullName: timestamp.cashier.fullName ?? null,
-          },
-        })),
-      })),
+      data: terminals.map((terminal) => {
+        const billing = getTerminalBillingSummary(terminal.subscription);
+
+        return {
+          id: terminal.id,
+          posName: terminal.posName ?? "Unnamed terminal",
+          isActive: terminal.timestamps.length > 0,
+          billingLocked: !isTerminalPosAccessible(terminal.subscription),
+          billingMessage: billing.message,
+          statusLabel: billing.statusLabel,
+          statusTone: billing.statusTone,
+          actionLabel: billing.actionLabel,
+          vat: terminal.vat ?? 0,
+          discountCapType: terminal.discountCapType,
+          discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
+          allowCashierDebtCreate: terminal.allowCashierDebtCreate,
+          allowCashierDebtCollect: terminal.allowCashierDebtCollect,
+          requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
+          defaultDebtDueDays: terminal.defaultDebtDueDays ?? null,
+          printerConfig: printConfigService.mapPrinterConfig(terminal),
+          sessions: terminal.timestamps.map((timestamp) => ({
+            profile: {
+              fullName: timestamp.cashier.fullName ?? null,
+            },
+          })),
+        };
+      }),
     };
   } catch (error) {
     return {
@@ -172,7 +247,6 @@ export async function withdrawCashAction(
     if (!profile.companyId) {
       return { success: false, error: "No company associated with user." };
     }
-    await assertCompanyBillingAllowsPos(profile.companyId);
 
     if (amount <= 0) {
       return { success: false, error: "Amount must be greater than 0" };
@@ -223,7 +297,6 @@ export async function closeSessionAction(
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
-    await assertCompanyBillingAllowsPos(profile.companyId);
 
     const approver = await prisma.profile.findFirst({
       where: {
@@ -278,7 +351,6 @@ export async function getSessionXReadingPrintPayloadAction(timestampId: string) 
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
-    await assertCompanyBillingAllowsPos(profile.companyId);
 
     const payload = await sessionMutationService.getSessionXReadingPayload(timestampId);
 

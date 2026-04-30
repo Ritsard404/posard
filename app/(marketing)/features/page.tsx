@@ -61,7 +61,7 @@ const operationsFeatures = [
   {
     title: "Cashier slots per terminal",
     description:
-      "Create up to 3 cashier accounts for every company terminal, with available slots shown during account setup.",
+      "Create up to 2 cashier accounts for every company terminal, with available slots shown during account setup.",
   },
   {
     title: "Multi-terminal support",

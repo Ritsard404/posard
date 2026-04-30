@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { companyService } from "../_services/company.service";
 import { companyAccessService } from "../_services/company-access.service";
 import SettingsPageClient from "./_components/SettingsPageClient";
@@ -8,17 +8,23 @@ import { CompanyBackLink } from "../_components/CompanyBackLink";
 
 interface SettingsPageProps {
   params: Promise<{ companyId: string }>;
+  searchParams?: Promise<{ view?: string }>;
 }
 
-export default async function SettingsPage({ params }: SettingsPageProps) {
+export default async function SettingsPage({ params, searchParams }: SettingsPageProps) {
   await connection();
   const { companyId } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const [viewer, company] = await Promise.all([
     companyAccessService.assertCompanyAccess(companyId),
     companyService.getCompanyById(companyId),
   ]);
+  const requestedView = resolvedSearchParams?.view;
+  const initialView = requestedView === "vat" || requestedView === "business" ? requestedView : "business";
 
-  if (!company) notFound();
+  if (!company) {
+    redirect(`/companies/${companyId}`);
+  }
 
   return (
     <div className="space-y-6">
@@ -38,7 +44,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         </div>
       </div>
 
-      <SettingsPageClient company={company} />
+      <SettingsPageClient company={company} initialView={initialView} />
     </div>
   );
 }

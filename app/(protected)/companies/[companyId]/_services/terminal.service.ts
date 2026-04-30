@@ -22,8 +22,78 @@ type TerminalRecord = Prisma.PosTerminalInfoGetPayload<{
   };
 }>;
 
+type BillingStatusTone = "success" | "warning" | "danger" | "neutral";
+
+function hasDatePassed(value: Date | null | undefined) {
+  return value ? value.getTime() < Date.now() : false;
+}
+
+function getTerminalBillingSnapshot(subscription: TerminalRecord["subscription"]): {
+  billingStatusLabel: string;
+  billingStatusTone: BillingStatusTone;
+  billingStatusReason: string;
+  billingActionLabel: string;
+} {
+  if (!subscription) {
+    return {
+      billingStatusLabel: "Free access",
+      billingStatusTone: "success",
+      billingStatusReason: "No paid subscription is attached yet. This terminal can still open POS.",
+      billingActionLabel: "Optional paid plan",
+    };
+  }
+
+  if (subscription.status === "active" && !hasDatePassed(subscription.expiresAt)) {
+    return {
+      billingStatusLabel: subscription.expiresAt ? "Active plan" : "Active open plan",
+      billingStatusTone: "success",
+      billingStatusReason: subscription.expiresAt
+        ? `Covered until ${subscription.expiresAt.toLocaleDateString()}.`
+        : "Subscription is active with no expiry date set.",
+      billingActionLabel: subscription.expiresAt ? "Monitor renewal" : "Review billing setup",
+    };
+  }
+
+  if (subscription.status === "pending") {
+    return {
+      billingStatusLabel: "Pending payment",
+      billingStatusTone: "warning",
+      billingStatusReason: "Subscription is recorded but still waiting for activation or payment confirmation.",
+      billingActionLabel: "Collect payment",
+    };
+  }
+
+  if (subscription.status === "suspended") {
+    return {
+      billingStatusLabel: "Suspended",
+      billingStatusTone: "danger",
+      billingStatusReason: "POS access is locked until the billing issue is settled.",
+      billingActionLabel: "Settle balance",
+    };
+  }
+
+  if (subscription.status === "cancelled") {
+    return {
+      billingStatusLabel: "Cancelled",
+      billingStatusTone: "danger",
+      billingStatusReason: "This terminal needs a restored plan before billing protection is cleared.",
+      billingActionLabel: "Restore plan",
+    };
+  }
+
+  return {
+    billingStatusLabel: "Expired",
+    billingStatusTone: "danger",
+    billingStatusReason: subscription.expiresAt
+      ? `Coverage ended on ${subscription.expiresAt.toLocaleDateString()}.`
+      : "Subscription is no longer active for this terminal.",
+    billingActionLabel: "Renew now",
+  };
+}
+
 function mapTerminal(terminal: TerminalRecord): TerminalDTO {
   const activeSession = terminal.sessions?.[0];
+  const billingSnapshot = getTerminalBillingSnapshot(terminal.subscription);
 
   return {
     ...terminal,
@@ -37,6 +107,10 @@ function mapTerminal(terminal: TerminalRecord): TerminalDTO {
     companyName: terminal.company?.name ?? null,
     subscriptionStatus: terminal.subscription?.status ?? null,
     subscriptionExpiresAt: terminal.subscription?.expiresAt ?? null,
+    billingStatusLabel: billingSnapshot.billingStatusLabel,
+    billingStatusTone: billingSnapshot.billingStatusTone,
+    billingStatusReason: billingSnapshot.billingStatusReason,
+    billingActionLabel: billingSnapshot.billingActionLabel,
     assignedUserName: activeSession?.profile.fullName ?? activeSession?.profile.email ?? null,
     isInUse: Boolean(activeSession),
   };

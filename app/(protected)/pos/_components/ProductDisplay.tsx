@@ -3,19 +3,22 @@ import { usePOSStore } from '../_store/pos-store';
 import { ProductCard } from './ProductCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, ChevronDown, Search, LayoutGrid, List, Package } from 'lucide-react';
+import { Check, ChevronDown, Search, LayoutGrid, List, Package, Tags, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { BarcodeScannerPanel } from './BarcodeScannerPanel';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 
 export function ProductDisplay() {
   const isMobile = useIsMobile();
   const [categorySearch, setCategorySearch] = useState('');
+  const [categoryBrowserOpen, setCategoryBrowserOpen] = useState(false);
   const { 
     searchQuery, setSearchQuery, 
     selectedCategoryId, setSelectedCategoryId,
@@ -54,6 +57,7 @@ export function ProductDisplay() {
   }, [categories, categorySearch]);
 
   const hasManyCategories = categories.length > 12;
+  const quickCategories = useMemo(() => categories.slice(0, 8), [categories]);
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -98,78 +102,174 @@ export function ProductDisplay() {
         </div>
 
         {hasManyCategories ? (
-          <div className="flex min-w-0 items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="h-9 min-w-0 flex-1 justify-between rounded-lg px-3 text-left text-xs font-bold uppercase tracking-wider sm:max-w-80"
+          <div className="space-y-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Sheet open={categoryBrowserOpen} onOpenChange={setCategoryBrowserOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-9 min-w-0 flex-1 justify-between rounded-lg px-3 text-left text-xs font-bold uppercase tracking-wider sm:max-w-80"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 overflow-hidden">
+                      <Tags className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">
+                        {selectedCategory?.categoryName ?? 'All Items'}
+                      </span>
+                    </span>
+                    <ChevronDown className="ml-2 size-4 shrink-0" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent
+                  side={isMobile ? 'bottom' : 'right'}
+                  className={`flex gap-0 p-0 ${isMobile ? 'h-[78vh] rounded-t-3xl' : 'w-full max-w-md'}`}
                 >
-                  <span className="min-w-0 truncate">
-                    {selectedCategory?.categoryName ?? 'All Items'}
-                  </span>
-                  <ChevronDown className="ml-2 size-4 shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="w-[min(22rem,calc(100vw-2rem))] rounded-xl p-1"
-              >
-                <div
-                  className="p-1"
-                  onKeyDown={(event) => event.stopPropagation()}
-                >
-                  <Input
-                    value={categorySearch}
-                    onChange={(event) => setCategorySearch(event.target.value)}
-                    placeholder="Search categories..."
-                    className="h-9 rounded-lg text-sm"
-                  />
-                </div>
-                <DropdownMenuItem
-                  className="rounded-lg text-xs font-bold uppercase tracking-wider"
-                  onSelect={() => {
-                    setSelectedCategoryId(null);
-                    setPage(1);
-                  }}
-                >
-                  <Check
-                    className={
-                      selectedCategoryId === null ? 'size-4 opacity-100' : 'size-4 opacity-0'
-                    }
-                  />
-                  All Items
-                </DropdownMenuItem>
-                {filteredCategories.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">
-                    No categories found.
+                  <SheetHeader className="shrink-0 border-b px-4 py-4 text-left">
+                    <SheetTitle className="text-base font-bold">Browse Categories</SheetTitle>
+                    <SheetDescription>
+                      Filter products faster when your category list gets large.
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    <div
+                      className="shrink-0 border-b p-4"
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <Input
+                        value={categorySearch}
+                        onChange={(event) => setCategorySearch(event.target.value)}
+                        placeholder="Search categories..."
+                        className="h-10 rounded-xl text-sm"
+                      />
+                    </div>
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      <div className="flex items-center justify-between border-b px-4 py-3">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                          {filteredCategories.length} visible
+                        </p>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                          {categories.length} total
+                        </p>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                        <div className="space-y-2">
+                          <Button
+                            variant={selectedCategoryId === null ? 'default' : 'outline'}
+                            className="h-11 w-full justify-start rounded-xl px-3 text-left text-sm font-semibold"
+                            onClick={() => {
+                              setSelectedCategoryId(null);
+                              setPage(1);
+                              setCategoryBrowserOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={
+                                selectedCategoryId === null ? 'mr-2 size-4 opacity-100' : 'mr-2 size-4 opacity-0'
+                              }
+                            />
+                            <span className="truncate">All Items</span>
+                          </Button>
+                          {filteredCategories.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                              No categories found.
+                            </div>
+                          ) : (
+                            filteredCategories.map((cat) => (
+                              <Button
+                                key={cat.id}
+                                variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
+                                className="h-11 w-full justify-start rounded-xl px-3 text-left text-sm font-semibold"
+                                onClick={() => {
+                                  setSelectedCategoryId(cat.id);
+                                  setPage(1);
+                                  setCategoryBrowserOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={
+                                    selectedCategoryId === cat.id
+                                      ? 'mr-2 size-4 opacity-100'
+                                      : 'mr-2 size-4 opacity-0'
+                                  }
+                                />
+                                <span className="truncate">{cat.categoryName}</span>
+                              </Button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  filteredCategories.map((cat) => (
-                    <DropdownMenuItem
+                </SheetContent>
+              </Sheet>
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {categories.length} categories
+              </span>
+            </div>
+
+            <div className="relative min-w-0 overflow-hidden">
+              <div className="scroll-pb-1 overflow-x-auto pb-1">
+                <div className="flex w-max min-w-full gap-1.5">
+                  <Button
+                    variant={selectedCategoryId === null ? 'default' : 'outline'}
+                    className="h-8 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider"
+                    onClick={() => {
+                      setSelectedCategoryId(null);
+                      setPage(1);
+                    }}
+                  >
+                    All Items
+                  </Button>
+                  {selectedCategory && !quickCategories.some((cat) => cat.id === selectedCategory.id) ? (
+                    <Button
+                      variant="default"
+                      className="h-8 max-w-[10rem] shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider lg:max-w-[12rem]"
+                      onClick={() => setCategoryBrowserOpen(true)}
+                    >
+                      <span className="truncate">{selectedCategory.categoryName}</span>
+                    </Button>
+                  ) : null}
+                  {quickCategories.map((cat) => (
+                    <Button
                       key={cat.id}
-                      className="rounded-lg text-xs font-bold uppercase tracking-wider"
-                      onSelect={() => {
+                      variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
+                      className="h-8 max-w-[10rem] shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider lg:max-w-[12rem]"
+                      onClick={() => {
                         setSelectedCategoryId(cat.id);
                         setPage(1);
                       }}
                     >
-                      <Check
-                        className={
-                          selectedCategoryId === cat.id
-                            ? 'size-4 opacity-100'
-                            : 'size-4 opacity-0'
-                        }
-                      />
-                      <span className="min-w-0 truncate">{cat.categoryName}</span>
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              {categories.length} categories
-            </span>
+                      <span className="truncate">{cat.categoryName}</span>
+                    </Button>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    className="h-8 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider"
+                    onClick={() => setCategoryBrowserOpen(true)}
+                  >
+                    Browse All
+                  </Button>
+                </div>
+              </div>
+              <div className="pointer-events-none absolute bottom-2 right-0 top-0 w-8 bg-gradient-to-l from-background to-transparent" />
+            </div>
+
+            {selectedCategoryId !== null ? (
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 rounded-full px-2 text-[10px] font-bold uppercase tracking-wider"
+                  onClick={() => {
+                    setSelectedCategoryId(null);
+                    setPage(1);
+                  }}
+                >
+                  <X className="mr-1 size-3" />
+                  Clear Filter
+                </Button>
+                <span className="truncate">Filtered by {selectedCategory?.categoryName}</span>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="relative min-w-0 max-w-full overflow-hidden">

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight, CreditCard, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +13,24 @@ import CompanySettingsForm from "../../_components/CompanySettingsForm";
 
 interface SettingsPageClientProps {
   company: CompanyDetailDTO;
+  initialView?: "business" | "vat";
 }
 
-export default function SettingsPageClient({ company }: SettingsPageClientProps) {
+export default function SettingsPageClient({
+  company,
+  initialView = "business",
+}: SettingsPageClientProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const businessSectionRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const target =
+      initialView === "vat" ? businessSectionRef.current : businessSectionRef.current;
+
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [initialView]);
 
   const handleSubmit = async (data: UpdateCompanyInput) => {
     setIsSubmitting(true);
@@ -34,7 +48,9 @@ export default function SettingsPageClient({ company }: SettingsPageClientProps)
 
   return (
     <div className="space-y-6">
-      <Card className="border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-background to-background p-6">
+      <Card
+        className="border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-background to-background p-6"
+      >
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
@@ -61,16 +77,27 @@ export default function SettingsPageClient({ company }: SettingsPageClientProps)
         </div>
       </Card>
 
-      <Card className="p-6">
+      <Card
+        ref={businessSectionRef}
+        className="p-6"
+      >
         <div className="mb-6 flex items-center gap-3 border-b pb-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
             <Settings className="h-4 w-4 text-violet-600" />
           </div>
           <div className="flex-1">
-            <h2 className="font-semibold text-gray-900">General Settings</h2>
-            <p className="text-xs text-gray-500">Update your company profile information</p>
+            <h2 className="font-semibold text-gray-900">
+              {initialView === "vat" ? "VAT / Discount" : "General Settings"}
+            </h2>
+            <p className="text-xs text-gray-500">
+              {initialView === "vat"
+                ? "Review VAT and business information used across terminal configuration."
+                : "Update your company profile information"}
+            </p>
           </div>
-          <Badge variant="outline">Operational Settings</Badge>
+          <Badge variant="outline">
+            {initialView === "vat" ? "VAT Focus" : "Operational Settings"}
+          </Badge>
         </div>
 
         <CompanySettingsForm

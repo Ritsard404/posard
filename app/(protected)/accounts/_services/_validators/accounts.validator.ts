@@ -72,6 +72,11 @@ export const UpdateOwnProfileSchema = z.object({
       .min(6, "Password must be at least 6 characters")
       .max(72, "Password must be 72 characters or fewer"),
   ),
+  pin: emptyStringToUndefined(
+    z
+      .string()
+      .regex(/^\d{4,6}$/, "Access PIN must be 4 to 6 digits"),
+  ),
 });
 
 export const AccountIdSchema = z.string().uuid("A valid account is required");

@@ -318,28 +318,28 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         id: "terminal-list",
         label: "Terminal List",
         icon: Terminal,
-        href: "/companies/[companyId]/terminals",
+        href: "/companies/[companyId]/terminals?view=list",
         permission: "view.company.terminals",
       },
       {
         id: "terminal-configuration",
         label: "Terminal Settings",
         icon: MonitorCog,
-        href: "/companies/[companyId]/terminals",
+        href: "/companies/[companyId]/terminals?view=terminal",
         permission: "view.company.terminals",
       },
       {
         id: "business-info",
         label: "Business Info",
         icon: Settings,
-        href: "/companies/[companyId]/settings",
+        href: "/companies/[companyId]/settings?view=business",
         permission: "view.company.settings",
       },
       {
         id: "vat-discount",
         label: "VAT / Discount",
         icon: BaggageClaimIcon,
-        href: "/companies/[companyId]/settings",
+        href: "/companies/[companyId]/settings?view=vat",
         permission: "view.company.settings",
       },
       {
@@ -353,7 +353,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         id: "printer",
         label: "Printer Setup",
         icon: Printer,
-        href: "/companies/[companyId]/terminals",
+        href: "/companies/[companyId]/terminals?view=printer",
         permission: "view.company.terminals",
       },
       {
@@ -548,30 +548,15 @@ function buildSidebarItem(
     label: item.label,
     icon: item.icon,
     href,
-    disabled:
-      item.disabled ||
-      (Boolean(item.href) && !href) ||
-      Boolean(
-        context.billingRestricted &&
-          ((role === "manager" && (item.id === "pos" || item.id === "user-management")) ||
-            (role === "cashier" && item.id === "pos")),
-      ),
+    disabled: item.disabled || (Boolean(item.href) && !href),
     badge:
-      context.billingRestricted &&
-      ((role === "manager" && item.id === "user-management") ||
-        item.id === "pos")
-        ? "Suspended"
-        : item.id === "pos"
+      item.id === "pos"
         ? context.posStatus === "in_use"
           ? "In use"
           : "Available"
         : item.badge,
     badgeTone:
-      context.billingRestricted &&
-      ((role === "manager" && item.id === "user-management") ||
-        item.id === "pos")
-        ? "neutral"
-        : item.id === "pos"
+      item.id === "pos"
         ? context.posStatus === "in_use"
           ? "active"
           : "success"

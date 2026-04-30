@@ -116,6 +116,10 @@ export const TerminalSchema = z.object({
   companyName: z.string().nullable().optional(),
   subscriptionStatus: z.enum(["pending", "active", "expired", "suspended", "cancelled"]).nullable().optional(),
   subscriptionExpiresAt: z.date().nullable().optional(),
+  billingStatusLabel: z.string().nullable().optional(),
+  billingStatusTone: z.enum(["success", "warning", "danger", "neutral"]).optional(),
+  billingStatusReason: z.string().nullable().optional(),
+  billingActionLabel: z.string().nullable().optional(),
   assignedUserName: z.string().nullable().optional(),
   isInUse: z.boolean().optional(),
   createdAt: z.date(),
@@ -128,20 +132,31 @@ export interface TerminalPrinterConfigurationDTO {
   printerConfig: PrinterConfigDto | null;
 }
 
-const TerminalDiscountCapFieldsSchema = z.object({
+const TerminalDiscountCapFieldsBaseSchema = z.object({
   discountCapType: DiscountCapTypeSchema.default("amount"),
   discountMax: nullableNumberInput,
-}).superRefine((value, ctx) => {
-  if (value.discountCapType === "percent" && value.discountMax !== null && value.discountMax > 100) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["discountMax"],
-      message: "Percentage cannot exceed 100%",
-    });
-  }
 });
 
-export const CreateTerminalSchema = z.object({
+function applyTerminalDiscountCapValidation<T extends z.ZodObject>(schema: T) {
+  return schema.superRefine((value, ctx) => {
+    const data = value as z.infer<typeof TerminalDiscountCapFieldsBaseSchema>;
+
+    if (
+      data.discountCapType === "percent" &&
+      data.discountMax !== null &&
+      data.discountMax !== undefined &&
+      data.discountMax > 100
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["discountMax"],
+        message: "Percentage cannot exceed 100%",
+      });
+    }
+  });
+}
+
+const CreateTerminalBaseSchema = z.object({
   minNumber: nullableStringInput.optional(),
   accreditationNumber: nullableStringInput.optional(),
   ptuNumber: nullableStringInput.optional(),
@@ -151,21 +166,27 @@ export const CreateTerminalSchema = z.object({
   vatTinNumber: nullableStringInput.optional(),
   vat: nullablePercentageInput.optional(),
   printerName: nullableStringInput.optional(),
-}).merge(TerminalDiscountCapFieldsSchema.partial({
+}).merge(TerminalDiscountCapFieldsBaseSchema.partial({
   discountMax: true,
 }));
+
+export const CreateTerminalSchema = applyTerminalDiscountCapValidation(
+  CreateTerminalBaseSchema,
+);
 
 export type CreateTerminalPayload = z.input<typeof CreateTerminalSchema>;
 export type CreateTerminalInput = z.infer<typeof CreateTerminalSchema>;
 
-export const UpdateTerminalSchema = CreateTerminalSchema.partial();
+export const UpdateTerminalSchema = applyTerminalDiscountCapValidation(
+  CreateTerminalBaseSchema.partial(),
+);
 
 export type UpdateTerminalPayload = z.input<typeof UpdateTerminalSchema>;
 export type UpdateTerminalInput = z.infer<typeof UpdateTerminalSchema>;
 
 const vatTinPattern = /^\d{3}-\d{3}-\d{3}-\d{3,4}$/;
 
-export const TerminalConfigurationSchema = z.object({
+const TerminalConfigurationBaseSchema = z.object({
   vat: nullablePercentageInput,
   vatTinNumber: nullableStringInput.refine(
     (value) => value === null || vatTinPattern.test(value),
@@ -183,7 +204,11 @@ export const TerminalConfigurationSchema = z.object({
 
     return value;
   }, z.coerce.number().int().min(1).max(365).nullable()),
-}).merge(TerminalDiscountCapFieldsSchema);
+}).merge(TerminalDiscountCapFieldsBaseSchema);
+
+export const TerminalConfigurationSchema = applyTerminalDiscountCapValidation(
+  TerminalConfigurationBaseSchema,
+);
 
 export type TerminalConfigurationPayload = z.input<typeof TerminalConfigurationSchema>;
 export type TerminalConfigurationInput = z.infer<typeof TerminalConfigurationSchema>;

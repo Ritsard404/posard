@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -37,7 +37,7 @@ export default async function CompanyOverviewPage({ params }: CompanyOverviewPag
   ]);
 
   if (!company) {
-    notFound();
+    redirect("/companies");
   }
 
   const backHref = viewer.role === "admin" ? "/companies" : "/dashboard";

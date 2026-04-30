@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import { MapPin, ShieldCheck, ToggleLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,8 @@ function formatDiscountCap(terminal: TerminalDTO) {
 interface TerminalDetailPanelProps {
   terminal: TerminalDTO | null;
   canUpdateConfiguration: boolean;
+  focusSection?: "overview" | "terminal" | "printer";
+  printerSectionRef?: RefObject<HTMLDivElement | null>;
   isSubmittingConfiguration?: boolean;
   isTogglingTrainingMode?: boolean;
   onSubmitConfiguration?: (
@@ -33,6 +36,8 @@ interface TerminalDetailPanelProps {
 export default function TerminalDetailPanel({
   terminal,
   canUpdateConfiguration,
+  focusSection = "overview",
+  printerSectionRef,
   isSubmittingConfiguration = false,
   isTogglingTrainingMode = false,
   onSubmitConfiguration,
@@ -50,13 +55,19 @@ export default function TerminalDetailPanel({
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-6" data-focus-section={focusSection}>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-semibold">{terminal.posName ?? "Unnamed terminal"}</h2>
             <StatusPill label={terminal.isActive ? "active" : "inactive"} tone={terminal.isActive ? "success" : "neutral"} />
             <StatusPill label={terminal.isTrainMode ? "training mode" : "live mode"} tone={terminal.isTrainMode ? "warning" : "success"} />
+            {terminal.billingStatusLabel ? (
+              <StatusPill
+                label={terminal.billingStatusLabel}
+                tone={terminal.billingStatusTone ?? "neutral"}
+              />
+            ) : null}
           </div>
           <p className="text-sm text-muted-foreground">{terminal.registeredName ?? "No registered name"}</p>
           <p className="text-sm text-muted-foreground">
@@ -90,6 +101,17 @@ export default function TerminalDetailPanel({
             ["Discount Cap", formatDiscountCap(terminal)],
             ["Printer", terminal.printerDisplayName ?? terminal.printerName ?? "Not set"],
             ["Printer Mode", getPrinterModeLabel(terminal.printerConfig?.mode)],
+          ]}
+        />
+        <DetailSection
+          title="Billing Status"
+          icon={ShieldCheck}
+          items={[
+            ["Subscription State", terminal.subscriptionStatus ?? "No subscription record"],
+            ["Billing Label", terminal.billingStatusLabel ?? "Not set"],
+            ["Billing Guidance", terminal.billingActionLabel ?? "No action required"],
+            ["Billing Reason", terminal.billingStatusReason ?? "No billing note"],
+            ["Subscription Expiry", formatNullableDate(terminal.subscriptionExpiresAt)],
           ]}
         />
         <Card className="border-dashed p-5">
@@ -150,6 +172,8 @@ export default function TerminalDetailPanel({
             terminal={terminal}
             isSubmitting={isSubmittingConfiguration}
             onSubmit={onSubmitConfiguration}
+            focusSection={focusSection}
+            printerSectionRef={printerSectionRef}
           />
         </div>
       ) : null}
@@ -193,11 +217,12 @@ function StatusPill({
   tone,
 }: {
   label: string;
-  tone: "success" | "warning" | "neutral";
+  tone: "success" | "warning" | "danger" | "neutral";
 }) {
   const tones = {
     success: "border-emerald-200 bg-emerald-50 text-emerald-700",
     warning: "border-amber-200 bg-amber-50 text-amber-700",
+    danger: "border-rose-200 bg-rose-50 text-rose-700",
     neutral: "border-zinc-200 bg-zinc-100 text-zinc-700",
   } satisfies Record<typeof tone, string>;
 
@@ -210,4 +235,8 @@ function StatusPill({
 
 function formatDate(value: Date | string) {
   return new Date(value).toLocaleDateString();
+}
+
+function formatNullableDate(value: Date | string | null | undefined) {
+  return value ? formatDate(value) : "Not set";
 }

@@ -89,7 +89,7 @@ export function mapCompanyToOption(
     cashierCount: number;
   },
 ): AccountCompanyOptionDto {
-  const cashierLimit = company.terminalCount * 3;
+  const cashierLimit = company.terminalCount * 2;
 
   return {
     id: company.id,

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { assertCompanyBillingAllowsPos } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { categoryService } from "@/app/(protected)/pos/_services/category.service";
@@ -42,8 +41,6 @@ export async function GET(request: Request) {
       );
     }
     const companyId = profile.companyId;
-    await assertCompanyBillingAllowsPos(companyId);
-
     const { searchParams } = new URL(request.url);
     const deviceId = searchParams.get("deviceId")?.trim();
     if (!deviceId) {

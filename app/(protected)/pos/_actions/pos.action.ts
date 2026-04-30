@@ -1,6 +1,6 @@
 "use server";
 
-import { assertCompanyBillingAllowsPos } from "@/lib/billing-access";
+import { assertTerminalBillingAllowsPos } from "@/lib/billing-access";
 import { z } from "zod";
 import { POSMetaDataDto } from "../_services/_dto/pos.dto";
 import type { PrinterConfigDto } from "../_services/_dto/print.dto";
@@ -53,9 +53,6 @@ export async function fetchPOSMetaDataAction(): Promise<{ success: true; data: P
   try {
     const profile = await getCurrentProfile();
     const companyId = profile.companyId ?? undefined;
-    if (companyId) {
-      await assertCompanyBillingAllowsPos(companyId);
-    }
 
     const [categories, products, epaymentMethods] = await Promise.all([
       categoryService.getCategories(companyId),
@@ -88,7 +85,6 @@ export async function saveSessionPrinterConfigAction(
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
-    await assertCompanyBillingAllowsPos(profile.companyId);
     const validated = printerConfig === null ? null : PrinterConfigSchema.parse(printerConfig);
 
     const timestamp = await prisma.timestamp.findFirst({
@@ -104,6 +100,8 @@ export async function saveSessionPrinterConfigAction(
     if (!timestamp) {
       return { success: false as const, error: "Active session not found for printer setup." };
     }
+
+    await assertTerminalBillingAllowsPos(profile.companyId, timestamp.posTerminalId);
 
     await terminalPrinterConfigService.updateTerminalPrinterConfig(
       timestamp.posTerminalId,

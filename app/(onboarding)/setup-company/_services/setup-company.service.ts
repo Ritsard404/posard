@@ -74,6 +74,18 @@ export async function createCompany(data: SetupCompanyInput) {
         discountMax: null,
         printerName: "",
         isTrainMode: false,
+        subscription: {
+          create: {
+            billingCycle: "monthly",
+            status: "active",
+            startsAt: today,
+            expiresAt: null,
+            renewedAt: today,
+            autoRenew: false,
+            price: 0,
+            notes: "Default complimentary terminal subscription",
+          },
+        },
       },
     }),
   ]);

@@ -1,6 +1,5 @@
 import "server-only";
 
-import { assertManagerBillingAllowsCashierManagement } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -25,7 +24,7 @@ type ProfileWithCompany = Prisma.ProfileGetPayload<{
   include: { company: true };
 }>;
 
-const CASHIER_LIMIT_PER_TERMINAL = 3;
+const CASHIER_LIMIT_PER_TERMINAL = 2;
 
 function assertViewerCanManageAccounts(viewer: AccountsViewerDto) {
   if (viewer.role === "cashier") {
@@ -282,7 +281,6 @@ export const accountsService = {
     input: CreateAccountInputDto,
   ): Promise<AccountDetailDto> {
     assertViewerCanManageAccounts(viewer);
-    await assertManagerBillingAllowsCashierManagement(viewer);
 
     if (viewer.role === "manager" && input.role !== "cashier") {
       throw new Error("Managers can only create cashier accounts");
@@ -374,7 +372,6 @@ export const accountsService = {
     id: string,
     input: UpdateAccountInputDto,
   ): Promise<AccountDetailDto> {
-    await assertManagerBillingAllowsCashierManagement(viewer);
     const target = await getTargetAccountOrThrow(id);
     assertViewerCanMutateTarget(viewer, target);
 
@@ -415,7 +412,6 @@ export const accountsService = {
   },
 
   async deleteAccount(viewer: AccountsViewerDto, id: string): Promise<void> {
-    await assertManagerBillingAllowsCashierManagement(viewer);
     const target = await getTargetAccountOrThrow(id);
     assertViewerCanMutateTarget(viewer, target);
 
@@ -452,7 +448,6 @@ export const accountsService = {
   },
 
   async activateAccount(viewer: AccountsViewerDto, id: string): Promise<void> {
-    await assertManagerBillingAllowsCashierManagement(viewer);
     const target = await getTargetAccountOrThrow(id);
     assertViewerCanMutateTarget(viewer, target);
 
@@ -469,7 +464,6 @@ export const accountsService = {
     viewer: AccountsViewerDto,
     id: string,
   ): Promise<void> {
-    await assertManagerBillingAllowsCashierManagement(viewer);
     const target = await getTargetAccountOrThrow(id);
     assertViewerCanMutateTarget(viewer, target);
 
@@ -500,6 +494,10 @@ export const accountsService = {
       where: { id: viewer.profileId },
       data: {
         fullName: input.fullName,
+        ...((viewer.role === "manager" || viewer.role === "admin") &&
+        input.pin !== undefined
+          ? { pin: input.pin }
+          : {}),
       },
       include: { company: true },
     });
