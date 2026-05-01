@@ -130,20 +130,20 @@ export function calculatePayment(
     input.discountCapType,
     input.discountCapValue,
   );
-  const totalAmount = round2(grossTotal - discountAmount);
+  const totalAmount = round2(Math.max(grossTotal - discountAmount, 0));
   const dueAmount = totalAmount;
   const subTotal = round2(dueAmount - vatAmount);
   const ePaymentTotal = input.ePayments
     ? input.ePayments.reduce((sum, payment) => sum + payment.amount, 0)
     : 0;
   const cashTenderAmount = round2(input.cashTenderAmount ?? 0);
-  const remainingAfterCash = totalAmount - cashTenderAmount;
+  const remainingAfterCash = Math.max(totalAmount - cashTenderAmount, 0);
   const effectiveEPayment = Math.min(
     ePaymentTotal,
     Math.max(remainingAfterCash, 0),
   );
   const totalTendered = round2(cashTenderAmount + effectiveEPayment);
-  const changeAmount = round2(totalTendered - totalAmount);
+  const changeAmount = round2(Math.max(totalTendered - totalAmount, 0));
 
   return {
     grossAmount: round2(grossTotal),

@@ -69,10 +69,11 @@ export async function createCompany(data: SetupCompanyInput) {
         validUntil: threeYearsOut,
         address: data.address || null,
         vatTinNumber: "",
-        vat: 12,
+        vat: 0,
         discountCapType: "amount",
         discountMax: null,
         printerName: "",
+        isDefaultTerminal: true,
         isTrainMode: false,
         subscription: {
           create: {

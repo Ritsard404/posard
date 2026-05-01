@@ -109,6 +109,8 @@ export interface SessionSnapshotDto {
   deviceId: string | null;
   isTrainMode: boolean;
   lastSeenAt: string | null;
+  billingLocked: boolean;
+  billingMessage: string | null;
 }
 
 export interface OfflineBootstrapDto {

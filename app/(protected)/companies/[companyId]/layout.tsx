@@ -9,31 +9,35 @@ export default async function CompanyLayout({
   children: React.ReactNode;
   params: Promise<{ companyId: string }>;
 }) {
-  const resolvedParams = await params;
-  const companyId = resolvedParams.companyId;
+  try {
+    const resolvedParams = await params;
+    const companyId = resolvedParams.companyId;
 
-  const viewer = await companyAccessService.getViewer().catch(() => null);
+    const viewer = await companyAccessService.getViewer().catch(() => null);
 
-  if (!viewer) {
-    redirect("/dashboard");
-  }
-
-  if (viewer.role !== "admin" && viewer.companyId !== companyId) {
-    if (viewer.companyId) {
-      redirect(`/companies/${viewer.companyId}`);
+    if (!viewer) {
+      redirect("/dashboard");
     }
 
-    redirect("/dashboard");
-  }
+    if (viewer.role !== "admin" && viewer.companyId !== companyId) {
+      if (viewer.companyId) {
+        redirect(`/companies/${viewer.companyId}`);
+      }
 
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    select: { id: true },
-  });
+      redirect("/dashboard");
+    }
 
-  if (!company) {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true },
+    });
+
+    if (!company) {
+      redirect("/companies");
+    }
+
+    return <>{children}</>;
+  } catch {
     redirect("/companies");
   }
-
-  return <>{children}</>;
 }

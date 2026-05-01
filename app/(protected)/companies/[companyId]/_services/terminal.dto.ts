@@ -110,6 +110,7 @@ export const TerminalSchema = z.object({
   resetCounterTrainNo: z.number().int().min(0),
   zCounterNo: z.number().int().min(0),
   zCounterTrainNo: z.number().int().min(0),
+  isDefaultTerminal: z.boolean().default(false),
   isTrainMode: z.boolean(),
   isActive: z.boolean(),
   companyId: z.string().uuid(),

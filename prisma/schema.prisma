@@ -294,11 +294,12 @@ model PosTerminalInfo {
   resetCounterNo      Int @default(0) @map("reset_counter_no")
   resetCounterTrainNo Int @default(0) @map("reset_counter_train_no")
   zCounterNo          Int @default(0) @map("z_counter_no")
-  zCounterTrainNo     Int @default(0) @map("z_counter_train_no")
-
-  // Modes
-  isTrainMode  Boolean @default(false) @map("is_train_mode")
-  isActive     Boolean @default(false) @map("is_active")
+    zCounterTrainNo     Int @default(0) @map("z_counter_train_no")
+  
+    // Modes
+    isDefaultTerminal Boolean @default(false) @map("is_default_terminal")
+    isTrainMode  Boolean @default(false) @map("is_train_mode")
+    isActive     Boolean @default(false) @map("is_active")
 
   //////////////////////////////////////////////////
   // RELATIONS

@@ -11,9 +11,13 @@ export const MANAGER_BILLING_RESTRICTION_MESSAGE =
 export const TERMINAL_BILLING_RESTRICTION_MESSAGE =
   "This POS terminal cannot be used because its subscription is not active.";
 
+export const TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE =
+  "This POS terminal can stay open for cash tracking, but no new transactions can be created because its subscription is not active.";
+
 type TerminalBillingSnapshot = {
   terminalId: string;
   posName: string | null;
+  isDefaultTerminal: boolean;
   subscription: {
     status: "pending" | "active" | "expired" | "suspended" | "cancelled";
     expiresAt: Date | null;
@@ -31,16 +35,16 @@ function hasDatePassed(value: Date | null | undefined) {
   return !value || value.getTime() < Date.now();
 }
 
-function isTerminalSubscriptionActive(
-  subscription: TerminalBillingSnapshot["subscription"],
-) {
+function isTerminalSubscriptionActive(subscription: TerminalBillingSnapshot["subscription"]) {
   return subscription?.status === "active" && !hasDatePassed(subscription.expiresAt);
 }
 
 export function isTerminalPosAccessible(
-  subscription: TerminalBillingSnapshot["subscription"],
+  terminal: Pick<TerminalBillingSnapshot, "isDefaultTerminal" | "subscription">,
 ) {
-  return !subscription || isTerminalSubscriptionActive(subscription);
+  return terminal.isDefaultTerminal
+    ? !terminal.subscription || isTerminalSubscriptionActive(terminal.subscription)
+    : isTerminalSubscriptionActive(terminal.subscription);
 }
 
 export async function getCompanyBillingAccess(
@@ -51,6 +55,7 @@ export async function getCompanyBillingAccess(
     select: {
       id: true,
       posName: true,
+      isDefaultTerminal: true,
       subscription: {
         select: {
           status: true,
@@ -63,7 +68,7 @@ export async function getCompanyBillingAccess(
 
   const activeTerminalIds = new Set(
     terminals
-      .filter((terminal) => isTerminalSubscriptionActive(terminal.subscription))
+      .filter((terminal) => isTerminalPosAccessible(terminal))
       .map((terminal) => terminal.id),
   );
 
@@ -75,6 +80,7 @@ export async function getCompanyBillingAccess(
     terminals: terminals.map((terminal) => ({
       terminalId: terminal.id,
       posName: terminal.posName,
+      isDefaultTerminal: terminal.isDefaultTerminal,
       subscription: terminal.subscription,
     })),
   };
@@ -100,6 +106,7 @@ export async function assertTerminalBillingAllowsPos(
       companyId,
     },
     select: {
+      isDefaultTerminal: true,
       subscription: {
         select: {
           status: true,
@@ -113,8 +120,39 @@ export async function assertTerminalBillingAllowsPos(
     throw new Error("Terminal not found.");
   }
 
-  if (!isTerminalPosAccessible(terminal.subscription)) {
+  if (!isTerminalPosAccessible(terminal)) {
     throw new Error(TERMINAL_BILLING_RESTRICTION_MESSAGE);
+  }
+
+  return terminal;
+}
+
+export async function assertTerminalBillingAllowsTransactions(
+  companyId: string,
+  terminalId: string,
+) {
+  const terminal = await prisma.posTerminalInfo.findFirst({
+    where: {
+      id: terminalId,
+      companyId,
+    },
+    select: {
+      isDefaultTerminal: true,
+      subscription: {
+        select: {
+          status: true,
+          expiresAt: true,
+        },
+      },
+    },
+  });
+
+  if (!terminal) {
+    throw new Error("Terminal not found.");
+  }
+
+  if (!isTerminalPosAccessible(terminal)) {
+    throw new Error(TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE);
   }
 
   return terminal;

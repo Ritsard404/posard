@@ -52,15 +52,15 @@ export function CheckoutModal({
         </DialogContent>
       ) : (
         <DialogContent className="flex h-[100dvh] max-w-[100vw] flex-col overflow-hidden p-0 sm:max-w-[960px] xl:max-w-[1080px] lg:h-[min(92vh,840px)]">
-          <div className="border-b bg-card px-5 py-4 sm:px-6 sm:py-5">
-            <DialogHeader className="space-y-2 text-left">
-              <DialogTitle className="flex items-center gap-3 font-heading text-2xl font-black tracking-tight sm:text-3xl">
-                <div className="flex size-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
-                  <Receipt className="h-5 w-5 text-primary" />
+          <div className="border-b bg-card px-4 py-3 sm:px-5 sm:py-4">
+            <DialogHeader className="text-left">
+              <DialogTitle className="flex items-center gap-2.5 font-heading text-xl font-black tracking-tight sm:text-2xl">
+                <div className="flex size-10 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+                  <Receipt className="h-[18px] w-[18px] text-primary" />
                 </div>
                 Checkout
               </DialogTitle>
-              <DialogDescription className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
+              <DialogDescription className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
                 Review totals, choose a payment method, and complete the sale.
               </DialogDescription>
             </DialogHeader>
@@ -82,6 +82,8 @@ export function CheckoutModal({
             isReferencePaymentValid={flow.isReferencePaymentValid}
             change={flow.change}
             canComplete={flow.canComplete}
+            isBillingLocked={flow.isBillingLocked}
+            billingMessage={flow.billingMessage}
             terminalDiscountCapSummary={flow.terminalDiscountCapSummary}
             settlementMode={flow.settlementMode}
             setSettlementMode={flow.setSettlementMode}
@@ -105,7 +107,6 @@ export function CheckoutModal({
             selectCashPayment={flow.selectCashPayment}
             selectReferencePayment={flow.selectReferencePayment}
             setAmountTendered={flow.setAmountTendered}
-            handleQuickCash={flow.handleQuickCash}
             handleComplete={flow.handleComplete}
           />
         </DialogContent>

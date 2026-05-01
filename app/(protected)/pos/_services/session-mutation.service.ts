@@ -177,11 +177,6 @@ export const sessionMutationService = {
       throw new Error("Active session not found");
     }
 
-    await assertTerminalBillingAllowsPos(
-      actor.companyId,
-      timestampForBilling.posTerminalId,
-    );
-
     if (amount <= 0) {
       throw new Error("Amount must be greater than 0");
     }
@@ -250,11 +245,6 @@ export const sessionMutationService = {
     if (!timestampForBilling) {
       throw new Error("Session is not active or does not exist.");
     }
-
-    await assertTerminalBillingAllowsPos(
-      actor.companyId,
-      timestampForBilling.posTerminalId,
-    );
 
     const approver = await prisma.profile.findFirst({
       where: {

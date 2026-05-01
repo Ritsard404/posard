@@ -54,6 +54,8 @@ interface ActiveTerminalState {
   requireManagerApprovalForDebt: boolean;
   defaultDebtDueDays: number | null;
   printerConfig?: PrinterConfigDto | null;
+  billingLocked?: boolean;
+  billingMessage?: string | null;
 }
 
 interface OfflineReceiptState {

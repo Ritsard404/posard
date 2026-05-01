@@ -25,12 +25,14 @@ const featureCards: Array<{
   },
   {
     title: "Clear daily visibility",
-    description: "Track inventory, receipts, and reports in one connected workspace.",
+    description:
+      "Track inventory, receipts, and reports in one connected workspace.",
     icon: BarChart3,
   },
   {
     title: "Role-based access",
-    description: "Keep cashier, manager, and owner actions under the right controls.",
+    description:
+      "Keep cashier, manager, and owner actions under the right controls.",
     icon: ShieldCheck,
   },
 ];
@@ -81,7 +83,9 @@ export function AuthShell({
                     <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/8 text-primary shadow-inner dark:bg-white/12 dark:text-white">
                       <Icon className="size-5" />
                     </div>
-                    <h2 className="mt-4 text-base font-bold text-slate-900 dark:text-white">{feature.title}</h2>
+                    <h2 className="mt-4 text-base font-bold text-slate-900 dark:text-white">
+                      {feature.title}
+                    </h2>
                     <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/70">
                       {feature.description}
                     </p>

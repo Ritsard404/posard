@@ -25,7 +25,11 @@ import {
   createDebtCustomerAction,
   listDebtCustomersAction,
 } from "@/app/(protected)/debts/_actions/debt.actions";
-import { usePOSStore, type DiscountType, type PaymentMethodType } from "../_store/pos-store";
+import {
+  usePOSStore,
+  type DiscountType,
+  type PaymentMethodType,
+} from "../_store/pos-store";
 import { payOrderAction } from "../_actions/order.action";
 import type { OrderDto } from "../_services/_dto/order.dto";
 import type { ReceiptDto } from "../_services/_dto/receipt.dto";
@@ -66,10 +70,12 @@ export const discountOptions: { id: DiscountType; label: string }[] = [
   { id: "SENIOR", label: "Senior (20% + VAT Exempt)" },
 ];
 
-function buildOtherDiscountPayload(activeTerminal: {
-  discountCapType: "amount" | "percent";
-  discountMax: number;
-} | null) {
+function buildOtherDiscountPayload(
+  activeTerminal: {
+    discountCapType: "amount" | "percent";
+    discountMax: number;
+  } | null,
+) {
   if (!activeTerminal) {
     return undefined;
   }
@@ -79,10 +85,12 @@ function buildOtherDiscountPayload(activeTerminal: {
     : { discountPercent: activeTerminal.discountMax };
 }
 
-function formatTerminalDiscountCap(activeTerminal: {
-  discountCapType: "amount" | "percent";
-  discountMax: number;
-} | null) {
+function formatTerminalDiscountCap(
+  activeTerminal: {
+    discountCapType: "amount" | "percent";
+    discountMax: number;
+  } | null,
+) {
   if (!activeTerminal || activeTerminal.discountMax <= 0) {
     return "No terminal max discount cap is configured.";
   }
@@ -171,9 +179,14 @@ export function usePOSCheckoutFlow(
   const [step, setStep] = useState<"PAYMENT" | "RECEIPT">("PAYMENT");
   const [isProcessing, setIsProcessing] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptDto | null>(null);
-  const [settlementMode, setSettlementMode] = useState<"pay_now" | "debt">("pay_now");
-  const [debtCustomers, setDebtCustomers] = useState<Array<{ id: string; name: string }>>([]);
-  const [selectedDebtCustomerId, setSelectedDebtCustomerId] = useState<string>("");
+  const [settlementMode, setSettlementMode] = useState<"pay_now" | "debt">(
+    "pay_now",
+  );
+  const [debtCustomers, setDebtCustomers] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [selectedDebtCustomerId, setSelectedDebtCustomerId] =
+    useState<string>("");
   const [newDebtCustomerName, setNewDebtCustomerName] = useState("");
   const [debtDueDate, setDebtDueDate] = useState("");
   const [debtNotes, setDebtNotes] = useState("");
@@ -202,7 +215,8 @@ export function usePOSCheckoutFlow(
   const change = isCashPayment ? amountTendered - totalAmount : 0;
   const isReferencePaymentValid =
     isCashPayment || Boolean(selectedEPaymentMethod && trimmedReference);
-  const debtUpfrontCashAmount = settlementMode === "debt" ? Math.max(0, amountTendered) : 0;
+  const debtUpfrontCashAmount =
+    settlementMode === "debt" ? Math.max(0, amountTendered) : 0;
   const isTenderValid =
     settlementMode === "debt"
       ? isCashPayment && debtUpfrontCashAmount <= totalAmount
@@ -211,8 +225,15 @@ export function usePOSCheckoutFlow(
         : totalAmount > 0 && isReferencePaymentValid;
   const isDebtFormValid =
     settlementMode === "pay_now" ||
-    (!!debtDueDate && isCashPayment && (!!selectedDebtCustomerId || !!newDebtCustomerName.trim()));
-  const canComplete = isTenderValid && isDiscountMetadataValid && isDebtFormValid;
+    (!!debtDueDate &&
+      isCashPayment &&
+      (!!selectedDebtCustomerId || !!newDebtCustomerName.trim()));
+  const isBillingLocked = activeTerminal?.billingLocked === true;
+  const canComplete =
+    !isBillingLocked &&
+    isTenderValid &&
+    isDiscountMetadataValid &&
+    isDebtFormValid;
   const terminalDiscountCapSummary = formatTerminalDiscountCap(activeTerminal);
 
   useEffect(() => {
@@ -226,7 +247,12 @@ export function usePOSCheckoutFlow(
         return;
       }
 
-      setDebtCustomers(result.customers.map((customer) => ({ id: customer.id, name: customer.name })));
+      setDebtCustomers(
+        result.customers.map((customer) => ({
+          id: customer.id,
+          name: customer.name,
+        })),
+      );
     });
 
     return () => {
@@ -271,6 +297,14 @@ export function usePOSCheckoutFlow(
   const handleComplete = async () => {
     if (!canComplete) return;
 
+    if (isBillingLocked) {
+      toast.error(
+        activeTerminal?.billingMessage ??
+          "Transactions are disabled because this terminal subscription is not active.",
+      );
+      return;
+    }
+
     if (settlementMode === "debt" && !isCashPayment) {
       toast.error("Debt issuance only supports cash upfront in v1.");
       return;
@@ -287,7 +321,11 @@ export function usePOSCheckoutFlow(
     }
 
     let debtCustomerId = selectedDebtCustomerId;
-    if (settlementMode === "debt" && !debtCustomerId && newDebtCustomerName.trim()) {
+    if (
+      settlementMode === "debt" &&
+      !debtCustomerId &&
+      newDebtCustomerName.trim()
+    ) {
       const created = await createDebtCustomerAction({
         name: newDebtCustomerName.trim(),
         phone: null,
@@ -303,7 +341,10 @@ export function usePOSCheckoutFlow(
 
       debtCustomerId = created.customer.id;
       setSelectedDebtCustomerId(created.customer.id);
-      setDebtCustomers((state) => [...state, { id: created.customer.id, name: created.customer.name }]);
+      setDebtCustomers((state) => [
+        ...state,
+        { id: created.customer.id, name: created.customer.name },
+      ]);
     }
 
     setIsProcessing(true);
@@ -357,15 +398,33 @@ export function usePOSCheckoutFlow(
     };
 
     if (!isOnline) {
+      if (isBillingLocked) {
+        setIsProcessing(false);
+        toast.error("Transactions are disabled.", {
+          description:
+            activeTerminal?.billingMessage ??
+            "This terminal subscription is not active.",
+        });
+        return;
+      }
+
       if (settlementMode === "debt") {
         setIsProcessing(false);
         toast.error("Debt issuance is online-only in v1.");
         return;
       }
 
-      if (!activeTimestampId || !activeTerminal || !activeDeviceId || !activeCompanyId || !activeProfileId) {
+      if (
+        !activeTimestampId ||
+        !activeTerminal ||
+        !activeDeviceId ||
+        !activeCompanyId ||
+        !activeProfileId
+      ) {
         setIsProcessing(false);
-        toast.error("Offline checkout needs an active synced session on this device.");
+        toast.error(
+          "Offline checkout needs an active synced session on this device.",
+        );
         return;
       }
 
@@ -373,17 +432,21 @@ export function usePOSCheckoutFlow(
         const queueState = await getOfflineQueueSnapshot();
         const stockSnapshotVersion = await getStockSnapshotVersion();
         const queuedCounter =
-          queueState.actions.filter((action) => action.type === "PAY_ORDER").length + 1;
-        const { receipt: provisionalReceipt, localInvoiceNo, stockUpdates } =
-          buildProvisionalReceipt({
-            order: orderDto,
-            products: cart.map((item) => item),
-            cashierName: activeUser?.name ?? null,
-            terminalName: activeTerminal.name,
-            terminalVat: activeTerminal.vat,
-            printerConfig: activeTerminal.printerConfig ?? null,
-            counter: queuedCounter,
-          });
+          queueState.actions.filter((action) => action.type === "PAY_ORDER")
+            .length + 1;
+        const {
+          receipt: provisionalReceipt,
+          localInvoiceNo,
+          stockUpdates,
+        } = buildProvisionalReceipt({
+          order: orderDto,
+          products: cart.map((item) => item),
+          cashierName: activeUser?.name ?? null,
+          terminalName: activeTerminal.name,
+          terminalVat: activeTerminal.vat,
+          printerConfig: activeTerminal.printerConfig ?? null,
+          counter: queuedCounter,
+        });
 
         const localId = crypto.randomUUID();
         await enqueueOfflineAction({
@@ -455,7 +518,9 @@ export function usePOSCheckoutFlow(
       applyStockUpdates(res.receipt.stockUpdates);
 
       if (fastCheckout) {
-        const receiptPrintPayload = receiptPrintService.buildPayload(res.receipt);
+        const receiptPrintPayload = receiptPrintService.buildPayload(
+          res.receipt,
+        );
 
         if (
           receiptPrintPayload.printerAvailable &&
@@ -509,6 +574,8 @@ export function usePOSCheckoutFlow(
     isReferencePaymentValid,
     change,
     canComplete,
+    isBillingLocked,
+    billingMessage: activeTerminal?.billingMessage ?? null,
     terminalDiscountCapSummary,
     settlementMode,
     setSettlementMode,
@@ -553,6 +620,8 @@ interface POSTenderFormProps {
   isReferencePaymentValid: boolean;
   change: number;
   canComplete: boolean;
+  isBillingLocked: boolean;
+  billingMessage: string | null;
   terminalDiscountCapSummary: string;
   settlementMode: "pay_now" | "debt";
   setSettlementMode: (mode: "pay_now" | "debt") => void;
@@ -578,7 +647,6 @@ interface POSTenderFormProps {
   selectCashPayment: () => void;
   selectReferencePayment: (saleTypeId: string) => void;
   setAmountTendered: (amount: number) => void;
-  handleQuickCash: (amount: number) => void;
   handleComplete: () => void;
 }
 
@@ -599,6 +667,8 @@ export function POSTenderForm({
   isReferencePaymentValid,
   change,
   canComplete,
+  isBillingLocked,
+  billingMessage,
   terminalDiscountCapSummary,
   settlementMode,
   setSettlementMode,
@@ -622,11 +692,9 @@ export function POSTenderForm({
   selectCashPayment,
   selectReferencePayment,
   setAmountTendered,
-  handleQuickCash,
   handleComplete,
 }: POSTenderFormProps) {
   const isMobileVariant = variant === "mobile";
-  const quickCashOptions = [100, 500, 1000];
   const activeDiscountLabel =
     discountOptions.find((option) => option.id === discountType)?.label ??
     discountType;
@@ -636,9 +704,12 @@ export function POSTenderForm({
     paymentMethod === "cash" ? "Cash Received" : "Tendered";
   const summaryTenderedAmount =
     paymentMethod === "cash" ? amountTendered : totalAmount;
-  const summaryChangeAmount = paymentMethod === "cash" ? Math.max(0, change) : 0;
-  const completionHint =
-    requiresDiscountMetadata && !isDiscountMetadataValid
+  const summaryChangeAmount =
+    paymentMethod === "cash" ? Math.max(0, change) : 0;
+  const completionHint = isBillingLocked
+    ? (billingMessage ??
+      "Transactions are disabled because this terminal subscription is not active.")
+    : requiresDiscountMetadata && !isDiscountMetadataValid
       ? "Complete the discount reference fields to continue."
       : paymentMethod === "cash"
         ? "Enter cash or tap Exact."
@@ -649,11 +720,15 @@ export function POSTenderForm({
   const mobileCashCardClassName = isMobileVariant
     ? "rounded-2xl border bg-card p-2"
     : "rounded-2xl border bg-card p-4";
-  const [mobileEditor, setMobileEditor] = useState<"payment" | "discount" | null>(null);
+  const [mobileEditor, setMobileEditor] = useState<
+    "payment" | "discount" | null
+  >(null);
   const showMobilePaymentEditor =
-    isMobileVariant && (mobileEditor === "payment" || paymentMethod === "reference");
+    isMobileVariant &&
+    (mobileEditor === "payment" || paymentMethod === "reference");
   const showMobileDiscountEditor =
-    isMobileVariant && (mobileEditor === "discount" || requiresDiscountMetadata);
+    isMobileVariant &&
+    (mobileEditor === "discount" || requiresDiscountMetadata);
 
   return (
     <div
@@ -663,11 +738,24 @@ export function POSTenderForm({
           : "flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
       }
     >
-      <div className={isMobileVariant ? "border-b bg-card px-2 py-1.5" : "border-b bg-card px-4 py-3 sm:px-6"}>
+      <div
+        className={
+          isMobileVariant
+            ? "border-b bg-card px-2 py-1.5"
+            : "hidden"
+        }
+      >
         <div className="grid gap-2 lg:hidden">
           <div className="grid grid-cols-2 gap-2">
-            <SummaryMetric label="Total Due" value={`PHP ${formatCurrency(totalAmount)}`} emphasis="strong" />
-            <SummaryMetric label="Payment Method" value={activePaymentMethodLabel} />
+            <SummaryMetric
+              label="Total Due"
+              value={`PHP ${formatCurrency(totalAmount)}`}
+              emphasis="strong"
+            />
+            <SummaryMetric
+              label="Payment Method"
+              value={activePaymentMethodLabel}
+            />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <SummaryMetric
@@ -689,30 +777,39 @@ export function POSTenderForm({
             className={
               isMobileVariant
                 ? "flex h-full min-h-0 flex-col gap-1 px-2 py-1.5"
-                : "min-h-0 px-4 py-3 sm:px-5 sm:py-4"
+                : "min-h-0 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4"
             }
           >
             <div
               className={
                 isMobileVariant
                   ? "min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pb-1"
-                  : "space-y-4"
+                  : "space-y-4 pb-2"
               }
             >
-              <div className={isMobileVariant ? "rounded-2xl border bg-card p-2" : "rounded-2xl border bg-card p-4"}>
+              <div
+                className={
+                  isMobileVariant
+                    ? "rounded-2xl border bg-card p-2"
+                    : "rounded-2xl border bg-card p-4"
+                }
+              >
                 <div className="space-y-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                       Settlement
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Choose whether this invoice is settled now or recorded as utang.
+                      Choose whether this invoice is settled now or recorded as
+                      utang.
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       type="button"
-                      variant={settlementMode === "pay_now" ? "default" : "outline"}
+                      variant={
+                        settlementMode === "pay_now" ? "default" : "outline"
+                      }
                       className="rounded-2xl"
                       onClick={() => setSettlementMode("pay_now")}
                     >
@@ -720,7 +817,9 @@ export function POSTenderForm({
                     </Button>
                     <Button
                       type="button"
-                      variant={settlementMode === "debt" ? "default" : "outline"}
+                      variant={
+                        settlementMode === "debt" ? "default" : "outline"
+                      }
                       className="rounded-2xl"
                       onClick={() => {
                         setSettlementMode("debt");
@@ -739,7 +838,9 @@ export function POSTenderForm({
                         <select
                           className="h-10 w-full rounded-2xl border border-input bg-background px-3 text-sm"
                           value={selectedDebtCustomerId}
-                          onChange={(event) => setSelectedDebtCustomerId(event.target.value)}
+                          onChange={(event) =>
+                            setSelectedDebtCustomerId(event.target.value)
+                          }
                         >
                           <option value="">Select customer</option>
                           {debtCustomers.map((customer) => (
@@ -755,8 +856,14 @@ export function POSTenderForm({
                         </Label>
                         <Input
                           value={newDebtCustomerName}
-                          onChange={(event) => setNewDebtCustomerName(event.target.value)}
-                          className={isMobileVariant ? "h-9 rounded-2xl text-[11px]" : "h-10 rounded-2xl text-sm"}
+                          onChange={(event) =>
+                            setNewDebtCustomerName(event.target.value)
+                          }
+                          className={
+                            isMobileVariant
+                              ? "h-9 rounded-2xl text-[11px]"
+                              : "h-10 rounded-2xl text-sm"
+                          }
                           placeholder="Add customer name"
                         />
                       </div>
@@ -767,8 +874,14 @@ export function POSTenderForm({
                         <Input
                           type="date"
                           value={debtDueDate}
-                          onChange={(event) => setDebtDueDate(event.target.value)}
-                          className={isMobileVariant ? "h-9 rounded-2xl text-[11px]" : "h-10 rounded-2xl text-sm"}
+                          onChange={(event) =>
+                            setDebtDueDate(event.target.value)
+                          }
+                          className={
+                            isMobileVariant
+                              ? "h-9 rounded-2xl text-[11px]"
+                              : "h-10 rounded-2xl text-sm"
+                          }
                         />
                       </div>
                       <div className="space-y-1">
@@ -778,8 +891,14 @@ export function POSTenderForm({
                         <Input
                           type="password"
                           value={debtManagerPin}
-                          onChange={(event) => setDebtManagerPin(event.target.value)}
-                          className={isMobileVariant ? "h-9 rounded-2xl text-[11px]" : "h-10 rounded-2xl text-sm"}
+                          onChange={(event) =>
+                            setDebtManagerPin(event.target.value)
+                          }
+                          className={
+                            isMobileVariant
+                              ? "h-9 rounded-2xl text-[11px]"
+                              : "h-10 rounded-2xl text-sm"
+                          }
                           placeholder="Required only if terminal enforces approval"
                         />
                       </div>
@@ -790,7 +909,11 @@ export function POSTenderForm({
                         <Input
                           value={debtNotes}
                           onChange={(event) => setDebtNotes(event.target.value)}
-                          className={isMobileVariant ? "h-9 rounded-2xl text-[11px]" : "h-10 rounded-2xl text-sm"}
+                          className={
+                            isMobileVariant
+                              ? "h-9 rounded-2xl text-[11px]"
+                              : "h-10 rounded-2xl text-sm"
+                          }
                           placeholder="Optional debt notes"
                         />
                       </div>
@@ -818,29 +941,14 @@ export function POSTenderForm({
                           type="number"
                           value={amountTendered || ""}
                           onChange={(event) =>
-                            setAmountTendered(parseFloat(event.target.value) || 0)
+                            setAmountTendered(
+                              parseFloat(event.target.value) || 0,
+                            )
                           }
                           className="h-12 rounded-3xl border-primary/20 bg-primary/5 pl-12 pr-3 text-center font-heading text-xl font-black tracking-tighter"
                           placeholder="0.00"
                         />
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        className="h-9 rounded-2xl text-[10px] font-black uppercase tracking-[0.12em]"
-                        onClick={() => setAmountTendered(totalAmount)}
-                      >
-                        Exact
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="h-9 rounded-2xl border border-destructive/10 bg-destructive/5 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-destructive"
-                        onClick={() => setAmountTendered(0)}
-                      >
-                        Clear
-                      </Button>
                     </div>
 
                     <div
@@ -865,14 +973,14 @@ export function POSTenderForm({
                             {change < 0 ? "Not enough cash" : "Change due"}
                           </span>
                         </div>
-                          <span
-                            className={
-                              change < 0
-                                ? "text-right font-heading text-lg font-black tracking-tighter text-destructive/60"
-                                : "text-right font-heading text-lg font-black tracking-tighter text-emerald-600"
-                            }
-                          >
-                            PHP {formatCurrency(summaryChangeAmount)}
+                        <span
+                          className={
+                            change < 0
+                              ? "text-right font-heading text-lg font-black tracking-tighter text-destructive/60"
+                              : "text-right font-heading text-lg font-black tracking-tighter text-emerald-600"
+                          }
+                        >
+                          PHP {formatCurrency(summaryChangeAmount)}
                         </span>
                       </div>
                     </div>
@@ -916,7 +1024,9 @@ export function POSTenderForm({
                         {paymentMethod === "cash" ? "E-Payment" : "Payment"}
                       </span>
                       <span className="mt-0.5 block truncate text-xs font-bold">
-                        {paymentMethod === "cash" ? "Change Method" : activePaymentMethodLabel}
+                        {paymentMethod === "cash"
+                          ? "Change Method"
+                          : activePaymentMethodLabel}
                       </span>
                     </button>
                   </div>
@@ -929,7 +1039,9 @@ export function POSTenderForm({
                         </Label>
                         <div className="grid grid-cols-2 gap-2">
                           <Button
-                            variant={paymentMethod === "cash" ? "default" : "outline"}
+                            variant={
+                              paymentMethod === "cash" ? "default" : "outline"
+                            }
                             className="h-9 rounded-2xl px-2.5 text-[10px] font-black uppercase tracking-[0.12em]"
                             onClick={() => {
                               selectCashPayment();
@@ -942,11 +1054,17 @@ export function POSTenderForm({
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
-                                variant={paymentMethod === "reference" ? "default" : "outline"}
+                                variant={
+                                  paymentMethod === "reference"
+                                    ? "default"
+                                    : "outline"
+                                }
                                 className="h-9 justify-between rounded-2xl px-2.5 text-left"
                               >
                                 <span className="truncate text-[11px] font-semibold">
-                                  {paymentMethod === "cash" ? "Choose method" : selectedReferenceLabel}
+                                  {paymentMethod === "cash"
+                                    ? "Choose method"
+                                    : selectedReferenceLabel}
                                 </span>
                                 <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
                               </Button>
@@ -987,7 +1105,9 @@ export function POSTenderForm({
                             <Input
                               id={`payment-reference-${variant}`}
                               value={paymentReference}
-                              onChange={(event) => setPaymentReference(event.target.value)}
+                              onChange={(event) =>
+                                setPaymentReference(event.target.value)
+                              }
                               className="h-9 rounded-2xl text-[11px]"
                               placeholder="Enter reference number"
                             />
@@ -1033,7 +1153,9 @@ export function POSTenderForm({
                           >
                             <DropdownMenuRadioGroup
                               value={discountType}
-                              onValueChange={(value) => setDiscountType(value as DiscountType)}
+                              onValueChange={(value) =>
+                                setDiscountType(value as DiscountType)
+                              }
                             >
                               {discountOptions.map((option) => (
                                 <DropdownMenuRadioItem
@@ -1043,15 +1165,15 @@ export function POSTenderForm({
                                 >
                                   {option.label}
                                 </DropdownMenuRadioItem>
-                            ))}
-                          </DropdownMenuRadioGroup>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      {discountType === "OTHERS" ? (
-                        <p className="text-[10px] font-medium text-muted-foreground">
-                          {terminalDiscountCapSummary}
-                        </p>
-                      ) : null}
+                              ))}
+                            </DropdownMenuRadioGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        {discountType === "OTHERS" ? (
+                          <p className="text-[10px] font-medium text-muted-foreground">
+                            {terminalDiscountCapSummary}
+                          </p>
+                        ) : null}
 
                         {requiresDiscountMetadata ? (
                           <div className="grid gap-1.5 border-t pt-1.5">
@@ -1104,7 +1226,9 @@ export function POSTenderForm({
                       </Label>
                       <div className="grid grid-cols-2 gap-2">
                         <Button
-                          variant={paymentMethod === "cash" ? "default" : "outline"}
+                          variant={
+                            paymentMethod === "cash" ? "default" : "outline"
+                          }
                           className="h-10 rounded-2xl px-3 text-sm font-black uppercase tracking-[0.12em]"
                           onClick={selectCashPayment}
                         >
@@ -1114,7 +1238,11 @@ export function POSTenderForm({
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
-                              variant={paymentMethod === "reference" ? "default" : "outline"}
+                              variant={
+                                paymentMethod === "reference"
+                                  ? "default"
+                                  : "outline"
+                              }
                               className="h-10 justify-between rounded-2xl px-3 text-left"
                             >
                               <span className="truncate text-sm font-semibold">
@@ -1129,7 +1257,9 @@ export function POSTenderForm({
                           >
                             <DropdownMenuRadioGroup
                               value={selectedEPaymentMethodId ?? ""}
-                              onValueChange={(value) => selectReferencePayment(value)}
+                              onValueChange={(value) =>
+                                selectReferencePayment(value)
+                              }
                             >
                               {epaymentMethods.map((method) => (
                                 <DropdownMenuRadioItem
@@ -1168,7 +1298,9 @@ export function POSTenderForm({
                         >
                           <DropdownMenuRadioGroup
                             value={discountType}
-                            onValueChange={(value) => setDiscountType(value as DiscountType)}
+                            onValueChange={(value) =>
+                              setDiscountType(value as DiscountType)
+                            }
                           >
                             {discountOptions.map((option) => (
                               <DropdownMenuRadioItem
@@ -1234,7 +1366,8 @@ export function POSTenderForm({
 
                       {!isDiscountMetadataValid ? (
                         <p className="sm:col-span-2 rounded-2xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
-                          Customer name and ID number are required before checkout.
+                          Customer name and ID number are required before
+                          checkout.
                         </p>
                       ) : null}
                     </div>
@@ -1242,103 +1375,14 @@ export function POSTenderForm({
                 </div>
               )}
 
-              {paymentMethod === "cash" && !isMobileVariant ? (
-                <div className={isMobileVariant ? "rounded-2xl border bg-card p-3" : "rounded-2xl border bg-card p-3.5"}>
-                  <div className={isMobileVariant ? "space-y-3" : "space-y-3"}>
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor={`tendered-${variant}`}
-                        className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground"
-                      >
-                        Cash Received
-                      </Label>
-                      <div className="group relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-heading text-base font-black text-primary/60 transition-colors group-focus-within:text-primary">
-                          PHP
-                        </span>
-                        <Input
-                          id={`tendered-${variant}`}
-                          type="number"
-                          value={amountTendered || ""}
-                          onChange={(event) =>
-                            setAmountTendered(parseFloat(event.target.value) || 0)
-                          }
-                           className={
-                             isMobileVariant
-                               ? "h-14 rounded-3xl border-primary/20 bg-primary/5 pl-14 pr-4 text-center font-heading text-2xl font-black tracking-tighter"
-                                : "h-13 rounded-3xl pl-14 pr-5 font-heading text-2xl font-black tracking-tighter"
-                           }
-                           placeholder="0.00"
-                         />
-                      </div>
-                    </div>
-
-                    <div className={isMobileVariant ? "grid grid-cols-2 gap-2" : "grid grid-cols-2 gap-2 sm:grid-cols-4"}>
-                      {isMobileVariant ? null : quickCashOptions.map((amount) => (
-                        <Button
-                          key={amount}
-                          variant="outline"
-                          className="h-10 rounded-2xl text-sm font-bold"
-                          onClick={() => handleQuickCash(amount)}
-                        >
-                          + {amount}
-                        </Button>
-                      ))}
-                      <Button
-                        variant="outline"
-                        className="h-10 rounded-2xl text-xs font-black uppercase tracking-[0.14em]"
-                        onClick={() => setAmountTendered(totalAmount)}
-                      >
-                        Exact Amount
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="h-10 rounded-2xl border border-destructive/10 bg-destructive/5 px-4 text-xs font-bold uppercase tracking-[0.14em] text-destructive"
-                        onClick={() => setAmountTendered(0)}
-                      >
-                        Clear
-                      </Button>
-                    </div>
-
-                    {/* <div className={isMobileVariant ? "grid gap-2" : "grid gap-2 sm:grid-cols-[1fr_auto]"}>
-                      <div
-                        className={
-                          change >= 0
-                            ? "rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5"
-                            : "rounded-2xl border border-destructive/10 bg-destructive/5 px-4 py-2.5"
-                        }
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
-                              Change
-                            </span>
-                            <span
-                              className={
-                                change < 0
-                                  ? "text-xs font-bold uppercase tracking-wider text-destructive"
-                                  : "text-xs font-bold uppercase tracking-wider text-emerald-600"
-                              }
-                            >
-                              {change < 0 ? "Insufficient cash received" : "Ready to give"}
-                            </span>
-                          </div>
-                          <span
-                            className={
-                              change < 0
-                                  ? "text-right font-heading text-2xl font-black tracking-tighter text-destructive/50"
-                                  : "text-right font-heading text-2xl font-black tracking-tighter text-emerald-600"
-                            }
-                          >
-                            PHP {formatCurrency(summaryChangeAmount)}
-                          </span>
-                        </div>
-                      </div>
-                    </div> */}
-                  </div>
-                </div>
-              ) : paymentMethod === "reference" ? (
-                <div className={isMobileVariant ? "rounded-2xl border bg-card p-3" : "rounded-2xl border bg-card p-3.5"}>
+              {paymentMethod === "reference" ? (
+                <div
+                  className={
+                    isMobileVariant
+                      ? "rounded-2xl border bg-card p-3"
+                      : "rounded-2xl border bg-card p-3.5"
+                  }
+                >
                   <div className={isMobileVariant ? "space-y-3" : "space-y-3"}>
                     <div className="flex items-start gap-3">
                       <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted">
@@ -1349,7 +1393,8 @@ export function POSTenderForm({
                           Reference Payment
                         </p>
                         <p className="mt-1 text-sm font-medium text-muted-foreground">
-                          Record the customer-provided transaction reference for {activePaymentMethodLabel}.
+                          Record the customer-provided transaction reference for{" "}
+                          {activePaymentMethodLabel}.
                         </p>
                       </div>
                     </div>
@@ -1363,17 +1408,30 @@ export function POSTenderForm({
                       <Input
                         id={`payment-reference-${variant}`}
                         value={paymentReference}
-                        onChange={(event) => setPaymentReference(event.target.value)}
-                        className={isMobileVariant ? "h-9 rounded-2xl text-[11px]" : "h-10 rounded-2xl text-sm"}
+                        onChange={(event) =>
+                          setPaymentReference(event.target.value)
+                        }
+                        className={
+                          isMobileVariant
+                            ? "h-9 rounded-2xl text-[11px]"
+                            : "h-10 rounded-2xl text-sm"
+                        }
                         placeholder="Enter reference number"
                       />
                     </div>
                     {!isReferencePaymentValid && (
                       <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
-                        Select a reference payment method and enter its reference number.
+                        Select a reference payment method and enter its
+                        reference number.
                       </p>
                     )}
-                    <div className={isMobileVariant ? "rounded-2xl border bg-background px-3 py-2.5" : "rounded-2xl border bg-background px-4 py-2.5"}>
+                    <div
+                      className={
+                        isMobileVariant
+                          ? "rounded-2xl border bg-background px-3 py-2.5"
+                          : "rounded-2xl border bg-background px-4 py-2.5"
+                      }
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
                           Amount
@@ -1390,19 +1448,115 @@ export function POSTenderForm({
           </div>
 
           <aside className="hidden min-h-0 border-l bg-card/40 lg:flex lg:flex-col">
-            <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
               <div className="grid gap-2.5">
-                <SummaryMetric label="Total Due" value={`PHP ${formatCurrency(totalAmount)}`} emphasis="strong" />
-                <SummaryMetric label="Payment Method" value={activePaymentMethodLabel} />
                 <SummaryMetric
-                  label={summaryTenderedLabel}
-                  value={`PHP ${formatCurrency(summaryTenderedAmount)}`}
+                  label="Total Due"
+                  value={`PHP ${formatCurrency(totalAmount)}`}
+                  emphasis="strong"
                 />
                 <SummaryMetric
-                  label="Change"
-                  value={`PHP ${formatCurrency(summaryChangeAmount)}`}
-                  tone={change < 0 ? "danger" : "success"}
+                  label="Payment Method"
+                  value={activePaymentMethodLabel}
                 />
+                {paymentMethod === "cash" ? (
+                  <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+                            Cash Received
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Enter the amount handed by the customer.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            className="h-8 rounded-2xl px-3 text-[10px] font-black uppercase tracking-[0.12em]"
+                            onClick={() => setAmountTendered(totalAmount)}
+                          >
+                            Exact
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="h-8 rounded-2xl border border-destructive/10 bg-destructive/5 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-destructive"
+                            onClick={() => setAmountTendered(0)}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="group relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-heading text-sm font-black text-primary/60 transition-colors group-focus-within:text-primary">
+                          PHP
+                        </span>
+                        <Input
+                          id={`tendered-${variant}`}
+                          type="number"
+                          value={amountTendered || ""}
+                          onChange={(event) =>
+                            setAmountTendered(
+                              parseFloat(event.target.value) || 0,
+                            )
+                          }
+                          className="h-12 rounded-3xl border-primary/20 bg-background pl-14 pr-5 font-heading text-2xl font-black tracking-tighter"
+                          placeholder="0.00"
+                        />
+                      </div>
+
+                      <div
+                        className={
+                          change >= 0
+                            ? "rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3"
+                            : "rounded-2xl border border-destructive/10 bg-destructive/5 px-4 py-3"
+                        }
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.24em] text-muted-foreground">
+                              Change
+                            </span>
+                            <span
+                              className={
+                                change < 0
+                                  ? "text-xs font-bold uppercase tracking-[0.12em] text-destructive"
+                                  : "text-xs font-bold uppercase tracking-[0.12em] text-emerald-600"
+                              }
+                            >
+                              {change < 0
+                                ? "Insufficient cash received"
+                                : "Ready to give"}
+                            </span>
+                          </div>
+                          <span
+                            className={
+                              change < 0
+                                ? "text-right font-heading text-2xl font-black tracking-tighter text-destructive"
+                                : "text-right font-heading text-2xl font-black tracking-tighter text-emerald-600"
+                            }
+                          >
+                            PHP {formatCurrency(summaryChangeAmount)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <SummaryMetric
+                      label={summaryTenderedLabel}
+                      value={`PHP ${formatCurrency(summaryTenderedAmount)}`}
+                    />
+                    <SummaryMetric
+                      label="Change"
+                      value={`PHP ${formatCurrency(summaryChangeAmount)}`}
+                      tone={change < 0 ? "danger" : "success"}
+                    />
+                  </>
+                )}
               </div>
 
               <div className="mt-auto rounded-2xl border bg-background p-3.5">
@@ -1423,7 +1577,13 @@ export function POSTenderForm({
         </div>
       </div>
 
-      <div className={isMobileVariant ? "border-t bg-background px-2 py-1.5" : "border-t bg-background px-4 py-2.5 sm:px-5"}>
+      <div
+        className={
+          isMobileVariant
+            ? "border-t bg-background px-2 py-1.5"
+            : "border-t bg-background px-4 py-2.5 sm:px-5"
+        }
+      >
         {!canComplete && (
           <p className="mb-1 text-[10px] font-medium text-muted-foreground lg:hidden">
             {completionHint}
@@ -1457,14 +1617,15 @@ export function POSTenderForm({
             </Button>
           </div>
         ) : (
-          <>
+          <div className="flex items-stretch gap-3">
             <FastCheckoutToggle
               checked={fastCheckout}
               onCheckedChange={setFastCheckout}
+              inline
             />
 
             <Button
-              className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl px-4 font-heading text-base font-black uppercase tracking-[0.14em]"
+              className="flex h-12 min-w-0 flex-1 items-center justify-center gap-3 rounded-2xl px-4 font-heading text-base font-black uppercase tracking-[0.14em]"
               size="lg"
               disabled={!canComplete || isProcessing}
               onClick={handleComplete}
@@ -1481,7 +1642,7 @@ export function POSTenderForm({
                 </>
               )}
             </Button>
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -1513,7 +1674,9 @@ function SummaryMetric({
         : "text-foreground";
 
   return (
-    <div className={`rounded-2xl border px-2.5 py-2 sm:px-4 sm:py-3 ${toneClassName}`}>
+    <div
+      className={`rounded-2xl border px-2.5 py-2 sm:px-4 sm:py-3 ${toneClassName}`}
+    >
       <p className="text-[8px] font-black uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </p>
@@ -1530,10 +1693,12 @@ function FastCheckoutToggle({
   checked,
   onCheckedChange,
   compact = false,
+  inline = false,
 }: {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   compact?: boolean;
+  inline?: boolean;
 }) {
   if (compact) {
     return (
@@ -1543,6 +1708,25 @@ function FastCheckoutToggle({
           onCheckedChange={(value) => onCheckedChange(value === true)}
         />
         <span className="text-[10px] font-bold text-foreground">Fast</span>
+      </label>
+    );
+  }
+
+  if (inline) {
+    return (
+      <label className="flex h-12 min-w-[220px] cursor-pointer items-center gap-3 rounded-2xl border bg-card px-4 text-left">
+        <Checkbox
+          checked={checked}
+          onCheckedChange={(value) => onCheckedChange(value === true)}
+        />
+        <span className="min-w-0">
+          <span className="block text-sm font-bold text-foreground">
+            Fast checkout
+          </span>
+          <span className="block text-[11px] font-medium text-muted-foreground">
+            Return to products after sale.
+          </span>
+        </span>
       </label>
     );
   }
@@ -1619,7 +1803,9 @@ export function POSReceiptContent({
           Transaction Done
         </h2>
         <p className="mt-2 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
-          {receipt.isProvisional ? "Queued Offline Receipt" : "Receipt Generated Successfully"}
+          {receipt.isProvisional
+            ? "Queued Offline Receipt"
+            : "Receipt Generated Successfully"}
         </p>
       </div>
 
@@ -1710,7 +1896,9 @@ export function POSReceiptContent({
             </div>
             <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
               <span>Customer</span>
-              <span className="text-foreground">{receipt.debt.customerName}</span>
+              <span className="text-foreground">
+                {receipt.debt.customerName}
+              </span>
             </div>
             <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
               <span>Due Date</span>
@@ -1720,7 +1908,9 @@ export function POSReceiptContent({
             </div>
             <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
               <span>Balance</span>
-              <span className="text-foreground">PHP {formatCurrency(receipt.debt.remainingAmount)}</span>
+              <span className="text-foreground">
+                PHP {formatCurrency(receipt.debt.remainingAmount)}
+              </span>
             </div>
           </div>
         ) : null}
@@ -1773,7 +1963,10 @@ export function POSReceiptContent({
             </div>
           )}
           {receipt.otherPayments.map((payment) => (
-            <div key={`${payment.name}-${payment.amount}`} className="mt-2 border-t pt-2">
+            <div
+              key={`${payment.name}-${payment.amount}`}
+              className="mt-2 border-t pt-2"
+            >
               <div className="flex justify-between font-bold uppercase tracking-widest text-muted-foreground/60">
                 <span>{payment.name}</span>
                 <span className="text-foreground">
@@ -1799,7 +1992,9 @@ export function POSReceiptContent({
           {hasCashPayment && (
             <div className="flex justify-between pt-1 font-black uppercase tracking-widest text-emerald-500">
               <span>Change Due</span>
-              <span>PHP {formatCurrency(Math.max(0, receipt.changeAmount))}</span>
+              <span>
+                PHP {formatCurrency(Math.max(0, receipt.changeAmount))}
+              </span>
             </div>
           )}
         </div>
@@ -1812,15 +2007,21 @@ export function POSReceiptContent({
             </div>
             <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
               <span>VATable Sales</span>
-              <span className="text-foreground">{formatCurrency(receipt.vatSales)}</span>
+              <span className="text-foreground">
+                {formatCurrency(receipt.vatSales)}
+              </span>
             </div>
             <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
               <span>VAT-Exempt Sales</span>
-              <span className="text-foreground">{formatCurrency(receipt.vatExempt)}</span>
+              <span className="text-foreground">
+                {formatCurrency(receipt.vatExempt)}
+              </span>
             </div>
             <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
               <span>Zero-Rated Sales</span>
-              <span className="text-foreground">{formatCurrency(receipt.vatZero)}</span>
+              <span className="text-foreground">
+                {formatCurrency(receipt.vatZero)}
+              </span>
             </div>
             <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-primary">
               <span>VAT Amount</span>

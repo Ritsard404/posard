@@ -2,6 +2,7 @@
 
 import {
   assertTerminalBillingAllowsPos,
+  TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE,
   TERMINAL_BILLING_RESTRICTION_MESSAGE,
   isTerminalPosAccessible,
 } from "@/lib/billing-access";
@@ -14,18 +15,27 @@ import { sessionMutationService } from "../_services/session-mutation.service";
 function getTerminalBillingSummary(subscription: {
   status: "pending" | "active" | "expired" | "suspended" | "cancelled";
   expiresAt: Date | null;
-} | null): {
+} | null, isDefaultTerminal: boolean): {
   statusLabel: string;
   statusTone: "success" | "warning" | "danger";
   actionLabel: string | null;
   message: string | null;
 } {
   if (!subscription) {
+    if (isDefaultTerminal) {
+      return {
+        statusLabel: "Available",
+        statusTone: "success",
+        actionLabel: null,
+        message: null,
+      };
+    }
+
     return {
-      statusLabel: "Free access",
-      statusTone: "success",
-      actionLabel: "Optional paid plan",
-      message: "This terminal has no paid subscription record yet, but POS access remains available.",
+      statusLabel: "Subscription required",
+      statusTone: "danger",
+      actionLabel: "Subscribe now",
+      message: TERMINAL_BILLING_RESTRICTION_MESSAGE,
     };
   }
 
@@ -99,11 +109,24 @@ export async function getCurrentSessionAction() {
 
     const timestamp = await prisma.timestamp.findFirst({
       where: { cashierId: profile.id, timestampOut: null },
-      include: { posTerminal: true },
+      include: {
+        posTerminal: {
+          include: {
+            subscription: {
+              select: {
+                status: true,
+                expiresAt: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
     if (!timestamp) return { success: true as const, data: null };
+
+    const billingLocked = !isTerminalPosAccessible(timestamp.posTerminal);
 
     return {
       success: true as const,
@@ -126,6 +149,10 @@ export async function getCurrentSessionAction() {
             timestamp.posTerminal.requireManagerApprovalForDebt,
           defaultDebtDueDays: timestamp.posTerminal.defaultDebtDueDays ?? null,
           printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
+          billingLocked,
+          billingMessage: billingLocked
+            ? TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE
+            : null,
         },
         user: { name: profile.fullName || null, role: profile.role },
       },
@@ -165,13 +192,16 @@ export async function getTerminalsAction() {
     return {
       success: true as const,
       data: terminals.map((terminal) => {
-        const billing = getTerminalBillingSummary(terminal.subscription);
+        const billing = getTerminalBillingSummary(
+          terminal.subscription,
+          terminal.isDefaultTerminal,
+        );
 
         return {
           id: terminal.id,
           posName: terminal.posName ?? "Unnamed terminal",
           isActive: terminal.timestamps.length > 0,
-          billingLocked: !isTerminalPosAccessible(terminal.subscription),
+          billingLocked: !isTerminalPosAccessible(terminal),
           billingMessage: billing.message,
           statusLabel: billing.statusLabel,
           statusTone: billing.statusTone,

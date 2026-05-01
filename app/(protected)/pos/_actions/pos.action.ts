@@ -1,6 +1,5 @@
 "use server";
 
-import { assertTerminalBillingAllowsPos } from "@/lib/billing-access";
 import { z } from "zod";
 import { POSMetaDataDto } from "../_services/_dto/pos.dto";
 import type { PrinterConfigDto } from "../_services/_dto/print.dto";
@@ -100,8 +99,6 @@ export async function saveSessionPrinterConfigAction(
     if (!timestamp) {
       return { success: false as const, error: "Active session not found for printer setup." };
     }
-
-    await assertTerminalBillingAllowsPos(profile.companyId, timestamp.posTerminalId);
 
     await terminalPrinterConfigService.updateTerminalPrinterConfig(
       timestamp.posTerminalId,

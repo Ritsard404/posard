@@ -49,6 +49,8 @@ export function POSTerminalManager() {
     requireManagerApprovalForDebt: boolean;
     defaultDebtDueDays: number | null;
     printerConfig?: PrinterConfigDto | null;
+    billingLocked?: boolean;
+    billingMessage?: string | null;
   } | null>(null);
 
   const {
@@ -119,18 +121,20 @@ export function POSTerminalManager() {
           timestampId: sessionSnapshot.timestampId,
           deviceId: sessionSnapshot.deviceId,
           profileId: sessionSnapshot.cashierId,
-            terminal: {
-              id: sessionSnapshot.terminalId,
-              name: sessionSnapshot.terminalName,
+              terminal: {
+                id: sessionSnapshot.terminalId,
+                name: sessionSnapshot.terminalName,
               vat: sessionSnapshot.terminalVat,
               discountCapType: sessionSnapshot.discountCapType,
               discountMax: sessionSnapshot.discountMax,
               allowCashierDebtCreate: false,
               allowCashierDebtCollect: false,
-              requireManagerApprovalForDebt: false,
-              defaultDebtDueDays: null,
-              printerConfig: sessionSnapshot.printerConfig,
-            },
+                requireManagerApprovalForDebt: false,
+                defaultDebtDueDays: null,
+                printerConfig: sessionSnapshot.printerConfig,
+                billingLocked: sessionSnapshot.billingLocked,
+                billingMessage: sessionSnapshot.billingMessage,
+              },
           user: {
             name: sessionSnapshot.cashierName,
             role: "cashier",
@@ -235,6 +239,8 @@ export function POSTerminalManager() {
                 requireManagerApprovalForDebt: false,
                 defaultDebtDueDays: null,
                 printerConfig: bootstrap.session.printerConfig,
+                billingLocked: bootstrap.session.billingLocked,
+                billingMessage: bootstrap.session.billingMessage,
               },
               user: {
                 name: bootstrap.session.cashierName,
@@ -393,6 +399,8 @@ export function POSTerminalManager() {
                     selectedTerminal.requireManagerApprovalForDebt,
                   defaultDebtDueDays: selectedTerminal.defaultDebtDueDays,
                   printerConfig: selectedTerminal.printerConfig ?? null,
+                  billingLocked: false,
+                  billingMessage: null,
                 },
                 user: data.user,
               });

@@ -28,18 +28,30 @@ function hasDatePassed(value: Date | null | undefined) {
   return value ? value.getTime() < Date.now() : false;
 }
 
-function getTerminalBillingSnapshot(subscription: TerminalRecord["subscription"]): {
+function getTerminalBillingSnapshot(
+  subscription: TerminalRecord["subscription"],
+  isDefaultTerminal: boolean,
+): {
   billingStatusLabel: string;
   billingStatusTone: BillingStatusTone;
   billingStatusReason: string;
   billingActionLabel: string;
 } {
   if (!subscription) {
+    if (isDefaultTerminal) {
+      return {
+        billingStatusLabel: "Available",
+        billingStatusTone: "success",
+        billingStatusReason: "Default terminal access remains available.",
+        billingActionLabel: "Included terminal",
+      };
+    }
+
     return {
-      billingStatusLabel: "Free access",
-      billingStatusTone: "success",
-      billingStatusReason: "No paid subscription is attached yet. This terminal can still open POS.",
-      billingActionLabel: "Optional paid plan",
+      billingStatusLabel: "Subscription required",
+      billingStatusTone: "danger",
+      billingStatusReason: "No active subscription is attached to this terminal.",
+      billingActionLabel: "Subscribe now",
     };
   }
 
@@ -93,7 +105,10 @@ function getTerminalBillingSnapshot(subscription: TerminalRecord["subscription"]
 
 function mapTerminal(terminal: TerminalRecord): TerminalDTO {
   const activeSession = terminal.sessions?.[0];
-  const billingSnapshot = getTerminalBillingSnapshot(terminal.subscription);
+  const billingSnapshot = getTerminalBillingSnapshot(
+    terminal.subscription,
+    terminal.isDefaultTerminal,
+  );
 
   return {
     ...terminal,
@@ -223,6 +238,7 @@ export const terminalService = {
         posName: `${company.name} POS ${nextTerminalNumber}`,
         registeredName: company.name,
         address: company.address,
+        isDefaultTerminal: false,
       },
     });
 

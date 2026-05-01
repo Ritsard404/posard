@@ -50,6 +50,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
 
   const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
   const activeSessionId = usePOSStore((state) => state.activeSessionId);
+  const activeTerminal = usePOSStore((state) => state.activeTerminal);
   const activeTerminalId = usePOSStore((state) => state.activeTerminal?.id ?? null);
   const setSession = usePOSStore((state) => state.setSession);
   const isOnline = usePOSStore((state) => state.isOnline);
@@ -267,6 +268,13 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           ) : null}
         </div>
       </div>
+
+      {activeTerminal?.billingLocked ? (
+        <div className="border-b border-amber-300/60 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-950">
+          {activeTerminal.billingMessage ??
+            "Transactions are disabled because this terminal subscription is not active. Cash tracking and session controls remain available."}
+        </div>
+      ) : null}
 
       <div data-testid="pos-workspace" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         {isMobile ? (

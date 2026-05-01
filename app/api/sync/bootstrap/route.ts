@@ -6,6 +6,10 @@ import { productService } from "@/app/(protected)/pos/_services/product.service"
 import { epaymentService } from "@/app/(protected)/pos/_services/epayment.service";
 import { buildManagerPinVerifier } from "@/app/(protected)/pos/_services/offline-pin-verifier.service";
 import { printConfigService } from "@/app/(protected)/pos/_services/print-config.service";
+import {
+  isTerminalPosAccessible,
+  TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE,
+} from "@/lib/billing-access";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -80,6 +84,7 @@ export async function GET(request: Request) {
               select: {
                 id: true,
                 posName: true,
+                isDefaultTerminal: true,
                 isTrainMode: true,
                 vat: true,
                 discountCapType: true,
@@ -95,6 +100,12 @@ export async function GET(request: Request) {
                 printerServiceUuid: true,
                 printerCharacteristicUuid: true,
                 autoPrintEnabled: true,
+                subscription: {
+                  select: {
+                    status: true,
+                    expiresAt: true,
+                  },
+                },
               },
             },
             cashier: {
@@ -138,6 +149,10 @@ export async function GET(request: Request) {
               deviceId: timestamp.deviceId ?? deviceId,
               isTrainMode: timestamp.posTerminal.isTrainMode,
               lastSeenAt: timestamp.lastSeenAt?.toISOString() ?? null,
+              billingLocked: !isTerminalPosAccessible(timestamp.posTerminal),
+              billingMessage: !isTerminalPosAccessible(timestamp.posTerminal)
+                ? TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE
+                : null,
             }
           : null,
         metadata: {

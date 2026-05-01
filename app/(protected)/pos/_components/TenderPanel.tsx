@@ -46,6 +46,8 @@ export function TenderPanel() {
         isReferencePaymentValid={flow.isReferencePaymentValid}
         change={flow.change}
         canComplete={flow.canComplete}
+        isBillingLocked={flow.isBillingLocked}
+        billingMessage={flow.billingMessage}
         terminalDiscountCapSummary={flow.terminalDiscountCapSummary}
         settlementMode={flow.settlementMode}
         setSettlementMode={flow.setSettlementMode}
@@ -69,7 +71,6 @@ export function TenderPanel() {
         selectCashPayment={flow.selectCashPayment}
         selectReferencePayment={flow.selectReferencePayment}
         setAmountTendered={flow.setAmountTendered}
-        handleQuickCash={flow.handleQuickCash}
         handleComplete={flow.handleComplete}
       />
 
