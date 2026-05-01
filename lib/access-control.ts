@@ -295,7 +295,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         id: "reports-audit",
         label: "Audit Trail",
         icon: FileClock,
-        roles: ["admin", "manager"],
+        roles: ["manager"],
         href: "/reports/audit-trail",
         permission: "view.reports",
       },

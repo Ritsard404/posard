@@ -20,7 +20,7 @@ const featureCards: Array<{
 }> = [
   {
     title: "Faster cashier flow",
-    description: "Built for quick retail checkout without cluttered steps.",
+    description: "Built for retail counters, cafes, restaurants, and service desks.",
     icon: Receipt,
   },
   {
@@ -46,7 +46,7 @@ export function AuthShell({
   return (
     <div className="w-full max-w-6xl">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-stretch">
-        <section className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(245,248,255,0.98)_0%,rgba(229,236,248,0.96)_32%,rgba(203,214,232,0.94)_100%)] p-6 text-slate-900 shadow-[0_20px_70px_rgba(15,23,42,0.10)] md:p-8 lg:p-10 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(29,41,68,0.98)_0%,rgba(23,34,59,0.96)_40%,rgba(16,24,43,0.98)_100%)] dark:text-white">
+        <section className="relative order-2 overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(245,248,255,0.98)_0%,rgba(229,236,248,0.96)_32%,rgba(203,214,232,0.94)_100%)] p-5 text-slate-900 shadow-[0_20px_70px_rgba(15,23,42,0.10)] md:p-8 lg:order-1 lg:p-10 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(29,41,68,0.98)_0%,rgba(23,34,59,0.96)_40%,rgba(16,24,43,0.98)_100%)] dark:text-white">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.30),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_34%)]" />
           <div className="absolute inset-x-0 bottom-0 h-32 bg-[linear-gradient(180deg,transparent,rgba(148,163,184,0.14))] dark:bg-[linear-gradient(180deg,transparent,rgba(15,23,42,0.24))]" />
 
@@ -60,18 +60,18 @@ export function AuthShell({
               subtitleClassName="text-slate-600 dark:text-white/72"
             />
 
-            <div className="mt-8 inline-flex w-fit items-center rounded-full border border-primary/12 bg-white/55 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary shadow-sm dark:border-white/16 dark:bg-white/8 dark:text-white/88">
+            <div className="mt-5 inline-flex w-fit items-center rounded-full border border-primary/12 bg-white/55 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary shadow-sm md:mt-8 dark:border-white/16 dark:bg-white/8 dark:text-white/88">
               {eyebrow}
             </div>
 
-            <h1 className="mt-5 max-w-xl font-heading text-4xl font-extrabold leading-tight tracking-tight md:text-5xl">
+            <h1 className="mt-4 max-w-xl font-heading text-3xl font-extrabold leading-tight tracking-tight md:mt-5 md:text-5xl">
               {title}
             </h1>
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-700 md:text-base dark:text-white/76">
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-700 md:mt-5 md:text-base dark:text-white/76">
               {description}
             </p>
 
-            <div className="mt-8 grid gap-3 md:grid-cols-3 lg:grid-cols-1">
+            <div className="mt-6 grid gap-3 md:mt-8 md:grid-cols-3 lg:grid-cols-1">
               {featureCards.map((feature) => {
                 const Icon = feature.icon;
 
@@ -116,7 +116,7 @@ export function AuthShell({
           </div>
         </section>
 
-        <div className="flex min-w-0 items-center">{children}</div>
+        <div className="order-1 flex min-w-0 items-center lg:order-2">{children}</div>
       </div>
     </div>
   );

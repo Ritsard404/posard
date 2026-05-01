@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { submitRegistrationRequestAction } from "@/app/auth/_actions/registration-request.action";
-import { AuthFeedback, type AuthFeedbackState } from "@/components/auth-feedback";
+import {
+  AuthFeedback,
+  type AuthFeedbackState,
+} from "@/components/auth-feedback";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -18,6 +21,49 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+
+const LABEL_CLASS =
+  "text-xs font-bold uppercase tracking-wider text-muted-foreground";
+const INPUT_CLASS = "h-12 rounded-xl border-border/70 bg-background shadow-sm";
+
+function FormField({
+  id,
+  label,
+  type = "text",
+  placeholder,
+  required,
+  value,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  type?: string;
+  placeholder?: string;
+  required?: boolean;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={id} className={LABEL_CLASS}>
+        {label}
+      </Label>
+      <Input
+        id={id}
+        type={type}
+        placeholder={placeholder}
+        required={required}
+        value={value}
+        disabled={disabled}
+        aria-disabled={disabled}
+        className={INPUT_CLASS}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
 
 export function SignUpForm({
   className,
@@ -33,16 +79,17 @@ export function SignUpForm({
   const router = useRouter();
 
   const clearFeedback = () => {
-    if (feedback.kind !== "idle") {
-      setFeedback({ kind: "idle" });
-    }
+    if (feedback.kind !== "idle") setFeedback({ kind: "idle" });
+  };
+
+  const field = (setter: (v: string) => void) => (value: string) => {
+    setter(value);
+    clearFeedback();
   };
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isPending) {
-      return;
-    }
+    if (isPending) return;
 
     if (!termsAccepted) {
       setFeedback({
@@ -52,7 +99,10 @@ export function SignUpForm({
       return;
     }
 
-    setFeedback({ kind: "pending", message: "Submitting your registration request..." });
+    setFeedback({
+      kind: "pending",
+      message: "Submitting your registration request...",
+    });
 
     startTransition(async () => {
       try {
@@ -64,9 +114,7 @@ export function SignUpForm({
           requestedRole: "manager",
         });
 
-        if (!result.success) {
-          throw new Error(result.error);
-        }
+        if (!result.success) throw new Error(result.error);
 
         router.push("/auth/sign-up-success");
       } catch (error: unknown) {
@@ -96,93 +144,42 @@ export function SignUpForm({
         <CardContent className="pt-1">
           <form onSubmit={handleSignUp} aria-busy={isPending}>
             <div className="flex flex-col gap-6">
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="full-name"
-                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
-                >
-                  Full Name
-                </Label>
-                <Input
-                  id="full-name"
-                  type="text"
-                  placeholder="Juan dela Cruz"
-                  required
-                  value={fullName}
-                  disabled={isPending}
-                  aria-disabled={isPending}
-                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
-                  onChange={(e) => {
-                    setFullName(e.target.value);
-                    clearFeedback();
-                  }}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="email"
-                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
-                >
-                  Email Address
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={email}
-                  disabled={isPending}
-                  aria-disabled={isPending}
-                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    clearFeedback();
-                  }}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="phone"
-                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
-                >
-                  Phone Number
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+63 900 000 0000"
-                  value={phone}
-                  disabled={isPending}
-                  aria-disabled={isPending}
-                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
-                  onChange={(e) => {
-                    setPhone(e.target.value);
-                    clearFeedback();
-                  }}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="company-name"
-                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
-                >
-                  Company Name
-                </Label>
-                <Input
-                  id="company-name"
-                  type="text"
-                  placeholder="Acme Stores"
-                  value={companyName}
-                  disabled={isPending}
-                  aria-disabled={isPending}
-                  className="h-12 rounded-xl border-border/70 bg-background shadow-sm"
-                  onChange={(e) => {
-                    setCompanyName(e.target.value);
-                    clearFeedback();
-                  }}
-                />
-              </div>
+              <FormField
+                id="full-name"
+                label="Full Name"
+                placeholder="Juan dela Cruz"
+                required
+                value={fullName}
+                disabled={isPending}
+                onChange={field(setFullName)}
+              />
+              <FormField
+                id="email"
+                label="Email Address"
+                placeholder="m@example.com"
+                required
+                type="email"
+                value={email}
+                disabled={isPending}
+                onChange={field(setEmail)}
+              />
+              <FormField
+                id="phone"
+                label="Phone Number"
+                placeholder="+63 900 000 0000"
+                type="tel"
+                value={phone}
+                disabled={isPending}
+                onChange={field(setPhone)}
+              />
+              <FormField
+                id="company-name"
+                label="Company Name"
+                placeholder="Acme Stores"
+                value={companyName}
+                disabled={isPending}
+                onChange={field(setCompanyName)}
+              />
 
               <div className="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4 shadow-sm">
                 <Checkbox

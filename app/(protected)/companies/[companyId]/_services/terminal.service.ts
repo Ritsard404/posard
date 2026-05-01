@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { hasCoverageDatePassed, isTerminalPosAccessible } from "@/lib/billing-access";
 import {
   type TerminalDTO,
   type CreateTerminalInput,
@@ -24,13 +25,10 @@ type TerminalRecord = Prisma.PosTerminalInfoGetPayload<{
 
 type BillingStatusTone = "success" | "warning" | "danger" | "neutral";
 
-function hasDatePassed(value: Date | null | undefined) {
-  return value ? value.getTime() < Date.now() : false;
-}
-
 function getTerminalBillingSnapshot(
   subscription: TerminalRecord["subscription"],
   isDefaultTerminal: boolean,
+  validUntil: Date,
 ): {
   billingStatusLabel: string;
   billingStatusTone: BillingStatusTone;
@@ -55,7 +53,19 @@ function getTerminalBillingSnapshot(
     };
   }
 
-  if (subscription.status === "active" && !hasDatePassed(subscription.expiresAt)) {
+  if (hasCoverageDatePassed(validUntil)) {
+    return {
+      billingStatusLabel: "Expired",
+      billingStatusTone: "danger",
+      billingStatusReason: `Terminal validity ended on ${validUntil.toLocaleDateString()}.`,
+      billingActionLabel: "Renew now",
+    };
+  }
+
+  if (
+    subscription.status === "active" &&
+    !hasCoverageDatePassed(subscription.expiresAt, false)
+  ) {
     return {
       billingStatusLabel: subscription.expiresAt ? "Active plan" : "Active open plan",
       billingStatusTone: "success",
@@ -108,6 +118,7 @@ function mapTerminal(terminal: TerminalRecord): TerminalDTO {
   const billingSnapshot = getTerminalBillingSnapshot(
     terminal.subscription,
     terminal.isDefaultTerminal,
+    terminal.validUntil,
   );
 
   return {
@@ -358,6 +369,8 @@ export const terminalService = {
       select: {
         id: true,
         isActive: true,
+        isDefaultTerminal: true,
+        validUntil: true,
         subscription: {
           select: {
             status: true,
@@ -372,13 +385,7 @@ export const terminalService = {
     }
 
     if (payload.isActive) {
-      const now = new Date();
-      const subscription = terminal.subscription;
-      const hasActiveSubscription =
-        subscription?.status === "active" &&
-        (!subscription.expiresAt || subscription.expiresAt >= now);
-
-      if (!hasActiveSubscription) {
+      if (!isTerminalPosAccessible(terminal)) {
         throw new Error("A terminal requires an active subscription before it can be enabled");
       }
     }

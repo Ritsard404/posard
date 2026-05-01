@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { BrandLogo } from "@/components/branding/BrandLogo";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
 import { publicPages } from "@/lib/seo";
@@ -39,7 +40,7 @@ export default function MarketingLayout({
               <BrandLogo
                 compact
                 showSubtitle
-                subtitle="Retail checkout suite"
+                subtitle="POS for daily business operations"
                 markClassName="bg-white shadow-[0_18px_46px_rgba(20,71,230,0.22)]"
                 subtitleClassName="hidden sm:block"
               />
@@ -84,13 +85,14 @@ export default function MarketingLayout({
               >
                 <BrandLogo
                   showSubtitle
-                  subtitle="Retail checkout, inventory, and reports"
+                  subtitle="Checkout, inventory, and reports"
                   subtitleClassName="text-[11px] tracking-[0.16em]"
                 />
               </Link>
               <p className="max-w-xl text-sm leading-7 text-muted-foreground">
-                POSard gives small business teams one focused system for retail checkout,
-                inventory control, receipts, discounts, cashier access, and daily reporting.
+                POSard gives restaurants, retail stores, cafes, and service teams one focused
+                system for checkout, inventory control, receipts, discounts, cashier access,
+                and daily reporting.
               </p>
               <div className="flex flex-wrap justify-center gap-3 lg:justify-start">
                 <Button asChild variant="outline">
@@ -99,6 +101,7 @@ export default function MarketingLayout({
                 <Button asChild>
                   <Link href="/auth/sign-up">Create POSard Account</Link>
                 </Button>
+                <PwaInstallButton label="Install PWA" />
               </div>
             </div>
 

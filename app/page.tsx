@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { ShoppingCart, Package, BarChart3, ShieldCheck, Zap, Globe } from "lucide-react";
 import { BrandLogo } from "@/components/branding/BrandLogo";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import { Button } from "@/components/ui/button";
 import {
   absoluteUrl,
@@ -23,14 +24,14 @@ import {
 } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "POSard POS System for Retail Checkout and Inventory",
+  title: "POSard POS System for Restaurants, Retail, and Services",
   description:
-    "POSard is a retail POS system for Philippine stores, cafes, and small businesses with checkout, inventory, receipts, discounts, and sales reports.",
+    "POSard is a mobile-first POS system for Philippine restaurants, retail stores, cafes, and service businesses with checkout, inventory, receipts, discounts, and sales reports.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "POSard POS System for Retail Checkout and Inventory",
+    title: "POSard POS System for Restaurants, Retail, and Services",
     description:
       "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, receipts, discounts, and daily sales reports.",
     url: absoluteUrl("/"),
@@ -48,7 +49,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "POSard POS System for Retail Checkout and Inventory",
+    title: "POSard POS System for Restaurants, Retail, and Services",
     description:
       "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, receipts, discounts, and daily sales reports.",
     images: ["/opengraph-image"],
@@ -68,15 +69,15 @@ export const metadata: Metadata = {
 
 const features = [
   {
-    title: "Retail checkout",
+    title: "Restaurant, retail, and service checkout",
     description:
-      "Keep the counter moving with a cashier-friendly POS flow built for touch screens, quick sales, and accurate totals.",
+      "Keep the counter moving with a cashier-friendly POS flow for product sales, cafe orders, restaurant counters, and service payments.",
     icon: ShoppingCart,
   },
   {
     title: "Inventory tracking",
     description:
-      "Track products, stock levels, barcodes, and availability from one connected retail workspace.",
+      "Track products, stock levels, barcodes, and availability from one connected business workspace.",
     icon: Package,
   },
   {
@@ -130,7 +131,7 @@ export default function Home() {
         {/* Navigation */}
         <nav className="w-full flex justify-center glass-header h-16 transition-all duration-300">
           <div className="w-full max-w-7xl flex justify-between items-center px-6 text-sm">
-            <BrandLogo compact showSubtitle subtitle="Retail checkout suite" subtitleClassName="hidden lg:block" />
+            <BrandLogo compact showSubtitle subtitle="POS for daily business operations" subtitleClassName="hidden lg:block" />
             
             <div className="hidden md:flex gap-8 items-center font-medium text-muted-foreground">
               <Link href={publicPages.features.path} className="hover:text-accent transition-colors">Features</Link>
@@ -162,11 +163,11 @@ export default function Home() {
               </div>
               
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-heading font-extrabold tracking-tighter leading-[1.1] text-foreground">
-                POSard POS system for <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-emerald-500">retail checkout.</span>
+                POSard POS system for <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-emerald-500">any daily checkout.</span>
               </h1>
               
               <p className="max-w-xl mx-auto lg:mx-0 text-lg md:text-xl text-muted-foreground leading-relaxed">
-                POSard helps Philippine retail stores, cafes, and service businesses run checkout, inventory, receipts, discounts, cashier roles, and sales reports from one mobile-first POS platform.
+                POSard helps Philippine restaurants, cafes, retail stores, and service businesses run checkout, receipts, inventory, discounts, cashier roles, and sales reports from one mobile-first POS platform.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
@@ -184,6 +185,11 @@ export default function Home() {
                     View Features
                   </Button>
                 </Link>
+                <PwaInstallButton
+                  size="lg"
+                  label="Install App"
+                  className="sm:max-w-[12rem]"
+                />
               </div>
               
               <div className="flex items-center justify-center lg:justify-start gap-4 pt-8 text-sm text-muted-foreground font-medium">
@@ -225,7 +231,7 @@ export default function Home() {
               Built for <span className="text-accent">daily store operations.</span>
             </h2>
             <p className="max-w-2xl mx-auto text-muted-foreground text-lg">
-              Everything POSard needs to do well at the counter: checkout, stock tracking, receipts, discounts, cashier control, and X-Reading or Z-Reading reports.
+              Everything POSard needs to do well at the counter: sales, orders, stock tracking, receipts, discounts, cashier control, and X-Reading or Z-Reading reports.
             </p>
           </div>
 
@@ -259,10 +265,10 @@ export default function Home() {
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
             <div className="space-y-4 text-center md:text-left">
               <div className="flex justify-center md:justify-start">
-                <BrandLogo showSubtitle subtitle="Retail checkout, inventory, and reports" subtitleClassName="text-[11px] tracking-[0.16em]" />
+                <BrandLogo showSubtitle subtitle="Checkout, inventory, and reports" subtitleClassName="text-[11px] tracking-[0.16em]" />
               </div>
               <p className="max-w-xs text-muted-foreground text-sm uppercase tracking-widest font-bold">
-                Retail checkout, inventory, and reports in one system.
+                POS checkout, inventory, and reports for restaurants, retail, cafes, and service teams.
               </p>
             </div>
             

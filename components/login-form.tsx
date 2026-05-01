@@ -111,7 +111,7 @@ export function LoginForm({
           );
         }
 
-        router.push("/dashboard");
+        router.push("/auth/post-login");
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "An error occurred");
       }

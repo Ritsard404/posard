@@ -7,9 +7,9 @@ export const siteUrl = (
 export const siteConfig = {
   name: "POSard",
   url: siteUrl,
-  title: "POS System for Retail Checkout, Inventory, and Sales Reports",
+  title: "POS System for Restaurants, Retail, Services, and Sales Reports",
   description:
-    "POSard is a mobile-first POS system for Philippine retail stores, cafes, and small businesses that need checkout, inventory, receipts, discounts, and sales reports in one platform.",
+    "POSard is a mobile-first POS system for Philippine restaurants, cafes, retail stores, and service businesses that need checkout, inventory, receipts, discounts, and sales reports in one platform.",
   creator: "Ritsard",
   email: "support@posard.com",
   phone: "+63 XXX XXX XXXX",
@@ -181,7 +181,7 @@ export function softwareJsonLd() {
     description: siteConfig.description,
     areaServed: "Philippines",
     featureList: [
-      "Retail checkout for small business counters",
+      "Checkout and order workflows for restaurants, retail counters, cafes, and service desks",
       "Inventory and stock tracking",
       "PWD, Senior Citizen, and custom discount handling",
       "X-Reading and Z-Reading sales reports",

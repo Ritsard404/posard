@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 
 import { BrandLogo } from "@/components/branding/BrandLogo";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import { Button } from "@/components/ui/button";
 import { publicPages } from "@/lib/seo";
 type PageShellProps = {
@@ -58,6 +59,7 @@ export function PageShell({
               <Button asChild variant="outline">
                 <Link href={publicPages.pricing.path}>View pricing</Link>
               </Button>
+              <PwaInstallButton label="Install PWA" />
             </div>
           </div>
 
@@ -65,12 +67,12 @@ export function PageShell({
             <BrandLogo
               compact
               showSubtitle
-              subtitle="Mobile-first retail system"
+              subtitle="Mobile-first business POS"
               subtitleClassName="text-[10px] tracking-[0.18em]"
             />
             <div className="mt-6 space-y-3">
               {[
-                "Fast cashier checkout flow",
+                "Fast checkout and order flow",
                 "Inventory and receipt control",
                 "Daily X and Z sales reports",
               ].map((item) => (

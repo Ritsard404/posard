@@ -4,6 +4,7 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { getCurrentProfile } from "@/lib/auth/current-user";
@@ -61,6 +62,13 @@ export default async function DashboardLayout({
           {/* This ID is where we can inject page-specific buttons */}
           <div id="header-actions" className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 overflow-hidden">
             {/* Pages will teleport their buttons here */}
+            <PwaInstallButton
+              label="Install"
+              size="sm"
+              variant="ghost"
+              showFallback={false}
+              className="max-w-[6.5rem]"
+            />
             <ThemeSwitcher />
           </div>
         </header>

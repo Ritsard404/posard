@@ -32,7 +32,7 @@ export default function AuthLayout({
             <BrandLogo
               compact
               showSubtitle
-              subtitle="Retail checkout suite"
+              subtitle="POS for daily business operations"
               subtitleClassName="hidden sm:block"
             />
           </Link>

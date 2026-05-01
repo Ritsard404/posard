@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  hasCoverageDatePassed,
   assertTerminalBillingAllowsPos,
   TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE,
   TERMINAL_BILLING_RESTRICTION_MESSAGE,
@@ -15,22 +16,22 @@ import { sessionMutationService } from "../_services/session-mutation.service";
 function getTerminalBillingSummary(subscription: {
   status: "pending" | "active" | "expired" | "suspended" | "cancelled";
   expiresAt: Date | null;
-} | null, isDefaultTerminal: boolean): {
+} | null, isDefaultTerminal: boolean, validUntil: Date): {
   statusLabel: string;
   statusTone: "success" | "warning" | "danger";
   actionLabel: string | null;
   message: string | null;
 } {
-  if (!subscription) {
-    if (isDefaultTerminal) {
-      return {
-        statusLabel: "Available",
-        statusTone: "success",
-        actionLabel: null,
-        message: null,
-      };
-    }
+  if (isDefaultTerminal) {
+    return {
+      statusLabel: "Available",
+      statusTone: "success",
+      actionLabel: null,
+      message: null,
+    };
+  }
 
+  if (!subscription) {
     return {
       statusLabel: "Subscription required",
       statusTone: "danger",
@@ -39,11 +40,10 @@ function getTerminalBillingSummary(subscription: {
     };
   }
 
-  const isExpired = subscription.expiresAt
-    ? subscription.expiresAt.getTime() < Date.now()
-    : false;
+  const isSubscriptionExpired = hasCoverageDatePassed(subscription.expiresAt, false);
+  const isTerminalValidityExpired = hasCoverageDatePassed(validUntil);
 
-  if (subscription.status === "active" && !isExpired) {
+  if (subscription.status === "active" && !isSubscriptionExpired && !isTerminalValidityExpired) {
     return {
       statusLabel: subscription.expiresAt ? "Active plan" : "Active open plan",
       statusTone: "success",
@@ -51,6 +51,15 @@ function getTerminalBillingSummary(subscription: {
       message: subscription.expiresAt
         ? `Subscription is covered until ${subscription.expiresAt.toLocaleDateString()}.`
         : "Subscription is active without an expiry date.",
+    };
+  }
+
+  if (isTerminalValidityExpired) {
+    return {
+      statusLabel: "Expired",
+      statusTone: "danger",
+      actionLabel: "Renew now",
+      message: `Terminal validity ended on ${validUntil.toLocaleDateString()}.`,
     };
   }
 
@@ -195,6 +204,7 @@ export async function getTerminalsAction() {
         const billing = getTerminalBillingSummary(
           terminal.subscription,
           terminal.isDefaultTerminal,
+          terminal.validUntil,
         );
 
         return {

@@ -85,6 +85,7 @@ export async function GET(request: Request) {
                 id: true,
                 posName: true,
                 isDefaultTerminal: true,
+                validUntil: true,
                 isTrainMode: true,
                 vat: true,
                 discountCapType: true,

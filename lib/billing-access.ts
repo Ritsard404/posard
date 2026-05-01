@@ -18,6 +18,7 @@ type TerminalBillingSnapshot = {
   terminalId: string;
   posName: string | null;
   isDefaultTerminal: boolean;
+  validUntil: Date;
   subscription: {
     status: "pending" | "active" | "expired" | "suspended" | "cancelled";
     expiresAt: Date | null;
@@ -31,20 +32,36 @@ export type CompanyBillingAccess = {
   terminals: TerminalBillingSnapshot[];
 };
 
-function hasDatePassed(value: Date | null | undefined) {
-  return !value || value.getTime() < Date.now();
+function getDateOnlyValue(value: Date) {
+  return value.getFullYear() * 10_000 + (value.getMonth() + 1) * 100 + value.getDate();
+}
+
+export function hasCoverageDatePassed(value: Date | null | undefined, missingIsExpired = true) {
+  if (!value) {
+    return missingIsExpired;
+  }
+
+  return getDateOnlyValue(value) < getDateOnlyValue(new Date());
 }
 
 function isTerminalSubscriptionActive(subscription: TerminalBillingSnapshot["subscription"]) {
-  return subscription?.status === "active" && !hasDatePassed(subscription.expiresAt);
+  return (
+    subscription?.status === "active" &&
+    !hasCoverageDatePassed(subscription.expiresAt, false)
+  );
 }
 
 export function isTerminalPosAccessible(
-  terminal: Pick<TerminalBillingSnapshot, "isDefaultTerminal" | "subscription">,
+  terminal: Pick<TerminalBillingSnapshot, "isDefaultTerminal" | "validUntil" | "subscription">,
 ) {
-  return terminal.isDefaultTerminal
-    ? !terminal.subscription || isTerminalSubscriptionActive(terminal.subscription)
-    : isTerminalSubscriptionActive(terminal.subscription);
+  if (terminal.isDefaultTerminal) {
+    return true;
+  }
+
+  return (
+    isTerminalSubscriptionActive(terminal.subscription) &&
+    !hasCoverageDatePassed(terminal.validUntil)
+  );
 }
 
 export async function getCompanyBillingAccess(
@@ -56,6 +73,7 @@ export async function getCompanyBillingAccess(
       id: true,
       posName: true,
       isDefaultTerminal: true,
+      validUntil: true,
       subscription: {
         select: {
           status: true,
@@ -81,6 +99,7 @@ export async function getCompanyBillingAccess(
       terminalId: terminal.id,
       posName: terminal.posName,
       isDefaultTerminal: terminal.isDefaultTerminal,
+      validUntil: terminal.validUntil,
       subscription: terminal.subscription,
     })),
   };
@@ -107,6 +126,7 @@ export async function assertTerminalBillingAllowsPos(
     },
     select: {
       isDefaultTerminal: true,
+      validUntil: true,
       subscription: {
         select: {
           status: true,
@@ -138,6 +158,7 @@ export async function assertTerminalBillingAllowsTransactions(
     },
     select: {
       isDefaultTerminal: true,
+      validUntil: true,
       subscription: {
         select: {
           status: true,
