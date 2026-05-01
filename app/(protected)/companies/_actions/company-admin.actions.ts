@@ -8,6 +8,7 @@ import {
   type AdminCompanyUpsertInput,
 } from "../_services/_dto/admin-company.dto";
 import { adminCompanyService } from "../_services/admin-company.service";
+import { deletePosardImageAction } from "@/lib/storage/image-storage.actions";
 
 export async function createAdminCompanyAction(
   payload: AdminCompanyUpsertInput,
@@ -30,7 +31,11 @@ export async function updateAdminCompanyAction(
   try {
     await companyAccessService.assertAdminAccess(companyId);
     const validated = AdminCompanyUpsertSchema.parse(payload);
+    const existing = await adminCompanyService.getCompanyById(companyId);
     const data = await adminCompanyService.updateCompany(companyId, validated);
+    if (existing?.logoImageUrl && existing.logoImageUrl !== data.logoImageUrl) {
+      await deletePosardImageAction(existing.logoImageUrl);
+    }
     revalidateAdminCompanyPaths(companyId);
     return { success: true, data };
   } catch (error) {

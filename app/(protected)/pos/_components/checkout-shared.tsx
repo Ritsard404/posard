@@ -7,7 +7,9 @@ import {
   CheckCircle2,
   ChevronDown,
   FileText,
+  Plus,
   Receipt,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,6 +31,7 @@ import {
   usePOSStore,
   type DiscountType,
   type PaymentMethodType,
+  type POSReferencePayment,
 } from "../_store/pos-store";
 import { payOrderAction } from "../_actions/order.action";
 import type { OrderDto } from "../_services/_dto/order.dto";
@@ -159,6 +162,11 @@ export function usePOSCheckoutFlow(
     setSelectedEPaymentMethodId,
     paymentReference,
     setPaymentReference,
+    referencePayments,
+    addReferencePayment,
+    updateReferencePayment,
+    removeReferencePayment,
+    clearReferencePayments,
     epaymentMethods,
     amountTendered,
     setAmountTendered,
@@ -197,11 +205,21 @@ export function usePOSCheckoutFlow(
   const selectedEPaymentMethod =
     epaymentMethods.find((method) => method.id === selectedEPaymentMethodId) ??
     null;
+  const referencePaymentTotal = referencePayments.reduce(
+    (sum, payment) => sum + Math.max(0, payment.amount),
+    0,
+  );
+  const totalTendered = amountTendered + referencePaymentTotal;
+  const remainingDue = Math.max(totalAmount - totalTendered, 0);
+  const referenceOverpayAmount = Math.max(referencePaymentTotal - totalAmount, 0);
   const activePaymentMethodLabel =
-    paymentMethod === "cash"
+    referencePayments.length > 0 && amountTendered > 0
+      ? "Split Payment"
+      : referencePayments.length > 1
+        ? "Split Reference"
+        : paymentMethod === "cash"
       ? "Cash"
       : getPaymentMethodLabel(selectedEPaymentMethod?.name ?? null);
-  const trimmedReference = paymentReference.trim();
   const requiresDiscountMetadata =
     discount.type === "PWD" || discount.type === "SENIOR";
   const trimmedEligibleName = discount.eligibleDiscName.trim();
@@ -211,18 +229,22 @@ export function usePOSCheckoutFlow(
       ? true
       : !requiresDiscountMetadata ||
         !!(trimmedEligibleName && trimmedOscaIdNum);
-  const isCashPayment = paymentMethod === "cash";
-  const change = isCashPayment ? amountTendered - totalAmount : 0;
+  const isCashPayment = paymentMethod === "cash" && referencePayments.length === 0;
+  const change = Math.max(amountTendered - Math.max(totalAmount - referencePaymentTotal, 0), 0);
   const isReferencePaymentValid =
-    isCashPayment || Boolean(selectedEPaymentMethod && trimmedReference);
+    referencePayments.length === 0 ||
+    referencePayments.every(
+      (payment) => payment.saleTypeId && payment.reference.trim() && payment.amount > 0,
+    );
   const debtUpfrontCashAmount =
     settlementMode === "debt" ? Math.max(0, amountTendered) : 0;
   const isTenderValid =
     settlementMode === "debt"
-      ? isCashPayment && debtUpfrontCashAmount <= totalAmount
-      : isCashPayment
-        ? amountTendered >= totalAmount
-        : totalAmount > 0 && isReferencePaymentValid;
+      ? referencePayments.length === 0 && debtUpfrontCashAmount <= totalAmount
+      : totalAmount > 0 &&
+        isReferencePaymentValid &&
+        referenceOverpayAmount <= 0 &&
+        totalTendered >= totalAmount;
   const isDebtFormValid =
     settlementMode === "pay_now" ||
     (!!debtDueDate &&
@@ -262,13 +284,17 @@ export function usePOSCheckoutFlow(
 
   const selectCashPayment = () => {
     setPaymentMethod("cash");
-    setAmountTendered(0);
   };
 
   const selectReferencePayment = (saleTypeId: string) => {
     setPaymentMethod("reference");
     setSelectedEPaymentMethodId(saleTypeId);
-    setAmountTendered(0);
+    if (referencePayments.length === 0) {
+      addReferencePayment({
+        saleTypeId,
+        amount: Math.max(totalAmount - amountTendered, 0),
+      });
+    }
   };
 
   const handleQuickCash = (amount: number) => {
@@ -280,6 +306,7 @@ export function usePOSCheckoutFlow(
     setIsProcessing(false);
     setReceipt(null);
     setAmountTendered(0);
+    clearReferencePayments();
     setDiscount(defaultDiscount);
     setPaymentMethod("cash");
     setSettlementMode("pay_now");
@@ -305,18 +332,18 @@ export function usePOSCheckoutFlow(
       return;
     }
 
-    if (settlementMode === "debt" && !isCashPayment) {
+    if (settlementMode === "debt" && referencePayments.length > 0) {
       toast.error("Debt issuance only supports cash upfront in v1.");
       return;
     }
 
-    if (!isCashPayment && !selectedEPaymentMethod) {
-      toast.error("Select a reference payment method.");
+    if (referenceOverpayAmount > 0) {
+      toast.error("Reference payments cannot exceed the total due.");
       return;
     }
 
-    if (!isCashPayment && !trimmedReference) {
-      toast.error("Enter a reference number.");
+    if (!isReferencePaymentValid) {
+      toast.error("Complete every reference payment method, amount, and reference number.");
       return;
     }
 
@@ -362,16 +389,14 @@ export function usePOSCheckoutFlow(
             : (item.customSubtotal ?? item.price * item.cartQuantity),
         status: item.itemStatus || "PENDING",
       })),
-      cashTenderAmount: isCashPayment ? amountTendered : 0,
+      cashTenderAmount: amountTendered,
       ePayments:
-        settlementMode === "pay_now" && !isCashPayment && selectedEPaymentMethod
-          ? [
-              {
-                saleTypeId: selectedEPaymentMethod.id,
-                reference: trimmedReference,
-                amount: totalAmount,
-              },
-            ]
+        settlementMode === "pay_now" && referencePayments.length > 0
+          ? referencePayments.map((payment) => ({
+              saleTypeId: payment.saleTypeId,
+              reference: payment.reference.trim(),
+              amount: payment.amount,
+            }))
           : undefined,
       discount:
         discount.type !== "NONE"
@@ -535,6 +560,7 @@ export function usePOSCheckoutFlow(
         setStep("PAYMENT");
         setReceipt(null);
         setAmountTendered(0);
+        clearReferencePayments();
         setDiscount(defaultDiscount);
         setPaymentMethod("cash");
         options?.onFastComplete?.();
@@ -562,9 +588,14 @@ export function usePOSCheckoutFlow(
     paymentMethod,
     selectedEPaymentMethodId,
     paymentReference,
+    referencePayments,
     epaymentMethods,
     activePaymentMethodLabel,
     amountTendered,
+    referencePaymentTotal,
+    totalTendered,
+    remainingDue,
+    referenceOverpayAmount,
     isProcessing,
     fastCheckout,
     requiresDiscountMetadata,
@@ -594,6 +625,9 @@ export function usePOSCheckoutFlow(
     setDiscountType,
     updateDiscountDetails,
     setPaymentReference,
+    addReferencePayment,
+    updateReferencePayment,
+    removeReferencePayment,
     selectCashPayment,
     selectReferencePayment,
     setAmountTendered,
@@ -610,8 +644,13 @@ interface POSTenderFormProps {
   paymentMethod: PaymentMethodType;
   selectedEPaymentMethodId: string | null;
   paymentReference: string;
+  referencePayments: POSReferencePayment[];
   epaymentMethods: Array<{ id: string; name: string | null }>;
   amountTendered: number;
+  referencePaymentTotal: number;
+  totalTendered: number;
+  remainingDue: number;
+  referenceOverpayAmount: number;
   discountType: DiscountType;
   requiresDiscountMetadata: boolean;
   discountEligibleDiscName: string;
@@ -644,6 +683,12 @@ interface POSTenderFormProps {
     details: Partial<{ eligibleDiscName: string; oscaIdNum: string }>,
   ) => void;
   setPaymentReference: (reference: string) => void;
+  addReferencePayment: (payment?: Partial<Omit<POSReferencePayment, "id">>) => void;
+  updateReferencePayment: (
+    id: string,
+    payment: Partial<Omit<POSReferencePayment, "id">>,
+  ) => void;
+  removeReferencePayment: (id: string) => void;
   selectCashPayment: () => void;
   selectReferencePayment: (saleTypeId: string) => void;
   setAmountTendered: (amount: number) => void;
@@ -657,8 +702,13 @@ export function POSTenderForm({
   paymentMethod,
   selectedEPaymentMethodId,
   paymentReference,
+  referencePayments,
   epaymentMethods,
   amountTendered,
+  referencePaymentTotal,
+  totalTendered,
+  remainingDue,
+  referenceOverpayAmount,
   discountType,
   requiresDiscountMetadata,
   discountEligibleDiscName,
@@ -689,6 +739,9 @@ export function POSTenderForm({
   setFastCheckout,
   updateDiscountDetails,
   setPaymentReference,
+  addReferencePayment,
+  updateReferencePayment,
+  removeReferencePayment,
   selectCashPayment,
   selectReferencePayment,
   setAmountTendered,
@@ -700,20 +753,19 @@ export function POSTenderForm({
     discountType;
   const selectedReferenceLabel =
     paymentMethod === "reference" ? activePaymentMethodLabel : "Choose method";
-  const summaryTenderedLabel =
-    paymentMethod === "cash" ? "Cash Received" : "Tendered";
-  const summaryTenderedAmount =
-    paymentMethod === "cash" ? amountTendered : totalAmount;
-  const summaryChangeAmount =
-    paymentMethod === "cash" ? Math.max(0, change) : 0;
+  const summaryTenderedLabel = "Tendered";
+  const summaryTenderedAmount = totalTendered;
+  const summaryChangeAmount = Math.max(0, change);
   const completionHint = isBillingLocked
     ? (billingMessage ??
       "Transactions are disabled because this terminal subscription is not active.")
     : requiresDiscountMetadata && !isDiscountMetadataValid
       ? "Complete the discount reference fields to continue."
-      : paymentMethod === "cash"
-        ? "Enter cash or tap Exact."
-        : "Enter the payment reference number to enable checkout.";
+      : referenceOverpayAmount > 0
+        ? "Reference payments cannot exceed the total due."
+        : remainingDue > 0
+          ? "Add cash or reference payments until the balance is fully paid."
+          : "Ready to complete checkout.";
   const mobileConfigCardClassName = isMobileVariant
     ? "rounded-2xl border bg-card p-2"
     : "rounded-2xl border bg-card p-4";
@@ -922,7 +974,7 @@ export function POSTenderForm({
                 </div>
               </div>
 
-              {paymentMethod === "cash" && isMobileVariant ? (
+              {false && paymentMethod === "cash" && isMobileVariant ? (
                 <div className={mobileCashCardClassName}>
                   <div className="space-y-2">
                     <div className="space-y-1">
@@ -1094,7 +1146,7 @@ export function POSTenderForm({
                           </DropdownMenu>
                         </div>
 
-                        {paymentMethod === "reference" ? (
+                        {false && paymentMethod === "reference" ? (
                           <div className="space-y-1.5 border-t pt-1.5">
                             <Label
                               htmlFor={`payment-reference-${variant}`}
@@ -1375,7 +1427,25 @@ export function POSTenderForm({
                 </div>
               )}
 
-              {paymentMethod === "reference" ? (
+              <SplitPaymentEditor
+                variant={variant}
+                totalAmount={totalAmount}
+                amountTendered={amountTendered}
+                setAmountTendered={setAmountTendered}
+                referencePayments={referencePayments}
+                epaymentMethods={epaymentMethods}
+                referencePaymentTotal={referencePaymentTotal}
+                totalTendered={totalTendered}
+                remainingDue={remainingDue}
+                referenceOverpayAmount={referenceOverpayAmount}
+                change={change}
+                disabled={settlementMode === "debt"}
+                addReferencePayment={addReferencePayment}
+                updateReferencePayment={updateReferencePayment}
+                removeReferencePayment={removeReferencePayment}
+              />
+
+              {false && paymentMethod === "reference" ? (
                 <div
                   className={
                     isMobileVariant
@@ -1459,7 +1529,7 @@ export function POSTenderForm({
                   label="Payment Method"
                   value={activePaymentMethodLabel}
                 />
-                {paymentMethod === "cash" ? (
+                {false && paymentMethod === "cash" ? (
                   <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-3">
@@ -1685,6 +1755,254 @@ function SummaryMetric({
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function SplitPaymentEditor({
+  variant,
+  totalAmount,
+  amountTendered,
+  setAmountTendered,
+  referencePayments,
+  epaymentMethods,
+  referencePaymentTotal,
+  totalTendered,
+  remainingDue,
+  referenceOverpayAmount,
+  change,
+  disabled,
+  addReferencePayment,
+  updateReferencePayment,
+  removeReferencePayment,
+}: {
+  variant: "mobile" | "dialog";
+  totalAmount: number;
+  amountTendered: number;
+  setAmountTendered: (amount: number) => void;
+  referencePayments: POSReferencePayment[];
+  epaymentMethods: Array<{ id: string; name: string | null }>;
+  referencePaymentTotal: number;
+  totalTendered: number;
+  remainingDue: number;
+  referenceOverpayAmount: number;
+  change: number;
+  disabled: boolean;
+  addReferencePayment: (payment?: Partial<Omit<POSReferencePayment, "id">>) => void;
+  updateReferencePayment: (
+    id: string,
+    payment: Partial<Omit<POSReferencePayment, "id">>,
+  ) => void;
+  removeReferencePayment: (id: string) => void;
+}) {
+  const isMobileVariant = variant === "mobile";
+  const nextReferenceAmount = Math.max(totalAmount - amountTendered - referencePaymentTotal, 0);
+
+  return (
+    <div
+      className={
+        isMobileVariant
+          ? "rounded-2xl border bg-card p-3"
+          : "rounded-2xl border bg-card p-4"
+      }
+    >
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-heading text-base font-bold text-foreground">
+              Split Payment
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Combine cash with one or more reference payments.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-2xl"
+            disabled={disabled || epaymentMethods.length === 0}
+            onClick={() =>
+              addReferencePayment({
+                saleTypeId: epaymentMethods[0]?.id,
+                amount: nextReferenceAmount,
+              })
+            }
+          >
+            <Plus className="size-4" />
+            Add Reference
+          </Button>
+        </div>
+
+        {disabled ? (
+          <p className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-700">
+            Utang issuance only supports cash upfront in this version.
+          </p>
+        ) : null}
+
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px]">
+          <div className="space-y-1.5">
+            <Label
+              htmlFor={`split-cash-${variant}`}
+              className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
+            >
+              Cash Received
+            </Label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-primary/60">
+                PHP
+              </span>
+              <Input
+                id={`split-cash-${variant}`}
+                type="number"
+                min="0"
+                step="0.01"
+                value={amountTendered || ""}
+                disabled={disabled}
+                onChange={(event) =>
+                  setAmountTendered(parseFloat(event.target.value) || 0)
+                }
+                className="h-10 rounded-2xl pl-12 font-heading font-bold"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          <div className="flex items-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 flex-1 rounded-2xl"
+              disabled={disabled}
+              onClick={() => setAmountTendered(Math.max(totalAmount - referencePaymentTotal, 0))}
+            >
+              Exact
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10 rounded-2xl border text-destructive hover:text-destructive"
+              disabled={disabled}
+              onClick={() => setAmountTendered(0)}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+
+        {referencePayments.length > 0 ? (
+          <div className="space-y-2 border-t pt-3">
+            {referencePayments.map((payment, index) => (
+              <div
+                key={payment.id}
+                className="grid gap-2 rounded-2xl border bg-background p-2 md:grid-cols-[minmax(130px,0.8fr)_minmax(120px,0.7fr)_minmax(160px,1fr)_auto]"
+              >
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                    Method
+                  </Label>
+                  <select
+                    value={payment.saleTypeId}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      updateReferencePayment(payment.id, {
+                        saleTypeId: event.target.value,
+                      })
+                    }
+                    className="h-10 w-full rounded-2xl border border-input bg-background px-3 text-sm"
+                  >
+                    {epaymentMethods.map((method) => (
+                      <option key={method.id} value={method.id}>
+                        {getPaymentMethodLabel(method.name)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                    Amount
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={payment.amount || ""}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      updateReferencePayment(payment.id, {
+                        amount: parseFloat(event.target.value) || 0,
+                      })
+                    }
+                    className="h-10 rounded-2xl text-sm"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                    Reference #{index + 1}
+                  </Label>
+                  <Input
+                    value={payment.reference}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      updateReferencePayment(payment.id, {
+                        reference: event.target.value,
+                      })
+                    }
+                    className="h-10 rounded-2xl text-sm"
+                    placeholder="Transaction reference"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-2xl border text-destructive hover:text-destructive"
+                    disabled={disabled}
+                    onClick={() => removeReferencePayment(payment.id)}
+                  >
+                    <Trash2 className="size-4" />
+                    <span className="sr-only">Remove reference payment</span>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="grid gap-2 sm:grid-cols-4">
+          <SummaryMetric
+            label="Cash"
+            value={`PHP ${formatCurrency(amountTendered)}`}
+          />
+          <SummaryMetric
+            label="Reference"
+            value={`PHP ${formatCurrency(referencePaymentTotal)}`}
+          />
+          <SummaryMetric
+            label="Remaining"
+            value={`PHP ${formatCurrency(remainingDue)}`}
+            tone={remainingDue > 0 ? "danger" : "success"}
+          />
+          <SummaryMetric
+            label="Change"
+            value={`PHP ${formatCurrency(change)}`}
+            tone={referenceOverpayAmount > 0 ? "danger" : "success"}
+          />
+        </div>
+
+        {referenceOverpayAmount > 0 ? (
+          <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
+            Reference payments are over by PHP {formatCurrency(referenceOverpayAmount)}. Reduce reference amounts or use cash for change.
+          </p>
+        ) : null}
+
+        {totalTendered < totalAmount ? (
+          <p className="text-xs text-muted-foreground">
+            Add PHP {formatCurrency(totalAmount - totalTendered)} more to complete this sale.
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }

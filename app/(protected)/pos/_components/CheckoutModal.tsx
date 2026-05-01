@@ -72,8 +72,13 @@ export function CheckoutModal({
             paymentMethod={flow.paymentMethod}
             selectedEPaymentMethodId={flow.selectedEPaymentMethodId}
             paymentReference={flow.paymentReference}
+            referencePayments={flow.referencePayments}
             epaymentMethods={flow.epaymentMethods}
             amountTendered={flow.amountTendered}
+            referencePaymentTotal={flow.referencePaymentTotal}
+            totalTendered={flow.totalTendered}
+            remainingDue={flow.remainingDue}
+            referenceOverpayAmount={flow.referenceOverpayAmount}
             discountType={flow.discount.type}
             requiresDiscountMetadata={flow.requiresDiscountMetadata}
             discountEligibleDiscName={flow.discount.eligibleDiscName}
@@ -104,6 +109,9 @@ export function CheckoutModal({
             setFastCheckout={flow.setFastCheckout}
             updateDiscountDetails={flow.updateDiscountDetails}
             setPaymentReference={flow.setPaymentReference}
+            addReferencePayment={flow.addReferencePayment}
+            updateReferencePayment={flow.updateReferencePayment}
+            removeReferencePayment={flow.removeReferencePayment}
             selectCashPayment={flow.selectCashPayment}
             selectReferencePayment={flow.selectReferencePayment}
             setAmountTendered={flow.setAmountTendered}

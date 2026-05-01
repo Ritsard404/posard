@@ -10,7 +10,7 @@ export const setupCompanySchema = z.object({
     .optional()
     .or(z.literal("")),
   address: z.string().max(500).optional().or(z.literal("")),
-  logoImageUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
+  logoImageUrl: z.string().max(500, "Logo path is too long").optional().or(z.literal("")),
   managerPin: z.string().min(4, "PIN must be at least 4 digits").max(6, "PIN must be at most 6 digits").regex(/^\d+$/, "PIN must contain only digits"),
 });
 

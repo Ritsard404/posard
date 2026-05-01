@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -19,14 +18,15 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { ImageUploadField } from "@/components/storage/ImageUploadField";
 
 export function SetupCompanyForm() {
-  const router = useRouter();
-
   const {
     register,
     handleSubmit,
     setError,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<SetupCompanyInput>({
     resolver: zodResolver(setupCompanySchema),
@@ -46,8 +46,10 @@ export function SetupCompanyForm() {
       await createCompany(data);
       // router.refresh();
       // router.push("/dashboard");
-    } catch (err: any) {
-      setError("root", { message: err.message });
+    } catch (err: unknown) {
+      setError("root", {
+        message: err instanceof Error ? err.message : "Company setup failed. Please try again.",
+      });
     }
   }
 
@@ -145,6 +147,22 @@ export function SetupCompanyForm() {
                     {errors.address.message}
                   </p>
                 )}
+              </div>
+
+              <div className="grid gap-2">
+                <input type="hidden" {...register("logoImageUrl")} />
+                <ImageUploadField
+                  id="setup-company-logo"
+                  label="Company Logo"
+                  purpose="company-logo"
+                  value={watch("logoImageUrl")}
+                  disabled={isSubmitting}
+                  error={errors.logoImageUrl?.message}
+                  onChange={(value) => {
+                    setValue("logoImageUrl", value ?? "", { shouldDirty: true, shouldValidate: true });
+                  }}
+                  description="Optional logo for your workspace. You can change it later."
+                />
               </div>
             </div>
           </div>

@@ -9,6 +9,15 @@ const nullableTextInput = z.preprocess((value) => {
   return trimmed.length > 0 ? trimmed : null;
 }, z.string().nullable());
 
+const nullableImagePathInput = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value ?? null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}, z.string().max(500, "Logo path is too long").nullable());
+
 const nullableEmailInput = z.preprocess((value) => {
   if (typeof value !== "string") {
     return value ?? null;
@@ -54,7 +63,7 @@ export const UpdateCompanySchema = z.object({
   email: nullableEmailInput.optional(),
   phone: nullableTextInput.optional(),
   address: nullableTextInput.optional(),
-  logoImageUrl: nullableTextInput.optional(),
+  logoImageUrl: nullableImagePathInput.optional(),
 });
 
 export type UpdateCompanyInput = z.infer<typeof UpdateCompanySchema>;

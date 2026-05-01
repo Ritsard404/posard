@@ -14,6 +14,7 @@ import {
   getProductListTag,
 } from "@/app/(protected)/product/_services/product-cache";
 import { productService } from "../_services/product.service";
+import { deletePosardImageAction } from "@/lib/storage/image-storage.actions";
 
 async function revalidateProductData() {
   const companyId = (await getCurrentProfile())?.companyId ?? null;
@@ -88,7 +89,11 @@ export async function updateProduct(
 
 export async function deleteProduct(id: string): Promise<{ error?: string }> {
   try {
+    const existing = await productService.findById(id);
     await productService.delete(id);
+    if (existing?.productImageUrl) {
+      await deletePosardImageAction(existing.productImageUrl);
+    }
     await revalidateProductData();
     return {};
   } catch (err) {

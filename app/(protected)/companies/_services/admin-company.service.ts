@@ -121,6 +121,25 @@ export const adminCompanyService = {
     });
   },
 
+  async getCompanyById(companyId: string): Promise<CompanyDTO | null> {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        email: true,
+        phone: true,
+        address: true,
+        logoImageUrl: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return company ? toCompanyDto(company) : null;
+  },
+
   async createCompany(payload: AdminCompanyUpsertInput): Promise<CompanyDTO> {
     const company = await prisma.company.create({
       data: payload,

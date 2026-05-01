@@ -26,6 +26,8 @@ import {
 } from "@/app/(protected)/product/_actions/product.actions";
 import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
 import type { ProductDto } from "@/app/(protected)/product/_services/_dto/product.dto";
+import { ImageUploadField } from "@/components/storage/ImageUploadField";
+import { deletePosardImageAction } from "@/lib/storage/image-storage.actions";
 
 const productSchema = z
   .object({
@@ -41,7 +43,7 @@ const productSchema = z
     vatType: z.enum(["VATABLE", "EXEMPT", "ZERO"]),
     isAvailable: z.boolean(),
     trackInventory: z.boolean(),
-    productImageUrl: z.string().optional(),
+    productImageUrl: z.string().nullable().optional(),
   })
   .superRefine((value, ctx) => {
     const price = Number(value.price);
@@ -132,7 +134,7 @@ export function ProductFormSheet({
       vatType: "VATABLE",
       isAvailable: true,
       trackInventory: false,
-      productImageUrl: "",
+      productImageUrl: null,
     }),
     [],
   );
@@ -170,7 +172,7 @@ export function ProductFormSheet({
         vatType: product.vatType,
         isAvailable: product.isAvailable,
         trackInventory: product.trackInventory,
-        productImageUrl: product.productImageUrl ?? "",
+        productImageUrl: product.productImageUrl ?? null,
       });
     } else {
       reset(defaultValues);
@@ -205,6 +207,10 @@ export function ProductFormSheet({
     if (result.error) {
       setServerError(result.error);
       return;
+    }
+
+    if (product?.productImageUrl && product.productImageUrl !== dto.productImageUrl) {
+      await deletePosardImageAction(product.productImageUrl);
     }
 
     onOpenChange(false);
@@ -278,12 +284,19 @@ export function ProductFormSheet({
                 <Input id="product-barcode" placeholder="Optional barcode" {...register("barcode")} />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="product-image-url">Product Image URL</Label>
-                <Input
+              <div className="space-y-1.5 sm:col-span-2">
+                <input type="hidden" {...register("productImageUrl")} />
+                <ImageUploadField
                   id="product-image-url"
-                  placeholder="https://example.com/image.png"
-                  {...register("productImageUrl")}
+                  label="Product Image"
+                  purpose="product"
+                  ownerId={product?.id ?? null}
+                  value={watch("productImageUrl")}
+                  disabled={isSubmitting}
+                  onChange={(value) => {
+                    setValue("productImageUrl", value, { shouldDirty: true, shouldValidate: true });
+                  }}
+                  description="Upload a clear product photo. POSard optimizes it before saving."
                 />
               </div>
             </div>

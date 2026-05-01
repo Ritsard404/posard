@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageUploadField } from "@/components/storage/ImageUploadField";
 import {
   UpdateCompanySchema,
   type CompanyDetailDTO,
@@ -29,6 +30,8 @@ export default function CompanySettingsForm({
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isDirty },
   } = useForm<UpdateCompanyFormValues, unknown, UpdateCompanyInput>({
     resolver: zodResolver(UpdateCompanySchema),
@@ -41,6 +44,7 @@ export default function CompanySettingsForm({
       logoImageUrl: company.logoImageUrl ?? "",
     },
   });
+  const logoImageUrl = watch("logoImageUrl") as string | null | undefined;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -78,17 +82,22 @@ export default function CompanySettingsForm({
           />
         </FieldGroup>
 
-        <FieldGroup
-          label="Logo Image URL"
-          error={errors.logoImageUrl?.message}
-          className="sm:col-span-2"
-        >
-          <Input
-            {...register("logoImageUrl")}
-            placeholder="https://cdn.example.com/logo.png"
-            className="focus:border-blue-500"
+        <div className="sm:col-span-2">
+          <input type="hidden" {...register("logoImageUrl")} />
+          <ImageUploadField
+            id="company-logo-image"
+            label="Company Logo"
+            purpose="company-logo"
+            ownerId={company.id}
+            value={logoImageUrl}
+            disabled={isSubmitting}
+            error={errors.logoImageUrl?.message}
+            onChange={(value) => {
+              setValue("logoImageUrl", value, { shouldDirty: true, shouldValidate: true });
+            }}
+            description="Upload the logo used in company and account views."
           />
-        </FieldGroup>
+        </div>
       </div>
 
       <div className="flex justify-end pt-2">

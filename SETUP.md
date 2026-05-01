@@ -172,7 +172,24 @@ The SQL file does these Supabase-specific tasks:
 
 Important: `supabase-rbac.sql` is for Supabase security setup. Prisma migrations remain the source of truth for the full application schema.
 
-## 7. Bootstrap The First Admin
+## 7. Create Supabase Storage Bucket
+
+POSard stores product images and company logos in Supabase Storage.
+
+1. Open Supabase Dashboard.
+2. Go to **Storage**.
+3. Create a bucket named `posard-images`.
+4. Set the bucket to public read access.
+5. Keep uploads restricted to server-side POSard actions; the app uses `SUPABASE_SERVICE_ROLE_KEY` on the server for upload and cleanup.
+
+New uploads are saved as storage paths in the existing database fields:
+
+- `companies/{companyId}/logos/...`
+- `companies/{companyId}/products/{productId-or-draft}/...`
+
+No extra environment variables are required beyond `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+
+## 8. Bootstrap The First Admin
 
 The first admin must exist before admin-only workflows can approve managers or manage companies.
 

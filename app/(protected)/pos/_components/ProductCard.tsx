@@ -5,8 +5,8 @@ import { Product, usePOSStore } from '../_store/pos-store';
 import { Package, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import Image from 'next/image';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { StorageImage } from '@/components/storage/StorageImage';
 
 interface ProductCardProps {
   product: Product;
@@ -48,17 +48,14 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
             "rounded-lg flex items-center justify-center border border-border overflow-hidden relative",
             isMobile ? "size-14" : "size-12 bg-muted/50",
           )}>
-            {product.productImageUrl ? (
-              <Image
-                src={product.productImageUrl}
-                alt={product.name}
-                fill
-                sizes={isMobile ? "56px" : "48px"}
-                className="h-full w-full object-cover rounded-lg"
-              />
-            ) : (
-              <Package className="size-6 text-muted-foreground/30" />
-            )}
+            <StorageImage
+              src={product.productImageUrl}
+              alt={product.name}
+              fill
+              sizes={isMobile ? "56px" : "48px"}
+              className="h-full w-full rounded-lg object-cover"
+              fallback={<Package className="size-6 text-muted-foreground/30" />}
+            />
             {isOutOfStock && (
               <div className="absolute inset-0 bg-destructive/60 flex items-center justify-center">
                 <span className="text-[10px] font-black text-white uppercase tracking-tighter -rotate-12 border border-white px-1">WALA</span>
@@ -101,17 +98,14 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
     >
       <CardHeader className="p-0 relative">
         <div className="aspect-[5/3] bg-muted/20 w-full flex items-center justify-center overflow-hidden relative">
-          {product.productImageUrl ? (
-            <Image
-              src={product.productImageUrl}
-              alt={product.name}
-              fill
-              sizes="(max-width: 767px) 50vw, 25vw"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <Package className="size-10 text-muted-foreground/10" />
-          )}
+          <StorageImage
+            src={product.productImageUrl}
+            alt={product.name}
+            fill
+            sizes="(max-width: 767px) 50vw, 25vw"
+            className="h-full w-full object-cover"
+            fallback={<Package className="size-10 text-muted-foreground/10" />}
+          />
           
           {isOutOfStock && (
             <div className="absolute inset-0 bg-destructive/60 flex items-center justify-center z-10 backdrop-blur-[1px]">

@@ -111,7 +111,7 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] items-center overflow-y-auto w-full">
-      <div className="w-full max-w-5xl py-16 px-6 md:px-8">
+      <div className="w-full max-w-5xl">
         <div className="mb-14 text-center animate-in fade-in slide-in-from-top-4 duration-700">
           <h1 className="text-4xl font-heading font-extrabold tracking-tight">Select POS Terminal</h1>
           <p className="text-muted-foreground font-medium mt-3">Ready for business. Choose an available workstation to start your session.</p>
@@ -191,9 +191,9 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                         <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 mb-1">
                           {t.actionLabel ?? "Ready for POS"}
                         </p>
-                        <p className="text-sm font-medium text-emerald-950 leading-relaxed">
+                        {/* <p className="text-sm font-medium text-emerald-950 leading-relaxed">
                           {t.billingMessage ?? "Securely access this terminal to manage inventory and process customer transactions."}
-                        </p>
+                        </p> */}
                       </div>
                     )}
                   </div>

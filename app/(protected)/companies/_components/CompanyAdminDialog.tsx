@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageUploadField } from "@/components/storage/ImageUploadField";
 import {
   AdminCompanyUpsertSchema,
   type AdminCompanyUpsertInput,
@@ -35,6 +36,8 @@ export function CompanyAdminDialog({
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<AdminCompanyUpsertPayload, unknown, AdminCompanyUpsertInput>({
     resolver: zodResolver(AdminCompanyUpsertSchema),
@@ -81,9 +84,22 @@ export function CompanyAdminDialog({
           <Field label="Address" error={errors.address?.message}>
             <Input {...register("address")} placeholder="Street, City, Province" />
           </Field>
-          <Field label="Logo URL" error={errors.logoImageUrl?.message}>
-            <Input {...register("logoImageUrl")} placeholder="https://cdn.example.com/logo.png" />
-          </Field>
+          <div>
+            <input type="hidden" {...register("logoImageUrl")} />
+            <ImageUploadField
+              id="admin-company-logo"
+              label="Company Logo"
+              purpose="company-logo"
+              ownerId={company?.id ?? null}
+              value={watch("logoImageUrl")}
+              disabled={isSubmitting}
+              error={errors.logoImageUrl?.message}
+              onChange={(value) => {
+                setValue("logoImageUrl", value ?? undefined, { shouldDirty: true, shouldValidate: true });
+              }}
+              description="Upload the logo used across company views."
+            />
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>

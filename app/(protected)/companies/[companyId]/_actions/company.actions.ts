@@ -10,6 +10,7 @@ import {
 } from "../_services/company.dto";
 import { companyAccessService } from "../_services/company-access.service";
 import { revalidatePath } from "next/cache";
+import { deletePosardImageAction } from "@/lib/storage/image-storage.actions";
 
 export async function getCompaniesAction(): Promise<
   { success: true; data: CompanyListItemDTO[] } | { success: false; error: string }
@@ -42,7 +43,11 @@ export async function updateCompanyAction(companyId: string, payload: UpdateComp
     await companyAccessService.assertCompanyAccess(companyId);
 
     const validated = UpdateCompanySchema.parse(payload);
+    const existing = await companyService.getCompanyById(companyId);
     const data = await companyService.updateCompany(companyId, validated);
+    if (existing?.logoImageUrl && existing.logoImageUrl !== data.logoImageUrl) {
+      await deletePosardImageAction(existing.logoImageUrl);
+    }
     
     revalidatePath("/companies");
     revalidatePath("/terminals");

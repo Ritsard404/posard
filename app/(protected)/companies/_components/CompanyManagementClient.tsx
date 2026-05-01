@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AdminPaginationControls } from "./AdminPaginationControls";
 import { CompanyAdminDialog } from "./CompanyAdminDialog";
+import { StorageImage } from "@/components/storage/StorageImage";
 import type { PageResult } from "../_services/_dto/common.dto";
 import type { AdminCompanyListItemDto } from "../_services/_dto/admin-company.dto";
 import type { CompanyDTO } from "../[companyId]/_services/company.dto";
@@ -165,8 +166,22 @@ export function CompanyManagementClient({
                   {pageData.items.map((company) => (
                     <tr key={company.id} className="border-b align-top">
                       <td className="px-4 py-3">
-                        <div className="font-semibold">{company.name}</div>
-                        <div className="text-xs text-muted-foreground">{company.code ?? "No code"}</div>
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-muted/30">
+                            <StorageImage
+                              src={company.logoImageUrl}
+                              alt={company.name}
+                              fill
+                              sizes="40px"
+                              className="object-cover"
+                              fallback={<Building2 className="size-4 text-muted-foreground/40" />}
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold">{company.name}</div>
+                            <div className="text-xs text-muted-foreground">{company.code ?? "No code"}</div>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div>{company.ownerManagerName ?? "Unassigned"}</div>
@@ -229,9 +244,21 @@ export function CompanyManagementClient({
                 <Card key={company.id} className="p-4">
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="font-semibold">{company.name}</div>
-                        <div className="text-xs text-muted-foreground">{company.email ?? company.phone ?? "No contact info"}</div>
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-muted/30">
+                          <StorageImage
+                            src={company.logoImageUrl}
+                            alt={company.name}
+                            fill
+                            sizes="40px"
+                            className="object-cover"
+                            fallback={<Building2 className="size-4 text-muted-foreground/40" />}
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate font-semibold">{company.name}</div>
+                          <div className="text-xs text-muted-foreground">{company.email ?? company.phone ?? "No contact info"}</div>
+                        </div>
                       </div>
                       <div className="text-xs text-muted-foreground">{company.terminalCount} terminals</div>
                     </div>

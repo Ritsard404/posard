@@ -38,7 +38,7 @@ export async function createCompany(data: SetupCompanyInput) {
         email: data.email,
         phone: data.phone,
         address: data.address,
-        logoImageUrl: data.logoImageUrl,
+        logoImageUrl: data.logoImageUrl || null,
         users: {
           connect: { userId: currentUserId! },
         },

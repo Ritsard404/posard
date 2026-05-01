@@ -31,6 +31,13 @@ export interface POSDiscount {
 export type PaymentMethodType = "cash" | "reference";
 export type CartMutationFailureReason = "OUT_OF_STOCK" | "LIMIT_REACHED";
 
+export interface POSReferencePayment {
+  id: string;
+  saleTypeId: string;
+  reference: string;
+  amount: number;
+}
+
 export interface CartMutationResult {
   success: boolean;
   reason?: CartMutationFailureReason;
@@ -88,6 +95,7 @@ interface POSState {
   paymentMethod: PaymentMethodType;
   selectedEPaymentMethodId: string | null;
   paymentReference: string;
+  referencePayments: POSReferencePayment[];
   amountTendered: number;
   fastCheckoutEnabled: boolean;
 
@@ -175,6 +183,13 @@ interface POSState {
   setPaymentMethod: (method: PaymentMethodType) => void;
   setSelectedEPaymentMethodId: (id: string | null) => void;
   setPaymentReference: (reference: string) => void;
+  addReferencePayment: (payment?: Partial<Omit<POSReferencePayment, "id">>) => void;
+  updateReferencePayment: (
+    id: string,
+    payment: Partial<Omit<POSReferencePayment, "id">>,
+  ) => void;
+  removeReferencePayment: (id: string) => void;
+  clearReferencePayments: () => void;
   setAmountTendered: (amount: number) => void;
   setFastCheckoutEnabled: (enabled: boolean) => void;
 
@@ -192,6 +207,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   paymentMethod: "cash",
   selectedEPaymentMethodId: null,
   paymentReference: "",
+  referencePayments: [],
   amountTendered: 0,
   fastCheckoutEnabled: readFastCheckoutPreference(),
 
@@ -392,6 +408,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       paymentMethod: "cash",
       selectedEPaymentMethodId: null,
       paymentReference: "",
+      referencePayments: [],
     }),
   applyStockUpdates: (updates) => {
     if (updates.length === 0) return;
@@ -442,6 +459,61 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setSelectedEPaymentMethodId: (selectedEPaymentMethodId) =>
     set({ selectedEPaymentMethodId }),
   setPaymentReference: (paymentReference) => set({ paymentReference }),
+  addReferencePayment: (payment) =>
+    set((state) => {
+      const saleTypeId =
+        payment?.saleTypeId ??
+        state.selectedEPaymentMethodId ??
+        state.epaymentMethods[0]?.id ??
+        "";
+
+      if (!saleTypeId) {
+        return { paymentMethod: "reference" };
+      }
+
+      return {
+        paymentMethod: "reference",
+        selectedEPaymentMethodId: saleTypeId,
+        referencePayments: [
+          ...state.referencePayments,
+          {
+            id: crypto.randomUUID(),
+            saleTypeId,
+            reference: payment?.reference ?? "",
+            amount: Math.round((payment?.amount ?? 0) * 100) / 100,
+          },
+        ],
+      };
+    }),
+  updateReferencePayment: (id, payment) =>
+    set((state) => ({
+      referencePayments: state.referencePayments.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              ...payment,
+              amount:
+                payment.amount === undefined
+                  ? item.amount
+                  : Math.round(payment.amount * 100) / 100,
+            }
+          : item,
+      ),
+    })),
+  removeReferencePayment: (id) =>
+    set((state) => ({
+      referencePayments: state.referencePayments.filter((item) => item.id !== id),
+      paymentMethod:
+        state.referencePayments.length <= 1 && state.amountTendered > 0
+          ? "cash"
+          : state.paymentMethod,
+    })),
+  clearReferencePayments: () =>
+    set({
+      referencePayments: [],
+      selectedEPaymentMethodId: null,
+      paymentReference: "",
+    }),
   setAmountTendered: (amountTendered) =>
     set({ amountTendered: Math.round(amountTendered * 100) / 100 }),
   setFastCheckoutEnabled: (fastCheckoutEnabled) => {
