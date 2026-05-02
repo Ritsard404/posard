@@ -88,6 +88,66 @@ export const registrationRequestService = {
     });
   },
 
+  async submitGoogleOAuthRequest(input: {
+    fullName: string;
+    email: string;
+  }): Promise<void> {
+    const email = normalizeEmail(input.email);
+    const fullName = input.fullName.trim();
+
+    const [existingProfile, existingPendingRequest, latestRejectedRequest] =
+      await Promise.all([
+        prisma.profile.findUnique({
+          where: { email },
+          select: { id: true },
+        }),
+        prisma.registrationRequest.findFirst({
+          where: { email, status: "pending" },
+          select: { id: true },
+        }),
+        prisma.registrationRequest.findFirst({
+          where: { email, status: "rejected" },
+          orderBy: [
+            { reviewedAt: "desc" },
+            { updatedAt: "desc" },
+            { createdAt: "desc" },
+          ],
+          select: {
+            reviewedAt: true,
+            retryUnlockedAt: true,
+            updatedAt: true,
+          },
+        }),
+      ]);
+
+    if (existingProfile) {
+      throw new Error("An account already exists for this email. Please log in.");
+    }
+
+    if (existingPendingRequest) {
+      return;
+    }
+
+    if (latestRejectedRequest) {
+      const canRegisterAgainAt = getRetryAvailableAt(latestRejectedRequest);
+
+      if (Date.now() < canRegisterAgainAt.getTime()) {
+        throw new Error(formatRetryBlockedMessage(canRegisterAgainAt));
+      }
+    }
+
+    await prisma.registrationRequest.create({
+      data: {
+        fullName,
+        email,
+        phone: null,
+        companyName: null,
+        requestedRole: "manager",
+        status: "pending",
+      },
+    });
+  },
+
   async getLoginStatusByEmail(
     rawEmail: string,
   ): Promise<RegistrationRequestLoginStatusDto> {

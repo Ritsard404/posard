@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Chrome } from "lucide-react";
 
 import { getRegistrationRequestLoginStatusAction } from "@/app/auth/_actions/registration-request.action";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -118,6 +120,30 @@ export function LoginForm({
     });
   };
 
+  const handleGoogleLogin = () => {
+    if (isPending) return;
+
+    setError(null);
+
+    startTransition(async () => {
+      const supabase = createClient();
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+        "/auth/post-login",
+      )}`;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      });
+
+      if (error) {
+        setError(error.message);
+      }
+    });
+  };
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="rounded-[2rem] border border-border/70 bg-card/92 shadow-[0_20px_60px_rgba(15,23,42,0.10)] backdrop-blur-sm dark:bg-card/94">
@@ -196,6 +222,26 @@ export function LoginForm({
                 idleLabel="Login"
                 pendingLabel="Signing you in..."
               />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 font-bold tracking-wider text-muted-foreground">
+                    Or
+                  </span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full rounded-xl font-bold"
+                disabled={isPending}
+                onClick={handleGoogleLogin}
+              >
+                <Chrome className="mr-2 h-4 w-4" aria-hidden="true" />
+                Continue with Google
+              </Button>
             </div>
             <div className="mt-6 text-center text-sm font-medium text-muted-foreground">
               Don&apos;t have an account?{" "}

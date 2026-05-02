@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Chrome } from "lucide-react";
 
 import { submitRegistrationRequestAction } from "@/app/auth/_actions/registration-request.action";
 import {
@@ -10,6 +11,7 @@ import {
   type AuthFeedbackState,
 } from "@/components/auth-feedback";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
@@ -20,6 +22,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 const LABEL_CLASS =
@@ -127,6 +130,42 @@ export function SignUpForm({
     });
   };
 
+  const handleGoogleSignUp = () => {
+    if (isPending) return;
+
+    if (!termsAccepted) {
+      setFeedback({
+        kind: "error",
+        message: "Please accept the Terms and Conditions and Privacy Policy.",
+      });
+      return;
+    }
+
+    setFeedback({
+      kind: "pending",
+      message: "Redirecting to Google...",
+    });
+
+    startTransition(async () => {
+      const supabase = createClient();
+      const redirectTo = `${window.location.origin}/auth/callback?mode=signup`;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      });
+
+      if (error) {
+        setFeedback({
+          kind: "error",
+          message: error.message,
+        });
+      }
+    });
+  };
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="rounded-[2rem] border border-border/70 bg-card/92 shadow-[0_20px_60px_rgba(15,23,42,0.10)] backdrop-blur-sm dark:bg-card/94">
@@ -222,6 +261,26 @@ export function SignUpForm({
                 idleLabel="Submit Registration Request"
                 pendingLabel="Submitting your request..."
               />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 font-bold tracking-wider text-muted-foreground">
+                    Or
+                  </span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full rounded-xl font-bold"
+                disabled={isPending}
+                onClick={handleGoogleSignUp}
+              >
+                <Chrome className="mr-2 h-4 w-4" aria-hidden="true" />
+                Continue with Google
+              </Button>
             </div>
             <div className="mt-6 text-center text-sm font-medium text-muted-foreground">
               Already have an account?{" "}

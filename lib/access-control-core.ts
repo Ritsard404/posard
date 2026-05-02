@@ -22,6 +22,7 @@ export const publicRoutes = [
   "/terms",
   "/manifest.webmanifest",
   "/auth/login",
+  "/auth/callback",
   "/auth/post-login",
   "/auth/sign-up",
   "/auth/sign-up-success",
