@@ -1,7 +1,6 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import { getAuthRedirectUrl } from "@/lib/auth-redirect-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Prisma, UserStatus } from "@prisma/client";
@@ -34,7 +33,22 @@ function assertViewerCanManageAccounts(viewer: AccountsViewerDto) {
 }
 
 function getInviteRedirectTo() {
-  return getAuthRedirectUrl("/auth/update-password");
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+  if (!baseUrl) {
+    return undefined;
+  }
+
+  return `${baseUrl.replace(/\/$/, "")}/auth/update-password`;
+}
+
+function getVerifiedEmailRedirectTo() {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    "https://posard.vercel.app";
+
+  return `${baseUrl.replace(/\/$/, "")}/auth/confirm?next=/accounts`;
 }
 
 function normalizeAuthError(message: string) {
@@ -483,9 +497,7 @@ export const accountsService = {
         },
         input.email
           ? {
-              emailRedirectTo: getAuthRedirectUrl(
-                "/auth/confirm?next=/accounts",
-              ),
+              emailRedirectTo: getVerifiedEmailRedirectTo(),
             }
           : undefined,
       );
