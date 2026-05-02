@@ -344,6 +344,7 @@ function SelfAccountDialog(props: AccountDialogProps) {
   const form = useForm<SelfFormInput, undefined, SelfFormValues>({
     resolver: zodResolver(UpdateOwnProfileSchema),
     defaultValues: {
+      email: props.initialValues?.email ?? "",
       fullName: props.initialValues?.fullName ?? "",
       password: "",
       pin: "",
@@ -352,6 +353,7 @@ function SelfAccountDialog(props: AccountDialogProps) {
 
   useEffect(() => {
     form.reset({
+      email: props.initialValues?.email ?? "",
       fullName: props.initialValues?.fullName ?? "",
       password: "",
       pin: "",
@@ -370,6 +372,10 @@ function SelfAccountDialog(props: AccountDialogProps) {
           className="space-y-4"
           onSubmit={form.handleSubmit((values) =>
             props.onSelfSubmit?.({
+              email:
+                values.email && values.email !== props.initialValues?.email
+                  ? values.email
+                  : undefined,
               fullName: values.fullName,
               password: values.password,
               pin:
@@ -387,6 +393,25 @@ function SelfAccountDialog(props: AccountDialogProps) {
                 {form.formState.errors.fullName.message}
               </p>
             ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="self-email">Email</Label>
+            <Input
+              id="self-email"
+              type="email"
+              autoComplete="email"
+              {...form.register("email")}
+            />
+            {form.formState.errors.email ? (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.email.message}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Changing this sends a verification link before the account email is updated.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

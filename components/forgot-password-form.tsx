@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { getAuthRedirectUrl } from "@/lib/auth-redirect-url";
 
 export function ForgotPasswordForm({
   className,
@@ -46,7 +47,7 @@ export function ForgotPasswordForm({
 
       try {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/update-password`,
+          redirectTo: getAuthRedirectUrl("/auth/update-password"),
         });
         if (error) throw error;
 

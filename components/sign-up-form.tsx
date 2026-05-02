@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
+import { getAuthRedirectUrl } from "@/lib/auth-redirect-url";
 import { cn } from "@/lib/utils";
 
 const LABEL_CLASS =
@@ -148,7 +149,7 @@ export function SignUpForm({
 
     startTransition(async () => {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback?mode=signup`;
+      const redirectTo = `${getAuthRedirectUrl("/auth/callback")}?mode=signup`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",

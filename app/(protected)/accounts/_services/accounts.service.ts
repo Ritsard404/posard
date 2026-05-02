@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { getAuthRedirectUrl } from "@/lib/auth-redirect-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Prisma, UserStatus } from "@prisma/client";
@@ -33,13 +34,7 @@ function assertViewerCanManageAccounts(viewer: AccountsViewerDto) {
 }
 
 function getInviteRedirectTo() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-
-  if (!baseUrl) {
-    return undefined;
-  }
-
-  return `${baseUrl.replace(/\/$/, "")}/auth/update-password`;
+  return getAuthRedirectUrl("/auth/update-password");
 }
 
 function normalizeAuthError(message: string) {
@@ -479,11 +474,21 @@ export const accountsService = {
     viewer: AccountsViewerDto,
     input: UpdateOwnProfileInputDto,
   ): Promise<AccountDetailDto> {
-    if (input.password) {
+    if (input.password || input.email) {
       const supabase = await createClient();
-      const { error } = await supabase.auth.updateUser({
-        password: input.password,
-      });
+      const { error } = await supabase.auth.updateUser(
+        {
+          ...(input.password ? { password: input.password } : {}),
+          ...(input.email ? { email: input.email } : {}),
+        },
+        input.email
+          ? {
+              emailRedirectTo: getAuthRedirectUrl(
+                "/auth/confirm?next=/accounts",
+              ),
+            }
+          : undefined,
+      );
 
       if (error) {
         throw new Error(normalizeAuthError(error.message));

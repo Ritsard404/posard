@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { getAuthRedirectUrl } from "@/lib/auth-redirect-url";
 
 export function LoginForm({
   className,
@@ -127,7 +128,7 @@ export function LoginForm({
 
     startTransition(async () => {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+      const redirectTo = `${getAuthRedirectUrl("/auth/callback")}?next=${encodeURIComponent(
         "/auth/post-login",
       )}`;
 

@@ -65,6 +65,9 @@ export const UpdateAccountSchema = z.object({
 });
 
 export const UpdateOwnProfileSchema = z.object({
+  email: emptyStringToUndefined(
+    z.string().trim().email("A valid email is required"),
+  ),
   fullName: nullableTextInput,
   password: emptyStringToUndefined(
     z

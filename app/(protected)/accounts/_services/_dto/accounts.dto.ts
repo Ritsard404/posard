@@ -72,6 +72,7 @@ export interface UpdateAccountInputDto {
 }
 
 export interface UpdateOwnProfileInputDto {
+  email?: string | null;
   fullName: string | null;
   password?: string | null;
   pin?: string | null;

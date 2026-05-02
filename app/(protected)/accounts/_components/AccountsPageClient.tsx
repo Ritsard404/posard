@@ -275,7 +275,10 @@ export function AccountsPageClient({
         description="Edit your profile information or change your login password."
         viewerRole={viewer.role}
         companyOptions={companyOptions}
-        initialValues={{ fullName: myAccount.fullName }}
+        initialValues={{
+          email: myAccount.email,
+          fullName: myAccount.fullName,
+        }}
         onSelfSubmit={(values) => {
           startTransition(() => {
             void (async () => {
@@ -287,7 +290,11 @@ export function AccountsPageClient({
               }
 
               setMyAccount(result.data);
-              toast.success("Profile updated");
+              toast.success(
+                values.email
+                  ? "Verification link sent to the new email"
+                  : "Profile updated",
+              );
               setDialogState(null);
               router.refresh();
             })();
