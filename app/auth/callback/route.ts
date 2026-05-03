@@ -40,6 +40,33 @@ async function removeTemporaryOAuthUser(userId: string) {
   }
 }
 
+async function submitPendingGoogleRegistration(input: {
+  request: NextRequest;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  email: string;
+  fullName: string | null;
+}) {
+  await input.supabase.auth.signOut();
+
+  try {
+    await registrationRequestService.submitGoogleOAuthRequest({
+      fullName: input.fullName ?? input.email,
+      email: input.email,
+    });
+    await removeTemporaryOAuthUser(input.userId);
+
+    return NextResponse.redirect(
+      new URL("/auth/sign-up-success", input.request.url),
+    );
+  } catch (error) {
+    console.error("Google registration request failed", error);
+    await removeTemporaryOAuthUser(input.userId);
+
+    return NextResponse.redirect(new URL("/auth/sign-up", input.request.url));
+  }
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
@@ -81,28 +108,18 @@ export async function GET(request: NextRequest) {
           select: { id: true },
         });
 
-    await supabase.auth.signOut();
-
     if (existingProfile || existingEmailProfile) {
+      await supabase.auth.signOut();
       return NextResponse.redirect(new URL("/auth/login", request.url));
     }
 
-    try {
-      await registrationRequestService.submitGoogleOAuthRequest({
-        fullName: fullName ?? user.email,
-        email: user.email,
-      });
-      await removeTemporaryOAuthUser(user.id);
-
-      return NextResponse.redirect(
-        new URL("/auth/sign-up-success", request.url),
-      );
-    } catch (error) {
-      console.error("Google registration request failed", error);
-      await removeTemporaryOAuthUser(user.id);
-
-      return NextResponse.redirect(new URL("/auth/sign-up", request.url));
-    }
+    return submitPendingGoogleRegistration({
+      request,
+      supabase,
+      userId: user.id,
+      email: user.email,
+      fullName,
+    });
   }
 
   const existingProfile = await prisma.profile.findUnique({
@@ -121,12 +138,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/auth/login", request.url));
     }
 
-    await prisma.profile.create({
-      data: {
-        userId: user.id,
-        email: user.email,
-        fullName,
-      },
+    return submitPendingGoogleRegistration({
+      request,
+      supabase,
+      userId: user.id,
+      email: user.email,
+      fullName,
     });
   } else if (!existingProfile.fullName && fullName) {
     await prisma.profile.update({
