@@ -778,12 +778,34 @@ export function POSTenderForm({
   const [mobileEditor, setMobileEditor] = useState<
     "payment" | "discount" | null
   >(null);
+  const [mobileSplitEnabled, setMobileSplitEnabled] = useState(false);
   const showMobilePaymentEditor =
     isMobileVariant &&
     (mobileEditor === "payment" || paymentMethod === "reference");
   const showMobileDiscountEditor =
     isMobileVariant &&
     (mobileEditor === "discount" || requiresDiscountMetadata);
+  const showMobileSplitEditor =
+    isMobileVariant && (mobileSplitEnabled || referencePayments.length > 0);
+  const disableCashEntry = settlementMode === "debt";
+
+  const handleMobileCashOption = () => {
+    setMobileSplitEnabled(false);
+    selectCashPayment();
+    referencePayments.forEach((payment) => removeReferencePayment(payment.id));
+    setMobileEditor(null);
+  };
+
+  const handleMobileSplitOption = () => {
+    setMobileSplitEnabled(true);
+    if (referencePayments.length === 0 && epaymentMethods[0]) {
+      addReferencePayment({
+        saleTypeId: epaymentMethods[0].id,
+        amount: Math.max(totalAmount - amountTendered, 0),
+      });
+    }
+    setMobileEditor(null);
+  };
 
   return (
     <div
@@ -812,16 +834,89 @@ export function POSTenderForm({
               value={activePaymentMethodLabel}
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <SummaryMetric
-              label={summaryTenderedLabel}
-              value={`PHP ${formatCurrency(summaryTenderedAmount)}`}
-            />
-            <SummaryMetric
-              label="Change"
-              value={`PHP ${formatCurrency(summaryChangeAmount)}`}
-              tone={change < 0 ? "danger" : "success"}
-            />
+          <div className="rounded-2xl border border-primary/15 bg-primary/5 p-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+              <div className="space-y-1">
+                <Label
+                  htmlFor={`mobile-cash-${variant}`}
+                  className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground"
+                >
+                  Cash Received
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-primary/60">
+                    PHP
+                  </span>
+                  <Input
+                    id={`mobile-cash-${variant}`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={amountTendered || ""}
+                    disabled={disableCashEntry}
+                    onChange={(event) =>
+                      setAmountTendered(parseFloat(event.target.value) || 0)
+                    }
+                    className="h-11 rounded-2xl border-primary/20 bg-background pl-11 font-heading text-lg font-black"
+                    placeholder="0.00"
+                    inputMode="decimal"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.1em]"
+                  disabled={disableCashEntry}
+                  onClick={() =>
+                    setAmountTendered(Math.max(totalAmount - referencePaymentTotal, 0))
+                  }
+                >
+                  Exact
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 rounded-xl border px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-destructive hover:text-destructive"
+                  disabled={disableCashEntry}
+                  onClick={() => setAmountTendered(0)}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <SummaryMetric
+                label="Remaining"
+                value={`PHP ${formatCurrency(remainingDue)}`}
+                tone={remainingDue > 0 ? "danger" : "success"}
+              />
+              <SummaryMetric
+                label="Change"
+                value={`PHP ${formatCurrency(summaryChangeAmount)}`}
+                tone={change < 0 ? "danger" : "success"}
+              />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={!showMobileSplitEditor ? "default" : "outline"}
+                className="h-9 rounded-2xl text-[10px] font-black uppercase tracking-[0.12em]"
+                onClick={handleMobileCashOption}
+              >
+                Cash
+              </Button>
+              <Button
+                type="button"
+                variant={showMobileSplitEditor ? "default" : "outline"}
+                className="h-9 rounded-2xl text-[10px] font-black uppercase tracking-[0.12em]"
+                disabled={settlementMode === "debt" || epaymentMethods.length === 0}
+                onClick={handleMobileSplitOption}
+              >
+                Split Payment
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -1079,7 +1174,9 @@ export function POSTenderForm({
                         {paymentMethod === "cash" ? "E-Payment" : "Payment"}
                       </span>
                       <span className="mt-0.5 block truncate text-xs font-bold">
-                        {paymentMethod === "cash"
+                        {showMobileSplitEditor
+                          ? "Split Active"
+                          : paymentMethod === "cash"
                           ? "Change Method"
                           : activePaymentMethodLabel}
                       </span>
@@ -1095,13 +1192,10 @@ export function POSTenderForm({
                         <div className="grid grid-cols-2 gap-2">
                           <Button
                             variant={
-                              paymentMethod === "cash" ? "default" : "outline"
+                              paymentMethod === "cash" && !showMobileSplitEditor ? "default" : "outline"
                             }
                             className="h-9 rounded-2xl px-2.5 text-[10px] font-black uppercase tracking-[0.12em]"
-                            onClick={() => {
-                              selectCashPayment();
-                              setMobileEditor(null);
-                            }}
+                            onClick={handleMobileCashOption}
                           >
                             <Banknote className="size-4" />
                             Cash
@@ -1430,23 +1524,25 @@ export function POSTenderForm({
                 </div>
               )}
 
-              <SplitPaymentEditor
-                variant={variant}
-                totalAmount={totalAmount}
-                amountTendered={amountTendered}
-                setAmountTendered={setAmountTendered}
-                referencePayments={referencePayments}
-                epaymentMethods={epaymentMethods}
-                referencePaymentTotal={referencePaymentTotal}
-                totalTendered={totalTendered}
-                remainingDue={remainingDue}
-                referenceOverpayAmount={referenceOverpayAmount}
-                change={change}
-                disabled={settlementMode === "debt"}
-                addReferencePayment={addReferencePayment}
-                updateReferencePayment={updateReferencePayment}
-                removeReferencePayment={removeReferencePayment}
-              />
+              {!isMobileVariant || showMobileSplitEditor ? (
+                <SplitPaymentEditor
+                  variant={variant}
+                  totalAmount={totalAmount}
+                  amountTendered={amountTendered}
+                  setAmountTendered={setAmountTendered}
+                  referencePayments={referencePayments}
+                  epaymentMethods={epaymentMethods}
+                  referencePaymentTotal={referencePaymentTotal}
+                  totalTendered={totalTendered}
+                  remainingDue={remainingDue}
+                  referenceOverpayAmount={referenceOverpayAmount}
+                  change={change}
+                  disabled={settlementMode === "debt"}
+                  addReferencePayment={addReferencePayment}
+                  updateReferencePayment={updateReferencePayment}
+                  removeReferencePayment={removeReferencePayment}
+                />
+              ) : null}
 
               {false && paymentMethod === "reference" ? (
                 <div
