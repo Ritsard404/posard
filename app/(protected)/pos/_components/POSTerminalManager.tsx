@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Monitor } from "lucide-react";
-import { fetchPOSMetaDataAction } from "../_actions/pos.action";
 import { getCurrentSessionAction } from "../_actions/session.action";
 import { usePOSStore } from "../_store/pos-store";
 import { POSLayout } from "./POSLayout";
@@ -25,6 +24,7 @@ import {
   getOfflineManagerVerifiers,
   getOfflineSessionSnapshot,
 } from "../_services/offline-db.client";
+import type { SessionSnapshotDto } from "../_services/_dto/offline.dto";
 
 async function refreshQueueState(setSyncCounts: ReturnType<typeof usePOSStore.getState>["setSyncCounts"]) {
   const queue = await getOfflineQueueSnapshot();
@@ -33,6 +33,35 @@ async function refreshQueueState(setSyncCounts: ReturnType<typeof usePOSStore.ge
     syncingCount: queue.syncingCount,
     needsReviewCount: queue.needsReviewCount,
   });
+}
+
+function mapSessionSnapshotToStore(
+  sessionSnapshot: SessionSnapshotDto,
+): Parameters<ReturnType<typeof usePOSStore.getState>["setSession"]>[0] {
+  return {
+    sessionId: sessionSnapshot.timestampId,
+    timestampId: sessionSnapshot.timestampId,
+    deviceId: sessionSnapshot.deviceId,
+    profileId: sessionSnapshot.cashierId,
+    terminal: {
+      id: sessionSnapshot.terminalId,
+      name: sessionSnapshot.terminalName,
+      vat: sessionSnapshot.terminalVat,
+      discountCapType: sessionSnapshot.discountCapType,
+      discountMax: sessionSnapshot.discountMax,
+      allowCashierDebtCreate: sessionSnapshot.allowCashierDebtCreate,
+      allowCashierDebtCollect: sessionSnapshot.allowCashierDebtCollect,
+      requireManagerApprovalForDebt: sessionSnapshot.requireManagerApprovalForDebt,
+      defaultDebtDueDays: sessionSnapshot.defaultDebtDueDays,
+      printerConfig: sessionSnapshot.printerConfig,
+      billingLocked: sessionSnapshot.billingLocked,
+      billingMessage: sessionSnapshot.billingMessage,
+    },
+    user: {
+      name: sessionSnapshot.cashierName,
+      role: "cashier",
+    },
+  };
 }
 
 export function POSTerminalManager() {
@@ -116,31 +145,15 @@ export function POSTerminalManager() {
       }
 
       if (sessionSnapshot) {
-        setSession({
-          sessionId: sessionSnapshot.timestampId,
-          timestampId: sessionSnapshot.timestampId,
-          deviceId: sessionSnapshot.deviceId,
-          profileId: sessionSnapshot.cashierId,
-              terminal: {
-                id: sessionSnapshot.terminalId,
-                name: sessionSnapshot.terminalName,
-              vat: sessionSnapshot.terminalVat,
-              discountCapType: sessionSnapshot.discountCapType,
-              discountMax: sessionSnapshot.discountMax,
-              allowCashierDebtCreate: false,
-              allowCashierDebtCollect: false,
-                requireManagerApprovalForDebt: false,
-                defaultDebtDueDays: null,
-                printerConfig: sessionSnapshot.printerConfig,
-                billingLocked: sessionSnapshot.billingLocked,
-                billingMessage: sessionSnapshot.billingMessage,
-              },
-          user: {
-            name: sessionSnapshot.cashierName,
-            role: "cashier",
-          },
-        });
+        setSession(mapSessionSnapshotToStore(sessionSnapshot));
       }
+
+      return Boolean(
+        sessionSnapshot ||
+          catalog.products.length > 0 ||
+          catalog.categories.length > 0 ||
+          catalog.epaymentMethods.length > 0,
+      );
     }
 
     async function syncNow(deviceId: string) {
@@ -189,23 +202,53 @@ export function POSTerminalManager() {
     }
 
     async function loadData() {
+      const startedAt = performance.now();
       const deviceId = getDeviceIdentity();
       setDeviceId(deviceId);
       setNetworkStatus(navigator.onLine);
 
-      try {
-        await registerPOSServiceWorker();
-      } catch {
+      void registerPOSServiceWorker().catch(() => {
         // Offline foreground retries still work without a service worker.
-      }
+      });
 
       try {
         if (navigator.onLine) {
-          const [metaRes, sessionRes, bootstrap] = await Promise.all([
-            fetchPOSMetaDataAction(),
-            getCurrentSessionAction(),
-            fetchOfflineBootstrap(deviceId),
-          ]);
+          const cachedDataShown = await hydrateOfflineFallback();
+
+          if (cachedDataShown && !cancelled) {
+            setOfflineReady(true);
+            setMounted(true);
+            setLoading(false);
+          }
+
+          const bootstrapPromise = fetchOfflineBootstrap(deviceId);
+          const sessionRes = await getCurrentSessionAction();
+
+          if (cancelled) {
+            return;
+          }
+
+          if (sessionRes.success && sessionRes.data) {
+            setSession({
+              ...sessionRes.data,
+              deviceId: sessionRes.data.deviceId ?? deviceId,
+            });
+          } else {
+            setSession({
+              sessionId: null,
+              timestampId: null,
+              deviceId,
+              profileId: null,
+              terminal: null,
+              user: null,
+            });
+          }
+
+          setOfflineReady(true);
+          setMounted(true);
+          setLoading(false);
+
+          const bootstrap = await bootstrapPromise;
 
           if (cancelled) {
             return;
@@ -217,51 +260,17 @@ export function POSTerminalManager() {
           setManagerVerifiers(bootstrap.managerVerifiers);
           setCompanyId(bootstrap.session?.companyId ?? null);
 
-          if (sessionRes.success && sessionRes.data) {
-            setSession({
-              ...sessionRes.data,
-              deviceId: sessionRes.data.deviceId ?? deviceId,
-            });
-          } else if (bootstrap.session) {
-              setSession({
-                sessionId: bootstrap.session.timestampId,
-                timestampId: bootstrap.session.timestampId,
-                deviceId: bootstrap.session.deviceId,
-                profileId: bootstrap.session.cashierId,
-                terminal: {
-                id: bootstrap.session.terminalId,
-                name: bootstrap.session.terminalName,
-                vat: bootstrap.session.terminalVat,
-                discountCapType: bootstrap.session.discountCapType,
-                discountMax: bootstrap.session.discountMax,
-                allowCashierDebtCreate: false,
-                allowCashierDebtCollect: false,
-                requireManagerApprovalForDebt: false,
-                defaultDebtDueDays: null,
-                printerConfig: bootstrap.session.printerConfig,
-                billingLocked: bootstrap.session.billingLocked,
-                billingMessage: bootstrap.session.billingMessage,
-              },
-              user: {
-                name: bootstrap.session.cashierName,
-                role: "cashier",
-              },
-            });
+          if (bootstrap.session) {
+            setSession(mapSessionSnapshotToStore(bootstrap.session));
           } else {
-              setSession({
-                sessionId: null,
-                timestampId: null,
-                deviceId,
-                profileId: null,
-                terminal: null,
-                user: null,
-              });
-          }
-
-          if (metaRes.success && bootstrap.metadata.products.length === 0) {
-            setProducts(metaRes.data.products);
-            setCategories(metaRes.data.categories);
-            setEPaymentMethods(metaRes.data.epaymentMethods);
+            setSession({
+              sessionId: null,
+              timestampId: null,
+              deviceId,
+              profileId: null,
+              terminal: null,
+              user: null,
+            });
           }
         } else {
           await hydrateOfflineFallback();
@@ -270,12 +279,16 @@ export function POSTerminalManager() {
         await hydrateOfflineFallback();
       } finally {
         setPrinterCapabilities(printClientService.getCapabilities());
-        await refreshQueueState(setSyncCounts);
         if (!cancelled) {
           setOfflineReady(true);
           setMounted(true);
           setLoading(false);
+          console.info("POS terminal bootstrap timing", {
+            totalMs: Math.round(performance.now() - startedAt),
+            online: navigator.onLine,
+          });
         }
+        void refreshQueueState(setSyncCounts);
       }
     }
 

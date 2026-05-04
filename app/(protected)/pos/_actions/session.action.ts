@@ -118,9 +118,35 @@ export async function getCurrentSessionAction() {
 
     const timestamp = await prisma.timestamp.findFirst({
       where: { cashierId: profile.id, timestampOut: null },
-      include: {
+      select: {
+        id: true,
+        deviceId: true,
+        posTerminalId: true,
         posTerminal: {
-          include: {
+          select: {
+            id: true,
+            posName: true,
+            vat: true,
+            discountCapType: true,
+            discountMax: true,
+            allowCashierDebtCreate: true,
+            allowCashierDebtCollect: true,
+            requireManagerApprovalForDebt: true,
+            defaultDebtDueDays: true,
+            isDefaultTerminal: true,
+            validUntil: true,
+            isTrainMode: true,
+            printerName: true,
+            printerDisplayName: true,
+            printerConnectionType: true,
+            printerTransport: true,
+            printerDriver: true,
+            printerVendorId: true,
+            printerProductId: true,
+            printerDeviceId: true,
+            printerServiceUuid: true,
+            printerCharacteristicUuid: true,
+            autoPrintEnabled: true,
             subscription: {
               select: {
                 status: true,
@@ -183,7 +209,30 @@ export async function getTerminalsAction() {
 
     const terminals = await prisma.posTerminalInfo.findMany({
       where: { companyId: profile.companyId },
-      include: {
+      select: {
+        id: true,
+        posName: true,
+        vat: true,
+        discountCapType: true,
+        discountMax: true,
+        allowCashierDebtCreate: true,
+        allowCashierDebtCollect: true,
+        requireManagerApprovalForDebt: true,
+        defaultDebtDueDays: true,
+        isDefaultTerminal: true,
+        validUntil: true,
+        isTrainMode: true,
+        printerName: true,
+        printerDisplayName: true,
+        printerConnectionType: true,
+        printerTransport: true,
+        printerDriver: true,
+        printerVendorId: true,
+        printerProductId: true,
+        printerDeviceId: true,
+        printerServiceUuid: true,
+        printerCharacteristicUuid: true,
+        autoPrintEnabled: true,
         subscription: {
           select: {
             status: true,
@@ -192,7 +241,11 @@ export async function getTerminalsAction() {
         },
         timestamps: {
           where: { timestampOut: null },
-          include: { cashier: { select: { fullName: true } } },
+          select: {
+            cashier: {
+              select: { fullName: true },
+            },
+          },
         },
       },
       orderBy: { posName: "asc" },

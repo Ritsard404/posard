@@ -101,6 +101,10 @@ export interface SessionSnapshotDto {
   terminalVat: number;
   discountCapType: "amount" | "percent";
   discountMax: number;
+  allowCashierDebtCreate: boolean;
+  allowCashierDebtCollect: boolean;
+  requireManagerApprovalForDebt: boolean;
+  defaultDebtDueDays: number | null;
   printerConfig: PrinterConfigDto | null;
   cashierId: string;
   cashierName: string | null;

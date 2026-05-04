@@ -23,9 +23,13 @@ export const publicRoutes = [
   "/manifest.webmanifest",
   "/auth/login",
   "/auth/callback",
+  "/auth/confirm",
+  "/auth/error",
+  "/auth/forgot-password",
   "/auth/post-login",
   "/auth/sign-up",
   "/auth/sign-up-success",
+  "/auth/update-password",
   "/opengraph-image",
   "/robots.txt",
   "/sitemap.xml",
@@ -275,4 +279,18 @@ export function getFirstAccessibleRoute(role: string | null): string {
   );
 
   return first?.href ?? "/auth/login";
+}
+
+export function resolveProtectedRouteRedirect(input: {
+  role: string | null;
+  pathname: string;
+}) {
+  if (!hasPermissionForRoute(input.role, input.pathname)) {
+    const destination = getFirstAccessibleRoute(input.role);
+    return destination === "/auth/login" || destination === input.pathname
+      ? "/unauthorized"
+      : destination;
+  }
+
+  return null;
 }

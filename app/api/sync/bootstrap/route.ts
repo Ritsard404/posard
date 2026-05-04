@@ -90,6 +90,10 @@ export async function GET(request: Request) {
                 vat: true,
                 discountCapType: true,
                 discountMax: true,
+                allowCashierDebtCreate: true,
+                allowCashierDebtCollect: true,
+                requireManagerApprovalForDebt: true,
+                defaultDebtDueDays: true,
                 printerName: true,
                 printerDisplayName: true,
                 printerConnectionType: true,
@@ -142,6 +146,11 @@ export async function GET(request: Request) {
               discountMax: timestamp.posTerminal.discountMax
                 ? Number(timestamp.posTerminal.discountMax)
                 : 0,
+              allowCashierDebtCreate: timestamp.posTerminal.allowCashierDebtCreate,
+              allowCashierDebtCollect: timestamp.posTerminal.allowCashierDebtCollect,
+              requireManagerApprovalForDebt:
+                timestamp.posTerminal.requireManagerApprovalForDebt,
+              defaultDebtDueDays: timestamp.posTerminal.defaultDebtDueDays ?? null,
               printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
               cashierId: timestamp.cashierId,
               cashierName: timestamp.cashier.fullName ?? null,

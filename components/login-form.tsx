@@ -49,7 +49,7 @@ export function LoginForm({
       const supabase = createClient();
 
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -87,30 +87,6 @@ export function LoginForm({
           }
 
           throw error;
-        }
-
-        const userId = data?.user?.id;
-        if (!userId) throw new Error("Could not get logged in user id");
-
-        const profileResult = await supabase
-          .from("profiles")
-          .select("status,role")
-          .eq("user_id", userId)
-          .single();
-
-        if (profileResult.error || !profileResult.data) {
-          await supabase.auth.signOut();
-          throw new Error(
-            "User profile not found or unauthorized => " +
-              (profileResult.error?.message ?? ""),
-          );
-        }
-
-        if (profileResult.data.status !== "active") {
-          await supabase.auth.signOut();
-          throw new Error(
-            "Account is pending approval or disabled. Contact an admin.",
-          );
         }
 
         router.push("/auth/post-login");

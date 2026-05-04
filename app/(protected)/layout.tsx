@@ -9,27 +9,98 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 import { getCompanyBillingAccess } from "@/lib/billing-access";
+import {
+  isBillingRestrictedRole,
+  isBillingRestrictedRoute,
+  resolveProtectedRouteRedirect,
+} from "@/lib/access-control-core";
 import { prisma } from "@/lib/prisma";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const startedAt = performance.now();
+  const logAuthTiming = (data: Record<string, unknown>) => {
+    if (process.env.NODE_ENV !== "production") {
+      console.info("POSard protected auth timing", data);
+    }
+  };
+  const headerStore = await headers();
+  const pathname = headerStore.get("x-posard-pathname") ?? "/dashboard";
   const profile = await getCurrentProfile();
-  const activePosSession = profile
-    ? await prisma.timestamp.findFirst({
+
+  if (!profile || profile.status !== "active") {
+    logAuthTiming({
+      pathname,
+      reason: "inactive-or-missing-profile",
+      ms: Math.round(performance.now() - startedAt),
+    });
+    redirect("/auth/login");
+  }
+
+  if (
+    profile.role === "manager" &&
+    !profile.companyId &&
+    !pathname.startsWith("/setup-company")
+  ) {
+    logAuthTiming({
+      pathname,
+      reason: "manager-company-setup-required",
+      ms: Math.round(performance.now() - startedAt),
+    });
+    redirect("/setup-company");
+  }
+
+  const routeRedirect = resolveProtectedRouteRedirect({
+    role: profile.role,
+    pathname,
+  });
+
+  if (routeRedirect) {
+    logAuthTiming({
+      pathname,
+      reason: "route-forbidden",
+      destination: routeRedirect,
+      ms: Math.round(performance.now() - startedAt),
+    });
+    redirect(routeRedirect);
+  }
+
+  const [activePosSession, billingAccess] = await Promise.all([
+    prisma.timestamp.findFirst({
         where: {
           cashierId: profile.id,
           timestampOut: null,
         },
         select: { id: true },
-      })
-    : null;
-  const billingAccess =
-    profile?.companyId && (profile.role === "manager" || profile.role === "cashier")
-      ? await getCompanyBillingAccess(profile.companyId)
-      : null;
+      }),
+    profile.companyId && (profile.role === "manager" || profile.role === "cashier")
+      ? getCompanyBillingAccess(profile.companyId)
+      : Promise.resolve(null),
+  ]);
+
+  if (
+    billingAccess?.isRestricted &&
+    isBillingRestrictedRole(profile.role) &&
+    isBillingRestrictedRoute(profile.role, pathname)
+  ) {
+    logAuthTiming({
+      pathname,
+      reason: "billing-restricted",
+      ms: Math.round(performance.now() - startedAt),
+    });
+    redirect("/dashboard?billing=restricted");
+  }
+
+  logAuthTiming({
+    pathname,
+    reason: "authorized",
+    ms: Math.round(performance.now() - startedAt),
+  });
 
   return (
     <SidebarProvider>

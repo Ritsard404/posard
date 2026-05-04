@@ -2,18 +2,22 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
-  getFirstAccessibleRoute,
-  hasPermissionForRoute,
-  isBillingRestrictedRole,
-  isBillingRestrictedRoute,
   isAuthRoute,
   isPublicRoute,
 } from "@/lib/access-control-core";
-import { getCompanyBillingAccess } from "@/lib/billing-access";
 import { hasEnvVars } from "../utils";
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const startedAt = performance.now();
+  const pathname = request.nextUrl.pathname;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-posard-pathname", pathname);
+
+  let supabaseResponse = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
   if (!hasEnvVars) return supabaseResponse;
 
   const supabase = createServerClient(
@@ -28,7 +32,11 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = NextResponse.next({
+            request: {
+              headers: requestHeaders,
+            },
+          });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
@@ -39,82 +47,40 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
-  const pathname = request.nextUrl.pathname;
   const isPublic = isPublicRoute(pathname);
 
-  // Marketing/legal pages must remain reachable for guests and signed-in users.
+  const logAuthTiming = (reason: string) => {
+    if (process.env.NODE_ENV !== "production") {
+      console.info("POSard proxy auth timing", {
+        pathname,
+        reason,
+        ms: Math.round(performance.now() - startedAt),
+      });
+    }
+  };
+
+  // Marketing/legal pages must remain reachable without profile/business queries.
   if (isPublic && pathname !== "/" && !isAuthRoute(pathname)) {
+    logAuthTiming("public");
     return supabaseResponse;
-  }
-
-  let userRole: string | null = null;
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, status, company_id")
-      .eq("user_id", user.sub)
-      .single();
-
-    if (profile?.status === "pending" || profile?.status === "disabled") {
-      if (
-        pathname === "/auth/login" ||
-        pathname === "/auth/sign-up" ||
-        pathname === "/auth/sign-up-success"
-      ) {
-        return supabaseResponse;
-      }
-      return NextResponse.redirect(new URL("/auth/login", request.url));
-    }
-
-    userRole = profile?.role ?? null;
-
-    if (
-      isBillingRestrictedRole(userRole) &&
-      profile?.company_id &&
-      isBillingRestrictedRoute(userRole, pathname)
-    ) {
-      const billingAccess = await getCompanyBillingAccess(profile.company_id);
-
-      if (billingAccess.isRestricted) {
-        return NextResponse.redirect(new URL("/dashboard?billing=restricted", request.url));
-      }
-    }
-
-    if (
-      userRole === "manager" &&
-      !profile?.company_id &&
-      !pathname.startsWith("/setup-company")
-    ) {
-      return NextResponse.redirect(new URL("/setup-company", request.url));
-    }
   }
 
   if (isPublic) {
     if (user && (pathname === "/" || isAuthRoute(pathname))) {
-      const dest = getFirstAccessibleRoute(userRole);
-      if (dest !== pathname) {
-        return NextResponse.redirect(new URL(dest, request.url));
-      }
+      logAuthTiming("auth-user-to-post-login");
+      return NextResponse.redirect(new URL("/auth/post-login", request.url));
     }
+    logAuthTiming("public");
     return supabaseResponse;
   }
 
   if (!user) {
     const url = new URL("/auth/login", request.url);
     url.searchParams.set("callbackUrl", pathname);
+    logAuthTiming("missing-session");
     return NextResponse.redirect(url);
   }
 
-  if (!hasPermissionForRoute(userRole, pathname)) {
-    const dest = getFirstAccessibleRoute(userRole);
-    if (dest === "/auth/login" || dest === pathname) {
-      return NextResponse.redirect(new URL("/unauthorized", request.url));
-    }
-    if (dest !== pathname) {
-      return NextResponse.redirect(new URL(dest, request.url));
-    }
-  }
-
+  logAuthTiming("session-ok");
   return supabaseResponse;
 }

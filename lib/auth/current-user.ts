@@ -22,7 +22,7 @@ export const getCurrentProfile = cache(async () => {
     return null;
   }
 
-  return prisma.profile.findFirst({
+  return prisma.profile.findUnique({
     where: { userId: user.id },
     select: {
       id: true,
