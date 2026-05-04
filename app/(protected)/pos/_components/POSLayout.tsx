@@ -5,7 +5,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Cable,
   CloudOff,
-  Copy,
   LayoutGrid,
   LogOut,
   Maximize2,
@@ -22,12 +21,13 @@ import { Badge } from "@/components/ui/badge";
 import { HeaderActions } from "@/components/layout/HeaderActions";
 import { CashTrackTrigger } from "@/components/layout/CashTrackTrigger";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { usePOSStore } from "../_store/pos-store";
 import { cn } from "@/lib/utils";
 import { WithdrawModal } from "./WithdrawModal";
@@ -49,7 +49,6 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showCloseSession, setShowCloseSession] = useState(false);
   const [showPrinterConfig, setShowPrinterConfig] = useState(false);
-  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
@@ -232,75 +231,123 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
               Needs Review {needsReviewCount}
             </Badge>
           ) : null}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void handleManualSync()}
-            className="h-9 shrink-0 rounded-lg px-2.5"
-          >
-            {syncingCount > 0 ? (
-              <RefreshCw className="size-4 animate-spin" />
-            ) : (
-              <CloudOff className="size-4" />
-            )}
-            <span className="hidden lg:inline">
-              {syncingCount > 0 ? "Syncing" : "Retry Sync"}
-            </span>
-            <span className="lg:hidden">Sync</span>
-          </Button>
-          <CashTrackTrigger />
-          {customerDisplayEnabled ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void handleDisableCustomerDisplay()}
-              className="h-9 shrink-0 rounded-lg px-2.5"
-            >
-              <MonitorUp className="size-4" />
-              <span className="hidden xl:inline">Display On</span>
-              <span className="xl:hidden">On</span>
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleOpenCustomerDisplay()}
-              className="h-9 shrink-0 rounded-lg px-2.5"
-              disabled={!activeTerminalId}
-            >
-              <MonitorUp className="size-4" />
-              <span className="hidden xl:inline">Display Off</span>
-              <span className="xl:hidden">Off</span>
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleToggleFullscreen}
-            className="h-9 shrink-0 rounded-lg px-2.5"
-          >
-            {isFullscreen ? (
-              <Minimize2 className="size-4" />
-            ) : (
-              <Maximize2 className="size-4" />
-            )}
-            <span className="hidden lg:inline">
-              {isFullscreen ? "Exit" : "Fullscreen"}
-            </span>
-            <span className="lg:hidden">{isFullscreen ? "Exit" : "Full"}</span>
-          </Button>
           {isMobile ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setMobileActionsOpen(true)}
-              className="h-9 rounded-lg"
-            >
-              <MoreHorizontal className="size-4" />
-              More
-            </Button>
+            <>
+              <CashTrackTrigger />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 rounded-lg px-2.5">
+                    <MoreHorizontal className="size-4" />
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 rounded-xl">
+                  <DropdownMenuLabel>Session Actions</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => void handleManualSync()}>
+                    {syncingCount > 0 ? (
+                      <RefreshCw className="mr-2 size-4 animate-spin" />
+                    ) : (
+                      <CloudOff className="mr-2 size-4" />
+                    )}
+                    {syncingCount > 0 ? "Syncing queue" : "Retry sync"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!activeTerminalId}
+                    onClick={() =>
+                      customerDisplayEnabled
+                        ? void handleDisableCustomerDisplay()
+                        : void handleOpenCustomerDisplay()
+                    }
+                  >
+                    <MonitorUp className="mr-2 size-4" />
+                    {customerDisplayEnabled ? "Turn display off" : "Turn display on"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void handleToggleFullscreen()}>
+                    {isFullscreen ? (
+                      <Minimize2 className="mr-2 size-4" />
+                    ) : (
+                      <Maximize2 className="mr-2 size-4" />
+                    )}
+                    {isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowPrinterConfig(true)}>
+                    <Cable className="mr-2 size-4" />
+                    Printer setup
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowWithdraw(true)}>
+                    <Wallet className="mr-2 size-4" />
+                    Withdraw cash
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setShowCloseSession(true)}
+                  >
+                    <LogOut className="mr-2 size-4" />
+                    Close session
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           ) : (
             <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleManualSync()}
+                className="h-9 shrink-0 rounded-lg px-2.5"
+              >
+                {syncingCount > 0 ? (
+                  <RefreshCw className="size-4 animate-spin" />
+                ) : (
+                  <CloudOff className="size-4" />
+                )}
+                <span className="hidden lg:inline">
+                  {syncingCount > 0 ? "Syncing" : "Retry Sync"}
+                </span>
+                <span className="lg:hidden">Sync</span>
+              </Button>
+              <CashTrackTrigger />
+              {customerDisplayEnabled ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void handleDisableCustomerDisplay()}
+                  className="h-9 shrink-0 rounded-lg px-2.5"
+                >
+                  <MonitorUp className="size-4" />
+                  <span className="hidden xl:inline">Display On</span>
+                  <span className="xl:hidden">On</span>
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleOpenCustomerDisplay()}
+                  className="h-9 shrink-0 rounded-lg px-2.5"
+                  disabled={!activeTerminalId}
+                >
+                  <MonitorUp className="size-4" />
+                  <span className="hidden xl:inline">Display Off</span>
+                  <span className="xl:hidden">Off</span>
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleFullscreen}
+                className="h-9 shrink-0 rounded-lg px-2.5"
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="size-4" />
+                ) : (
+                  <Maximize2 className="size-4" />
+                )}
+                <span className="hidden lg:inline">
+                  {isFullscreen ? "Exit" : "Fullscreen"}
+                </span>
+                <span className="lg:hidden">{isFullscreen ? "Exit" : "Full"}</span>
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -425,78 +472,6 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           {lastSyncMessage}
         </div>
       ) : null}
-
-      <Sheet open={mobileActionsOpen} onOpenChange={setMobileActionsOpen}>
-        <SheetContent side="bottom" className="rounded-t-[2rem]">
-          <SheetHeader>
-            <SheetTitle>Session Actions</SheetTitle>
-            <SheetDescription>
-              Manage register-level actions without leaving the cashier flow.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="grid gap-3 px-4 pb-6">
-            {customerDisplayEnabled ? (
-              <Button
-                variant="secondary"
-                className="h-12 justify-start rounded-xl"
-              onClick={() => {
-                setMobileActionsOpen(false);
-                  void handleDisableCustomerDisplay();
-              }}
-              >
-                <MonitorUp className="size-4 mr-2" />
-                Customer Display On
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                className="h-12 justify-start rounded-xl"
-                onClick={() => {
-                  setMobileActionsOpen(false);
-                  void handleOpenCustomerDisplay();
-                }}
-                disabled={!activeTerminalId}
-              >
-                <Copy className="size-4 mr-2" />
-                Customer Display Off
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className="h-12 justify-start rounded-xl"
-              onClick={() => {
-                setMobileActionsOpen(false);
-                setShowPrinterConfig(true);
-              }}
-            >
-              <Cable className="size-4 mr-2" />
-              Printer Setup
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 justify-start rounded-xl"
-              onClick={() => {
-                setMobileActionsOpen(false);
-                setShowWithdraw(true);
-              }}
-            >
-              <Wallet className="size-4 mr-2" />
-              Withdraw Cash
-            </Button>
-            <Button
-              variant="destructive"
-              className="h-12 justify-start rounded-xl"
-              onClick={() => {
-                setMobileActionsOpen(false);
-                setShowCloseSession(true);
-              }}
-            >
-              <LogOut className="size-4 mr-2" />
-              Close Session
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {showWithdraw && activeTimestampId && (
         <WithdrawModal

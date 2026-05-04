@@ -150,7 +150,9 @@ export default function TerminalConfigurationForm({
     setIsTestingPrinter(true);
 
     try {
-      const result = await printClientService.print(buildTestJob(config));
+      const result = await printClientService.print(buildTestJob(config), {
+        fallbackToPreview: false,
+      });
 
       if (result.status !== "printed") {
         toast.error(result.message);
@@ -195,18 +197,12 @@ export default function TerminalConfigurationForm({
         autoPrintEnabled: true,
       };
 
-      const didPrint = await runTestPrint(nextConfig);
-
-      if (!didPrint) {
-        return;
-      }
-
       setPrinterConfig(nextConfig);
       setValue("printerConfig", nextConfig, { shouldDirty: true, shouldValidate: true });
       setValue("printerName", paired.displayName, { shouldDirty: true, shouldValidate: true });
 
       toast.success("Printer paired.", {
-        description: `${paired.displayName} is ready for this terminal.`,
+        description: `${paired.displayName} is paired. Use Test Print to verify the route.`,
       });
     } catch (error) {
       toast.error(
@@ -481,7 +477,7 @@ export default function TerminalConfigurationForm({
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Pairing is only kept after the terminal successfully sends a test receipt to the selected device.
+            Pairing saves the selected device first. Test Print verifies the route and returns a message without opening another tab.
           </p>
           <p className="text-xs text-muted-foreground">
             Bluetooth pairing only works for BLE printers with a writable GATT characteristic. For Bluetooth Classic/SPP printers, use the serial option when the browser supports it. Built-in Sunmi printing requires the native Sunmi bridge runtime.
