@@ -191,7 +191,7 @@ or
 { success: false, error: string } as const
 ```
 
-- Never expose raw server errors
+- Never expose raw server/technical errors
 
 ## DTOs
 - No Prisma imports

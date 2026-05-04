@@ -5,10 +5,12 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Cable,
   CloudOff,
+  Copy,
   LayoutGrid,
   LogOut,
   Maximize2,
   MoreHorizontal,
+  MonitorUp,
   Minimize2,
   RefreshCw,
   ShoppingCart,
@@ -33,6 +35,8 @@ import { CloseSessionModal } from "./CloseSessionModal";
 import { SessionPrinterConfigDialog } from "./SessionPrinterConfigDialog";
 import { formatCurrency, usePOSPaymentSummary } from "./checkout-shared";
 import { getOfflineQueueSnapshot, syncOfflineActions } from "../_services/offline-sync.client";
+import { CustomerDisplayPublisher } from "./CustomerDisplayPublisher";
+import { publishCustomerDisplayAction } from "../_actions/customer-display.action";
 
 interface POSLayoutProps {
   children: React.ReactNode;
@@ -52,6 +56,12 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const activeSessionId = usePOSStore((state) => state.activeSessionId);
   const activeTerminal = usePOSStore((state) => state.activeTerminal);
   const activeTerminalId = usePOSStore((state) => state.activeTerminal?.id ?? null);
+  const customerDisplayEnabled = usePOSStore(
+    (state) => state.customerDisplayEnabled,
+  );
+  const setCustomerDisplayEnabled = usePOSStore(
+    (state) => state.setCustomerDisplayEnabled,
+  );
   const setSession = usePOSStore((state) => state.setSession);
   const isOnline = usePOSStore((state) => state.isOnline);
   const pendingSyncCount = usePOSStore((state) => state.pendingSyncCount);
@@ -101,6 +111,51 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
     } catch {
       toast.error("Unable to change fullscreen mode.");
     }
+  }
+
+  async function handleOpenCustomerDisplay() {
+    if (!activeTerminalId) {
+      toast.error("Open a terminal session first.");
+      return;
+    }
+
+    if (!customerDisplayEnabled) {
+      setCustomerDisplayEnabled(true);
+    }
+
+    const url = `${window.location.origin}/pos/customer-display/${activeTerminalId}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+
+    try {
+      await navigator.clipboard?.writeText(url);
+      toast.success("Customer display link copied.");
+    } catch {
+      toast.success("Customer display opened.");
+    }
+  }
+
+  async function handleDisableCustomerDisplay() {
+    if (activeTerminalId) {
+      await publishCustomerDisplayAction({
+        terminalId: activeTerminalId,
+        status: "idle",
+        items: [],
+        subtotal: 0,
+        discountTotal: 0,
+        taxTotal: 0,
+        totalDue: 0,
+        paymentMethod: null,
+        cashReceived: null,
+        change: null,
+        message: "Ready for next customer",
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    setCustomerDisplayEnabled(false);
+    toast.success("Customer display is off.", {
+      description: "No second-screen updates will be published from this device.",
+    });
   }
 
   async function handleManualSync() {
@@ -154,6 +209,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
 
   return (
     <div data-testid="pos-shell" className="flex h-full max-h-full w-full max-w-full flex-col overflow-hidden bg-background">
+      <CustomerDisplayPublisher />
       <HeaderActions>
         <div className="flex min-w-0 items-center justify-end gap-1.5 overflow-hidden">
           <Badge
@@ -193,6 +249,30 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
             <span className="lg:hidden">Sync</span>
           </Button>
           <CashTrackTrigger />
+          {customerDisplayEnabled ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleDisableCustomerDisplay()}
+              className="h-9 shrink-0 rounded-lg px-2.5"
+            >
+              <MonitorUp className="size-4" />
+              <span className="hidden xl:inline">Display On</span>
+              <span className="xl:hidden">On</span>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleOpenCustomerDisplay()}
+              className="h-9 shrink-0 rounded-lg px-2.5"
+              disabled={!activeTerminalId}
+            >
+              <MonitorUp className="size-4" />
+              <span className="hidden xl:inline">Display Off</span>
+              <span className="xl:hidden">Off</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -355,6 +435,32 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
             </SheetDescription>
           </SheetHeader>
           <div className="grid gap-3 px-4 pb-6">
+            {customerDisplayEnabled ? (
+              <Button
+                variant="secondary"
+                className="h-12 justify-start rounded-xl"
+              onClick={() => {
+                setMobileActionsOpen(false);
+                  void handleDisableCustomerDisplay();
+              }}
+              >
+                <MonitorUp className="size-4 mr-2" />
+                Customer Display On
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="h-12 justify-start rounded-xl"
+                onClick={() => {
+                  setMobileActionsOpen(false);
+                  void handleOpenCustomerDisplay();
+                }}
+                disabled={!activeTerminalId}
+              >
+                <Copy className="size-4 mr-2" />
+                Customer Display Off
+              </Button>
+            )}
             <Button
               variant="outline"
               className="h-12 justify-start rounded-xl"

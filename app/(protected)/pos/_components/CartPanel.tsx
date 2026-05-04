@@ -33,6 +33,7 @@ export function CartPanel() {
     clearCart,
     updateItemSubtotal,
     setActiveMobileTab,
+    setCustomerDisplayMode,
     activeDeviceId,
     activeCompanyId,
     activeProfileId,
@@ -401,6 +402,7 @@ export function CartPanel() {
           <Button
             className="group h-11 min-w-0 flex-1 rounded-xl bg-primary text-sm font-black uppercase tracking-wider text-primary-foreground transition-all hover:bg-primary/90 active:scale-95 xl:h-12 xl:text-base"
             onClick={() => {
+              setCustomerDisplayMode("payment");
               if (isMobile) {
                 setActiveMobileTab("tender");
                 return;

@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "accountant-expert": {
+      "source": "personamanagmentlayer/pcl",
+      "sourceType": "github",
+      "skillPath": "stdlib/professional/accountant-expert/SKILL.md",
+      "computedHash": "cd38d37a1049adec23db738cc6b231ca72b7719c8f5de419ec78fc751b49a825"
+    },
     "capacitor-best-practices": {
       "source": "cap-go/capacitor-skills",
       "sourceType": "github",

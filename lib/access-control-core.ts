@@ -120,6 +120,12 @@ export const appRoutes: AppRouteConfig[] = [
     showInNav: true,
   },
   {
+    href: "/pos/customer-display/[terminalId]",
+    permission: "view.pos",
+    label: "Customer Display",
+    showInNav: false,
+  },
+  {
     href: "/dashboard",
     permission: "view.dashboard",
     label: "Dashboard",

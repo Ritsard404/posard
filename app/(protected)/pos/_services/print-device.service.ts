@@ -859,8 +859,7 @@ export const printDeviceService = {
   getCapabilities() {
     const support = this.getBrowserSupport();
     const isAndroidWrapper = isNativePlatform() && getPlatform() === "android";
-
-    return [
+    const capabilities: PrinterCapabilityDto[] = [
       getCapability("usb-web", {
         supported: support.usb,
         reason: support.usb
@@ -885,8 +884,13 @@ export const printDeviceService = {
             ? "Bluetooth serial browser pairing is not available inside the Android wrapper. Use the built-in SUNMI printer mode instead."
             : "Web Serial is not supported in this browser/runtime.",
       }),
-      sunmiNativePrintService.getCapability(),
     ];
+
+    if (isAndroidWrapper) {
+      capabilities.push(sunmiNativePrintService.getCapability());
+    }
+
+    return capabilities;
   },
 
   async pair(mode: PrinterMode) {

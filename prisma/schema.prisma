@@ -318,19 +318,38 @@ model PosTerminalInfo {
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz
   invoices  Invoice[]
-  sessions  PosSession[]
-  auditLogs AuditLog[]
-  customerDebts CustomerDebt[]
-  debtPayments CustomerDebtPayment[]
+    sessions  PosSession[]
+    auditLogs AuditLog[]
+    customerDebts CustomerDebt[]
+    debtPayments CustomerDebtPayment[]
+    customerDisplayState CustomerDisplayState?
+  
+    @@index([companyId])
+    @@map("pos_terminal_info")
+    @@schema("public")
+  }
 
-  @@index([companyId])
-  @@map("pos_terminal_info")
-  @@schema("public")
-}
+  model CustomerDisplayState {
+    id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_customer_display_state") @db.Uuid
 
-/////////////////////////////////////////////////
-// TERMINAL SUBSCRIPTION
-/////////////////////////////////////////////////
+    terminalId String          @unique @map("terminal_id") @db.Uuid
+    terminal   PosTerminalInfo @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+
+    companyId String @map("company_id") @db.Uuid
+    payload Json
+
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+    @@index([companyId])
+    @@index([terminalId, updatedAt])
+    @@map("customer_display_state")
+    @@schema("public")
+  }
+  
+  /////////////////////////////////////////////////
+  // TERMINAL SUBSCRIPTION
+  /////////////////////////////////////////////////
 
 model TerminalSubscription {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_terminal_subscription") @db.Uuid

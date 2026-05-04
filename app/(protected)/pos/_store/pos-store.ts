@@ -44,6 +44,7 @@ export interface CartMutationResult {
 }
 
 export type POSMobileTab = "menu" | "cart" | "tender";
+export type CustomerDisplayMode = "payment" | "completed" | null;
 
 export interface ProductStockUpdate {
   productId: string;
@@ -79,6 +80,7 @@ const defaultDiscount: POSDiscount = {
 };
 
 const FAST_CHECKOUT_STORAGE_KEY = "posard.fast-checkout-enabled";
+const CUSTOMER_DISPLAY_STORAGE_KEY = "posard.customer-display-enabled";
 
 function readFastCheckoutPreference() {
   if (typeof window === "undefined") {
@@ -86,6 +88,14 @@ function readFastCheckoutPreference() {
   }
 
   return window.localStorage.getItem(FAST_CHECKOUT_STORAGE_KEY) === "true";
+}
+
+function readCustomerDisplayPreference() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem(CUSTOMER_DISPLAY_STORAGE_KEY) === "true";
 }
 
 interface POSState {
@@ -105,6 +115,8 @@ interface POSState {
   viewMode: "grid" | "list";
   mobileProductView: "grid" | "list";
   activeMobileTab: POSMobileTab;
+  customerDisplayEnabled: boolean;
+  customerDisplayMode: CustomerDisplayMode;
 
   // Pagination (For future backend integration)
   currentPage: number;
@@ -198,6 +210,8 @@ interface POSState {
   setViewMode: (mode: "grid" | "list") => void;
   setMobileProductView: (mode: "grid" | "list") => void;
   setActiveMobileTab: (tab: POSMobileTab) => void;
+  setCustomerDisplayEnabled: (enabled: boolean) => void;
+  setCustomerDisplayMode: (mode: CustomerDisplayMode) => void;
   setPage: (page: number) => void;
 }
 
@@ -237,6 +251,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
   viewMode: "grid",
   mobileProductView: "list",
   activeMobileTab: "menu",
+  customerDisplayEnabled: readCustomerDisplayPreference(),
+  customerDisplayMode: null,
 
   currentPage: 1,
   itemsPerPage: 12,
@@ -319,6 +335,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
             ? { ...item, cartQuantity: item.cartQuantity + 1 }
             : item,
         ),
+        customerDisplayMode: null,
       });
     } else {
       set({
@@ -331,6 +348,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
             itemStatus: "PENDING",
           },
         ],
+        customerDisplayMode: null,
       });
     }
 
@@ -342,6 +360,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       cart: get().cart.map((item) =>
         item.cartItemId === cartItemId ? { ...item, itemStatus: "VOID" } : item,
       ),
+      customerDisplayMode: null,
     }),
 
   updateCartQuantity: (cartItemId, quantity) => {
@@ -385,6 +404,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
           ? { ...item, cartQuantity: quantity }
           : item,
       ),
+      customerDisplayMode: null,
     });
 
     return { success: true };
@@ -397,6 +417,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
           ? { ...item, customSubtotal: subtotal }
           : item,
       ),
+      customerDisplayMode: null,
     });
   },
 
@@ -409,6 +430,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       selectedEPaymentMethodId: null,
       paymentReference: "",
       referencePayments: [],
+      customerDisplayMode: null,
     }),
   applyStockUpdates: (updates) => {
     if (updates.length === 0) return;
@@ -449,6 +471,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setPaymentMethod: (paymentMethod) =>
     set((state) => ({
       paymentMethod,
+      customerDisplayMode: "payment",
       ...(paymentMethod === "cash"
         ? { selectedEPaymentMethodId: null, paymentReference: "" }
         : {
@@ -457,8 +480,9 @@ export const usePOSStore = create<POSState>((set, get) => ({
           }),
     })),
   setSelectedEPaymentMethodId: (selectedEPaymentMethodId) =>
-    set({ selectedEPaymentMethodId }),
-  setPaymentReference: (paymentReference) => set({ paymentReference }),
+    set({ selectedEPaymentMethodId, customerDisplayMode: "payment" }),
+  setPaymentReference: (paymentReference) =>
+    set({ paymentReference, customerDisplayMode: "payment" }),
   addReferencePayment: (payment) =>
     set((state) => {
       const saleTypeId =
@@ -468,11 +492,12 @@ export const usePOSStore = create<POSState>((set, get) => ({
         "";
 
       if (!saleTypeId) {
-        return { paymentMethod: "reference" };
+        return { paymentMethod: "reference", customerDisplayMode: "payment" };
       }
 
       return {
         paymentMethod: "reference",
+        customerDisplayMode: "payment",
         selectedEPaymentMethodId: saleTypeId,
         referencePayments: [
           ...state.referencePayments,
@@ -499,10 +524,12 @@ export const usePOSStore = create<POSState>((set, get) => ({
             }
           : item,
       ),
+      customerDisplayMode: "payment",
     })),
   removeReferencePayment: (id) =>
     set((state) => ({
       referencePayments: state.referencePayments.filter((item) => item.id !== id),
+      customerDisplayMode: "payment",
       paymentMethod:
         state.referencePayments.length <= 1 && state.amountTendered > 0
           ? "cash"
@@ -515,7 +542,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
       paymentReference: "",
     }),
   setAmountTendered: (amountTendered) =>
-    set({ amountTendered: Math.round(amountTendered * 100) / 100 }),
+    set({
+      amountTendered: Math.round(amountTendered * 100) / 100,
+      customerDisplayMode: "payment",
+    }),
   setFastCheckoutEnabled: (fastCheckoutEnabled) => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(
@@ -533,5 +563,16 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setViewMode: (viewMode) => set({ viewMode }),
   setMobileProductView: (mobileProductView) => set({ mobileProductView }),
   setActiveMobileTab: (activeMobileTab) => set({ activeMobileTab }),
+  setCustomerDisplayEnabled: (customerDisplayEnabled) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        CUSTOMER_DISPLAY_STORAGE_KEY,
+        customerDisplayEnabled ? "true" : "false",
+      );
+    }
+
+    set({ customerDisplayEnabled });
+  },
+  setCustomerDisplayMode: (customerDisplayMode) => set({ customerDisplayMode }),
   setPage: (currentPage) => set({ currentPage }),
 }));

@@ -179,6 +179,7 @@ export function usePOSCheckoutFlow(
     activeProfileId,
     activeUser,
     clearCart,
+    setCustomerDisplayMode,
     applyStockUpdates,
     upsertOfflineReceipt,
   } = usePOSStore();
@@ -517,6 +518,7 @@ export function usePOSCheckoutFlow(
           setReceipt(null);
           options?.onFastComplete?.();
         } else {
+          setCustomerDisplayMode("completed");
           setReceipt(provisionalReceipt);
           setStep("RECEIPT");
         }
@@ -570,6 +572,7 @@ export function usePOSCheckoutFlow(
         return;
       }
 
+      setCustomerDisplayMode("completed");
       setReceipt(res.receipt);
       setStep("RECEIPT");
       return;

@@ -115,7 +115,7 @@ export function SessionPrinterConfigDialog({
   const [printerConfig, setPrinterConfig] = useState<PrinterConfigDto | null>(
     activeTerminal?.printerConfig ?? null,
   );
-  const [isPairing, setIsPairing] = useState(false);
+  const [pairingMode, setPairingMode] = useState<PrinterCapabilityDto["mode"] | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isCheckingNative, setIsCheckingNative] = useState(false);
@@ -200,7 +200,7 @@ export function SessionPrinterConfigDialog({
       return;
     }
 
-    setIsPairing(true);
+    setPairingMode(capability.mode);
 
     try {
       const paired = await printClientService.pair(capability.mode);
@@ -231,7 +231,7 @@ export function SessionPrinterConfigDialog({
         error instanceof Error ? error.message : "Failed to pair printer.",
       );
     } finally {
-      setIsPairing(false);
+      setPairingMode(null);
     }
   };
 
@@ -373,8 +373,9 @@ export function SessionPrinterConfigDialog({
                 {availableCapabilities.map((capability) => {
                   const Icon = getCapabilityIcon(capability.mode);
                   const isActive = capability.mode === printerConfig?.mode;
+                  const isConnecting = pairingMode === capability.mode;
                   const isDisabled =
-                    isPairing || isTesting || isClearing || !capability.supported;
+                    Boolean(pairingMode) || isTesting || isClearing || !capability.supported;
 
                   return (
                     <Button
@@ -399,7 +400,7 @@ export function SessionPrinterConfigDialog({
                             isActive && "border-emerald-200 bg-emerald-100 text-emerald-700",
                           )}
                         >
-                          {isPairing ? (
+                          {isConnecting ? (
                             <Loader2 className="size-5 animate-spin" />
                           ) : (
                             <Icon className="size-5" />
@@ -409,7 +410,9 @@ export function SessionPrinterConfigDialog({
                         <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-semibold">
-                              {isActive ? "Connected" : "Connect"} {capability.label}
+                              {isConnecting
+                                ? `Connecting ${capability.label}`
+                                : `${isActive ? "Connected" : "Connect"} ${capability.label}`}
                             </span>
                             {isActive ? (
                               <Badge className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-white hover:bg-emerald-600">
@@ -583,7 +586,7 @@ export function SessionPrinterConfigDialog({
             type="button"
             variant="ghost"
             className="rounded-2xl sm:order-none"
-            disabled={isPairing || isTesting || isClearing}
+            disabled={Boolean(pairingMode) || isTesting || isClearing}
             onClick={() => void handleClear()}
           >
             {isClearing ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
@@ -595,7 +598,7 @@ export function SessionPrinterConfigDialog({
               variant="outline"
               className="flex-1 rounded-2xl sm:flex-none"
               disabled={
-                isPairing ||
+                Boolean(pairingMode) ||
                 isTesting ||
                 isClearing ||
                 !printerConfig?.mode

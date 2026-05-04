@@ -47,9 +47,25 @@ create table if not exists registration_requests (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists customer_display_state (
+  uuid_customer_display_state uuid default gen_random_uuid() primary key,
+  terminal_id uuid not null unique references public.pos_terminal_info(uuid_pos_terminal) on delete cascade,
+  company_id uuid not null,
+  payload jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists customer_display_state_company_id_idx
+  on public.customer_display_state(company_id);
+
+create index if not exists customer_display_state_terminal_id_updated_at_idx
+  on public.customer_display_state(terminal_id, updated_at);
+
 -- We recommend adding RLS policies to restrict who can read/update.
 alter table profiles enable row level security;
 alter table registration_requests enable row level security;
+alter table customer_display_state enable row level security;
 
 -- Function to check if user is admin, security definer to avoid RLS recursion
 create or replace function is_admin(user_id uuid)
@@ -74,6 +90,7 @@ drop policy if exists "Users can read own profile" on profiles;
 drop policy if exists "admins_can_read_registration_requests" on registration_requests;
 drop policy if exists "admins_can_update_registration_requests" on registration_requests;
 drop policy if exists "public_can_insert_registration_requests" on registration_requests;
+drop policy if exists "customer_display_company_read" on customer_display_state;
 
 create policy "app_full_access_admin" on profiles
   for all
@@ -110,7 +127,31 @@ create policy "admins_can_update_registration_requests" on registration_requests
   using (is_admin(auth.uid()))
   with check (is_admin(auth.uid()));
 
+create policy "customer_display_company_read" on customer_display_state
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from profiles
+      where profiles.user_id = auth.uid()
+        and profiles.status = 'active'
+        and (
+          profiles.role = 'admin'
+          or profiles.company_id = customer_display_state.company_id
+        )
+    )
+  );
+
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT SELECT ON public.profiles TO authenticated;
 GRANT INSERT ON public.registration_requests TO anon, authenticated;
 GRANT SELECT, UPDATE ON public.registration_requests TO authenticated;
+GRANT SELECT ON public.customer_display_state TO authenticated;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.customer_display_state;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN undefined_object THEN NULL;
+END $$;

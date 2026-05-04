@@ -41,7 +41,7 @@ export default function TerminalConfigurationForm({
   const [printerConfig, setPrinterConfig] = useState<PrinterConfigDto | null>(
     terminal?.printerConfig ?? null,
   );
-  const [isPairing, setIsPairing] = useState(false);
+  const [pairingMode, setPairingMode] = useState<PrinterCapabilityDto["mode"] | null>(null);
   const [isTestingPrinter, setIsTestingPrinter] = useState(false);
   const [isCheckingNative, setIsCheckingNative] = useState(false);
   const financialSectionRef = useRef<HTMLDivElement | null>(null);
@@ -177,7 +177,7 @@ export default function TerminalConfigurationForm({
       return;
     }
 
-    setIsPairing(true);
+    setPairingMode(capability.mode);
 
     try {
       const paired = await printClientService.pair(capability.mode);
@@ -213,7 +213,7 @@ export default function TerminalConfigurationForm({
         error instanceof Error ? error.message : "Failed to pair printer.",
       );
     } finally {
-      setIsPairing(false);
+      setPairingMode(null);
     }
   };
 
@@ -428,6 +428,7 @@ export default function TerminalConfigurationForm({
 
           <div className="flex flex-wrap gap-2">
             {printerCapabilities.map((capability) => {
+              const isConnecting = pairingMode === capability.mode;
               const Icon =
                 capability.mode === "usb-web"
                   ? Usb
@@ -444,25 +445,25 @@ export default function TerminalConfigurationForm({
                   variant="outline"
                   disabled={
                     isSubmitting ||
-                    isPairing ||
+                    Boolean(pairingMode) ||
                     isTestingPrinter ||
                     !capability.supported
                   }
                   onClick={() => void handlePair(capability)}
                 >
-                  {isPairing ? (
+                  {isConnecting ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
                     <Icon className="size-4" />
                   )}
-                  {capability.label}
+                  {isConnecting ? `Connecting ${capability.label}` : capability.label}
                 </Button>
               );
             })}
             <Button
               type="button"
               variant="outline"
-              disabled={isSubmitting || isPairing || isTestingPrinter || !printerConfig?.mode}
+              disabled={isSubmitting || Boolean(pairingMode) || isTestingPrinter || !printerConfig?.mode}
               onClick={() => void runTestPrint(printerConfig)}
             >
               {isTestingPrinter ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
@@ -471,7 +472,7 @@ export default function TerminalConfigurationForm({
             <Button
               type="button"
               variant="ghost"
-              disabled={isSubmitting || isPairing || isTestingPrinter}
+              disabled={isSubmitting || Boolean(pairingMode) || isTestingPrinter}
               onClick={handleClearPrinter}
             >
               <RotateCcw className="size-4" />
