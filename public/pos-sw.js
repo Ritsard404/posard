@@ -6,6 +6,10 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener("fetch", () => {
+  // A fetch handler makes this a controlling service worker for PWA installability.
+});
+
 async function broadcastSyncTrigger() {
   const clients = await self.clients.matchAll({
     type: "window",

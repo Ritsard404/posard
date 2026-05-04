@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Banknote,
   Check,
@@ -187,6 +187,8 @@ export function usePOSCheckoutFlow(
 
   const [step, setStep] = useState<"PAYMENT" | "RECEIPT">("PAYMENT");
   const [isProcessing, setIsProcessing] = useState(false);
+  const processingRef = useRef(false);
+  const checkoutIdempotencyKeyRef = useRef<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptDto | null>(null);
   const [settlementMode, setSettlementMode] = useState<"pay_now" | "debt">(
     "pay_now",
@@ -323,6 +325,7 @@ export function usePOSCheckoutFlow(
   };
 
   const handleComplete = async () => {
+    if (processingRef.current) return;
     if (!canComplete) return;
 
     if (isBillingLocked) {
@@ -348,6 +351,9 @@ export function usePOSCheckoutFlow(
       return;
     }
 
+    processingRef.current = true;
+    setIsProcessing(true);
+
     let debtCustomerId = selectedDebtCustomerId;
     if (
       settlementMode === "debt" &&
@@ -362,6 +368,7 @@ export function usePOSCheckoutFlow(
       });
 
       if (!created.success) {
+        processingRef.current = false;
         setIsProcessing(false);
         toast.error(created.error);
         return;
@@ -375,11 +382,15 @@ export function usePOSCheckoutFlow(
       ]);
     }
 
-    setIsProcessing(true);
+    const idempotencyKey =
+      checkoutIdempotencyKeyRef.current ??
+      `${activeTerminal?.id ?? "terminal"}-${activeDeviceId ?? "device"}-${crypto.randomUUID()}`;
+    checkoutIdempotencyKeyRef.current = idempotencyKey;
 
     const orderDto: OrderDto = {
       timestampId: activeTimestampId ?? "",
       deviceId: activeDeviceId ?? undefined,
+      idempotencyKey,
       items: cart.map((item) => ({
         productId: item.id,
         qty: item.cartQuantity,
@@ -425,6 +436,7 @@ export function usePOSCheckoutFlow(
 
     if (!isOnline) {
       if (isBillingLocked) {
+        processingRef.current = false;
         setIsProcessing(false);
         toast.error("Transactions are disabled.", {
           description:
@@ -435,6 +447,7 @@ export function usePOSCheckoutFlow(
       }
 
       if (settlementMode === "debt") {
+        processingRef.current = false;
         setIsProcessing(false);
         toast.error("Debt issuance is online-only in v1.");
         return;
@@ -447,6 +460,7 @@ export function usePOSCheckoutFlow(
         !activeCompanyId ||
         !activeProfileId
       ) {
+        processingRef.current = false;
         setIsProcessing(false);
         toast.error(
           "Offline checkout needs an active synced session on this device.",
@@ -478,7 +492,7 @@ export function usePOSCheckoutFlow(
         await enqueueOfflineAction({
           localId,
           type: "PAY_ORDER",
-          idempotencyKey: `${activeTerminal.id}-${activeDeviceId}-${crypto.randomUUID()}`,
+          idempotencyKey,
           timestampId: activeTimestampId,
           terminalId: activeTerminal.id,
           deviceId: activeDeviceId,
@@ -524,11 +538,14 @@ export function usePOSCheckoutFlow(
         }
 
         setIsProcessing(false);
+        processingRef.current = false;
+        checkoutIdempotencyKeyRef.current = null;
         toast.success("Offline sale queued.", {
           description: "It will sync automatically when the device reconnects.",
         });
         return;
       } catch (error) {
+        processingRef.current = false;
         setIsProcessing(false);
         toast.error("Unable to queue offline sale.", {
           description:
@@ -539,9 +556,11 @@ export function usePOSCheckoutFlow(
     }
 
     const res = await payOrderAction(orderDto);
+    processingRef.current = false;
     setIsProcessing(false);
 
     if (res.success) {
+      checkoutIdempotencyKeyRef.current = null;
       applyStockUpdates(res.receipt.stockUpdates);
 
       if (fastCheckout) {

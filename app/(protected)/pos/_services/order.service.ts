@@ -3,7 +3,7 @@ import { assertTerminalBillingAllowsTransactions } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { createClient } from "@/lib/supabase/server";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { DebtStatus, InvoiceDocumentType, InvoiceStatusType } from "@prisma/client";
 import type {
   CancelOrderDto,
@@ -473,28 +473,84 @@ async function deductStock(
   items: ItemRequestDto[],
   productMap: Awaited<ReturnType<typeof loadProductsWithDb>>,
 ) {
-  const itemsToDeduct = items.filter(
-    (item) => productMap.get(item.productId)?.trackInventory,
-  );
+  const quantitiesByProduct = new Map<string, number>();
+
+  for (const item of items) {
+    if (!productMap.get(item.productId)?.trackInventory) continue;
+    quantitiesByProduct.set(
+      item.productId,
+      (quantitiesByProduct.get(item.productId) ?? 0) + item.qty,
+    );
+  }
 
   const stockUpdates = await Promise.all(
-    itemsToDeduct.map(async (item) => {
-      const product = productMap.get(item.productId)!;
-      const newQty = Number(product.quantity ?? 0) - item.qty;
+    [...quantitiesByProduct.entries()].map(async ([productId, qty]) => {
+      const result = await db.product.updateMany({
+        where: {
+          id: productId,
+          quantity: { gte: qty },
+        },
+        data: {
+          quantity: { decrement: qty },
+        },
+      });
 
-      await db.product.update({
-        where: { id: item.productId },
-        data: { quantity: newQty },
+      if (result.count !== 1) {
+        const product = productMap.get(productId);
+        throw new Error(
+          `Insufficient stock for "${product?.name ?? "Product"}". Please refresh and try again.`,
+        );
+      }
+
+      const product = await db.product.findUnique({
+        where: { id: productId },
+        select: { quantity: true },
       });
 
       return {
-        productId: item.productId,
-        remainingQuantity: Math.max(0, newQty),
+        productId,
+        remainingQuantity: Math.max(0, Number(product?.quantity ?? 0)),
       };
     }),
   );
 
   return stockUpdates;
+}
+
+async function createInvoiceItems(
+  db: Prisma.TransactionClient,
+  invoiceId: string,
+  items: ItemRequestDto[],
+  isTrainMode: boolean,
+) {
+  await db.item.createMany({
+    data: items.map((item) => ({
+      invoiceId,
+      productId: item.productId,
+      qty: item.qty,
+      price: item.price,
+      subTotal: item.status === "VOID" ? 0 : item.subTotal,
+      status: item.status || ("PAID" satisfies InvoiceStatusType),
+      isTrainingMode: isTrainMode,
+    })),
+  });
+}
+
+async function createInvoiceEPayments(
+  db: Prisma.TransactionClient,
+  invoiceId: string,
+  ePaymentData: Awaited<ReturnType<typeof buildEPaymentData>> | undefined,
+) {
+  if (!ePaymentData?.length) return;
+
+  await db.ePayment.createMany({
+    data: ePaymentData.map((payment) => ({
+      invoiceId,
+      saleTypeId: payment.saleTypeId,
+      reference: payment.reference,
+      amount: payment.amount,
+    })),
+  });
 }
 
 async function resolveDebtApproval(params: {
@@ -568,7 +624,17 @@ function buildDebtReceiptDetails(input: {
 
 export const orderService = {
   async payOrder(dto: OrderDto): Promise<ReceiptDto> {
+    const startedAt = performance.now();
+    const timing: Record<string, number> = {};
+    const mark = (stage: string, from: number) => {
+      const now = performance.now();
+      timing[stage] = Math.round(now - from);
+      return now;
+    };
+
+    let stageStartedAt = startedAt;
     validateOrderRequest(dto);
+    stageStartedAt = mark("validationMs", stageStartedAt);
     const discount = normalizeDiscount(dto.discount);
     const settlementMode = dto.settlementMode ?? "pay_now";
 
@@ -580,6 +646,7 @@ export const orderService = {
       dto.timestampId,
     );
     const terminal = activeTimestamp.posTerminal;
+    mark("sessionMs", stageStartedAt);
 
     if (activeTimestamp.forceClosedAt) {
       throw new Error("This terminal session was force-closed and needs review before syncing.");
@@ -589,10 +656,11 @@ export const orderService = {
       throw new Error("This queued action belongs to a different device.");
     }
 
-    const ePaymentData = dto.ePayments?.length
-      ? await buildEPaymentData(dto.ePayments)
-      : undefined;
+    let inventoryMs = 0;
+    let receiptPreparationMs = 0;
+    const transactionStartedAt = performance.now();
 
+    try {
     const receipt = await prisma.$transaction(async (tx) => {
       if (dto.idempotencyKey) {
         const existingInvoice = await findInvoiceByIdempotencyKey(
@@ -604,6 +672,10 @@ export const orderService = {
           return mapInvoiceToReceipt(existingInvoice);
         }
       }
+
+      const ePaymentData = dto.ePayments?.length
+        ? await buildEPaymentData(tx, dto.ePayments)
+        : undefined;
 
       const transactionProductMap = await loadAndValidateProducts(
         tx,
@@ -737,17 +809,6 @@ export const orderService = {
                 ? ("PAID" satisfies InvoiceStatusType)
                 : ("PENDING" satisfies InvoiceStatusType),
             isTrainMode: terminal.isTrainMode,
-
-            items: {
-              create: dto.items.map((item) => ({
-                productId: item.productId,
-                qty: item.qty,
-                price: item.price,
-                subTotal: item.status === "VOID" ? 0 : item.subTotal,
-                status: item.status || ("PAID" satisfies InvoiceStatusType),
-                isTrainingMode: terminal.isTrainMode,
-              })),
-            },
           },
           select: {
             id: true,
@@ -757,6 +818,8 @@ export const orderService = {
             localInvoiceNo: true,
           },
         });
+
+        await createInvoiceItems(tx, invoice.id, dto.items, terminal.isTrainMode);
 
         const debt = await tx.customerDebt.create({
           data: {
@@ -795,10 +858,12 @@ export const orderService = {
           });
         }
 
+        const inventoryStartedAt = performance.now();
         const stockUpdates =
           !terminal.isTrainMode
             ? await deductStock(tx, dto.items, transactionProductMap)
             : [];
+        inventoryMs += Math.round(performance.now() - inventoryStartedAt);
 
         await updateTerminalCounter(tx, terminal.id, terminal.isTrainMode, terminal);
 
@@ -843,7 +908,8 @@ export const orderService = {
           approvedByName,
         });
 
-        return buildReceiptFromOrder({
+        const receiptStartedAt = performance.now();
+        const receipt = buildReceiptFromOrder({
           invoice,
           terminal,
           cashierName: activeTimestamp.cashier.fullName,
@@ -861,6 +927,8 @@ export const orderService = {
           stockUpdates,
           debt: debtReceipt,
         });
+        receiptPreparationMs += Math.round(performance.now() - receiptStartedAt);
+        return receipt;
       }
 
       const invoice = await tx.invoice.create({
@@ -902,29 +970,6 @@ export const orderService = {
 
           status: "PAID" satisfies InvoiceStatusType,
           isTrainMode: terminal.isTrainMode,
-
-          items: {
-            create: dto.items.map((item) => ({
-              productId: item.productId,
-              qty: item.qty,
-              price: item.price,
-              subTotal: item.status === "VOID" ? 0 : item.subTotal,
-              status: item.status || ("PAID" satisfies InvoiceStatusType),
-              isTrainingMode: terminal.isTrainMode,
-            })),
-          },
-
-          ...(ePaymentData?.length
-            ? {
-                ePayments: {
-                  create: ePaymentData.map((payment) => ({
-                    saleTypeId: payment.saleTypeId,
-                    reference: payment.reference,
-                    amount: payment.amount,
-                  })),
-                },
-              }
-            : {}),
         },
         select: {
           id: true,
@@ -935,14 +980,20 @@ export const orderService = {
         },
       });
 
+      await createInvoiceItems(tx, invoice.id, dto.items, terminal.isTrainMode);
+      await createInvoiceEPayments(tx, invoice.id, ePaymentData);
+
+      const inventoryStartedAt = performance.now();
       const stockUpdates =
         !terminal.isTrainMode
           ? await deductStock(tx, dto.items, transactionProductMap)
           : [];
+      inventoryMs += Math.round(performance.now() - inventoryStartedAt);
 
       await updateTerminalCounter(tx, terminal.id, terminal.isTrainMode, terminal);
 
-      return buildReceiptFromOrder({
+      const receiptStartedAt = performance.now();
+      const receipt = buildReceiptFromOrder({
         invoice,
         terminal,
         cashierName: activeTimestamp.cashier.fullName,
@@ -958,9 +1009,42 @@ export const orderService = {
         stockUpdates,
         debt: null,
       });
+      receiptPreparationMs += Math.round(performance.now() - receiptStartedAt);
+      return receipt;
     });
+    timing.transactionMs = Math.round(performance.now() - transactionStartedAt);
+    timing.inventoryMs = inventoryMs;
+    timing.receiptPreparationMs = receiptPreparationMs;
+    timing.totalMs = Math.round(performance.now() - startedAt);
+    console.info("POS checkout timing", timing);
 
     return receipt;
+    } catch (error) {
+      if (
+        dto.idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const existingInvoice = await findInvoiceByIdempotencyKey(
+          prisma,
+          dto.idempotencyKey,
+        );
+
+        if (existingInvoice) {
+          timing.transactionMs = Math.round(performance.now() - transactionStartedAt);
+          timing.inventoryMs = inventoryMs;
+          timing.receiptPreparationMs = receiptPreparationMs;
+          timing.totalMs = Math.round(performance.now() - startedAt);
+          console.info("POS checkout timing", {
+            ...timing,
+            idempotencyReplay: true,
+          });
+          return mapInvoiceToReceipt(existingInvoice);
+        }
+      }
+
+      throw error;
+    }
   },
 
   async archiveReceipt(receipt: ReceiptDto): Promise<void> {
@@ -1058,11 +1142,14 @@ export const orderService = {
   },
 };
 
-async function buildEPaymentData(ePayments: EPaymentDto[]) {
+async function buildEPaymentData(
+  db: Prisma.TransactionClient | typeof prisma,
+  ePayments: EPaymentDto[],
+) {
   const saleTypeIds = ePayments.map((p) => p.saleTypeId);
   const uniqueSaleTypeIds = [...new Set(saleTypeIds)];
 
-  const saleTypes = await prisma.saleType.findMany({
+  const saleTypes = await db.saleType.findMany({
     where: { id: { in: uniqueSaleTypeIds }, type: "EPAYMENT" },
     select: { id: true, name: true },
   });

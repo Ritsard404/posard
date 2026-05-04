@@ -21,7 +21,6 @@ export async function payOrderAction(
         console.error("Failed to archive receipt after checkout", error);
       }
     });
-    revalidatePath("/pos");
     return { success: true, receipt };
   } catch (error) {
     return {
