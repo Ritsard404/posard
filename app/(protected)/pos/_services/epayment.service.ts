@@ -1,4 +1,5 @@
 import "server-only";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { EPaymentMethodDto } from "./_dto/pos.dto";
 
@@ -31,13 +32,25 @@ export const epaymentService = {
     );
 
     if (missingDefaults.length > 0) {
-      await prisma.saleType.createMany({
-        data: missingDefaults.map((name) => ({
-          name,
-          account: null,
-          type: "EPAYMENT" as const,
-        })),
-      });
+      try {
+        await prisma.saleType.createMany({
+          data: missingDefaults.map((name) => ({
+            name,
+            account: null,
+            type: "EPAYMENT" as const,
+          })),
+          skipDuplicates: true,
+        });
+      } catch (error) {
+        if (
+          !(
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+          )
+        ) {
+          throw error;
+        }
+      }
     }
 
     const types = await prisma.saleType.findMany({
