@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { VatRegistrationToggle } from "@/components/vat-registration-toggle";
 import type {
   PrinterCapabilityDto,
   PrintJobDto,
@@ -62,7 +63,7 @@ export default function TerminalConfigurationForm({
   useEffect(() => {
     if (!terminal) {
       reset({
-        vat: undefined,
+        vat: 0,
         discountCapType: "amount",
         discountMax: undefined,
         vatTinNumber: "",
@@ -78,7 +79,7 @@ export default function TerminalConfigurationForm({
     }
 
     reset({
-      vat: terminal.vat ?? undefined,
+      vat: terminal.vat ?? 0,
       discountCapType: terminal.discountCapType,
       discountMax: terminal.discountMax ?? undefined,
       vatTinNumber: terminal.vatTinNumber ?? "",
@@ -114,6 +115,7 @@ export default function TerminalConfigurationForm({
     [printerConfig],
   );
   const discountCapType = watch("discountCapType");
+  const isVatRegistered = Number(watch("vat") ?? 0) > 0;
   const printerCapabilities = useMemo(
     () => printClientService.getCapabilities(),
     [],
@@ -268,11 +270,27 @@ export default function TerminalConfigurationForm({
       <SectionCard
         sectionRef={financialSectionRef}
         title="Financial"
-        description="Set the VAT rate and choose whether this terminal's max discount is capped by amount or by percent."
+        description="Set VAT registration and choose whether this terminal's max discount is capped by amount or by percent."
       >
         <div className="grid gap-4 md:grid-cols-2">
-          <FieldGroup label="VAT Rate" error={errors.vat?.message}>
-            <PercentInput {...register("vat")} placeholder="12" />
+          <input type="hidden" {...register("vat")} />
+          <FieldGroup label="VAT Registration" error={errors.vat?.message}>
+            <VatRegistrationToggle
+              checked={isVatRegistered}
+              disabled={isSubmitting}
+              onCheckedChange={(checked) => {
+                setValue("vat", checked ? 12 : 0, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+                if (!checked) {
+                  setValue("vatTinNumber", null, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                }
+              }}
+            />
           </FieldGroup>
           <FieldGroup label="Discount Cap Type" error={errors.discountCapType?.message}>
             <select
@@ -347,7 +365,11 @@ export default function TerminalConfigurationForm({
       >
         <div className="grid gap-4 md:grid-cols-2">
           <FieldGroup label="VAT TIN" error={errors.vatTinNumber?.message}>
-            <Input {...register("vatTinNumber")} placeholder="123-456-789-0000" />
+            <Input
+              {...register("vatTinNumber")}
+              disabled={!isVatRegistered || isSubmitting}
+              placeholder={isVatRegistered ? "123-456-789-0000" : "None"}
+            />
           </FieldGroup>
         </div>
       </SectionCard>
@@ -513,17 +535,6 @@ function SectionCard({
       </div>
       {children}
     </Card>
-  );
-}
-
-function PercentInput(props: React.ComponentProps<typeof Input>) {
-  return (
-    <div className="relative">
-      <Input type="number" min="0" max="100" step="0.01" className="pr-10" {...props} />
-      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
-        %
-      </span>
-    </div>
   );
 }
 

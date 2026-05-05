@@ -142,6 +142,22 @@ function mapTerminal(terminal: TerminalRecord): TerminalDTO {
   };
 }
 
+function normalizeVatRegistration<T extends { vat?: number | null; vatTinNumber?: string | null }>(
+  payload: T,
+): T {
+  if (payload.vat === undefined) {
+    return payload;
+  }
+
+  const vat = payload.vat && payload.vat > 0 ? 12 : 0;
+
+  return {
+    ...payload,
+    vat,
+    vatTinNumber: vat > 0 ? payload.vatTinNumber ?? null : null,
+  };
+}
+
 export const terminalService = {
   async getTerminalsByCompany(companyId: string): Promise<TerminalDTO[]> {
     const terminals = await prisma.posTerminalInfo.findMany({
@@ -244,7 +260,7 @@ export const terminalService = {
 
     const terminal = await prisma.posTerminalInfo.create({
       data: {
-        ...payload,
+        ...normalizeVatRegistration(payload),
         companyId,
         posName: `${company.name} POS ${nextTerminalNumber}`,
         registeredName: company.name,
@@ -270,7 +286,7 @@ export const terminalService = {
 
     const terminal = await prisma.posTerminalInfo.update({
       where: { id },
-      data: payload,
+      data: normalizeVatRegistration(payload),
     });
 
     return this.getTerminalById(terminal.id, companyId).then((item) => {
@@ -321,14 +337,16 @@ export const terminalService = {
     const terminal = await prisma.posTerminalInfo.update({
       where: { id },
       data: {
-        vat: payload.vat,
+        ...normalizeVatRegistration({
+          vat: payload.vat,
+          vatTinNumber: payload.vatTinNumber,
+        }),
         discountCapType: payload.discountCapType,
         discountMax: payload.discountMax,
         allowCashierDebtCreate: payload.allowCashierDebtCreate,
         allowCashierDebtCollect: payload.allowCashierDebtCollect,
         requireManagerApprovalForDebt: payload.requireManagerApprovalForDebt,
         defaultDebtDueDays: payload.defaultDebtDueDays,
-        vatTinNumber: payload.vatTinNumber,
         printerName:
           payload.printerConfig?.displayName?.trim() ||
           (payload.printerName ?? null),

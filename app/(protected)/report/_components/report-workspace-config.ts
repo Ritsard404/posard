@@ -38,6 +38,7 @@ export type ReportPrintableView =
   | "returned-records"
   | "debt-outstanding"
   | "debt-collections"
+  | "invoice-documents"
   | "audit"
   | "x-reading"
   | "z-reading";
@@ -243,5 +244,5 @@ export function getReportViewGroups() {
 }
 
 export function supportsReportSort(view: ReportPrintableView) {
-  return view !== "overview" && view !== "z-reading";
+  return view !== "overview" && view !== "z-reading" && view !== "invoice-documents";
 }

@@ -131,7 +131,7 @@ export default async function DashboardLayout({
           </div>
 
           {/* This ID is where we can inject page-specific buttons */}
-          <div id="header-actions" className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 overflow-hidden">
+          <div id="header-actions" className="flex min-w-0 max-w-[72vw] shrink-0 items-center justify-end gap-1.5 overflow-x-auto">
             {/* Pages will teleport their buttons here */}
             <PwaInstallButton
               label="Install"

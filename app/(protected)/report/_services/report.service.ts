@@ -1,11 +1,12 @@
 import "server-only";
 
-import { Prisma } from "@prisma/client";
+import { InvoiceDocumentType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { receiptPrintService } from "@/app/(protected)/pos/_services/receipt-print.service";
 import { printConfigService } from "@/app/(protected)/pos/_services/print-config.service";
 import { formatInvoiceNumber } from "@/app/(protected)/pos/_services/print-format.service";
 import { printArchiveService } from "@/app/(protected)/pos/_services/print-archive.service";
+import { auditLogService } from "@/lib/services/audit-log.service";
 import type {
   AuditTrailDto,
   AuditTrailItemDto,
@@ -56,6 +57,11 @@ interface ReportScopeInput {
 interface ReportRangeInput extends ReportScopeInput {
   from: Date;
   to: Date;
+}
+
+interface InvoiceDocumentsInput extends ReportPagedRangeInput {
+  documentType?: InvoiceDocumentType | "all";
+  trainMode?: "all" | "training" | "live";
 }
 
 interface ReportPaginationInput {
@@ -230,6 +236,107 @@ function buildPaymentBreakdown(
   }
 
   return [...paymentMap.values()].sort((a, b) => b.amount - a.amount);
+}
+
+function calculateNetSales(
+  invoices: Array<{
+    totalAmount: unknown;
+    discountAmount: unknown;
+    returnedAmount: unknown;
+  }>,
+) {
+  return invoices.reduce(
+    (sum, invoice) =>
+      sum +
+      toNumber(invoice.totalAmount) -
+      toNumber(invoice.discountAmount) -
+      toNumber(invoice.returnedAmount),
+    0,
+  );
+}
+
+function calculateCostOfGoodsSold(
+  invoices: Array<{
+    items: Array<{
+      qty: unknown;
+      product: { cost: unknown };
+    }>;
+  }>,
+) {
+  return invoices.reduce(
+    (invoiceSum, invoice) =>
+      invoiceSum +
+      invoice.items.reduce(
+        (itemSum, item) => itemSum + toNumber(item.qty) * toNumber(item.product.cost),
+        0,
+      ),
+    0,
+  );
+}
+
+function calculatePercentChange(current: number, previous: number) {
+  if (previous === 0) {
+    return current > 0 ? 100 : 0;
+  }
+
+  return ((current - previous) / previous) * 100;
+}
+
+function formatTrendLabel(value: Date) {
+  return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(value);
+}
+
+function buildSalesTrend(
+  invoices: Array<{
+    createdAt: Date;
+    status: string;
+    totalAmount: unknown;
+    discountAmount: unknown;
+    returnedAmount: unknown;
+  }>,
+  anchorDate = new Date(),
+) {
+  const labels = Array.from({ length: 7 }, (_, index) => {
+    const date = normalizeStartOfDay(anchorDate);
+    date.setDate(date.getDate() - (6 - index));
+
+    return {
+      date: date.toISOString().slice(0, 10),
+      label: formatTrendLabel(date),
+      sales: 0,
+      transactions: 0,
+    };
+  });
+  const map = new Map(labels.map((item) => [item.date, item]));
+
+  for (const invoice of invoices) {
+    if (!isSettledSalesInvoice(invoice)) {
+      continue;
+    }
+
+    const key = normalizeStartOfDay(invoice.createdAt).toISOString().slice(0, 10);
+    const bucket = map.get(key);
+
+    if (!bucket) {
+      continue;
+    }
+
+    bucket.sales += calculateNetSales([invoice]);
+    bucket.transactions += 1;
+  }
+
+  return labels;
+}
+
+function formatDocumentTitle(input: {
+  type: InvoiceDocumentType;
+  invoiceNumber?: number | null;
+}) {
+  if (input.type === InvoiceDocumentType.INVOICE) {
+    return input.invoiceNumber ? `Invoice ${formatInvoiceNumber(input.invoiceNumber)}` : "Invoice Document";
+  }
+
+  return input.type === InvoiceDocumentType.XREPORT ? "X-Reading Document" : "Z-Reading Document";
 }
 
 async function resolveCompanyScope(
@@ -593,7 +700,10 @@ async function buildXReadingFromTimestamp(timestamp: {
     businessName: timestamp.posTerminal.registeredName ?? "N/A",
     operatorName: timestamp.posTerminal.operatedBy ?? "N/A",
     addressLine: timestamp.posTerminal.address ?? "N/A",
-    vatRegTin: timestamp.posTerminal.vatTinNumber ?? "",
+    vatRegTin:
+      toNumber(timestamp.posTerminal.vat) > 0
+        ? timestamp.posTerminal.vatTinNumber ?? ""
+        : "None",
     minNumber: timestamp.posTerminal.minNumber ?? "",
     serialNumber: getTerminalSerialNumber(timestamp.posTerminal),
     isTrainMode: timestamp.posTerminal.isTrainMode,
@@ -868,9 +978,43 @@ export const reportService = {
     input: ReportRangeInput,
   ): Promise<ReportOverviewDto> {
     const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
-    const [invoices, debtPayments] = await Promise.all([
+    const yesterdayStart = normalizeStartOfDay(new Date(input.to));
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const yesterdayEnd = normalizeEndOfDay(yesterdayStart);
+    const trendStart = normalizeStartOfDay(new Date(input.to));
+    trendStart.setDate(trendStart.getDate() - 13);
+    const currentTrendStart = normalizeStartOfDay(new Date(input.to));
+    currentTrendStart.setDate(currentTrendStart.getDate() - 6);
+    const previousTrendEnd = normalizeEndOfDay(new Date(currentTrendStart));
+    previousTrendEnd.setDate(previousTrendEnd.getDate() - 1);
+
+    const [invoices, debtPayments, yesterdayInvoices, trendInvoices, products, terminals] = await Promise.all([
       getInvoicesForRange(companyId, input.from, input.to, terminalId),
       getDebtPaymentsForRange(companyId, input.from, input.to, terminalId),
+      getInvoicesForRange(companyId, yesterdayStart, yesterdayEnd, terminalId),
+      getInvoicesForRange(companyId, trendStart, input.to, terminalId),
+      prisma.product.findMany({
+        where: {
+          companyId,
+          isDeleted: false,
+          trackInventory: true,
+        },
+        select: {
+          id: true,
+          quantity: true,
+          cost: true,
+          price: true,
+        },
+      }),
+      prisma.posTerminalInfo.findMany({
+        where: {
+          companyId,
+          ...(terminalId ? { id: terminalId } : {}),
+        },
+        select: {
+          vat: true,
+        },
+      }),
     ]);
 
     const [activeSessionCount, unreadInvoiceCount, pendingTerminalRequests] =
@@ -907,18 +1051,101 @@ export const reportService = {
     const returnedInvoices = invoices.filter(
       (invoice) => invoice.status === "RETURNED",
     );
+    const totalSales = calculateNetSales(paidInvoices);
+    const totalExpenses = calculateCostOfGoodsSold(paidInvoices);
+    const netProfit = totalSales - totalExpenses;
+    const currentTrendInvoices = trendInvoices.filter(
+      (invoice) => invoice.createdAt >= currentTrendStart && invoice.createdAt <= input.to,
+    );
+    const previousTrendInvoices = trendInvoices.filter(
+      (invoice) => invoice.createdAt < currentTrendStart && invoice.createdAt <= previousTrendEnd,
+    );
+    const currentTrendSales = calculateNetSales(
+      currentTrendInvoices.filter(isSettledSalesInvoice),
+    );
+    const previousTrendSales = calculateNetSales(
+      previousTrendInvoices.filter(isSettledSalesInvoice),
+    );
+    const topProductMap = new Map<
+      string,
+      { id: string; name: string; quantitySold: number; revenue: number }
+    >();
+
+    for (const invoice of paidInvoices) {
+      for (const item of invoice.items) {
+        const current = topProductMap.get(item.productId) ?? {
+          id: item.productId,
+          name: item.product.name,
+          quantitySold: 0,
+          revenue: 0,
+        };
+        current.quantitySold += toNumber(item.qty);
+        current.revenue += toNumber(item.subTotal);
+        topProductMap.set(item.productId, current);
+      }
+    }
+
+    const inventoryHealth = products.reduce(
+      (summary, product) => {
+        const quantity = toNumber(product.quantity);
+        const cost = toNumber(product.cost);
+        const price = toNumber(product.price);
+
+        summary.totalStockValue += quantity * cost;
+        summary.potentialRetailValue += quantity * price;
+        summary.potentialProfit += quantity * (price - cost);
+        summary.trackedItemCount += quantity;
+        summary.trackedProductCount += 1;
+        summary.lowStockCount += quantity > 0 && quantity <= 10 ? 1 : 0;
+        summary.outOfStockCount += quantity <= 0 ? 1 : 0;
+
+        return summary;
+      },
+      {
+        totalStockValue: 0,
+        potentialRetailValue: 0,
+        potentialProfit: 0,
+        trackedItemCount: 0,
+        trackedProductCount: 0,
+        lowStockCount: 0,
+        outOfStockCount: 0,
+      },
+    );
+    const totalCashSales =
+      cashAffectingInvoices.reduce(
+        (sum, invoice) => sum + calculateCashCollected(invoice),
+        0,
+      ) +
+      debtPayments
+        .filter((payment) => payment.method.toUpperCase() === "CASH")
+        .reduce((sum, payment) => sum + toNumber(payment.amount), 0);
+    const totalEPaymentSales =
+      sumInvoiceReferencePayments(paidInvoices) +
+      debtPayments
+        .filter((payment) => payment.method.toUpperCase() !== "CASH")
+        .reduce((sum, payment) => sum + toNumber(payment.amount), 0);
+    const paymentBreakdown = buildNamedPaymentBreakdown([
+      ...buildPaymentBreakdown(paidInvoices).map((entry) => ({
+        name: entry.name,
+        amount: entry.amount,
+      })),
+      ...debtPayments
+        .filter((payment) => payment.method.toUpperCase() !== "CASH")
+        .map((payment) => ({
+          name: payment.method,
+          amount: toNumber(payment.amount),
+        })),
+    ]);
+    const isVatRegistered = terminals.some((terminal) => toNumber(terminal.vat) > 0);
+    const totalTransactions = paidInvoices.length;
 
     return {
       range: createRange(input.from, input.to),
-      totalSales: paidInvoices.reduce(
-        (sum, invoice) =>
-          sum +
-          toNumber(invoice.totalAmount) -
-          toNumber(invoice.discountAmount) -
-          toNumber(invoice.returnedAmount),
-        0,
-      ),
-      totalTransactions: paidInvoices.length,
+      totalSales,
+      totalExpenses,
+      netProfit,
+      profitMarginPercent: totalSales > 0 ? (netProfit / totalSales) * 100 : 0,
+      totalTransactions,
       totalReturns: returnedInvoices.reduce(
         (sum, invoice) => sum + toNumber(invoice.returnedAmount),
         0,
@@ -931,34 +1158,308 @@ export const reportService = {
         (sum, invoice) => sum + toNumber(invoice.discountAmount),
         0,
       ),
-      totalCashSales:
-        cashAffectingInvoices.reduce(
-          (sum, invoice) => sum + calculateCashCollected(invoice),
-          0,
-        ) +
-        debtPayments
-          .filter((payment) => payment.method.toUpperCase() === "CASH")
-          .reduce((sum, payment) => sum + toNumber(payment.amount), 0),
-      totalEPaymentSales:
-        sumInvoiceReferencePayments(paidInvoices) +
-        debtPayments
-          .filter((payment) => payment.method.toUpperCase() !== "CASH")
-          .reduce((sum, payment) => sum + toNumber(payment.amount), 0),
+      totalCashSales,
+      totalEPaymentSales,
+      averageTransactionValue:
+        totalTransactions > 0 ? totalSales / totalTransactions : 0,
+      totalCompositeSold: 0,
+      compositeProduced: 0,
+      compositeDisassembled: 0,
+      compositeNet: 0,
+      vatCollected: isVatRegistered
+        ? paidInvoices.reduce((sum, invoice) => sum + toNumber(invoice.vatAmount), 0)
+        : null,
+      isVatRegistered,
+      salesChangePercent: calculatePercentChange(
+        totalSales,
+        calculateNetSales(yesterdayInvoices.filter(isSettledSalesInvoice)),
+      ),
+      salesComparisonLabel: "vs Yesterday",
+      trendChangePercent: calculatePercentChange(currentTrendSales, previousTrendSales),
       activeSessionCount,
       unreadInvoiceCount,
       pendingTerminalRequests,
-      paymentBreakdown: buildNamedPaymentBreakdown([
-        ...buildPaymentBreakdown(paidInvoices).map((entry) => ({
-          name: entry.name,
-          amount: entry.amount,
-        })),
-        ...debtPayments
-          .filter((payment) => payment.method.toUpperCase() !== "CASH")
-          .map((payment) => ({
-            name: payment.method,
-            amount: toNumber(payment.amount),
-          })),
-      ]),
+      paymentBreakdown,
+      paymentMethodBreakdown:
+        totalCashSales > 0
+          ? [{ name: "Cash", count: totalTransactions, amount: totalCashSales }, ...paymentBreakdown]
+          : paymentBreakdown,
+      salesTrend: buildSalesTrend(currentTrendInvoices, input.to),
+      wallet: {
+        total: totalCashSales + totalEPaymentSales,
+        cash: totalCashSales,
+      },
+      inventoryHealth,
+      topProducts: [...topProductMap.values()]
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5),
+    };
+  },
+
+  async getInvoiceDocuments(
+    viewer: ReportViewerDto,
+    input: InvoiceDocumentsInput,
+  ) {
+    const { companyId } = await resolveCompanyScope(viewer, input);
+    const skip = (input.page - 1) * input.pageSize;
+    const typeFilter =
+      input.documentType && input.documentType !== "all"
+        ? { type: input.documentType }
+        : {};
+    const trainModeFilter =
+      input.trainMode === "training"
+        ? { isTrainMode: true }
+        : input.trainMode === "live"
+          ? { isTrainMode: false }
+          : {};
+    const reportDocumentAuditRows =
+      viewer.role === "admin"
+        ? []
+        : await prisma.auditLog.findMany({
+            where: {
+              companyId,
+              actionType: {
+                in: ["REPORT_DOCUMENT_ARCHIVED", "REPORT_DOCUMENT_REPRINTED"],
+              },
+              referenceId: {
+                not: null,
+              },
+            },
+            select: {
+              referenceId: true,
+            },
+          });
+    const auditedDocumentIds = reportDocumentAuditRows
+      .map((item) => item.referenceId)
+      .filter((value): value is string => Boolean(value));
+    const scopeWhere =
+      viewer.role === "admin"
+        ? ({} satisfies Prisma.InvoiceDocumentWhereInput)
+        : ({
+            OR: [
+              {
+                invoice: {
+                  posTerminal: {
+                    companyId,
+                  },
+                },
+              },
+              ...(auditedDocumentIds.length > 0
+                ? [{ id: { in: auditedDocumentIds } }]
+                : []),
+            ],
+          } satisfies Prisma.InvoiceDocumentWhereInput);
+    const where = {
+      ...scopeWhere,
+      ...typeFilter,
+      ...trainModeFilter,
+      createdAt: {
+        gte: input.from,
+        lte: input.to,
+      },
+    } satisfies Prisma.InvoiceDocumentWhereInput;
+
+    const [items, totalItems, invoiceCount, xReportCount, zReportCount, trainModeCount] =
+      await Promise.all([
+        prisma.invoiceDocument.findMany({
+          where,
+          select: {
+            id: true,
+            type: true,
+            reprintCount: true,
+            isTrainMode: true,
+            invoiceId: true,
+            createdAt: true,
+            invoice: {
+              select: {
+                invoiceNumber: true,
+                posTerminal: {
+                  select: {
+                    posName: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
+          },
+          skip,
+          take: input.pageSize,
+        }),
+        prisma.invoiceDocument.count({ where }),
+        prisma.invoiceDocument.count({
+          where: { ...where, type: InvoiceDocumentType.INVOICE },
+        }),
+        prisma.invoiceDocument.count({
+          where: { ...where, type: InvoiceDocumentType.XREPORT },
+        }),
+        prisma.invoiceDocument.count({
+          where: { ...where, type: InvoiceDocumentType.ZREPORT },
+        }),
+        prisma.invoiceDocument.count({
+          where: { ...where, isTrainMode: true },
+        }),
+      ]);
+
+    return {
+      range: createRange(input.from, input.to),
+      items: items.map((item) => ({
+        documentId: item.id,
+        type: item.type,
+        invoiceId: item.invoiceId,
+        invoiceNumber: item.invoice?.invoiceNumber ?? null,
+        terminalName: item.invoice?.posTerminal.posName ?? null,
+        isTrainMode: item.isTrainMode,
+        reprintCount: item.reprintCount,
+        createdAt: item.createdAt,
+      })),
+      pagination: createPagination(input.page, input.pageSize, totalItems),
+      totals: {
+        all: totalItems,
+        invoice: invoiceCount,
+        xReport: xReportCount,
+        zReport: zReportCount,
+        trainMode: trainModeCount,
+      },
+    };
+  },
+
+  async getInvoiceDocumentPrintPayload(
+    viewer: ReportViewerDto,
+    documentId: string,
+  ) {
+    const document = await prisma.invoiceDocument.findUnique({
+      where: { id: documentId },
+      select: {
+        id: true,
+        type: true,
+        reprintCount: true,
+        invoiceId: true,
+        invoice: {
+          select: {
+            invoiceNumber: true,
+            posTerminal: {
+              select: {
+                companyId: true,
+                printerName: true,
+                printerDisplayName: true,
+                printerConnectionType: true,
+                printerTransport: true,
+                printerDriver: true,
+                printerVendorId: true,
+                printerProductId: true,
+                printerDeviceId: true,
+                printerServiceUuid: true,
+                printerCharacteristicUuid: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!document) {
+      throw new Error("Invoice document not found.");
+    }
+
+    const documentCompanyId = document.invoice?.posTerminal.companyId ?? null;
+    if (
+      viewer.role !== "admin" &&
+      documentCompanyId !== viewer.companyId
+    ) {
+      if (!documentCompanyId) {
+        const auditCount = await prisma.auditLog.count({
+          where: {
+            companyId: viewer.companyId ?? "",
+            referenceId: document.id,
+            actionType: {
+              in: ["REPORT_DOCUMENT_ARCHIVED", "REPORT_DOCUMENT_REPRINTED"],
+            },
+          },
+        });
+
+        if (auditCount > 0) {
+          const archive = await printArchiveService.getArchive(document.id);
+          if (!archive) {
+            throw new Error("Invoice document archive not found.");
+          }
+
+          return {
+            documentId: document.id,
+            type: document.type,
+            title: formatDocumentTitle({
+              type: document.type,
+              invoiceNumber: document.invoice?.invoiceNumber ?? null,
+            }),
+            printerConfig: null,
+            previewContent: archive.content,
+            printSegments: [archive.content],
+            reprintCount: document.reprintCount,
+          };
+        }
+      }
+
+      throw new Error("You do not have access to this document.");
+    }
+
+    const archive = await printArchiveService.getArchive(document.id);
+    if (!archive) {
+      throw new Error("Invoice document archive not found.");
+    }
+
+    return {
+      documentId: document.id,
+      type: document.type,
+      title: formatDocumentTitle({
+        type: document.type,
+        invoiceNumber: document.invoice?.invoiceNumber ?? null,
+      }),
+      printerConfig: document.invoice?.posTerminal
+        ? printConfigService.mapPrinterConfig(document.invoice.posTerminal)
+        : null,
+      previewContent: archive.content,
+      printSegments: [archive.content],
+      reprintCount: document.reprintCount,
+    };
+  },
+
+  async reprintInvoiceDocument(viewer: ReportViewerDto, documentId: string) {
+    const payload = await this.getInvoiceDocumentPrintPayload(viewer, documentId);
+    const archive = await printArchiveService.createReprint(documentId, payload.type);
+    const companyId =
+      viewer.companyId ??
+      (await prisma.invoiceDocument.findUnique({
+        where: { id: documentId },
+        select: {
+          invoice: {
+            select: {
+              posTerminal: {
+                select: {
+                  companyId: true,
+                },
+              },
+            },
+          },
+        },
+      }))?.invoice?.posTerminal.companyId ??
+      null;
+
+    if (companyId) {
+      await auditLogService.create(prisma, {
+        companyId,
+        actorProfileId: viewer.profileId,
+        actionType: "INVOICE_DOCUMENT_REPRINTED",
+        referenceId: documentId,
+        changes: `${payload.type} document reprinted. Reprint count: ${archive.reprintCount}.`,
+      });
+    }
+
+    return {
+      ...payload,
+      previewContent: archive.content,
+      printSegments: [archive.content],
+      reprintCount: archive.reprintCount,
     };
   },
 
@@ -1199,7 +1700,8 @@ export const reportService = {
       businessName: terminalInfo?.registeredName ?? "N/A",
       operatorName: terminalInfo?.operatedBy ?? "N/A",
       addressLine: terminalInfo?.address ?? "N/A",
-      vatRegTin: terminalInfo?.vatTinNumber ?? "N/A",
+      vatRegTin:
+        (terminalInfo?.vat ?? 0) > 0 ? terminalInfo?.vatTinNumber ?? "N/A" : "None",
       minNumber: terminalInfo?.minNumber ?? "N/A",
       serialNumber: terminalInfo ? getTerminalSerialNumber(terminalInfo) : "N/A",
       isTrainMode: terminalInfo?.isTrainMode ?? false,

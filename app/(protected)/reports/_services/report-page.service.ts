@@ -12,6 +12,7 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InvoiceDocumentsDto,
   RefundInvoicesDto,
   ReturnedInvoiceRecordsDto,
   ReturnedItemsDto,
@@ -25,6 +26,7 @@ import type {
 import {
   getReportRouteDefinition,
   REPORT_ROUTE_DEFINITIONS,
+  type ReportPeriod,
   type ReportPreset,
 } from "../_components/reports-config";
 import type { ReportSortOrder } from "@/app/(protected)/report/_components/report-workspace-config";
@@ -36,6 +38,7 @@ export type LoadedReportData =
   | DebtOutstandingDto
   | DailyTransactionsDto
   | DiscountReportDto
+  | InvoiceDocumentsDto
   | RefundInvoicesDto
   | ReturnedInvoiceRecordsDto
   | ReturnedItemsDto
@@ -49,6 +52,16 @@ export type LoadedReportData =
 function getParam(searchParams: SearchParams, key: string) {
   const value = searchParams[key];
   return Array.isArray(value) ? value[0] : value;
+}
+
+function getDocumentTypeParam(value: string | undefined): "INVOICE" | "XREPORT" | "ZREPORT" | "all" {
+  return value === "INVOICE" || value === "XREPORT" || value === "ZREPORT"
+    ? value
+    : "all";
+}
+
+function getTrainModeParam(value: string | undefined): "all" | "training" | "live" {
+  return value === "training" || value === "live" ? value : "all";
 }
 
 function normalizeStartOfDay(value: Date) {
@@ -114,6 +127,7 @@ async function getEarliestAvailableDate(companyId: string, terminalId?: string) 
 
 async function resolveDateRange(input: {
   preset?: string | null;
+  period?: string | null;
   from?: string | null;
   to?: string | null;
   companyId: string;
@@ -122,11 +136,32 @@ async function resolveDateRange(input: {
 }) {
   const today = new Date();
   const parsedPreset = input.preset as ReportPreset | null;
+  const parsedPeriod =
+    input.period === "weekly" ||
+    input.period === "monthly" ||
+    input.period === "annual" ||
+    input.period === "daily"
+      ? input.period
+      : null;
+  const defaultPeriod: ReportPeriod =
+    parsedPeriod ??
+    (parsedPreset === "7d"
+      ? "weekly"
+      : parsedPreset === "30d" ||
+          parsedPreset === "thisMonth" ||
+          parsedPreset === "lastMonth"
+        ? "monthly"
+        : parsedPreset === "thisYear" ||
+            parsedPreset === "lastYear" ||
+            parsedPreset === "all"
+          ? "annual"
+          : "daily");
 
   if (input.forceAllHistory) {
     const earliest = await getEarliestAvailableDate(input.companyId, input.terminalId);
     return {
       preset: "all" as const,
+      period: "annual" as const,
       from: earliest,
       to: normalizeEndOfDay(today),
     };
@@ -136,21 +171,55 @@ async function resolveDateRange(input: {
     const earliest = await getEarliestAvailableDate(input.companyId, input.terminalId);
     return {
       preset: "all" as const,
+      period: "annual" as const,
       from: earliest,
       to: normalizeEndOfDay(today),
     };
   }
 
+  if (parsedPreset === "lastYear") {
+    const from = normalizeStartOfDay(new Date(today.getFullYear() - 1, 0, 1));
+    const to = normalizeEndOfDay(new Date(today.getFullYear() - 1, 11, 31));
+    return { preset: "lastYear" as const, period: "annual" as const, from, to };
+  }
+
+  if (parsedPreset === "thisYear") {
+    const from = normalizeStartOfDay(new Date(today.getFullYear(), 0, 1));
+    return { preset: "thisYear" as const, period: "annual" as const, from, to: normalizeEndOfDay(today) };
+  }
+
+  if (parsedPreset === "lastMonth") {
+    const from = normalizeStartOfDay(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+    const to = normalizeEndOfDay(new Date(today.getFullYear(), today.getMonth(), 0));
+    return { preset: "lastMonth" as const, period: "monthly" as const, from, to };
+  }
+
+  if (parsedPreset === "thisMonth") {
+    const from = normalizeStartOfDay(new Date(today.getFullYear(), today.getMonth(), 1));
+    return { preset: "thisMonth" as const, period: "monthly" as const, from, to: normalizeEndOfDay(today) };
+  }
+
   if (parsedPreset === "30d") {
     const from = normalizeStartOfDay(new Date(today));
     from.setDate(from.getDate() - 29);
-    return { preset: "30d" as const, from, to: normalizeEndOfDay(today) };
+    return { preset: "30d" as const, period: "monthly" as const, from, to: normalizeEndOfDay(today) };
   }
 
   if (parsedPreset === "7d") {
     const from = normalizeStartOfDay(new Date(today));
     from.setDate(from.getDate() - 6);
-    return { preset: "7d" as const, from, to: normalizeEndOfDay(today) };
+    return { preset: "7d" as const, period: "weekly" as const, from, to: normalizeEndOfDay(today) };
+  }
+
+  if (parsedPreset === "yesterday") {
+    const value = new Date(today);
+    value.setDate(value.getDate() - 1);
+    return {
+      preset: "yesterday" as const,
+      period: "daily" as const,
+      from: normalizeStartOfDay(value),
+      to: normalizeEndOfDay(value),
+    };
   }
 
   if (
@@ -161,6 +230,7 @@ async function resolveDateRange(input: {
   ) {
     return {
       preset: "custom" as const,
+      period: defaultPeriod,
       from: normalizeStartOfDay(new Date(input.from)),
       to: normalizeEndOfDay(new Date(input.to)),
     };
@@ -168,6 +238,7 @@ async function resolveDateRange(input: {
 
   return {
     preset: "today" as const,
+    period: "daily" as const,
     from: normalizeStartOfDay(today),
     to: normalizeEndOfDay(today),
   };
@@ -215,6 +286,7 @@ export const reportPageService = {
 
     const range = await resolveDateRange({
       preset: getParam(searchParams, "preset"),
+      period: getParam(searchParams, "period"),
       from: getParam(searchParams, "from"),
       to: getParam(searchParams, "to"),
       companyId: viewer.companyId,
@@ -259,6 +331,7 @@ export const reportPageService = {
 
     const range = await resolveDateRange({
       preset: getParam(searchParams, "preset"),
+      period: getParam(searchParams, "period"),
       from: getParam(searchParams, "from"),
       to: getParam(searchParams, "to"),
       companyId,
@@ -302,6 +375,13 @@ export const reportPageService = {
       case "debt-collections":
         data = await reportService.getDebtCollections(viewer, input);
         break;
+      case "invoice-documents":
+        data = await reportService.getInvoiceDocuments(viewer, {
+          ...input,
+          documentType: getDocumentTypeParam(getParam(searchParams, "documentType")),
+          trainMode: getTrainModeParam(getParam(searchParams, "trainMode")),
+        });
+        break;
       case "transaction-list":
         data = await reportService.getTransactionList(viewer, input);
         break;
@@ -338,12 +418,15 @@ export const reportPageService = {
 
     const selectedTerminal =
       workspace.terminals.find((item) => item.id === terminalId) ?? null;
-    const printPayload = reportPrintService.buildPayload({
-      view: definition.view,
-      overview,
-      detail: data,
-      selectedTerminal,
-    });
+    const printPayload =
+      definition.view === "invoice-documents"
+        ? null
+        : reportPrintService.buildPayload({
+            view: definition.view,
+            overview,
+            detail: data,
+            selectedTerminal,
+          });
 
     return {
       viewer,
@@ -365,13 +448,15 @@ export const reportPageService = {
         toInput: formatDateInput(range.to),
         label: `${formatDateLabel(range.from)} to ${formatDateLabel(range.to)}`,
         sortOrder,
+        documentType: getDocumentTypeParam(getParam(searchParams, "documentType")),
+        trainMode: getTrainModeParam(getParam(searchParams, "trainMode")),
       },
       printPayload,
       isDateLockedToAllHistory: definition.view === "z-reading",
       isDateFilterOptional: definition.view === "x-reading",
       exportBaseUrl: `/reports/export?type=${definition.slug}&companyId=${companyId}${
         terminalId ? `&terminalId=${terminalId}` : ""
-      }&preset=${range.preset}&from=${formatDateInput(range.from)}&to=${formatDateInput(range.to)}&sortOrder=${sortOrder}`,
+      }&period=${range.period}&preset=${range.preset}&from=${formatDateInput(range.from)}&to=${formatDateInput(range.to)}&sortOrder=${sortOrder}`,
     };
   },
 
@@ -381,6 +466,7 @@ export const reportPageService = {
       companyId: searchParams.get("companyId") ?? undefined,
       terminalId: searchParams.get("terminalId") ?? undefined,
       preset: searchParams.get("preset") ?? undefined,
+      period: searchParams.get("period") ?? undefined,
       from: searchParams.get("from") ?? undefined,
       to: searchParams.get("to") ?? undefined,
       sortOrder: searchParams.get("sortOrder") ?? undefined,

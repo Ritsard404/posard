@@ -16,8 +16,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { HeaderActions } from "@/components/layout/HeaderActions";
 import { cn } from "@/lib/utils";
-import type { ReportPreset, ReportsRouteSlug } from "./reports-config";
+import type { ReportPeriod, ReportPreset, ReportsRouteSlug } from "./reports-config";
+import type { InvoiceDocumentItemDto } from "@/app/(protected)/report/_services/_dto/report.dto";
 import {
   supportsReportSort,
   type ReportPrintableView,
@@ -30,6 +32,7 @@ export function ReportFilterToolbar({
   preset,
   fromInput,
   toInput,
+  period = "daily",
   companyId,
   terminalId,
   exportBaseUrl,
@@ -38,12 +41,17 @@ export function ReportFilterToolbar({
   dateHint,
   view,
   sortOrder = "newest",
+  showPeriodTabs = true,
+  documentType = "all",
+  trainMode = "all",
+  documentMode = false,
 }: {
   basePath: string;
   slug?: ReportsRouteSlug;
   preset: ReportPreset;
   fromInput: string;
   toInput: string;
+  period?: ReportPeriod;
   companyId?: string | null;
   terminalId?: string | null;
   exportBaseUrl?: string;
@@ -52,48 +60,222 @@ export function ReportFilterToolbar({
   dateHint?: string;
   view?: ReportPrintableView;
   sortOrder?: ReportSortOrder;
+  showPeriodTabs?: boolean;
+  documentType?: InvoiceDocumentItemDto["type"] | "all";
+  trainMode?: "all" | "training" | "live";
+  documentMode?: boolean;
 }) {
   const presets: Array<{ id: ReportPreset; label: string }> = [
     { id: "today", label: "Today" },
-    { id: "7d", label: "7 Days" },
-    { id: "30d", label: "30 Days" },
-    { id: "all", label: "All" },
+    { id: "yesterday", label: "Yesterday" },
+    { id: "7d", label: "Last 7 days" },
+    { id: "30d", label: "Last 30 days" },
+    { id: "thisMonth", label: "This Month" },
+    { id: "lastMonth", label: "Last Month" },
+  ];
+  const periods: Array<{ id: ReportPeriod; label: string; preset: ReportPreset }> = [
+    { id: "daily", label: "Daily", preset: "today" },
+    { id: "weekly", label: "Weekly", preset: "7d" },
+    { id: "monthly", label: "Monthly", preset: "thisMonth" },
+    { id: "annual", label: "Annual", preset: "thisYear" },
   ];
   const canSort = view ? supportsReportSort(view) : false;
+  const activeTerminalLabel = terminalId
+    ? terminalOptions.find((item) => item.id === terminalId)?.name ?? "Selected terminal"
+    : "All terminals";
+  const activePresetLabel =
+    presets.find((item) => item.id === preset)?.label ?? "Custom Range";
+  const documentTypes: Array<{ id: InvoiceDocumentItemDto["type"] | "all"; label: string }> = [
+    { id: "all", label: "All documents" },
+    { id: "INVOICE", label: "Invoices" },
+    { id: "XREPORT", label: "X-Reports" },
+    { id: "ZREPORT", label: "Z-Reports" },
+  ];
+  const trainModes: Array<{ id: "all" | "training" | "live"; label: string }> = [
+    { id: "all", label: "All modes" },
+    { id: "live", label: "Live only" },
+    { id: "training", label: "Train mode" },
+  ];
+  const activeDocumentTypeLabel =
+    documentTypes.find((item) => item.id === documentType)?.label ?? "All documents";
+  const activeTrainModeLabel =
+    trainModes.find((item) => item.id === trainMode)?.label ?? "All modes";
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-card px-3 py-3 shadow-sm sm:px-4">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex flex-wrap gap-1.5">
+    <>
+      <HeaderActions>
+        <div className="flex min-w-max items-center justify-end gap-1.5">
+          {!documentMode ? (
+          <div className="hidden items-center gap-1 2xl:flex">
             {presets.map((item) => (
               <Button
                 key={item.id}
                 asChild
                 variant={preset === item.id ? "default" : "outline"}
                 className={cn(
-                  "h-9 rounded-xl px-3 text-sm",
+                  "h-8 rounded-full px-3 text-xs font-semibold",
                   preset === item.id && "shadow-sm",
-                  dateControlsDisabled && item.id !== "all" && "pointer-events-none opacity-50",
+                  dateControlsDisabled && "pointer-events-none opacity-50",
                 )}
               >
-                <Link href={buildFilterHref(basePath, item.id, companyId, terminalId, sortOrder)}>
+                <Link
+                  href={buildFilterHref({
+                    basePath,
+                    preset: item.id,
+                    period: getPeriodForPreset(item.id, period),
+                    companyId,
+                    terminalId,
+                    sortOrder,
+                  })}
+                >
                   {item.label}
                 </Link>
               </Button>
             ))}
           </div>
-
-          {dateHint ? (
-            <div className="text-sm text-muted-foreground">{dateHint}</div>
           ) : null}
 
-          <form action={basePath} method="get" className="hidden gap-2 md:grid md:grid-cols-[minmax(140px,180px)_minmax(140px,180px)_auto]">
+          {!documentMode ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-9 rounded-xl px-3 text-sm 2xl:hidden">
+                <CalendarDays className="size-4" />
+                <span>{activePresetLabel}</span>
+                <ChevronDown className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 rounded-xl">
+              {presets.map((item) => (
+                <DropdownMenuItem key={item.id} asChild className="rounded-xl">
+                  <Link
+                    href={buildFilterHref({
+                      basePath,
+                      preset: item.id,
+                      period: getPeriodForPreset(item.id, period),
+                      companyId,
+                      terminalId,
+                      sortOrder,
+                    })}
+                  >
+                    <CalendarDays className="size-4" />
+                    <span className="flex-1">{item.label}</span>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          ) : null}
+
+          {!documentMode ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-9 rounded-xl px-3 text-sm">
+                <CalendarDays className="size-4" />
+                <span className="capitalize">{period}</span>
+                <ChevronDown className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44 rounded-xl">
+              {periods.map((item) => (
+                <DropdownMenuItem key={item.id} asChild className="rounded-xl">
+                  <Link
+                    href={buildFilterHref({
+                      basePath,
+                      preset: item.preset,
+                      period: item.id,
+                      companyId,
+                      terminalId,
+                      sortOrder,
+                    })}
+                  >
+                    <CalendarDays className="size-4" />
+                    <span className="flex-1">{item.label}</span>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          ) : null}
+
+          {documentMode ? (
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-9 rounded-xl px-3 text-sm">
+                    <FileSpreadsheet className="size-4" />
+                    <span>{activeDocumentTypeLabel}</span>
+                    <ChevronDown className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                  {documentTypes.map((item) => (
+                    <DropdownMenuItem key={item.id} asChild className="rounded-xl">
+                      <Link
+                        href={buildFilterHref({
+                          basePath,
+                          preset,
+                          period,
+                          companyId,
+                          terminalId,
+                          sortOrder,
+                          documentType: item.id,
+                          trainMode,
+                        })}
+                      >
+                        <FileSpreadsheet className="size-4" />
+                        <span className="flex-1">{item.label}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-9 rounded-xl px-3 text-sm">
+                    <MonitorSmartphone className="size-4" />
+                    <span>{activeTrainModeLabel}</span>
+                    <ChevronDown className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                  {trainModes.map((item) => (
+                    <DropdownMenuItem key={item.id} asChild className="rounded-xl">
+                      <Link
+                        href={buildFilterHref({
+                          basePath,
+                          preset,
+                          period,
+                          companyId,
+                          terminalId,
+                          sortOrder,
+                          documentType,
+                          trainMode: item.id,
+                        })}
+                      >
+                        <MonitorSmartphone className="size-4" />
+                        <span className="flex-1">{item.label}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : null}
+
+          <form
+            action={basePath}
+            method="get"
+            className="hidden grid-cols-[8.75rem_8.75rem_auto] gap-1.5 lg:grid"
+          >
             {slug ? <input type="hidden" name="type" value={slug} /> : null}
             {companyId ? <input type="hidden" name="companyId" value={companyId} /> : null}
             {terminalId ? <input type="hidden" name="terminalId" value={terminalId} /> : null}
             <input type="hidden" name="preset" value="custom" />
+            <input type="hidden" name="period" value={period} />
             {canSort ? <input type="hidden" name="sortOrder" value={sortOrder} /> : null}
+            {documentMode ? <input type="hidden" name="documentType" value={documentType} /> : null}
+            {documentMode ? <input type="hidden" name="trainMode" value={trainMode} /> : null}
             <Input
               type="date"
               name="from"
@@ -110,67 +292,90 @@ export function ReportFilterToolbar({
             />
             <Button type="submit" className="h-9 rounded-xl px-3 text-sm" disabled={dateControlsDisabled}>
               <CalendarDays className="size-4" />
-              Apply Range
+              Apply
             </Button>
           </form>
 
-          <details className="group rounded-xl border bg-muted/10 md:hidden">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center gap-2">
-                <CalendarDays className="size-4 text-muted-foreground" />
-                Date Range
-              </span>
-              <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
-            </summary>
-            <form action={basePath} method="get" className="grid gap-2 border-t p-2">
-              {slug ? <input type="hidden" name="type" value={slug} /> : null}
-              {companyId ? <input type="hidden" name="companyId" value={companyId} /> : null}
-              {terminalId ? <input type="hidden" name="terminalId" value={terminalId} /> : null}
-              <input type="hidden" name="preset" value="custom" />
-              {canSort ? <input type="hidden" name="sortOrder" value={sortOrder} /> : null}
-              <Input
-                type="date"
-                name="from"
-                defaultValue={fromInput}
-                className="h-9 rounded-xl text-sm"
-                disabled={dateControlsDisabled}
-              />
-              <Input
-                type="date"
-                name="to"
-                defaultValue={toInput}
-                className="h-9 rounded-xl text-sm"
-                disabled={dateControlsDisabled}
-              />
-              <Button type="submit" className="h-9 rounded-xl px-3 text-sm" disabled={dateControlsDisabled}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-9 rounded-xl px-3 text-sm lg:hidden">
                 <CalendarDays className="size-4" />
-                Apply Range
+                Range
               </Button>
-            </form>
-          </details>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72 rounded-xl p-2">
+              <form action={basePath} method="get" className="grid gap-2">
+                {slug ? <input type="hidden" name="type" value={slug} /> : null}
+                {companyId ? <input type="hidden" name="companyId" value={companyId} /> : null}
+                {terminalId ? <input type="hidden" name="terminalId" value={terminalId} /> : null}
+                <input type="hidden" name="preset" value="custom" />
+                <input type="hidden" name="period" value={period} />
+                {canSort ? <input type="hidden" name="sortOrder" value={sortOrder} /> : null}
+                {documentMode ? <input type="hidden" name="documentType" value={documentType} /> : null}
+                {documentMode ? <input type="hidden" name="trainMode" value={trainMode} /> : null}
+                <Input
+                  type="date"
+                  name="from"
+                  defaultValue={fromInput}
+                  className="h-9 rounded-xl text-sm"
+                  disabled={dateControlsDisabled}
+                />
+                <Input
+                  type="date"
+                  name="to"
+                  defaultValue={toInput}
+                  className="h-9 rounded-xl text-sm"
+                  disabled={dateControlsDisabled}
+                />
+                <Button type="submit" className="h-9 rounded-xl px-3 text-sm" disabled={dateControlsDisabled}>
+                  <CalendarDays className="size-4" />
+                  Apply Range
+                </Button>
+              </form>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
-            {terminalOptions.length > 0 ? (
+            {terminalOptions.length > 0 && !documentMode ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="h-9 rounded-xl px-3 text-sm">
                     <MonitorSmartphone className="size-4" />
-                    {terminalId
-                      ? terminalOptions.find((item) => item.id === terminalId)?.name ?? "Selected terminal"
-                      : "All terminals"}
+                    <span className="max-w-[10rem] truncate">{activeTerminalLabel}</span>
                     <ArrowRightLeft className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-72 rounded-xl">
                   <DropdownMenuItem asChild className="rounded-xl">
-                    <Link href={buildFilterHref(basePath, preset, companyId, null, sortOrder)}>
+                    <Link
+                      href={buildFilterHref({
+                        basePath,
+                        preset,
+                        period,
+                        companyId,
+                        terminalId: null,
+                        sortOrder,
+                        documentType,
+                        trainMode,
+                      })}
+                    >
                       <MonitorSmartphone className="size-4" />
                       <span className="flex-1">All terminals</span>
                     </Link>
                   </DropdownMenuItem>
                   {terminalOptions.map((item) => (
                     <DropdownMenuItem key={item.id} asChild className="rounded-xl">
-                      <Link href={buildFilterHref(basePath, preset, companyId, item.id, sortOrder)}>
+                      <Link
+                        href={buildFilterHref({
+                          basePath,
+                          preset,
+                          period,
+                          companyId,
+                          terminalId: item.id,
+                          sortOrder,
+                          documentType,
+                          trainMode,
+                        })}
+                      >
                         <MonitorSmartphone className="size-4" />
                         <span className="flex-1">{item.name}</span>
                         {item.isActive ? (
@@ -188,19 +393,41 @@ export function ReportFilterToolbar({
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="h-9 rounded-xl px-3 text-sm">
                     <Clock3 className="size-4" />
-                    {sortOrder === "oldest" ? "Oldest first" : "Newest first"}
+                    <span>{sortOrder === "oldest" ? "Oldest" : "Newest"}</span>
                     <ArrowRightLeft className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56 rounded-xl">
                   <DropdownMenuItem asChild className="rounded-xl">
-                    <Link href={buildFilterHref(basePath, preset, companyId, terminalId, "newest")}>
+                    <Link
+                      href={buildFilterHref({
+                        basePath,
+                        preset,
+                        period,
+                        companyId,
+                        terminalId,
+                        sortOrder: "newest",
+                        documentType,
+                        trainMode,
+                      })}
+                    >
                       <Clock3 className="size-4" />
                       <span className="flex-1">Newest first</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="rounded-xl">
-                    <Link href={buildFilterHref(basePath, preset, companyId, terminalId, "oldest")}>
+                    <Link
+                      href={buildFilterHref({
+                        basePath,
+                        preset,
+                        period,
+                        companyId,
+                        terminalId,
+                        sortOrder: "oldest",
+                        documentType,
+                        trainMode,
+                      })}
+                    >
                       <Clock3 className="size-4" />
                       <span className="flex-1">Oldest first</span>
                     </Link>
@@ -208,42 +435,112 @@ export function ReportFilterToolbar({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
-          </div>
+
+          {exportBaseUrl && !documentMode ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-9 rounded-xl px-3 text-sm">
+                  <Download className="size-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                <DropdownMenuItem asChild className="rounded-xl">
+                  <Link href={`${exportBaseUrl}&format=csv`}>
+                    <Download className="size-4" />
+                    CSV
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="rounded-xl">
+                  <Link href={`${exportBaseUrl}&format=xlsx`}>
+                    <FileSpreadsheet className="size-4" />
+                    XLSX
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
+      </HeaderActions>
+
+      {showPeriodTabs && !documentMode ? (
+      <div className="rounded-2xl border border-border/70 bg-card/95 p-2 shadow-sm">
+        <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted/60 p-1">
+          {periods.map((item) => (
+            <Button
+              key={item.id}
+              asChild
+              variant={period === item.id ? "default" : "ghost"}
+              className={cn(
+                "h-10 min-w-0 rounded-lg px-2 text-xs font-bold sm:text-sm",
+                period === item.id && "shadow-sm",
+                dateControlsDisabled && item.id !== "annual" && "pointer-events-none opacity-50",
+              )}
+            >
+              <Link
+                href={buildFilterHref({
+                  basePath,
+                  preset: item.preset,
+                  period: item.id,
+                  companyId,
+                  terminalId,
+                  sortOrder,
+                })}
+              >
+                <span className="truncate">{item.label}</span>
+              </Link>
+            </Button>
+          ))}
         </div>
 
-        {exportBaseUrl ? (
-          <div className="grid gap-1.5 sm:flex-row xl:shrink-0 min-[420px]:grid-cols-2 xl:flex">
-            <Button asChild variant="outline" className="h-9 rounded-xl px-3 text-sm">
-              <Link href={`${exportBaseUrl}&format=csv`}>
-                <Download className="size-4" />
-                Export CSV
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-9 rounded-xl px-3 text-sm">
-              <Link href={`${exportBaseUrl}&format=xlsx`}>
-                <FileSpreadsheet className="size-4" />
-                Export XLSX
-              </Link>
-            </Button>
+        {dateHint ? (
+          <div className="mt-2 rounded-xl bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            {dateHint}
           </div>
         ) : null}
       </div>
-    </div>
+      ) : dateHint ? (
+        <div className="rounded-xl bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          {dateHint}
+        </div>
+      ) : null}
+    </>
   );
 }
 
-function buildFilterHref(
-  basePath: string,
-  preset: ReportPreset,
-  companyId?: string | null,
-  terminalId?: string | null,
-  sortOrder?: ReportSortOrder,
-) {
-  const params = new URLSearchParams({ preset });
+function getPeriodForPreset(preset: ReportPreset, fallback: ReportPeriod): ReportPeriod {
+  if (preset === "7d") return "weekly";
+  if (preset === "30d" || preset === "thisMonth" || preset === "lastMonth") return "monthly";
+  if (preset === "thisYear" || preset === "lastYear" || preset === "all") return "annual";
+  if (preset === "custom") return fallback;
 
-  if (companyId) params.set("companyId", companyId);
-  if (terminalId) params.set("terminalId", terminalId);
-  if (sortOrder) params.set("sortOrder", sortOrder);
+  return "daily";
+}
 
-  return `${basePath}?${params.toString()}`;
+function buildFilterHref(input: {
+  basePath: string;
+  preset: ReportPreset;
+  period: ReportPeriod;
+  companyId?: string | null;
+  terminalId?: string | null;
+  sortOrder?: ReportSortOrder;
+  documentType?: InvoiceDocumentItemDto["type"] | "all";
+  trainMode?: "all" | "training" | "live";
+}) {
+  const params = new URLSearchParams({
+    preset: input.preset,
+    period: input.period,
+  });
+
+  if (input.companyId) params.set("companyId", input.companyId);
+  if (input.terminalId) params.set("terminalId", input.terminalId);
+  if (input.sortOrder) params.set("sortOrder", input.sortOrder);
+  if (input.documentType && input.documentType !== "all") {
+    params.set("documentType", input.documentType);
+  }
+  if (input.trainMode && input.trainMode !== "all") {
+    params.set("trainMode", input.trainMode);
+  }
+
+  return `${input.basePath}?${params.toString()}`;
 }

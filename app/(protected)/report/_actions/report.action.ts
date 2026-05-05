@@ -8,10 +8,13 @@ import type { PrinterConfigDto } from "@/app/(protected)/pos/_services/_dto/prin
 import { terminalPrinterConfigService } from "@/app/(protected)/pos/_services/terminal-printer-config.service";
 import { printArchiveService } from "@/app/(protected)/pos/_services/print-archive.service";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { auditLogService } from "@/lib/services/audit-log.service";
 import type {
   AuditTrailDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InvoiceDocumentPrintPayloadDto,
   RefundInvoicesDto,
   ReportCompaniesWorkspaceDto,
   ReportCompanyContextDto,
@@ -91,6 +94,7 @@ const PrintArchiveTypeSchema = z.nativeEnum(InvoiceDocumentType).refine(
   (value) => value === InvoiceDocumentType.XREPORT || value === InvoiceDocumentType.ZREPORT,
   "Unsupported archive type",
 );
+const InvoiceDocumentTypeSchema = z.nativeEnum(InvoiceDocumentType);
 
 function toErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -483,7 +487,7 @@ export async function createReportPrintArchiveAction(input: {
   | { success: false; error: string }
 > {
   try {
-    await reportAccessService.getViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = z.object({
       type: PrintArchiveTypeSchema,
       content: z.string().min(1),
@@ -495,6 +499,16 @@ export async function createReportPrintArchiveAction(input: {
       content: validated.content,
       isTrainMode: validated.isTrainMode,
     });
+
+    if (viewer.companyId) {
+      await auditLogService.create(prisma, {
+        companyId: viewer.companyId,
+        actorProfileId: viewer.profileId,
+        actionType: "REPORT_DOCUMENT_ARCHIVED",
+        referenceId: archive.id,
+        changes: `${archive.type} document archived from report print flow.`,
+      });
+    }
 
     return {
       success: true,
@@ -519,7 +533,7 @@ export async function reprintReportPrintArchiveAction(input: {
   | { success: false; error: string }
 > {
   try {
-    await reportAccessService.getViewer();
+    const viewer = await reportAccessService.getViewer();
     const validated = z.object({
       documentId: z.string().uuid(),
       type: PrintArchiveTypeSchema,
@@ -529,6 +543,16 @@ export async function reprintReportPrintArchiveAction(input: {
       validated.documentId,
       validated.type,
     );
+
+    if (viewer.companyId) {
+      await auditLogService.create(prisma, {
+        companyId: viewer.companyId,
+        actorProfileId: viewer.profileId,
+        actionType: "REPORT_DOCUMENT_REPRINTED",
+        referenceId: archive.id,
+        changes: `${archive.type} document reprinted. Reprint count: ${archive.reprintCount}.`,
+      });
+    }
 
     return {
       success: true,
@@ -541,6 +565,57 @@ export async function reprintReportPrintArchiveAction(input: {
     return {
       success: false,
       error: toErrorMessage(error, "Failed to reprint archived report"),
+    };
+  }
+}
+
+export async function getInvoiceDocumentPrintPayloadAction(
+  documentId: string,
+): Promise<DataResult<InvoiceDocumentPrintPayloadDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = z.string().uuid().parse(documentId);
+    const data = await reportService.getInvoiceDocumentPrintPayload(viewer, validated);
+
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load invoice document"),
+    };
+  }
+}
+
+export async function reprintInvoiceDocumentAction(input: {
+  documentId: string;
+  type: InvoiceDocumentType;
+}): Promise<DataResult<InvoiceDocumentPrintPayloadDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = z.object({
+      documentId: z.string().uuid(),
+      type: InvoiceDocumentTypeSchema,
+    }).parse(input);
+
+    const data = await reportService.reprintInvoiceDocument(
+      viewer,
+      validated.documentId,
+    );
+
+    if (data.type !== validated.type) {
+      return {
+        success: false,
+        error: "Invoice document type does not match.",
+      };
+    }
+
+    revalidatePath("/reports/documents");
+
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to reprint invoice document"),
     };
   }
 }

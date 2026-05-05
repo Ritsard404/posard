@@ -5,6 +5,7 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InvoiceDocumentsDto,
   RefundInvoicesDto,
   ReportOverviewDto,
   ReturnedInvoiceRecordsDto,
@@ -18,6 +19,7 @@ import type {
   ZReadingDto,
 } from "../_services/_dto/report.dto";
 import { AuditEventLog } from "./AuditEventLog";
+import { InvoiceDocumentPrintButton } from "./InvoiceDocumentPrintButton";
 import { ReportInvoicePrintButton } from "./ReportInvoicePrintButton";
 import { formatInvoiceNumber } from "@/app/(protected)/pos/_services/print-format.service";
 import {
@@ -53,6 +55,13 @@ function formatCurrency(value: number) {
     currency: "PHP",
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatDocumentType(value: string) {
+  if (value === "XREPORT") return "X-Report";
+  if (value === "ZREPORT") return "Z-Report";
+
+  return "Invoice";
 }
 
 export function OverviewPanel({ overview }: { overview: ReportOverviewDto }) {
@@ -210,15 +219,96 @@ export function ZReadingPanel({ reading }: { reading: ZReadingDto }) {
         badge="Z-Reading"
       >
         <ReportSummaryStrip
-          metrics={[
-            { label: "Vatable Sales", value: formatCurrency(reading.vatableSales) },
-            { label: "VAT Amount", value: formatCurrency(reading.vatAmount) },
-            { label: "Returns", value: formatCurrency(reading.totalReturns) },
-            { label: "Voids", value: formatCurrency(reading.totalVoids) },
-          ]}
+          metrics={
+            reading.isAcknowledgement
+              ? [
+                  { label: "VAT Status", value: "None" },
+                  { label: "VAT / TIN", value: "None" },
+                  { label: "Returns", value: formatCurrency(reading.totalReturns) },
+                  { label: "Voids", value: formatCurrency(reading.totalVoids) },
+                ]
+              : [
+                  { label: "Vatable Sales", value: formatCurrency(reading.vatableSales) },
+                  { label: "VAT Amount", value: formatCurrency(reading.vatAmount) },
+                  { label: "Returns", value: formatCurrency(reading.totalReturns) },
+                  { label: "Voids", value: formatCurrency(reading.totalVoids) },
+                ]
+          }
         />
       </ReportSectionCard>
     </div>
+  );
+}
+
+export function InvoiceDocumentsPanel({ report }: { report: InvoiceDocumentsDto }) {
+  if (report.items.length === 0) {
+    return (
+      <EmptyState
+        title="No invoice documents"
+        message="No archived invoice or reading documents were found for the selected filters."
+      />
+    );
+  }
+
+  return (
+    <ReportSectionCard
+      title="Invoice Documents"
+      description="Archived printable documents stored from invoices and report readings."
+      badge="Documents"
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead className="border-b text-xs text-muted-foreground">
+            <tr>
+              <th className="py-2 pr-3 text-left font-semibold">Type</th>
+              <th className="py-2 pr-3 text-left font-semibold">Invoice</th>
+              <th className="py-2 pr-3 text-left font-semibold">Train Mode</th>
+              <th className="py-2 pr-3 text-left font-semibold">Reprint Count</th>
+              <th className="py-2 pr-3 text-left font-semibold">Created At</th>
+              <th className="py-2 text-right font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {report.items.map((item) => (
+              <tr key={item.documentId} className="align-middle">
+                <td className="py-2.5 pr-3">
+                  <Badge variant="secondary" className="rounded-full">
+                    {formatDocumentType(item.type)}
+                  </Badge>
+                </td>
+                <td className="py-2.5 pr-3">
+                  <div className="font-semibold">
+                    {item.invoiceNumber
+                      ? `#${formatInvoiceNumber(item.invoiceNumber)}`
+                      : "No linked invoice"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {item.terminalName ?? "Document archive"}
+                  </div>
+                </td>
+                <td className="py-2.5 pr-3">
+                  <Badge variant={item.isTrainMode ? "outline" : "secondary"} className="rounded-full">
+                    {item.isTrainMode ? "Train" : "Live"}
+                  </Badge>
+                </td>
+                <td className="py-2.5 pr-3 font-semibold">
+                  Reprints: {item.reprintCount}
+                </td>
+                <td className="py-2.5 pr-3 text-muted-foreground">
+                  {formatDateTime(item.createdAt)}
+                </td>
+                <td className="py-2.5 text-right">
+                  <InvoiceDocumentPrintButton
+                    documentId={item.documentId}
+                    type={item.type}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </ReportSectionCard>
   );
 }
 

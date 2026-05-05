@@ -81,19 +81,64 @@ export interface ReportPaymentBreakdownDto {
   amount: number;
 }
 
+export interface ReportTrendPointDto {
+  date: string;
+  label: string;
+  sales: number;
+  transactions: number;
+}
+
+export interface ReportInventoryHealthDto {
+  totalStockValue: number;
+  potentialRetailValue: number;
+  potentialProfit: number;
+  trackedItemCount: number;
+  trackedProductCount: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+}
+
+export interface ReportTopProductDto {
+  id: string;
+  name: string;
+  quantitySold: number;
+  revenue: number;
+}
+
 export interface ReportOverviewDto {
   range: ReportDateRangeDto;
   totalSales: number;
+  totalExpenses: number;
+  netProfit: number;
+  profitMarginPercent: number;
   totalTransactions: number;
   totalReturns: number;
   totalVoids: number;
   totalDiscounts: number;
   totalCashSales: number;
   totalEPaymentSales: number;
+  averageTransactionValue: number;
+  totalCompositeSold: number;
+  compositeProduced: number;
+  compositeDisassembled: number;
+  compositeNet: number;
+  vatCollected: number | null;
+  isVatRegistered: boolean;
+  salesChangePercent: number;
+  salesComparisonLabel: string;
+  trendChangePercent: number;
   activeSessionCount: number;
   unreadInvoiceCount: number;
   pendingTerminalRequests: number;
   paymentBreakdown: ReportPaymentBreakdownDto[];
+  paymentMethodBreakdown: ReportPaymentBreakdownDto[];
+  salesTrend: ReportTrendPointDto[];
+  wallet: {
+    total: number;
+    cash: number;
+  };
+  inventoryHealth: ReportInventoryHealthDto;
+  topProducts: ReportTopProductDto[];
 }
 
 export interface XReadingDto {
@@ -550,8 +595,33 @@ export interface DebtCollectionsDto {
   referenceCollected: number;
 }
 
+export interface InvoiceDocumentItemDto {
+  documentId: string;
+  type: "INVOICE" | "XREPORT" | "ZREPORT";
+  invoiceId: string | null;
+  invoiceNumber: number | null;
+  terminalName: string | null;
+  isTrainMode: boolean;
+  reprintCount: number;
+  createdAt: Date;
+}
+
+export interface InvoiceDocumentsDto {
+  range: ReportDateRangeDto;
+  items: InvoiceDocumentItemDto[];
+  pagination: ReportPaginationDto;
+  totals: {
+    all: number;
+    invoice: number;
+    xReport: number;
+    zReport: number;
+    trainMode: number;
+  };
+}
+
 export type ReportPrintableView =
   | "overview"
+  | "invoice-documents"
   | "x-reading"
   | "z-reading"
   | "daily-transactions"
@@ -597,4 +667,14 @@ export interface ReportInvoicePrintPayloadDto {
   archiveContent: string;
   archiveDocumentId: string | null;
   isTrainMode: boolean;
+}
+
+export interface InvoiceDocumentPrintPayloadDto {
+  documentId: string;
+  type: "INVOICE" | "XREPORT" | "ZREPORT";
+  title: string;
+  printerConfig: PrinterConfigDto | null;
+  previewContent: string;
+  printSegments: string[];
+  reprintCount: number;
 }

@@ -45,6 +45,9 @@ const nullablePercentageInput = nullableNumberInput.refine(
   (value) => value === null || value <= 100,
   "Percentage cannot exceed 100%",
 );
+const terminalVatInput = nullablePercentageInput.transform((value) =>
+  value && value > 0 ? 12 : 0,
+);
 
 const DiscountCapTypeSchema = z.enum(["amount", "percent"]);
 
@@ -165,7 +168,7 @@ const CreateTerminalBaseSchema = z.object({
   validUntil: requiredDateInput,
   operatedBy: nullableStringInput.optional(),
   vatTinNumber: nullableStringInput.optional(),
-  vat: nullablePercentageInput.optional(),
+  vat: terminalVatInput.optional(),
   printerName: nullableStringInput.optional(),
 }).merge(TerminalDiscountCapFieldsBaseSchema.partial({
   discountMax: true,
@@ -188,7 +191,7 @@ export type UpdateTerminalInput = z.infer<typeof UpdateTerminalSchema>;
 const vatTinPattern = /^\d{3}-\d{3}-\d{3}-\d{3,4}$/;
 
 const TerminalConfigurationBaseSchema = z.object({
-  vat: nullablePercentageInput,
+  vat: terminalVatInput,
   vatTinNumber: nullableStringInput.refine(
     (value) => value === null || vatTinPattern.test(value),
     "Use VAT TIN format ###-###-###-####",

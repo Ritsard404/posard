@@ -8,6 +8,7 @@ import {
   DebtOutstandingPanel,
   DailyTransactionsPanel,
   DiscountReportPanel,
+  InvoiceDocumentsPanel,
   RefundInvoicesPanel,
   ReturnedInvoiceRecordsPanel,
   ReturnedItemsPanel,
@@ -76,6 +77,7 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
         preset={data.range.preset}
         fromInput={data.range.fromInput}
         toInput={data.range.toInput}
+        period={data.range.period}
         companyId={data.scope.companyId}
         terminalId={data.scope.terminalId}
         exportBaseUrl={data.exportBaseUrl}
@@ -84,12 +86,18 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
         view={data.definition.view}
         sortOrder={data.range.sortOrder}
         dateHint={
-          data.definition.slug === "z-reading"
+          data.definition.slug === "documents"
+            ? "Document reports use only document type, date range, and train-mode filters."
+            : data.definition.slug === "z-reading"
             ? "Z-Reading always covers the full sales history of the selected terminal or current scope."
             : data.definition.slug === "x-reading"
               ? "X-Reading is based on the active or latest session for the selected terminal."
               : undefined
         }
+        documentMode={data.definition.slug === "documents"}
+        showPeriodTabs={data.definition.slug !== "documents"}
+        documentType={data.range.documentType}
+        trainMode={data.range.trainMode}
       />
 
       <ReportPageSummaryCards
@@ -109,6 +117,9 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
           to={data.range.toInput}
           activeTerminalId={data.scope.terminalId ?? undefined}
           sortOrder={data.range.sortOrder}
+          period={data.range.period}
+          documentType={data.range.documentType}
+          trainMode={data.range.trainMode}
         />
       ) : null}
     </div>
@@ -125,6 +136,8 @@ function renderReportPanel(data: NonNullable<DirectPageData>) {
       return <DebtOutstandingPanel report={data.data as Parameters<typeof DebtOutstandingPanel>[0]["report"]} />;
     case "debt-collections":
       return <DebtCollectionsPanel report={data.data as Parameters<typeof DebtCollectionsPanel>[0]["report"]} />;
+    case "documents":
+      return <InvoiceDocumentsPanel report={data.data as Parameters<typeof InvoiceDocumentsPanel>[0]["report"]} />;
     case "transaction-list":
       return <TransactionListPanel report={data.data as Parameters<typeof TransactionListPanel>[0]["report"]} />;
     case "sales-book":

@@ -4,6 +4,7 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InvoiceDocumentsDto,
   RefundInvoicesDto,
   ReportOverviewDto,
   ReturnedInvoiceRecordsDto,
@@ -32,17 +33,72 @@ function formatCount(value: number) {
 }
 
 export function OverviewSummaryCards({ overview }: { overview: ReportOverviewDto }) {
+  const metrics = [
+    {
+      label: "Total Sales",
+      value: formatCurrency(overview.totalSales),
+      hint: `${formatSignedPercent(overview.salesChangePercent)} ${overview.salesComparisonLabel}`,
+    },
+    {
+      label: "Expenses",
+      value: formatCurrency(overview.totalExpenses),
+      hint: "+0.0%",
+    },
+    {
+      label: "Net Profit",
+      value: formatCurrency(overview.netProfit),
+      hint: `${overview.profitMarginPercent.toFixed(1)}% margin`,
+    },
+    {
+      label: "Transactions",
+      value: formatCount(overview.totalTransactions),
+      hint: `${formatCurrency(overview.averageTransactionValue)} avg`,
+    },
+    {
+      label: "Composite Sold",
+      value: formatCount(overview.totalCompositeSold),
+      hint: `${formatCount(overview.compositeNet)} net`,
+      subhint: `+${formatCount(overview.compositeProduced)} produced · -${formatCount(
+        overview.compositeDisassembled,
+      )} disassembled`,
+    },
+    {
+      label: "VAT Collected",
+      value: overview.vatCollected === null ? "N/A" : formatCurrency(overview.vatCollected),
+      hint: overview.isVatRegistered ? "VAT-registered sales" : "Store is not VAT-registered",
+      subhint: overview.isVatRegistered ? "VAT" : "Non-VAT",
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-      <SummaryMetric label="Total Sales" value={formatCurrency(overview.totalSales)} />
-      <SummaryMetric label="Transactions" value={formatCount(overview.totalTransactions)} />
-      <SummaryMetric label="Cash Sales" value={formatCurrency(overview.totalCashSales)} />
-      <SummaryMetric
-        label="Reference Payments"
-        value={formatCurrency(overview.totalEPaymentSales)}
-      />
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+      {metrics.map((metric) => (
+        <div
+          key={metric.label}
+          className="rounded-xl border border-border/70 bg-card px-3 py-2 shadow-sm"
+        >
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            {metric.label}
+          </div>
+          <div className="mt-1 break-words text-xl font-black tracking-tight text-foreground sm:text-2xl">
+            {metric.value}
+          </div>
+          <div className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+            {metric.hint}
+          </div>
+          {metric.subhint ? (
+            <div className="mt-0.5 text-[10px] text-muted-foreground/80">
+              {metric.subhint}
+            </div>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
+}
+
+function formatSignedPercent(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
 export function ReportPageSummaryCards({
@@ -124,6 +180,15 @@ function buildMetrics(
         { label: "Cash", value: formatCurrency(report.cashCollected) },
         { label: "Reference", value: formatCurrency(report.referenceCollected) },
         { label: "Payments", value: formatCount(report.pagination.totalItems) },
+      ];
+    }
+    case "documents": {
+      const report = data as InvoiceDocumentsDto;
+      return [
+        { label: "Documents", value: formatCount(report.pagination.totalItems) },
+        { label: "Invoices", value: formatCount(report.totals.invoice) },
+        { label: "X / Z Reports", value: formatCount(report.totals.xReport + report.totals.zReport) },
+        { label: "Train Mode", value: formatCount(report.totals.trainMode) },
       ];
     }
     case "transaction-list": {

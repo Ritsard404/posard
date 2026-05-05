@@ -6,6 +6,7 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InvoiceDocumentsDto,
   RefundInvoicesDto,
   ReportOverviewDto,
   ReportPaymentBreakdownDto,
@@ -44,6 +45,7 @@ type ReportDetailDto =
   | TransactionHistoryDto
   | TransactionListDto
   | VoidedListDto
+  | InvoiceDocumentsDto
   | XReadingDto
   | ZReadingDto;
 
@@ -400,6 +402,8 @@ function buildBody(view: ReportPrintableView, overview: ReportOverviewDto | null
   switch (view) {
     case "overview":
       return overview ? buildOverviewLines(overview) : null;
+    case "invoice-documents":
+      return null;
     case "x-reading":
     case "z-reading":
       return detail ? [] : null;
@@ -439,6 +443,8 @@ function getTitle(view: ReportPrintableView) {
   switch (view) {
     case "overview":
       return "Overview";
+    case "invoice-documents":
+      return "Invoice Documents";
     case "x-reading":
       return "X-Reading";
     case "z-reading":

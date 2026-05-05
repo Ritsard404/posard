@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { VatRegistrationToggle } from "@/components/vat-registration-toggle";
 import { CreateTerminalSchema, type CreateTerminalPayload, type TerminalDTO } from "@/app/(protected)/companies/[companyId]/_services/terminal.dto";
 
 const GlobalTerminalFormSchema = CreateTerminalSchema.extend({
@@ -42,6 +43,7 @@ export function GlobalTerminalDialog({
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<GlobalTerminalFormValues>({
     resolver: zodResolver(GlobalTerminalFormSchema),
@@ -61,7 +63,7 @@ export function GlobalTerminalDialog({
       validUntil: terminal ? toDateInputValue(terminal.validUntil) : "",
       operatedBy: terminal?.operatedBy ?? "",
       vatTinNumber: terminal?.vatTinNumber ?? "",
-      vat: terminal?.vat ?? undefined,
+      vat: terminal?.vat ?? 0,
       discountCapType: terminal?.discountCapType ?? "amount",
       discountMax: terminal?.discountMax ?? undefined,
       printerName: terminal?.printerName ?? "",
@@ -69,6 +71,7 @@ export function GlobalTerminalDialog({
   }, [companyId, companyOptions, open, reset, terminal]);
 
   const discountCapType = watch("discountCapType");
+  const isVatRegistered = Number(watch("vat") ?? 0) > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -120,11 +123,31 @@ export function GlobalTerminalDialog({
             <Field label="Operated By" error={errors.operatedBy?.message}>
               <Input {...register("operatedBy")} />
             </Field>
-            <Field label="VAT TIN" error={errors.vatTinNumber?.message}>
-              <Input {...register("vatTinNumber")} />
+            <input type="hidden" {...register("vat")} />
+            <Field label="VAT Registration" error={errors.vat?.message}>
+              <VatRegistrationToggle
+                checked={isVatRegistered}
+                disabled={isSubmitting}
+                onCheckedChange={(checked) => {
+                  setValue("vat", checked ? 12 : 0, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                  if (!checked) {
+                    setValue("vatTinNumber", null, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+              />
             </Field>
-            <Field label="VAT" error={errors.vat?.message}>
-              <PercentInput {...register("vat")} />
+            <Field label="VAT TIN" error={errors.vatTinNumber?.message}>
+              <Input
+                {...register("vatTinNumber")}
+                disabled={!isVatRegistered || isSubmitting}
+                placeholder={isVatRegistered ? "000-000-000-000" : "None"}
+              />
             </Field>
             <Field label="Discount Cap Type" error={errors.discountCapType?.message}>
               <select
@@ -182,17 +205,6 @@ function Field({
       <Label>{label}</Label>
       {children}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
-    </div>
-  );
-}
-
-function PercentInput(props: React.ComponentProps<typeof Input>) {
-  return (
-    <div className="relative">
-      <Input type="number" min="0" max="100" step="0.01" className="pr-10" {...props} />
-      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
-        %
-      </span>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { createClient } from "@/lib/supabase/server";
 import { Prisma } from "@prisma/client";
-import { DebtStatus, InvoiceDocumentType, InvoiceStatusType } from "@prisma/client";
+import { DebtStatus, InvoiceStatusType } from "@prisma/client";
 import type {
   CancelOrderDto,
   DiscountDto,
@@ -357,6 +357,8 @@ function buildReceiptFromOrder(input: {
   stockUpdates: ReceiptDto["stockUpdates"];
   debt?: ReceiptDto["debt"];
 }): ReceiptDto {
+  const terminalVat = input.terminal.vat ?? 0;
+
   return {
     id: input.invoice.id,
     invoiceNumber: input.invoice.invoiceNumber,
@@ -370,9 +372,9 @@ function buildReceiptFromOrder(input: {
     printerConfig: printConfigService.mapPrinterConfig(input.terminal),
     registeredName: input.terminal.registeredName,
     address: input.terminal.address,
-    vatTinNumber: input.terminal.vatTinNumber,
+    vatTinNumber: terminalVat > 0 ? input.terminal.vatTinNumber : null,
     minNumber: input.terminal.minNumber,
-    terminalVat: input.terminal.vat ?? 0,
+    terminalVat,
     cashierName: input.cashierName ?? "Unknown",
     isTrainMode: input.invoice.isTrainMode,
     discountType: input.discount?.discountType ?? null,
@@ -1157,8 +1159,7 @@ export const orderService = {
   async archiveReceipt(receipt: ReceiptDto): Promise<void> {
     const printPayload = receiptPrintService.buildPayload(receipt);
 
-    await printArchiveService.createArchive({
-      type: InvoiceDocumentType.INVOICE,
+    await printArchiveService.createInvoiceArchiveIfMissing({
       content: printPayload.archiveContent,
       invoiceId: receipt.id,
       isTrainMode: receipt.isTrainMode,

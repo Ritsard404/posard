@@ -102,6 +102,8 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
 }>;
 
 export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
+  const terminalVat = invoice.posTerminal.vat ?? 0;
+
   return {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
@@ -115,9 +117,9 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
     printerConfig: printConfigService.mapPrinterConfig(invoice.posTerminal),
     registeredName: invoice.posTerminal.registeredName,
     address: invoice.posTerminal.address,
-    vatTinNumber: invoice.posTerminal.vatTinNumber,
+    vatTinNumber: terminalVat > 0 ? invoice.posTerminal.vatTinNumber : null,
     minNumber: invoice.posTerminal.minNumber,
-    terminalVat: invoice.posTerminal.vat ?? 0,
+    terminalVat,
     cashierName: invoice.cashier.fullName ?? "Unknown",
     isTrainMode: invoice.isTrainMode,
     discountType: invoice.discountType ?? null,

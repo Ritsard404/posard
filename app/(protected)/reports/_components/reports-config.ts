@@ -2,6 +2,7 @@ import {
   CalendarDays,
   ClipboardList,
   FileClock,
+  FileText,
   ListX,
   Receipt,
   ScanSearch,
@@ -25,9 +26,22 @@ export type ReportsRouteSlug =
   | "sales-book"
   | "refunds"
   | "returned-items"
-  | "returned-records";
+  | "returned-records"
+  | "documents";
 
-export type ReportPreset = "today" | "7d" | "30d" | "all" | "custom";
+export type ReportPeriod = "daily" | "weekly" | "monthly" | "annual";
+
+export type ReportPreset =
+  | "today"
+  | "yesterday"
+  | "7d"
+  | "30d"
+  | "thisMonth"
+  | "lastMonth"
+  | "thisYear"
+  | "lastYear"
+  | "all"
+  | "custom";
 
 export interface ReportRouteDefinition {
   slug: ReportsRouteSlug;
@@ -43,7 +57,8 @@ export interface ReportRouteDefinition {
     | "Readings"
     | "Compliance"
     | "Discounts"
-    | "Returns";
+    | "Returns"
+    | "Documents";
 }
 
 export const REPORT_ROUTE_DEFINITIONS: ReportRouteDefinition[] = [
@@ -118,6 +133,15 @@ export const REPORT_ROUTE_DEFINITIONS: ReportRouteDefinition[] = [
     description: "Day-close totals, taxes, and accumulated sales.",
     icon: Receipt,
     category: "Readings",
+  },
+  {
+    slug: "documents",
+    view: "invoice-documents",
+    label: "Invoice Documents",
+    shortLabel: "Documents",
+    description: "Archived invoice and reading documents with preview and reprint controls.",
+    icon: FileText,
+    category: "Documents",
   },
   {
     slug: "audit-trail",

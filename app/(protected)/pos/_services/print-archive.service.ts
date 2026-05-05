@@ -88,6 +88,54 @@ export const printArchiveService = {
     } satisfies PrintArchiveDto;
   },
 
+  async createInvoiceArchiveIfMissing(input: {
+    content: string;
+    isTrainMode: boolean;
+    invoiceId: string;
+  }): Promise<PrintArchiveDto> {
+    const existing = await this.getLatestInvoiceArchive(input.invoiceId);
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.createArchive({
+      type: InvoiceDocumentType.INVOICE,
+      content: input.content,
+      isTrainMode: input.isTrainMode,
+      invoiceId: input.invoiceId,
+    });
+  },
+
+  async getArchive(documentId: string) {
+    const document = await prisma.invoiceDocument.findUnique({
+      where: {
+        id: documentId,
+      },
+      select: {
+        id: true,
+        type: true,
+        invoiceBlob: true,
+        reprintCount: true,
+        isTrainMode: true,
+        invoiceId: true,
+      },
+    });
+
+    if (!document) {
+      return null;
+    }
+
+    return {
+      id: document.id,
+      type: document.type,
+      content: decodeContent(document.invoiceBlob),
+      reprintCount: document.reprintCount,
+      isTrainMode: document.isTrainMode,
+      invoiceId: document.invoiceId,
+    } satisfies PrintArchiveDto;
+  },
+
   async createReprint(documentId: string, type: InvoiceDocumentType) {
     const document = await prisma.invoiceDocument.findFirst({
       where: {
@@ -109,9 +157,10 @@ export const printArchiveService = {
     }
 
     const content = decodeContent(document.invoiceBlob);
-    const reprintContent = buildReprintContent(content, document.reprintCount);
+    const nextReprintCount = document.reprintCount + 1;
+    const reprintContent = buildReprintContent(content, nextReprintCount);
 
-    await prisma.invoiceDocument.update({
+    const updatedDocument = await prisma.invoiceDocument.update({
       where: {
         id: document.id,
       },
@@ -120,13 +169,16 @@ export const printArchiveService = {
           increment: 1,
         },
       },
+      select: {
+        reprintCount: true,
+      },
     });
 
     return {
       id: document.id,
       type: document.type,
       content: reprintContent,
-      reprintCount: document.reprintCount,
+      reprintCount: updatedDocument.reprintCount,
       isTrainMode: document.isTrainMode,
       invoiceId: document.invoiceId,
     } satisfies PrintArchiveDto;

@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ReportPaginationDto } from "../_services/_dto/report.dto";
 import type { ReportPrintableView, ReportSortOrder } from "./report-workspace-config";
+import type { ReportPeriod } from "@/app/(protected)/reports/_components/reports-config";
+import type { InvoiceDocumentItemDto } from "../_services/_dto/report.dto";
 
 export function ReportPaginationBar({
   pagination,
@@ -12,6 +14,9 @@ export function ReportPaginationBar({
   to,
   activeTerminalId,
   sortOrder,
+  period,
+  documentType,
+  trainMode,
 }: {
   pagination: ReportPaginationDto;
   basePath: string;
@@ -20,6 +25,9 @@ export function ReportPaginationBar({
   to: string;
   activeTerminalId?: string;
   sortOrder?: ReportSortOrder;
+  period?: ReportPeriod;
+  documentType?: InvoiceDocumentItemDto["type"] | "all";
+  trainMode?: "all" | "training" | "live";
 }) {
   if (pagination.totalItems <= pagination.pageSize) {
     return null;
@@ -48,6 +56,9 @@ export function ReportPaginationBar({
                   terminalId: activeTerminalId,
                   page: Math.max(1, pagination.page - 1),
                   sortOrder,
+                  period,
+                  documentType,
+                  trainMode,
                 })}
               >
                 Previous
@@ -72,6 +83,9 @@ export function ReportPaginationBar({
                   terminalId: activeTerminalId,
                   page: pagination.page + 1,
                   sortOrder,
+                  period,
+                  documentType,
+                  trainMode,
                 })}
               >
                 Next
@@ -94,12 +108,20 @@ function buildReportHref(input: {
   terminalId?: string;
   page?: number;
   sortOrder?: ReportSortOrder;
+  period?: ReportPeriod;
+  documentType?: InvoiceDocumentItemDto["type"] | "all";
+  trainMode?: "all" | "training" | "live";
 }) {
   const params = new URLSearchParams({
     view: input.view,
+    preset: "custom",
     from: input.from,
     to: input.to,
   });
+
+  if (input.period) {
+    params.set("period", input.period);
+  }
 
   if (input.terminalId) {
     params.set("terminalId", input.terminalId);
@@ -111,6 +133,14 @@ function buildReportHref(input: {
 
   if (input.sortOrder) {
     params.set("sortOrder", input.sortOrder);
+  }
+
+  if (input.documentType && input.documentType !== "all") {
+    params.set("documentType", input.documentType);
+  }
+
+  if (input.trainMode && input.trainMode !== "all") {
+    params.set("trainMode", input.trainMode);
   }
 
   return `${input.basePath}?${params.toString()}`;

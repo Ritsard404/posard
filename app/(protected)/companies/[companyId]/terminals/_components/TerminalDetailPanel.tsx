@@ -19,6 +19,10 @@ function formatDiscountCap(terminal: TerminalDTO) {
     : `${terminal.discountMax}%`;
 }
 
+function formatVatRegistration(terminal: TerminalDTO) {
+  return terminal.vat && terminal.vat > 0 ? "VAT registered (12%)" : "Non-VAT";
+}
+
 interface TerminalDetailPanelProps {
   terminal: TerminalDTO | null;
   canUpdateConfiguration: boolean;
@@ -86,7 +90,7 @@ export default function TerminalDetailPanel({
             ["PTU Number", terminal.ptuNumber ?? "Not set"],
             ["Date Issued", formatDate(terminal.dateIssued)],
             ["Valid Until", formatDate(terminal.validUntil)],
-            ["VAT TIN", terminal.vatTinNumber ?? "Not set"],
+            ["VAT TIN", terminal.vat && terminal.vat > 0 ? terminal.vatTinNumber ?? "Not set" : "None"],
           ]}
         />
         <DetailSection
@@ -96,7 +100,7 @@ export default function TerminalDetailPanel({
             ["Registered Name", terminal.registeredName ?? "Not set"],
             ["Operated By", terminal.operatedBy ?? "Not set"],
             ["Address", terminal.address ?? "Not set"],
-            ["VAT", `${terminal.vat ?? 0}%`],
+            ["VAT", formatVatRegistration(terminal)],
             ["Discount Cap Type", terminal.discountCapType],
             ["Discount Cap", formatDiscountCap(terminal)],
             ["Printer", terminal.printerDisplayName ?? terminal.printerName ?? "Not set"],

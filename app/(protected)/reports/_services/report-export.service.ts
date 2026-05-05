@@ -7,6 +7,7 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InvoiceDocumentsDto,
   RefundInvoicesDto,
   ReturnedInvoiceRecordsDto,
   ReturnedItemsDto,
@@ -25,6 +26,7 @@ type ExportableReportData =
   | DebtOutstandingDto
   | DailyTransactionsDto
   | DiscountReportDto
+  | InvoiceDocumentsDto
   | RefundInvoicesDto
   | ReturnedInvoiceRecordsDto
   | ReturnedItemsDto
@@ -427,6 +429,31 @@ function mapRows(slug: ReportsRouteSlug, data: ExportableReportData) {
         ]),
       };
     }
+    case "documents": {
+      const report = data as InvoiceDocumentsDto;
+      return {
+        headers: [
+          "Type",
+          "Invoice No.",
+          "Terminal",
+          "Train Mode",
+          "Reprint Count",
+          "Created At",
+          "Document ID",
+        ],
+        rows: report.items.map((item) => [
+          item.type,
+          item.invoiceNumber ? String(item.invoiceNumber) : "",
+          item.terminalName ?? "",
+          stringifyCell(item.isTrainMode),
+          stringifyCell(item.reprintCount),
+          formatDateTime(item.createdAt),
+          item.documentId,
+        ]),
+      };
+    }
+    default:
+      throw new Error("Unsupported report export.");
   }
 }
 

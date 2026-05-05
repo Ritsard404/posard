@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { VatRegistrationToggle } from "@/components/vat-registration-toggle";
 import {
   CreateTerminalSchema,
   type CreateTerminalPayload,
@@ -43,6 +44,7 @@ export default function TerminalFormModal({
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateTerminalPayload>({
     resolver: zodResolver(CreateTerminalSchema) as Resolver<CreateTerminalPayload>,
@@ -62,7 +64,7 @@ export default function TerminalFormModal({
         validUntil: toDateInputValue(terminal.validUntil),
         operatedBy: terminal.operatedBy,
         vatTinNumber: terminal.vatTinNumber,
-        vat: terminal.vat ?? undefined,
+        vat: terminal.vat ?? 0,
         discountCapType: terminal.discountCapType,
         discountMax: terminal.discountMax ?? undefined,
         printerName: terminal.printerName,
@@ -78,7 +80,7 @@ export default function TerminalFormModal({
       validUntil: "",
       operatedBy: "",
       vatTinNumber: "",
-      vat: undefined,
+      vat: 0,
       discountCapType: "amount",
       discountMax: undefined,
       printerName: "",
@@ -86,6 +88,7 @@ export default function TerminalFormModal({
   }, [isOpen, terminal, reset]);
 
   const discountCapType = watch("discountCapType");
+  const isVatRegistered = Number(watch("vat") ?? 0) > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : null)}>
@@ -131,11 +134,31 @@ export default function TerminalFormModal({
               <FieldGroup label="Operated By" error={errors.operatedBy?.message}>
                 <Input {...register("operatedBy")} placeholder="Operator name" />
               </FieldGroup>
-              <FieldGroup label="VAT TIN Number" error={errors.vatTinNumber?.message}>
-                <Input {...register("vatTinNumber")} placeholder="000-000-000-000" />
+              <input type="hidden" {...register("vat")} />
+              <FieldGroup label="VAT Registration" error={errors.vat?.message}>
+                <VatRegistrationToggle
+                  checked={isVatRegistered}
+                  disabled={isSubmitting}
+                  onCheckedChange={(checked) => {
+                    setValue("vat", checked ? 12 : 0, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    if (!checked) {
+                      setValue("vatTinNumber", null, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                    }
+                  }}
+                />
               </FieldGroup>
-              <FieldGroup label="VAT (%)" error={errors.vat?.message}>
-                <PercentInput {...register("vat")} placeholder="Optional" />
+              <FieldGroup label="VAT TIN Number" error={errors.vatTinNumber?.message}>
+                <Input
+                  {...register("vatTinNumber")}
+                  disabled={!isVatRegistered || isSubmitting}
+                  placeholder={isVatRegistered ? "000-000-000-000" : "None"}
+                />
               </FieldGroup>
               <FieldGroup label="Discount Cap Type" error={errors.discountCapType?.message}>
                 <select
@@ -199,17 +222,6 @@ export default function TerminalFormModal({
 
 function toDateInputValue(value: Date | string) {
   return new Date(value).toISOString().split("T")[0];
-}
-
-function PercentInput(props: React.ComponentProps<typeof Input>) {
-  return (
-    <div className="relative">
-      <Input type="number" min="0" max="100" step="0.01" className="pr-10" {...props} />
-      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
-        %
-      </span>
-    </div>
-  );
 }
 
 function FieldGroup({

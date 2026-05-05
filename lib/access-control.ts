@@ -292,6 +292,14 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         permission: "view.reports",
       },
       {
+        id: "reports-documents",
+        label: "Invoice Documents",
+        icon: FileClock,
+        roles: ["manager"],
+        href: "/reports/documents",
+        permission: "view.reports",
+      },
+      {
         id: "reports-audit",
         label: "Audit Trail",
         icon: FileClock,
