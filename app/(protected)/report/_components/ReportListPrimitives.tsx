@@ -20,15 +20,15 @@ export function SummaryMetric({
   hint?: string;
 }) {
   return (
-    <Card className="rounded-3xl border-border/70 bg-background shadow-sm">
-      <CardContent className="space-y-2 p-4 sm:p-5">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+    <Card className="rounded-2xl border-border/70 bg-background shadow-sm">
+      <CardContent className="space-y-1.5 p-3 sm:p-4">
+        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
           {label}
         </div>
-        <div className="break-words text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+        <div className="break-words text-lg font-black tracking-tight text-foreground sm:text-xl">
           {value}
         </div>
-        {hint ? <div className="text-xs text-muted-foreground">{hint}</div> : null}
+        {hint ? <div className="text-[11px] text-muted-foreground">{hint}</div> : null}
       </CardContent>
     </Card>
   );
@@ -40,7 +40,7 @@ export function ReportSummaryStrip({
   metrics: Array<{ label: string; value: string; hint?: string }>;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
       {metrics.map((metric) => (
         <SummaryMetric
           key={metric.label}
@@ -199,4 +199,3 @@ export function ReportErrorState({ message }: { message: string }) {
     />
   );
 }
-

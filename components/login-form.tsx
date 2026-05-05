@@ -20,6 +20,11 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
+type LoginDestinationResponse = {
+  destination?: string;
+  error?: string;
+};
+
 export function LoginForm({
   className,
   ...props
@@ -89,7 +94,23 @@ export function LoginForm({
           throw error;
         }
 
-        router.push("/auth/post-login");
+        const destinationResponse = await fetch("/api/auth/login-destination", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+        const destinationPayload =
+          (await destinationResponse.json()) as LoginDestinationResponse;
+
+        if (!destinationResponse.ok || !destinationPayload.destination) {
+          throw new Error(
+            destinationPayload.error ??
+              "Login succeeded, but your account destination could not be loaded. Please try again.",
+          );
+        }
+
+        router.replace(destinationPayload.destination);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "An error occurred");
       }

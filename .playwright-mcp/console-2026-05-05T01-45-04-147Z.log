@@ -1,0 +1,5 @@
+[    1869ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/auth/login?callbackUrl=%2Freports%2Faudit-trail:0
+[    1982ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2431
+[    2147ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2431
+[    2278ms] [WARNING] Error while trying to use the following icon from the Manifest: http://localhost:3000/favicon.ico (Resource size is not correct - typo in the Manifest?) @ http://localhost:3000/auth/login?callbackUrl=%2Freports%2Faudit-trail:0
+[   12227ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=QGMfGMLvN1ovkhK4AXsVV' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_0fhqo1d._.js:13299

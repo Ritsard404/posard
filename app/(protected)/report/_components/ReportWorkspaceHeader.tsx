@@ -24,14 +24,14 @@ export function ReportWorkspaceHeader({
   const ActiveIcon = selectedViewMeta.icon;
 
   return (
-    <Card className="overflow-hidden rounded-[30px] border-border/70 bg-background shadow-sm">
-      <CardContent className="space-y-5 p-5 sm:p-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0 space-y-4">
+    <Card className="overflow-hidden rounded-2xl border-border/70 bg-background shadow-sm">
+      <CardContent className="space-y-4 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge
                 variant="secondary"
-                className="rounded-full px-3 py-1 uppercase tracking-[0.16em]"
+                className="rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em]"
               >
                 {workspaceLabel}
               </Badge>
@@ -45,18 +45,18 @@ export function ReportWorkspaceHeader({
               ) : null}
             </div>
 
-            <div className="space-y-2">
-              <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-                {workspaceLabel}
+            <div className="space-y-1.5">
+              <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+                {selectedViewMeta.label}
               </h1>
-              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              <p className="max-w-3xl text-sm leading-5 text-muted-foreground">
                 {workspaceDescription}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 xl:items-end">
-            <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3 text-sm text-foreground">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap xl:justify-end">
+            <div className="flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-muted/20 px-3 text-sm text-foreground">
               <CalendarDays className="size-4 text-muted-foreground" />
               <span>{dateLabel}</span>
             </div>
@@ -64,50 +64,24 @@ export function ReportWorkspaceHeader({
           </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-          <div className="rounded-[26px] border border-border/70 bg-primary/[0.04] p-4 sm:p-5">
-            <div className="flex items-start gap-4">
-              <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+        <div className="rounded-2xl border border-border/70 bg-primary/[0.04] p-3 sm:p-4">
+          <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
                 <ActiveIcon className="size-5" />
               </div>
-              <div className="min-w-0 space-y-2">
+              <div className="min-w-0 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="rounded-full">
-                    Active report
-                  </Badge>
                   <Badge variant="secondary" className="rounded-full">
                     {selectedViewMeta.category}
                   </Badge>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-xl font-semibold tracking-tight">
-                    {selectedViewMeta.label}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedViewMeta.description}
-                  </p>
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">
+                <p className="text-sm leading-5 text-muted-foreground">
                   {selectedViewMeta.supportingCopy}
                 </p>
               </div>
             </div>
           </div>
-
-          <div className="rounded-[26px] border border-border/70 bg-muted/10 p-4 sm:p-5">
-            <div className="space-y-2">
-              <div className="text-sm font-semibold tracking-tight">
-                Report navigation
-              </div>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Reports are grouped by task so the workspace stays easy to scan on
-                both mobile and desktop.
-              </p>
-            </div>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );
 }
-

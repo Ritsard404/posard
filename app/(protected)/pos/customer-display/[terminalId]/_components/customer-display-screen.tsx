@@ -29,30 +29,30 @@ export function CustomerDisplayScreen({
 
   return (
     <div className="fixed inset-0 z-[1000] flex h-dvh w-screen flex-col overflow-hidden bg-slate-100 text-slate-950">
-      <header className="flex shrink-0 items-center justify-between gap-6 border-b border-slate-200 bg-white px-8 py-5">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
         <div className="min-w-0">
-          <p className="truncate text-2xl font-black tracking-normal text-slate-950">
+          <p className="truncate text-lg font-black tracking-normal text-slate-950 sm:text-xl">
             {meta.storeName}
           </p>
-          <p className="truncate text-lg font-semibold text-slate-500">
+          <p className="truncate text-sm font-semibold text-slate-500 sm:text-base">
             {meta.terminalName}
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
             {connectionState === "live"
               ? "Live"
               : isRefreshing
                 ? "Refreshing"
                 : "Connecting"}
           </p>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
+          <p className="mt-1 text-xs font-semibold text-slate-500">
             Updated {Number.isNaN(updatedAt.getTime()) ? "" : updatedAt.toLocaleTimeString()}
           </p>
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-hidden p-6">
+      <main className="min-h-0 flex-1 overflow-hidden p-3 sm:p-4">
         {display.status === "idle" ? (
           <CustomerDisplayIdle meta={meta} message={display.message} />
         ) : display.status === "payment" ? (

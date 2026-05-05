@@ -10,7 +10,7 @@ type AuthCredentials = {
 };
 
 export const authCredentials = {
-  email: process.env.E2E_AUTH_EMAIL ?? 'posard@pos.com',
+  email: process.env.E2E_AUTH_EMAIL ?? 'manager@posard.com',
   password: process.env.E2E_AUTH_PASSWORD ?? '200303',
 };
 

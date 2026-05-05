@@ -139,6 +139,11 @@ export const sessionMutationService = {
         posTerminalId: terminal.id,
         actionType: "OPEN_SESSION",
         referenceId: timestamp.id,
+        changes: JSON.stringify({
+          cashierId: actor.profileId,
+          openingCash,
+          deviceId,
+        }),
         amount: openingCash,
       });
 
@@ -225,6 +230,10 @@ export const sessionMutationService = {
         posTerminalId: timestamp.posTerminalId,
         actionType: "CASH_WITHDRAWAL",
         referenceId: timestamp.id,
+        changes: JSON.stringify({
+          cashierId: actor.profileId,
+          expectedDrawerAmountBeforeWithdrawal: reportData.expectedDrawerAmount,
+        }),
         amount,
       });
     });
@@ -293,6 +302,10 @@ export const sessionMutationService = {
         posTerminalId: timestamp.posTerminalId,
         actionType: "CLOSE_SESSION",
         referenceId: timestamp.id,
+        changes: JSON.stringify({
+          cashierId: actor.profileId,
+          countedCash,
+        }),
         amount: countedCash,
       });
     });

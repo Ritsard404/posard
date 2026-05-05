@@ -15,9 +15,9 @@ interface CustomerDisplayCartProps {
 
 export function CustomerDisplayCart({ display }: CustomerDisplayCartProps) {
   return (
-    <div className="grid h-full min-h-0 gap-6 lg:grid-cols-[1fr_26rem]">
+    <div className="grid h-full min-h-0 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
       <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="grid shrink-0 grid-cols-[1fr_7rem_11rem] border-b border-slate-200 px-6 py-4 text-lg font-black uppercase tracking-[0.16em] text-slate-500">
+        <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_4rem_8rem] border-b border-slate-200 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500 sm:grid-cols-[minmax(0,1fr)_5rem_9rem]">
           <span>Item</span>
           <span className="text-center">Qty</span>
           <span className="text-right">Amount</span>
@@ -26,20 +26,20 @@ export function CustomerDisplayCart({ display }: CustomerDisplayCartProps) {
           {display.items.map((item, index) => (
             <div
               key={`${item.name}-${index}`}
-              className="grid grid-cols-[1fr_7rem_11rem] items-center border-b border-slate-100 px-6 py-5"
+              className="grid min-h-8 grid-cols-[minmax(0,1fr)_4rem_8rem] items-center border-b border-slate-100 px-4 py-1.5 sm:grid-cols-[minmax(0,1fr)_5rem_9rem]"
             >
               <div className="min-w-0">
-                <p className="truncate text-3xl font-black text-slate-950">
+                <p className="truncate text-base font-black leading-tight text-slate-950 xl:text-lg">
                   {item.name}
                 </p>
-                <p className="mt-1 text-lg font-semibold text-slate-500">
+                <p className="text-xs font-semibold leading-tight text-slate-500 xl:text-sm">
                   {money(item.unitPrice)} each
                 </p>
               </div>
-              <p className="text-center text-4xl font-black text-slate-950">
+              <p className="text-center text-lg font-black text-slate-950 xl:text-xl">
                 {item.qty}
               </p>
-              <p className="text-right text-3xl font-black text-slate-950">
+              <p className="text-right text-base font-black text-slate-950 xl:text-lg">
                 {money(item.lineTotal)}
               </p>
             </div>
@@ -47,8 +47,8 @@ export function CustomerDisplayCart({ display }: CustomerDisplayCartProps) {
         </div>
       </section>
 
-      <aside className="flex min-h-0 flex-col justify-end rounded-lg border border-slate-200 bg-slate-950 p-7 text-white">
-        <div className="space-y-4 text-2xl font-bold">
+      <aside className="flex min-h-0 flex-col justify-end rounded-lg border border-slate-200 bg-slate-950 p-4 text-white">
+        <div className="space-y-2 text-base font-bold xl:text-lg">
           <div className="flex justify-between gap-4 text-slate-300">
             <span>Subtotal</span>
             <span>{money(display.subtotal)}</span>
@@ -64,11 +64,11 @@ export function CustomerDisplayCart({ display }: CustomerDisplayCartProps) {
             <span>{money(display.taxTotal)}</span>
           </div>
         </div>
-        <div className="mt-8 border-t border-white/20 pt-8">
-          <p className="text-2xl font-black uppercase tracking-[0.18em] text-amber-300">
+        <div className="mt-4 border-t border-white/20 pt-4">
+          <p className="text-base font-black uppercase tracking-[0.16em] text-amber-300 xl:text-lg">
             Total Due
           </p>
-          <p className="mt-3 text-6xl font-black tracking-normal lg:text-7xl">
+          <p className="mt-2 break-words text-4xl font-black tracking-normal xl:text-5xl">
             {money(display.totalDue)}
           </p>
         </div>

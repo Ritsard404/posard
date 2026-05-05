@@ -856,6 +856,21 @@ export const orderService = {
               receivedById: profile.id,
             },
           });
+
+          await auditLogService.create(tx, {
+            companyId,
+            actorProfileId: profile.id,
+            posTerminalId: terminal.id,
+            actionType: "DEBT_UPFRONT_PAYMENT_COLLECTED",
+            referenceId: debt.id,
+            changes: JSON.stringify({
+              invoiceId: invoice.id,
+              customerId: debtCustomer.id,
+              method: "CASH",
+              remainingAmount,
+            }),
+            amount: paidAmount,
+          });
         }
 
         const inventoryStartedAt = performance.now();
@@ -880,6 +895,8 @@ export const orderService = {
             originalAmount: calc.totalAmount,
             paidAmount,
             remainingAmount,
+            cashierId: activeTimestamp.cashierId,
+            approvedById,
           }),
           amount: calc.totalAmount,
         });
@@ -992,6 +1009,36 @@ export const orderService = {
 
       await updateTerminalCounter(tx, terminal.id, terminal.isTrainMode, terminal);
 
+      await auditLogService.create(tx, {
+        companyId,
+        actorProfileId: profile.id,
+        posTerminalId: terminal.id,
+        actionType: "SALE_COMPLETED",
+        referenceId: invoice.id,
+        changes: JSON.stringify({
+          invoiceNumber: invoice.invoiceNumber,
+          cashTendered: calc.cashTendered,
+          totalTendered: calc.totalTendered,
+          changeAmount: calc.changeAmount,
+          discountType: discount?.discountType ?? null,
+          discountAmount: calc.discountAmount,
+          referencePaymentTotal: ePaymentData?.reduce(
+            (sum, payment) => sum + payment.amount,
+            0,
+          ) ?? 0,
+          referencePayments:
+            ePaymentData?.map((payment) => ({
+              saleTypeId: payment.saleTypeId,
+              name: payment.name,
+              amount: payment.amount,
+              reference: payment.reference,
+            })) ?? [],
+          itemCount: dto.items.length,
+          cashierId: activeTimestamp.cashierId,
+        }),
+        amount: calc.totalAmount,
+      });
+
       const receiptStartedAt = performance.now();
       const receipt = buildReceiptFromOrder({
         invoice,
@@ -1072,8 +1119,9 @@ export const orderService = {
 
     const profile = await getCurrentProfile();
     if (!profile.companyId) throw new Error("User has no assigned company");
+    const companyId = profile.companyId;
     const activeTimestamp = await getActiveTimestampForOrder(
-      profile.companyId,
+      companyId,
       dto.order.timestampId,
     );
     const terminal = activeTimestamp.posTerminal;
@@ -1090,55 +1138,77 @@ export const orderService = {
       ePayments: dto.order.ePayments,
     });
 
-    const invoiceNumber = await generateInvoiceNumber(
-      prisma,
-      terminal.id,
-      terminal.isTrainMode,
-    );
+    await prisma.$transaction(async (tx) => {
+      const invoiceNumber = await generateInvoiceNumber(
+        tx,
+        terminal.id,
+        terminal.isTrainMode,
+      );
 
-    await prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        posTerminalId: terminal.id,
-        cashierId: activeTimestamp.cashierId,
-        voidedById: manager.id,
-        reason: dto.reason,
+      const voidInvoice = await tx.invoice.create({
+        data: {
+          invoiceNumber,
+          posTerminalId: terminal.id,
+          cashierId: activeTimestamp.cashierId,
+          voidedById: manager.id,
+          reason: dto.reason,
 
-        grossAmount: calc.grossAmount,
-        totalAmount: 0,
-        subTotal: 0,
-        cashTendered: 0,
-        dueAmount: 0,
-        totalTendered: 0,
-        changeAmount: 0,
-        vatSales: 0,
-        vatExempt: 0,
-        vatAmount: 0,
-        vatZero: 0,
-        discountAmount: 0,
+          grossAmount: calc.grossAmount,
+          totalAmount: 0,
+          subTotal: 0,
+          cashTendered: 0,
+          dueAmount: 0,
+          totalTendered: 0,
+          changeAmount: 0,
+          vatSales: 0,
+          vatExempt: 0,
+          vatAmount: 0,
+          vatZero: 0,
+          discountAmount: 0,
 
-        status: "VOID" satisfies InvoiceStatusType,
-        isTrainMode: terminal.isTrainMode,
+          status: "VOID" satisfies InvoiceStatusType,
+          isTrainMode: terminal.isTrainMode,
 
-        items: {
-          create: dto.order.items.map((item) => ({
-            productId: item.productId,
-            qty: item.qty,
-            price: item.price,
-            subTotal: 0,
-            status: "VOID" satisfies InvoiceStatusType,
-            isTrainingMode: terminal.isTrainMode,
-          })),
+          items: {
+            create: dto.order.items.map((item) => ({
+              productId: item.productId,
+              qty: item.qty,
+              price: item.price,
+              subTotal: 0,
+              status: "VOID" satisfies InvoiceStatusType,
+              isTrainingMode: terminal.isTrainMode,
+            })),
+          },
         },
-      },
-    });
+        select: {
+          id: true,
+          invoiceNumber: true,
+        },
+      });
 
-    await updateTerminalCounter(
-      prisma,
-      terminal.id,
-      terminal.isTrainMode,
-      terminal,
-    );
+      await auditLogService.create(tx, {
+        companyId,
+        actorProfileId: manager.id,
+        posTerminalId: terminal.id,
+        actionType: "ORDER_VOIDED",
+        referenceId: voidInvoice.id,
+        changes: JSON.stringify({
+          invoiceNumber: voidInvoice.invoiceNumber,
+          reason: dto.reason,
+          cashierId: activeTimestamp.cashierId,
+          itemCount: dto.order.items.length,
+          grossAmount: calc.grossAmount,
+        }),
+        amount: calc.grossAmount,
+      });
+
+      await updateTerminalCounter(
+        tx,
+        terminal.id,
+        terminal.isTrainMode,
+        terminal,
+      );
+    });
   },
 };
 

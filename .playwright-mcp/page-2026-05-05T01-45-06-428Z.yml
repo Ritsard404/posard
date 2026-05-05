@@ -1,0 +1,81 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e8]:
+      - generic [ref=e9]:
+        - link "POSard logo POSard POS for daily business operations" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e11]:
+            - img "POSard logo" [ref=e13]
+            - generic [ref=e14]:
+              - generic [ref=e15]: POSard
+              - generic [ref=e16]: POS for daily business operations
+        - link "Pricing" [ref=e18] [cursor=pointer]:
+          - /url: /pricing
+    - main [ref=e19]:
+      - generic [ref=e21]:
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - img "POSard logo" [ref=e28]
+            - generic [ref=e29]:
+              - generic [ref=e30]: POSard
+              - generic [ref=e31]: Retail checkout suite
+          - generic [ref=e32]: Secure sign in
+          - heading "Access your POSard workspace." [level=1] [ref=e33]
+          - paragraph [ref=e34]: Sign in to continue to your terminal dashboard, inventory controls, cashier tools, and daily sales reporting.
+          - generic [ref=e35]:
+            - generic [ref=e36]:
+              - img [ref=e38]
+              - heading "Faster cashier flow" [level=2] [ref=e41]
+              - paragraph [ref=e42]: Built for retail counters, cafes, restaurants, and service desks.
+            - generic [ref=e43]:
+              - img [ref=e45]
+              - heading "Clear daily visibility" [level=2] [ref=e47]
+              - paragraph [ref=e48]: Track inventory, receipts, and reports in one connected workspace.
+            - generic [ref=e49]:
+              - img [ref=e51]
+              - heading "Role-based access" [level=2] [ref=e54]
+              - paragraph [ref=e55]: Keep cashier, manager, and owner actions under the right controls.
+          - generic [ref=e56]:
+            - link "View features" [ref=e57] [cursor=pointer]:
+              - /url: /features
+              - text: View features
+              - img
+            - link "See pricing" [ref=e58] [cursor=pointer]:
+              - /url: /pricing
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - generic [ref=e64]: Secure sign in
+            - generic [ref=e65]: Login
+            - generic [ref=e66]: Enter your credentials to access your terminal
+          - generic [ref=e68]:
+            - generic [ref=e69]:
+              - generic [ref=e70]:
+                - generic [ref=e71]: Email Address
+                - textbox "Email Address" [ref=e72]:
+                  - /placeholder: name@company.com
+              - generic [ref=e73]:
+                - generic [ref=e74]: Password
+                - textbox "Password" [ref=e75]:
+                  - /placeholder: "*******"
+              - link "Forgot password?" [ref=e77] [cursor=pointer]:
+                - /url: /auth/forgot-password
+              - button "Login" [ref=e78] [cursor=pointer]
+              - generic [ref=e83]: Or
+              - button "Continue with Google" [ref=e84] [cursor=pointer]:
+                - img
+                - text: Continue with Google
+            - generic [ref=e85]:
+              - text: Don't have an account?
+              - link "Sign up" [ref=e86] [cursor=pointer]:
+                - /url: /auth/sign-up
+    - contentinfo [ref=e87]:
+      - paragraph [ref=e88]:
+        - text: (c) 2026 POSard.
+        - link "Terms" [ref=e89] [cursor=pointer]:
+          - /url: /terms
+        - text: "|"
+        - link "Privacy" [ref=e90] [cursor=pointer]:
+          - /url: /privacy
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e96] [cursor=pointer]:
+    - img [ref=e97]

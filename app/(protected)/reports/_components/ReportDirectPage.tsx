@@ -30,38 +30,37 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-[30px] border border-border/70 bg-card p-5 shadow-sm sm:p-6">
-        <div className="space-y-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+    <div className="space-y-4 lg:space-y-5">
+      <div className="rounded-2xl border border-border/70 bg-card px-4 py-4 shadow-sm sm:px-5">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
                   {data.definition.category}
                 </span>
                 {data.scope.companyName ? (
-                  <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
+                  <span className="rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
                     {data.scope.companyName}
                   </span>
                 ) : null}
                 {data.scope.terminalName ? (
-                  <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
+                  <span className="rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
                     {data.scope.terminalName}
                   </span>
                 ) : null}
               </div>
 
-              <div className="space-y-2">
-                <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            <div className="space-y-1.5">
+              <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
                   {data.definition.label}
                 </h1>
-                <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              <p className="max-w-3xl text-sm leading-5 text-muted-foreground">
                   {data.definition.description}
                 </p>
               </div>
             </div>
 
-            <div className="xl:pt-1">
+          <div className="flex flex-wrap xl:justify-end">
               <ReportPrintControls
                 payload={data.printPayload}
                 companyId={data.scope.companyId}
@@ -69,7 +68,6 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
               />
             </div>
           </div>
-        </div>
       </div>
 
       <ReportFilterToolbar

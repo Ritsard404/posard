@@ -274,16 +274,16 @@ export function ReportPrintControls({
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
         <Badge
           variant={printerStatus.tone === "ready" ? "secondary" : "outline"}
-          className="rounded-full px-3 py-1"
+          className="rounded-full px-3 py-1 text-xs"
         >
           {printerStatus.label}
         </Badge>
         <Button
           onClick={() => setIsChoiceOpen(true)}
-          className="h-11 rounded-xl"
+          className="h-10 rounded-xl px-3"
         >
           {printerStatus.tone === "ready" ? (
             <Printer className="size-4" />

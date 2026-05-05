@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { getCurrentProfile } from "@/lib/auth/current-user";
-import { prisma } from "@/lib/prisma";
+import { resolveLoginDestination } from "@/lib/auth/login-destination";
 
 export const metadata: Metadata = {
   robots: {
@@ -18,35 +17,19 @@ export default async function PostLoginPage() {
       console.info("POSard post-login timing", data);
     }
   };
-  const profile = await getCurrentProfile();
+  const result = await resolveLoginDestination();
 
-  if (!profile || profile.status !== "active") {
+  if (!result.ok) {
     logTiming({
-      reason: "inactive-or-missing-profile",
+      reason: result.reason,
       ms: Math.round(performance.now() - startedAt),
     });
     redirect("/auth/login");
   }
 
-  if (profile.role === "manager" && !profile.companyId) {
-    logTiming({
-      reason: "manager-company-setup-required",
-      ms: Math.round(performance.now() - startedAt),
-    });
-    redirect("/setup-company");
-  }
-
-  const activePosSession = await prisma.timestamp.findFirst({
-    where: {
-      cashierId: profile.id,
-      timestampOut: null,
-    },
-    select: { id: true },
-  });
-
   logTiming({
-    reason: activePosSession ? "active-pos-session" : "default-dashboard",
+    reason: result.destination,
     ms: Math.round(performance.now() - startedAt),
   });
-  redirect(activePosSession ? "/pos" : "/dashboard");
+  redirect(result.destination);
 }

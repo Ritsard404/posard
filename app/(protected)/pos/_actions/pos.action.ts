@@ -103,6 +103,11 @@ export async function saveSessionPrinterConfigAction(
     await terminalPrinterConfigService.updateTerminalPrinterConfig(
       timestamp.posTerminalId,
       validated,
+      {
+        companyId: profile.companyId,
+        actorProfileId: profile.id,
+        timestampId,
+      },
     );
 
     revalidatePath("/pos");

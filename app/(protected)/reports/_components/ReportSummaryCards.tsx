@@ -33,7 +33,7 @@ function formatCount(value: number) {
 
 export function OverviewSummaryCards({ overview }: { overview: ReportOverviewDto }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
       <SummaryMetric label="Total Sales" value={formatCurrency(overview.totalSales)} />
       <SummaryMetric label="Transactions" value={formatCount(overview.totalTransactions)} />
       <SummaryMetric label="Cash Sales" value={formatCurrency(overview.totalCashSales)} />
@@ -57,7 +57,7 @@ export function ReportPageSummaryCards({
   const metrics = buildMetrics(slug, overview, data);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
       {metrics.map((metric) => (
         <SummaryMetric
           key={metric.label}

@@ -214,15 +214,18 @@ export function usePOSCheckoutFlow(
   );
   const totalTendered = amountTendered + referencePaymentTotal;
   const remainingDue = Math.max(totalAmount - totalTendered, 0);
-  const referenceOverpayAmount = Math.max(referencePaymentTotal - totalAmount, 0);
+  const referenceOverpayAmount = Math.max(
+    referencePaymentTotal - totalAmount,
+    0,
+  );
   const activePaymentMethodLabel =
     referencePayments.length > 0 && amountTendered > 0
       ? "Split Payment"
       : referencePayments.length > 1
         ? "Split Reference"
         : paymentMethod === "cash"
-      ? "Cash"
-      : getPaymentMethodLabel(selectedEPaymentMethod?.name ?? null);
+          ? "Cash"
+          : getPaymentMethodLabel(selectedEPaymentMethod?.name ?? null);
   const requiresDiscountMetadata =
     discount.type === "PWD" || discount.type === "SENIOR";
   const trimmedEligibleName = discount.eligibleDiscName.trim();
@@ -232,12 +235,17 @@ export function usePOSCheckoutFlow(
       ? true
       : !requiresDiscountMetadata ||
         !!(trimmedEligibleName && trimmedOscaIdNum);
-  const isCashPayment = paymentMethod === "cash" && referencePayments.length === 0;
-  const change = Math.max(amountTendered - Math.max(totalAmount - referencePaymentTotal, 0), 0);
+  const isCashPayment =
+    paymentMethod === "cash" && referencePayments.length === 0;
+  const change = Math.max(
+    amountTendered - Math.max(totalAmount - referencePaymentTotal, 0),
+    0,
+  );
   const isReferencePaymentValid =
     referencePayments.length === 0 ||
     referencePayments.every(
-      (payment) => payment.saleTypeId && payment.reference.trim() && payment.amount > 0,
+      (payment) =>
+        payment.saleTypeId && payment.reference.trim() && payment.amount > 0,
     );
   const debtUpfrontCashAmount =
     settlementMode === "debt" ? Math.max(0, amountTendered) : 0;
@@ -347,7 +355,9 @@ export function usePOSCheckoutFlow(
     }
 
     if (!isReferencePaymentValid) {
-      toast.error("Complete every reference payment method, amount, and reference number.");
+      toast.error(
+        "Complete every reference payment method, amount, and reference number.",
+      );
       return;
     }
 
@@ -705,7 +715,9 @@ interface POSTenderFormProps {
     details: Partial<{ eligibleDiscName: string; oscaIdNum: string }>,
   ) => void;
   setPaymentReference: (reference: string) => void;
-  addReferencePayment: (payment?: Partial<Omit<POSReferencePayment, "id">>) => void;
+  addReferencePayment: (
+    payment?: Partial<Omit<POSReferencePayment, "id">>,
+  ) => void;
   updateReferencePayment: (
     id: string,
     payment: Partial<Omit<POSReferencePayment, "id">>,
@@ -775,8 +787,6 @@ export function POSTenderForm({
     discountType;
   const selectedReferenceLabel =
     paymentMethod === "reference" ? activePaymentMethodLabel : "Choose method";
-  const summaryTenderedLabel = "Tendered";
-  const summaryTenderedAmount = totalTendered;
   const summaryChangeAmount = Math.max(0, change);
   const completionHint = isBillingLocked
     ? (billingMessage ??
@@ -835,11 +845,7 @@ export function POSTenderForm({
       }
     >
       <div
-        className={
-          isMobileVariant
-            ? "border-b bg-card px-2 py-1.5"
-            : "hidden"
-        }
+        className={isMobileVariant ? "border-b bg-card px-2 py-1.5" : "hidden"}
       >
         <div className="grid gap-2 lg:hidden">
           <div className="grid grid-cols-2 gap-2">
@@ -889,7 +895,9 @@ export function POSTenderForm({
                   className="h-8 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.1em]"
                   disabled={disableCashEntry}
                   onClick={() =>
-                    setAmountTendered(Math.max(totalAmount - referencePaymentTotal, 0))
+                    setAmountTendered(
+                      Math.max(totalAmount - referencePaymentTotal, 0),
+                    )
                   }
                 >
                   Exact
@@ -930,7 +938,9 @@ export function POSTenderForm({
                 type="button"
                 variant={showMobileSplitEditor ? "default" : "outline"}
                 className="h-9 rounded-2xl text-[10px] font-black uppercase tracking-[0.12em]"
-                disabled={settlementMode === "debt" || epaymentMethods.length === 0}
+                disabled={
+                  settlementMode === "debt" || epaymentMethods.length === 0
+                }
                 onClick={handleMobileSplitOption}
               >
                 Split Payment
@@ -956,6 +966,27 @@ export function POSTenderForm({
                   : "space-y-4 pb-2"
               }
             >
+              {!isMobileVariant ? (
+                <SplitPaymentEditor
+                  variant={variant}
+                  totalAmount={totalAmount}
+                  amountTendered={amountTendered}
+                  setAmountTendered={setAmountTendered}
+                  referencePayments={referencePayments}
+                  epaymentMethods={epaymentMethods}
+                  referencePaymentTotal={referencePaymentTotal}
+                  totalTendered={totalTendered}
+                  remainingDue={remainingDue}
+                  referenceOverpayAmount={referenceOverpayAmount}
+                  change={change}
+                  disabled={settlementMode === "debt"}
+                  showSummary={false}
+                  addReferencePayment={addReferencePayment}
+                  updateReferencePayment={updateReferencePayment}
+                  removeReferencePayment={removeReferencePayment}
+                />
+              ) : null}
+
               <div
                 className={
                   isMobileVariant
@@ -1196,8 +1227,8 @@ export function POSTenderForm({
                         {showMobileSplitEditor
                           ? "Split Active"
                           : paymentMethod === "cash"
-                          ? "Change Method"
-                          : activePaymentMethodLabel}
+                            ? "Change Method"
+                            : activePaymentMethodLabel}
                       </span>
                     </button>
                   </div>
@@ -1211,7 +1242,9 @@ export function POSTenderForm({
                         <div className="grid grid-cols-2 gap-2">
                           <Button
                             variant={
-                              paymentMethod === "cash" && !showMobileSplitEditor ? "default" : "outline"
+                              paymentMethod === "cash" && !showMobileSplitEditor
+                                ? "default"
+                                : "outline"
                             }
                             className="h-9 rounded-2xl px-2.5 text-[10px] font-black uppercase tracking-[0.12em]"
                             onClick={handleMobileCashOption}
@@ -1543,7 +1576,7 @@ export function POSTenderForm({
                 </div>
               )}
 
-              {!isMobileVariant || showMobileSplitEditor ? (
+              {isMobileVariant && showMobileSplitEditor ? (
                 <SplitPaymentEditor
                   variant={variant}
                   totalAmount={totalAmount}
@@ -1557,6 +1590,7 @@ export function POSTenderForm({
                   referenceOverpayAmount={referenceOverpayAmount}
                   change={change}
                   disabled={settlementMode === "debt"}
+                  showSummary
                   addReferencePayment={addReferencePayment}
                   updateReferencePayment={updateReferencePayment}
                   removeReferencePayment={removeReferencePayment}
@@ -1644,107 +1678,23 @@ export function POSTenderForm({
                   emphasis="strong"
                 />
                 <SummaryMetric
-                  label="Payment Method"
-                  value={activePaymentMethodLabel}
+                  label="Cash"
+                  value={`PHP ${formatCurrency(amountTendered)}`}
                 />
-                {false && paymentMethod === "cash" ? (
-                  <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-                            Cash Received
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Enter the amount handed by the customer.
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            className="h-8 rounded-2xl px-3 text-[10px] font-black uppercase tracking-[0.12em]"
-                            onClick={() => setAmountTendered(totalAmount)}
-                          >
-                            Exact
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="h-8 rounded-2xl border border-destructive/10 bg-destructive/5 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-destructive"
-                            onClick={() => setAmountTendered(0)}
-                          >
-                            Clear
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="group relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-heading text-sm font-black text-primary/60 transition-colors group-focus-within:text-primary">
-                          PHP
-                        </span>
-                        <Input
-                          id={`tendered-${variant}`}
-                          type="number"
-                          value={amountTendered || ""}
-                          onChange={(event) =>
-                            setAmountTendered(
-                              parseFloat(event.target.value) || 0,
-                            )
-                          }
-                          className="h-12 rounded-3xl border-primary/20 bg-background pl-14 pr-5 font-heading text-2xl font-black tracking-tighter"
-                          placeholder="0.00"
-                        />
-                      </div>
-
-                      <div
-                        className={
-                          change >= 0
-                            ? "rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3"
-                            : "rounded-2xl border border-destructive/10 bg-destructive/5 px-4 py-3"
-                        }
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.24em] text-muted-foreground">
-                              Change
-                            </span>
-                            <span
-                              className={
-                                change < 0
-                                  ? "text-xs font-bold uppercase tracking-[0.12em] text-destructive"
-                                  : "text-xs font-bold uppercase tracking-[0.12em] text-emerald-600"
-                              }
-                            >
-                              {change < 0
-                                ? "Insufficient cash received"
-                                : "Ready to give"}
-                            </span>
-                          </div>
-                          <span
-                            className={
-                              change < 0
-                                ? "text-right font-heading text-2xl font-black tracking-tighter text-destructive"
-                                : "text-right font-heading text-2xl font-black tracking-tighter text-emerald-600"
-                            }
-                          >
-                            PHP {formatCurrency(summaryChangeAmount)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <SummaryMetric
-                      label={summaryTenderedLabel}
-                      value={`PHP ${formatCurrency(summaryTenderedAmount)}`}
-                    />
-                    <SummaryMetric
-                      label="Change"
-                      value={`PHP ${formatCurrency(summaryChangeAmount)}`}
-                      tone={change < 0 ? "danger" : "success"}
-                    />
-                  </>
-                )}
+                <SummaryMetric
+                  label="Reference"
+                  value={`PHP ${formatCurrency(referencePaymentTotal)}`}
+                />
+                <SummaryMetric
+                  label="Remaining"
+                  value={`PHP ${formatCurrency(remainingDue)}`}
+                  tone={remainingDue > 0 ? "danger" : "success"}
+                />
+                <SummaryMetric
+                  label="Change"
+                  value={`PHP ${formatCurrency(summaryChangeAmount)}`}
+                  tone={referenceOverpayAmount > 0 ? "danger" : "success"}
+                />
               </div>
 
               <div className="mt-auto rounded-2xl border bg-background p-3.5">
@@ -1890,6 +1840,7 @@ function SplitPaymentEditor({
   referenceOverpayAmount,
   change,
   disabled,
+  showSummary,
   addReferencePayment,
   updateReferencePayment,
   removeReferencePayment,
@@ -1906,7 +1857,10 @@ function SplitPaymentEditor({
   referenceOverpayAmount: number;
   change: number;
   disabled: boolean;
-  addReferencePayment: (payment?: Partial<Omit<POSReferencePayment, "id">>) => void;
+  showSummary: boolean;
+  addReferencePayment: (
+    payment?: Partial<Omit<POSReferencePayment, "id">>,
+  ) => void;
   updateReferencePayment: (
     id: string,
     payment: Partial<Omit<POSReferencePayment, "id">>,
@@ -1914,24 +1868,27 @@ function SplitPaymentEditor({
   removeReferencePayment: (id: string) => void;
 }) {
   const isMobileVariant = variant === "mobile";
-  const nextReferenceAmount = Math.max(totalAmount - amountTendered - referencePaymentTotal, 0);
+  const nextReferenceAmount = Math.max(
+    totalAmount - amountTendered - referencePaymentTotal,
+    0,
+  );
 
   return (
     <div
       className={
         isMobileVariant
           ? "rounded-2xl border bg-card p-3"
-          : "rounded-2xl border bg-card p-4"
+          : "rounded-2xl border border-primary/15 bg-primary/5 p-4"
       }
     >
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-heading text-base font-bold text-foreground">
-              Split Payment
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+              Tender Entry
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Combine cash with one or more reference payments.
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              Cash received and reference payment details
             </p>
           </div>
           <Button
@@ -1958,7 +1915,7 @@ function SplitPaymentEditor({
           </p>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_170px]">
           <div className="space-y-1.5">
             <Label
               htmlFor={`split-cash-${variant}`}
@@ -1980,7 +1937,11 @@ function SplitPaymentEditor({
                 onChange={(event) =>
                   setAmountTendered(parseFloat(event.target.value) || 0)
                 }
-                className="h-10 rounded-2xl pl-12 font-heading font-bold"
+                className={
+                  isMobileVariant
+                    ? "h-10 rounded-2xl pl-12 font-heading font-bold"
+                    : "h-12 rounded-2xl border-primary/20 bg-background pl-12 font-heading text-xl font-black"
+                }
                 placeholder="0.00"
               />
             </div>
@@ -1991,7 +1952,11 @@ function SplitPaymentEditor({
               variant="outline"
               className="h-10 flex-1 rounded-2xl"
               disabled={disabled}
-              onClick={() => setAmountTendered(Math.max(totalAmount - referencePaymentTotal, 0))}
+              onClick={() =>
+                setAmountTendered(
+                  Math.max(totalAmount - referencePaymentTotal, 0),
+                )
+              }
             >
               Exact
             </Button>
@@ -2088,36 +2053,41 @@ function SplitPaymentEditor({
           </div>
         ) : null}
 
-        <div className="grid gap-2 sm:grid-cols-4">
-          <SummaryMetric
-            label="Cash"
-            value={`PHP ${formatCurrency(amountTendered)}`}
-          />
-          <SummaryMetric
-            label="Reference"
-            value={`PHP ${formatCurrency(referencePaymentTotal)}`}
-          />
-          <SummaryMetric
-            label="Remaining"
-            value={`PHP ${formatCurrency(remainingDue)}`}
-            tone={remainingDue > 0 ? "danger" : "success"}
-          />
-          <SummaryMetric
-            label="Change"
-            value={`PHP ${formatCurrency(change)}`}
-            tone={referenceOverpayAmount > 0 ? "danger" : "success"}
-          />
-        </div>
+        {showSummary ? (
+          <div className="grid gap-2 sm:grid-cols-4">
+            <SummaryMetric
+              label="Cash"
+              value={`PHP ${formatCurrency(amountTendered)}`}
+            />
+            <SummaryMetric
+              label="Reference"
+              value={`PHP ${formatCurrency(referencePaymentTotal)}`}
+            />
+            <SummaryMetric
+              label="Remaining"
+              value={`PHP ${formatCurrency(remainingDue)}`}
+              tone={remainingDue > 0 ? "danger" : "success"}
+            />
+            <SummaryMetric
+              label="Change"
+              value={`PHP ${formatCurrency(change)}`}
+              tone={referenceOverpayAmount > 0 ? "danger" : "success"}
+            />
+          </div>
+        ) : null}
 
         {referenceOverpayAmount > 0 ? (
           <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
-            Reference payments are over by PHP {formatCurrency(referenceOverpayAmount)}. Reduce reference amounts or use cash for change.
+            Reference payments are over by PHP{" "}
+            {formatCurrency(referenceOverpayAmount)}. Reduce reference amounts
+            or use cash for change.
           </p>
         ) : null}
 
         {totalTendered < totalAmount ? (
           <p className="text-xs text-muted-foreground">
-            Add PHP {formatCurrency(totalAmount - totalTendered)} more to complete this sale.
+            Add PHP {formatCurrency(totalAmount - totalTendered)} more to
+            complete this sale.
           </p>
         ) : null}
       </div>

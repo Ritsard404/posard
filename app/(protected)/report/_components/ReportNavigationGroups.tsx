@@ -23,23 +23,23 @@ export function ReportNavigationGroups({
   groups: NavigationGroup[];
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {groups.map((group) => (
         <Card
           key={group.category}
-          className="overflow-hidden rounded-[28px] border-border/70 bg-background shadow-sm"
+          className="overflow-hidden rounded-2xl border-border/70 bg-background shadow-sm"
         >
-          <CardContent className="space-y-4 p-4 sm:p-5">
+          <CardContent className="space-y-3 p-3 sm:p-4">
             <div className="space-y-1">
-              <div className="text-sm font-semibold tracking-tight">
+              <div className="text-sm font-bold tracking-tight">
                 {group.category}
               </div>
-              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              <p className="max-w-3xl text-xs leading-5 text-muted-foreground sm:text-sm">
                 {group.description}
               </p>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {group.views.map((view) => {
                 const Icon = view.icon;
 
@@ -48,17 +48,17 @@ export function ReportNavigationGroups({
                     key={view.id}
                     href={view.href}
                     className={cn(
-                      "group flex min-h-32 cursor-pointer flex-col justify-between rounded-[24px] border p-4 transition-colors",
+                      "group flex min-h-24 cursor-pointer flex-col justify-between rounded-2xl border p-3 transition-colors",
                       view.isActive
                         ? "border-primary bg-primary text-primary-foreground shadow-sm"
                         : "border-border/70 bg-muted/10 hover:border-primary/40 hover:bg-primary/[0.03]",
                     )}
                   >
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <div
                           className={cn(
-                            "rounded-2xl p-3",
+                            "rounded-xl p-2.5",
                             view.isActive
                               ? "bg-primary-foreground/15 text-primary-foreground"
                               : "bg-primary/10 text-primary",
@@ -79,7 +79,7 @@ export function ReportNavigationGroups({
                         <div className="font-semibold tracking-tight">{view.label}</div>
                         <p
                           className={cn(
-                            "text-sm leading-6",
+                            "line-clamp-2 text-xs leading-5 sm:text-sm",
                             view.isActive
                               ? "text-primary-foreground/90"
                               : "text-muted-foreground",
@@ -99,4 +99,3 @@ export function ReportNavigationGroups({
     </div>
   );
 }
-

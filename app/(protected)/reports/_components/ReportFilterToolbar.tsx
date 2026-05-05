@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowRightLeft,
   CalendarDays,
+  ChevronDown,
   Clock3,
   Download,
   FileSpreadsheet,
@@ -61,17 +62,17 @@ export function ReportFilterToolbar({
   const canSort = view ? supportsReportSort(view) : false;
 
   return (
-    <div className="rounded-[28px] border border-border/70 bg-card p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
+    <div className="rounded-2xl border border-border/70 bg-card px-3 py-3 shadow-sm sm:px-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {presets.map((item) => (
               <Button
                 key={item.id}
                 asChild
                 variant={preset === item.id ? "default" : "outline"}
                 className={cn(
-                  "h-11 rounded-2xl",
+                  "h-9 rounded-xl px-3 text-sm",
                   preset === item.id && "shadow-sm",
                   dateControlsDisabled && item.id !== "all" && "pointer-events-none opacity-50",
                 )}
@@ -87,7 +88,7 @@ export function ReportFilterToolbar({
             <div className="text-sm text-muted-foreground">{dateHint}</div>
           ) : null}
 
-          <form action={basePath} method="get" className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <form action={basePath} method="get" className="hidden gap-2 md:grid md:grid-cols-[minmax(140px,180px)_minmax(140px,180px)_auto]">
             {slug ? <input type="hidden" name="type" value={slug} /> : null}
             {companyId ? <input type="hidden" name="companyId" value={companyId} /> : null}
             {terminalId ? <input type="hidden" name="terminalId" value={terminalId} /> : null}
@@ -97,27 +98,62 @@ export function ReportFilterToolbar({
               type="date"
               name="from"
               defaultValue={fromInput}
-              className="h-11 rounded-2xl"
+              className="h-9 rounded-xl text-sm"
               disabled={dateControlsDisabled}
             />
             <Input
               type="date"
               name="to"
               defaultValue={toInput}
-              className="h-11 rounded-2xl"
+              className="h-9 rounded-xl text-sm"
               disabled={dateControlsDisabled}
             />
-            <Button type="submit" className="h-11 rounded-2xl" disabled={dateControlsDisabled}>
+            <Button type="submit" className="h-9 rounded-xl px-3 text-sm" disabled={dateControlsDisabled}>
               <CalendarDays className="size-4" />
               Apply Range
             </Button>
           </form>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <details className="group rounded-xl border bg-muted/10 md:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2">
+                <CalendarDays className="size-4 text-muted-foreground" />
+                Date Range
+              </span>
+              <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+            </summary>
+            <form action={basePath} method="get" className="grid gap-2 border-t p-2">
+              {slug ? <input type="hidden" name="type" value={slug} /> : null}
+              {companyId ? <input type="hidden" name="companyId" value={companyId} /> : null}
+              {terminalId ? <input type="hidden" name="terminalId" value={terminalId} /> : null}
+              <input type="hidden" name="preset" value="custom" />
+              {canSort ? <input type="hidden" name="sortOrder" value={sortOrder} /> : null}
+              <Input
+                type="date"
+                name="from"
+                defaultValue={fromInput}
+                className="h-9 rounded-xl text-sm"
+                disabled={dateControlsDisabled}
+              />
+              <Input
+                type="date"
+                name="to"
+                defaultValue={toInput}
+                className="h-9 rounded-xl text-sm"
+                disabled={dateControlsDisabled}
+              />
+              <Button type="submit" className="h-9 rounded-xl px-3 text-sm" disabled={dateControlsDisabled}>
+                <CalendarDays className="size-4" />
+                Apply Range
+              </Button>
+            </form>
+          </details>
+
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
             {terminalOptions.length > 0 ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-11 rounded-2xl">
+                  <Button variant="outline" className="h-9 rounded-xl px-3 text-sm">
                     <MonitorSmartphone className="size-4" />
                     {terminalId
                       ? terminalOptions.find((item) => item.id === terminalId)?.name ?? "Selected terminal"
@@ -125,7 +161,7 @@ export function ReportFilterToolbar({
                     <ArrowRightLeft className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-72 rounded-2xl">
+                <DropdownMenuContent align="start" className="w-72 rounded-xl">
                   <DropdownMenuItem asChild className="rounded-xl">
                     <Link href={buildFilterHref(basePath, preset, companyId, null, sortOrder)}>
                       <MonitorSmartphone className="size-4" />
@@ -150,13 +186,13 @@ export function ReportFilterToolbar({
             {canSort ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-11 rounded-2xl">
+                  <Button variant="outline" className="h-9 rounded-xl px-3 text-sm">
                     <Clock3 className="size-4" />
                     {sortOrder === "oldest" ? "Oldest first" : "Newest first"}
                     <ArrowRightLeft className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56 rounded-2xl">
+                <DropdownMenuContent align="start" className="w-56 rounded-xl">
                   <DropdownMenuItem asChild className="rounded-xl">
                     <Link href={buildFilterHref(basePath, preset, companyId, terminalId, "newest")}>
                       <Clock3 className="size-4" />
@@ -176,14 +212,14 @@ export function ReportFilterToolbar({
         </div>
 
         {exportBaseUrl ? (
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button asChild variant="outline" className="h-11 rounded-2xl">
+          <div className="grid gap-1.5 sm:flex-row xl:shrink-0 min-[420px]:grid-cols-2 xl:flex">
+            <Button asChild variant="outline" className="h-9 rounded-xl px-3 text-sm">
               <Link href={`${exportBaseUrl}&format=csv`}>
                 <Download className="size-4" />
                 Export CSV
               </Link>
             </Button>
-            <Button asChild variant="outline" className="h-11 rounded-2xl">
+            <Button asChild variant="outline" className="h-9 rounded-xl px-3 text-sm">
               <Link href={`${exportBaseUrl}&format=xlsx`}>
                 <FileSpreadsheet className="size-4" />
                 Export XLSX
