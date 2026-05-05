@@ -206,6 +206,57 @@ export function usePOSCheckoutFlow(
   const fastCheckout = fastCheckoutEnabled;
   const setFastCheckout = setFastCheckoutEnabled;
 
+  const resetAfterFastCheckout = () => {
+    clearCart();
+    setStep("PAYMENT");
+    setReceipt(null);
+    setAmountTendered(0);
+    clearReferencePayments();
+    setDiscount(defaultDiscount);
+    setPaymentMethod("cash");
+    options?.onFastComplete?.();
+  };
+
+  const printFastCheckoutReceipt = async (nextReceipt: ReceiptDto) => {
+    const receiptPrintPayload = receiptPrintService.buildPayload(nextReceipt);
+    const printerConfig = receiptPrintPayload.printerConfig;
+
+    if (!printerConfig?.mode || !printerConfig.autoPrintEnabled) {
+      toast.error("Receipt was not printed.", {
+        description:
+          "Pair a printer and enable auto-print before using Fast Checkout.",
+      });
+      return;
+    }
+
+    try {
+      const result = await printReceipt(receiptPrintPayload, {
+        printerConfig,
+        fallbackToPreview: false,
+      });
+
+      if (result.status === "printed") {
+        toast.success("Receipt sent to printer.", {
+          description: result.message,
+        });
+        return;
+      }
+
+      toast.error("Receipt was not printed.", {
+        description:
+          result.message || "Printer not connected. Reprint from receipt history if needed.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Receipt was not printed.", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Printer not connected. Reprint from receipt history if needed.",
+      });
+    }
+  };
+
   const selectedEPaymentMethod =
     epaymentMethods.find((method) => method.id === selectedEPaymentMethodId) ??
     null;
@@ -475,27 +526,8 @@ export function usePOSCheckoutFlow(
         applyStockUpdates(res.receipt.stockUpdates);
 
         if (fastCheckout) {
-          const receiptPrintPayload = receiptPrintService.buildPayload(
-            res.receipt,
-          );
-
-          if (
-            receiptPrintPayload.printerAvailable &&
-            receiptPrintPayload.printerConfig
-          ) {
-            void printReceipt(receiptPrintPayload, {
-              fallbackToPreview: false,
-            });
-          }
-
-          clearCart();
-          setStep("PAYMENT");
-          setReceipt(null);
-          setAmountTendered(0);
-          clearReferencePayments();
-          setDiscount(defaultDiscount);
-          setPaymentMethod("cash");
-          options?.onFastComplete?.();
+          await printFastCheckoutReceipt(res.receipt);
+          resetAfterFastCheckout();
           toast.success("Sale complete.", {
             description: "Ready for the next transaction.",
           });
@@ -617,10 +649,8 @@ export function usePOSCheckoutFlow(
         });
 
         if (fastCheckout) {
-          clearCart();
-          setStep("PAYMENT");
-          setReceipt(null);
-          options?.onFastComplete?.();
+          await printFastCheckoutReceipt(provisionalReceipt);
+          resetAfterFastCheckout();
         } else {
           setCustomerDisplayMode("completed");
           setReceipt(provisionalReceipt);
