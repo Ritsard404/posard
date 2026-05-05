@@ -37,6 +37,7 @@ import { payOrderAction } from "../_actions/order.action";
 import type { OrderDto } from "../_services/_dto/order.dto";
 import type { ReceiptDto } from "../_services/_dto/receipt.dto";
 import { calculatePayment } from "../_services/payment-calculation.service";
+import { formatInvoiceNumber } from "../_services/print-format.service";
 import { receiptPrintService } from "../_services/receipt-print.service";
 import { ReceiptPrintControls } from "./ReceiptPrintControls";
 import { printReceipt } from "@/src/lib/capacitor/printer-bridge";
@@ -648,8 +649,54 @@ export function usePOSCheckoutFlow(
           syncStatus: "pending",
         });
 
+        let fastCheckoutSyncedOnline = false;
+
         if (fastCheckout) {
-          await printFastCheckoutReceipt(provisionalReceipt);
+          let receiptToPrint = provisionalReceipt;
+
+          if (isOnline) {
+            try {
+              const syncResult = await syncOfflineActions();
+              fastCheckoutSyncedOnline = true;
+              const syncedSale = syncResult.results.find(
+                (result) =>
+                  result.localId === localId &&
+                  result.syncStatus === "synced" &&
+                  result.receipt,
+              );
+
+              if (syncedSale?.receipt) {
+                receiptToPrint = syncedSale.receipt;
+                upsertOfflineReceipt({
+                  localId,
+                  receiptId: syncedSale.receipt.id,
+                  localInvoiceNo:
+                    syncedSale.receipt.localInvoiceNo ?? localInvoiceNo,
+                  syncStatus: "synced",
+                });
+              }
+
+              const queue = await getOfflineQueueSnapshot();
+              usePOSStore.getState().setSyncCounts({
+                pendingSyncCount: queue.pendingCount,
+                syncingCount: queue.syncingCount,
+                needsReviewCount: queue.needsReviewCount,
+                lastSyncMessage:
+                  syncedSale?.receipt
+                    ? "Sale synced before fast checkout print."
+                    : "Sale sync completed without a receipt payload.",
+              });
+            } catch (error) {
+              toast.error("Official invoice is not ready yet.", {
+                description:
+                  error instanceof Error
+                    ? error.message
+                    : "Printing the provisional receipt instead.",
+              });
+            }
+          }
+
+          await printFastCheckoutReceipt(receiptToPrint);
           resetAfterFastCheckout();
         } else {
           setCustomerDisplayMode("completed");
@@ -665,7 +712,7 @@ export function usePOSCheckoutFlow(
             ? "Receipt is ready. Sync is running in the background."
             : "It will sync automatically when the device reconnects.",
         });
-        if (isOnline) {
+        if (isOnline && !fastCheckoutSyncedOnline) {
           void syncOfflineActions()
             .then(async (result) => {
               const queue = await getOfflineQueueSnapshot();
@@ -2278,7 +2325,7 @@ export function POSReceiptContent({
   }).format(new Date(receipt.createdAt));
   const formattedInvoiceNumber = receipt.isProvisional
     ? (receipt.localInvoiceNo ?? "OFFLINE-PENDING")
-    : String(receipt.invoiceNumber).padStart(12, "0");
+    : formatInvoiceNumber(receipt.invoiceNumber);
   const shouldShowTaxBreakdown = receipt.vatAmount > 0;
   const receiptPrintPayload = receiptPrintService.buildPayload(receipt);
   const hasCashPayment = receipt.cashTendered > 0;

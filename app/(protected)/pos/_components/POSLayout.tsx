@@ -34,6 +34,7 @@ import { SessionPrinterConfigDialog } from "./SessionPrinterConfigDialog";
 import { formatCurrency, usePOSPaymentSummary } from "./checkout-shared";
 import { CustomerDisplayPublisher } from "./CustomerDisplayPublisher";
 import { publishCustomerDisplayAction } from "../_actions/customer-display.action";
+import { printClientService } from "../_services/print-client.service";
 
 interface POSLayoutProps {
   children: React.ReactNode;
@@ -51,6 +52,12 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
   const activeSessionId = usePOSStore((state) => state.activeSessionId);
   const activeTerminal = usePOSStore((state) => state.activeTerminal);
+  const printerConnectionStatus = usePOSStore(
+    (state) => state.printerConnectionStatus,
+  );
+  const setPrinterConnectionStatus = usePOSStore(
+    (state) => state.setPrinterConnectionStatus,
+  );
   const activeTerminalId = usePOSStore((state) => state.activeTerminal?.id ?? null);
   const customerDisplayEnabled = usePOSStore(
     (state) => state.customerDisplayEnabled,
@@ -86,6 +93,41 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
       document.removeEventListener("fullscreenchange", syncFullscreenState);
     };
   }, []);
+
+  useEffect(() => {
+    return printClientService.subscribeToBluetoothStatus(
+      setPrinterConnectionStatus,
+    );
+  }, [setPrinterConnectionStatus]);
+
+  useEffect(() => {
+    const printerConfig = activeTerminal?.printerConfig;
+
+    if (printerConfig?.driver !== "webbluetooth") {
+      return;
+    }
+
+    void printClientService.reconnectKnownPrinter(printerConfig);
+  }, [activeTerminal?.printerConfig]);
+
+  const printerLabel =
+    activeTerminal?.printerConfig?.driver === "webbluetooth"
+      ? printerConnectionStatus.state === "connected"
+        ? "Connected"
+        : printerConnectionStatus.state === "reconnecting"
+          ? "Reconnecting"
+          : printerConnectionStatus.state === "connecting"
+            ? "Connecting"
+            : "Disconnected"
+      : activeTerminal?.printerConfig?.mode
+        ? "Configured"
+        : "No Printer";
+  const printerBadgeVariant =
+    printerConnectionStatus.state === "connected" ||
+    (activeTerminal?.printerConfig?.mode &&
+      activeTerminal.printerConfig.driver !== "webbluetooth")
+      ? "secondary"
+      : "outline";
 
   async function handleToggleFullscreen() {
     if (!document.fullscreenEnabled) {
@@ -254,13 +296,13 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                 <span className="lg:hidden">{isFullscreen ? "Exit" : "Full"}</span>
               </Button>
               <Button
-                variant="outline"
+                variant={printerBadgeVariant}
                 size="sm"
                 onClick={() => setShowPrinterConfig(true)}
                 className="hidden h-9 shrink-0 rounded-lg px-2.5 sm:flex"
               >
                 <Cable className="mr-1.5 size-4" />
-                Printer
+                <span>Printer: {printerLabel}</span>
               </Button>
               <Button
                 variant="outline"

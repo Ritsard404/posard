@@ -76,3 +76,19 @@ export interface PrintJobResultDto {
   status: "printed" | "previewed" | "unsupported" | "failed";
   message: string;
 }
+
+export type PrinterConnectionState =
+  | "idle"
+  | "requesting"
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "reconnecting"
+  | "error";
+
+export interface PrinterConnectionStatusDto {
+  state: PrinterConnectionState;
+  message: string | null;
+  printerName: string | null;
+  updatedAt: string | null;
+}

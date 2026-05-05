@@ -108,6 +108,9 @@ export function SessionPrinterConfigDialog({
   const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
   const activeTerminal = usePOSStore((state) => state.activeTerminal);
   const printerCapabilities = usePOSStore((state) => state.printerCapabilities);
+  const printerConnectionStatus = usePOSStore(
+    (state) => state.printerConnectionStatus,
+  );
   const setActiveTerminalPrinterConfig = usePOSStore(
     (state) => state.setActiveTerminalPrinterConfig,
   );
@@ -118,6 +121,7 @@ export function SessionPrinterConfigDialog({
   const [pairingMode, setPairingMode] = useState<PrinterCapabilityDto["mode"] | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [isCheckingNative, setIsCheckingNative] = useState(false);
   const [nativeDiagnostics, setNativeDiagnostics] = useState<Awaited<
     ReturnType<typeof printClientService.getNativeDiagnostics>
@@ -265,6 +269,35 @@ export function SessionPrinterConfigDialog({
     }
   };
 
+  const handleReconnect = async () => {
+    if (printerConfig?.driver !== "webbluetooth") {
+      toast.error("Reconnect is only available for Bluetooth BLE printers.");
+      return;
+    }
+
+    setIsReconnecting(true);
+
+    try {
+      const connected = await printClientService.reconnectKnownPrinter(printerConfig);
+
+      if (!connected) {
+        toast.error("Bluetooth printer is not available.", {
+          description: "Use Connect again if browser permission was cleared.",
+        });
+        return;
+      }
+
+      toast.success("Bluetooth printer reconnected.");
+    } finally {
+      setIsReconnecting(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    printClientService.disconnectPrinter(printerConfig);
+    toast.success("Bluetooth printer disconnected.");
+  };
+
   const handleClear = async () => {
     if (!activeTimestampId) {
       toast.error("Open a POS session before configuring a printer.");
@@ -357,19 +390,60 @@ export function SessionPrinterConfigDialog({
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 [-webkit-overflow-scrolling:touch] sm:px-6 sm:py-4">
-          <div className="space-y-3 pb-4 sm:space-y-4">
-            <div className="space-y-2 sm:space-y-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 [-webkit-overflow-scrolling:touch] sm:px-5">
+          <div className="space-y-2 pb-3">
+            {printerConfig?.driver === "webbluetooth" ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/20 px-3 py-2 text-xs">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-foreground">
+                      Printer: {printerConnectionStatus.state}
+                    </span>
+                    <span className="truncate text-muted-foreground">
+                      {printerConnectionStatus.message ?? "Auto reconnect runs on POS load."}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 rounded-lg px-2 text-xs"
+                    disabled={isReconnecting || Boolean(pairingMode)}
+                    onClick={() => void handleReconnect()}
+                  >
+                    {isReconnecting ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <RotateCcw className="size-3" />
+                    )}
+                    Reconnect
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 rounded-lg px-2 text-xs"
+                    onClick={handleDisconnect}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="space-y-1.5">
               <div>
-                <h3 className="text-base font-semibold text-foreground">
+                <h3 className="text-sm font-semibold text-foreground">
                   Connect printer
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  Tap a button below to start pairing.
+                <p className="text-xs text-muted-foreground">
+                  Tap a method. Bluetooth reconnects automatically when browser permission is still available.
                 </p>
               </div>
 
-              <div className="grid gap-3">
+              <div className="grid gap-1.5 sm:grid-cols-2">
                 {availableCapabilities.map((capability) => {
                   const Icon = getCapabilityIcon(capability.mode);
                   const isActive = capability.mode === printerConfig?.mode;
@@ -383,7 +457,7 @@ export function SessionPrinterConfigDialog({
                       type="button"
                       variant="outline"
                       className={cn(
-                        "h-auto min-h-14 justify-start rounded-3xl border px-3 py-3.5 text-left transition-all sm:min-h-16 sm:px-4 sm:py-4",
+                        "h-auto min-h-11 justify-start rounded-xl border px-2.5 py-2 text-left transition-all",
                         "hover:border-sky-300 hover:bg-sky-50/70",
                         isActive &&
                           "border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-50",
@@ -393,40 +467,34 @@ export function SessionPrinterConfigDialog({
                       disabled={isDisabled}
                       onClick={() => void handlePair(capability)}
                     >
-                      <div className="flex w-full items-start gap-3">
+                      <div className="flex w-full items-center gap-2">
                         <div
                           className={cn(
-                            "flex size-10 shrink-0 items-center justify-center rounded-2xl border bg-background sm:size-12",
+                            "flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background",
                             isActive && "border-emerald-200 bg-emerald-100 text-emerald-700",
                           )}
                         >
                           {isConnecting ? (
-                            <Loader2 className="size-5 animate-spin" />
+                            <Loader2 className="size-4 animate-spin" />
                           ) : (
-                            <Icon className="size-5" />
+                            <Icon className="size-4" />
                           )}
                         </div>
 
-                        <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate text-xs font-semibold sm:text-sm">
                               {isConnecting
                                 ? `Connecting ${capability.label}`
-                                : `${isActive ? "Connected" : "Connect"} ${capability.label}`}
+                                : capability.label}
                             </span>
                             {isActive ? (
-                              <Badge className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-white hover:bg-emerald-600">
+                              <Badge className="rounded-full bg-emerald-600 px-1.5 py-0 text-[10px] text-white hover:bg-emerald-600">
                                 Active
                               </Badge>
                             ) : null}
-                            <Badge
-                              variant={capability.supported ? "secondary" : "outline"}
-                              className="rounded-full px-2.5 py-0.5"
-                            >
-                              {capability.supported ? "Available" : "Unavailable"}
-                            </Badge>
                           </div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="truncate text-[11px] text-muted-foreground">
                             {getCapabilityHint(capability)}
                           </div>
                         </div>
@@ -437,13 +505,13 @@ export function SessionPrinterConfigDialog({
               </div>
             </div>
 
-            <Card className="rounded-3xl border-amber-200 bg-amber-50/80 shadow-none">
-              <CardContent className="space-y-2 p-4">
+            <Card className="rounded-xl border-amber-200 bg-amber-50/80 shadow-none">
+              <CardContent className="space-y-1 p-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-amber-950">
                   <Printer className="size-4" />
                   Quick help
                 </div>
-                <div className="text-sm text-amber-950/90">
+                <div className="text-xs text-amber-950/90">
                   <span className="sm:hidden">
                     Start with USB if you are unsure.
                   </span>
@@ -455,15 +523,15 @@ export function SessionPrinterConfigDialog({
             </Card>
 
             {printerConfig ? (
-              <Card className="hidden rounded-3xl border shadow-none sm:block">
-                <CardContent className="space-y-3 p-4">
+              <Card className="rounded-xl border shadow-none">
+                <CardContent className="space-y-2 p-3">
                   <div className="flex items-center gap-2 text-emerald-700">
                     <CheckCircle2 className="size-4" />
                     <span className="text-sm font-semibold">
                       {printerStatus.description}
                     </span>
                   </div>
-                  <div className="rounded-2xl bg-muted/30 px-3 py-3 text-sm">
+                  <div className="rounded-lg bg-muted/30 px-3 py-2 text-sm">
                     <div className="font-semibold text-foreground">
                       {printerConfig.displayName ?? "Configured printer"}
                     </div>
@@ -471,26 +539,26 @@ export function SessionPrinterConfigDialog({
                       {getPrinterModeLabel(printerConfig.mode)} · {printerConfig.driver ?? "Preview only"}
                     </div>
                   </div>
-                  <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-                    <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                  <div className="grid gap-1.5 text-xs text-muted-foreground sm:grid-cols-2">
+                    <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-2 py-1.5">
                       <span>Vendor ID</span>
                       <span className="font-medium text-foreground">
                         {formatConfigValue(printerConfig.vendorId)}
                       </span>
                     </div>
-                    <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-2 py-1.5">
                       <span>Product ID</span>
                       <span className="font-medium text-foreground">
                         {formatConfigValue(printerConfig.productId)}
                       </span>
                     </div>
-                    <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-2 py-1.5">
                       <span>Service UUID</span>
                       <span className="max-w-[10rem] truncate font-medium text-foreground">
                         {formatConfigValue(printerConfig.serviceUuid)}
                       </span>
                     </div>
-                    <div className="flex items-start justify-between gap-3 rounded-2xl bg-muted/30 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-2 py-1.5">
                       <span>Characteristic</span>
                       <span className="max-w-[10rem] truncate font-medium text-foreground">
                         {formatConfigValue(printerConfig.characteristicUuid)}
@@ -577,7 +645,7 @@ export function SessionPrinterConfigDialog({
         <Separator />
 
         <DialogFooter className="shrink-0 gap-2 bg-background px-4 py-3 sm:gap-3 sm:px-6 sm:py-4 sm:justify-between">
-          <div className="text-sm text-muted-foreground">
+          <div className="min-w-0 truncate text-xs text-muted-foreground sm:text-sm">
             {printerConfig?.displayName
               ? `Connected: ${printerConfig.displayName}`
               : "No printer paired yet"}
@@ -585,7 +653,7 @@ export function SessionPrinterConfigDialog({
           <Button
             type="button"
             variant="ghost"
-            className="rounded-2xl sm:order-none"
+            className="h-9 rounded-lg px-2.5 sm:order-none"
             disabled={Boolean(pairingMode) || isTesting || isClearing}
             onClick={() => void handleClear()}
           >
@@ -596,7 +664,7 @@ export function SessionPrinterConfigDialog({
             <Button
               type="button"
               variant="outline"
-              className="flex-1 rounded-2xl sm:flex-none"
+              className="h-9 flex-1 rounded-lg px-2.5 sm:flex-none"
               disabled={
                 Boolean(pairingMode) ||
                 isTesting ||
@@ -610,7 +678,7 @@ export function SessionPrinterConfigDialog({
             </Button>
             <Button
               type="button"
-              className="flex-1 rounded-2xl sm:flex-none"
+              className="h-9 flex-1 rounded-lg px-2.5 sm:flex-none"
               onClick={() => onOpenChange(false)}
             >
               Done

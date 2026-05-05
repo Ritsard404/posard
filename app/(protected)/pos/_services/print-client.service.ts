@@ -4,6 +4,7 @@ import type {
   PrinterConfigDto,
   PrintJobResultDto,
 } from "./_dto/print.dto";
+import { bluetoothPrinterConnectionService } from "./bluetooth-printer-connection.service";
 import { printDeviceService } from "./print-device.service";
 import { printPreviewService } from "./print-preview.service";
 import { getPrinterModeLabel } from "./printer-mode.service";
@@ -13,6 +14,10 @@ export const printClientService = {
   getStatus(config: PrinterConfigDto | null) {
     const support = printDeviceService.getBrowserSupport();
     const hasConfig = Boolean(config?.mode && config?.transport && config?.driver);
+    const bluetoothStatus =
+      config?.driver === "webbluetooth"
+        ? bluetoothPrinterConnectionService.getConnectionStatus()
+        : null;
 
     if (!hasConfig) {
       return {
@@ -82,6 +87,44 @@ export const printClientService = {
       };
     }
 
+    if (bluetoothStatus && bluetoothStatus.state === "connected") {
+      return {
+        tone: "ready" as const,
+        label: "Printer connected",
+        description: bluetoothStatus.message ?? "Bluetooth printer is ready.",
+        support,
+      };
+    }
+
+    if (
+      bluetoothStatus &&
+      ["connecting", "reconnecting", "requesting"].includes(bluetoothStatus.state)
+    ) {
+      return {
+        tone: "fallback" as const,
+        label:
+          bluetoothStatus.state === "reconnecting"
+            ? "Reconnecting"
+            : "Connecting",
+        description: bluetoothStatus.message ?? "Bluetooth printer connection is being restored.",
+        support,
+      };
+    }
+
+    if (
+      bluetoothStatus &&
+      ["disconnected", "error"].includes(bluetoothStatus.state)
+    ) {
+      return {
+        tone: "fallback" as const,
+        label: "Printer disconnected",
+        description:
+          bluetoothStatus.message ??
+          "Bluetooth printer is saved but not connected. Reconnect before printing.",
+        support,
+      };
+    }
+
     return {
       tone: "ready" as const,
       label: "Printer configured",
@@ -96,6 +139,28 @@ export const printClientService = {
 
   async pair(mode: PrinterCapabilityDto["mode"]) {
     return printDeviceService.pair(mode);
+  },
+
+  subscribeToBluetoothStatus(listener: Parameters<typeof bluetoothPrinterConnectionService.subscribe>[0]) {
+    return bluetoothPrinterConnectionService.subscribe(listener);
+  },
+
+  getBluetoothConnectionStatus() {
+    return bluetoothPrinterConnectionService.getConnectionStatus();
+  },
+
+  async reconnectKnownPrinter(config: PrinterConfigDto | null) {
+    if (config?.driver !== "webbluetooth") {
+      return false;
+    }
+
+    return bluetoothPrinterConnectionService.reconnectKnownPrinter(config);
+  },
+
+  disconnectPrinter(config: PrinterConfigDto | null) {
+    if (config?.driver === "webbluetooth") {
+      bluetoothPrinterConnectionService.disconnectPrinter();
+    }
   },
 
   async getNativeDiagnostics(config: PrinterConfigDto | null) {

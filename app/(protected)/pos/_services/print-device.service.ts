@@ -6,6 +6,7 @@ import type {
   PrinterDeviceSummaryDto,
   PrintJobResultDto,
 } from "./_dto/print.dto";
+import { bluetoothPrinterConnectionService } from "./bluetooth-printer-connection.service";
 import { getPrinterModeMeta } from "./printer-mode.service";
 import { sunmiNativePrintService } from "./sunmi-native-print.service";
 import { getPlatform, isNativePlatform } from "@/src/lib/capacitor/platform";
@@ -13,32 +14,6 @@ import { getPlatform, isNativePlatform } from "@/src/lib/capacitor/platform";
 const USB_PRINTER_CLASS = 0x07;
 const DEFAULT_SERIAL_BAUD_RATE = 9600;
 const TEXT_ENCODER = new TextEncoder();
-const COMMON_BLUETOOTH_PRINTER_SERVICE_UUIDS = [
-  "000018f0-0000-1000-8000-00805f9b34fb",
-  "0000ae30-0000-1000-8000-00805f9b34fb",
-  "0000ae3a-0000-1000-8000-00805f9b34fb",
-  "0000ff00-0000-1000-8000-00805f9b34fb",
-  "0000ffe0-0000-1000-8000-00805f9b34fb",
-  "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
-  "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
-];
-const PREFERRED_BLUETOOTH_CHARACTERISTIC_UUIDS = [
-  "2af1",
-  "2af0",
-  "ae01",
-  "ae02",
-  "ae03",
-  "ae04",
-  "ae05",
-  "ae10",
-  "ae3b",
-  "ae3c",
-  "0000ff02-0000-1000-8000-00805f9b34fb",
-  "0000ffe1-0000-1000-8000-00805f9b34fb",
-  "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
-  "bef8d6c9-9c21-4c9e-b632-bd58c1009f9f",
-];
-const bluetoothDeviceCache = new Map<string, BluetoothDeviceLike>();
 
 interface UsbEndpointLike {
   endpointNumber: number;
@@ -121,44 +96,15 @@ interface SerialNavigatorLike {
   }): Promise<SerialPortLike>;
 }
 
-interface BluetoothCharacteristicLike {
-  uuid: string;
-  properties?: {
-    write?: boolean;
-    writeWithoutResponse?: boolean;
-  };
-  writeValueWithResponse?(value: ArrayBuffer | Uint8Array): Promise<void>;
-  writeValueWithoutResponse?(value: ArrayBuffer | Uint8Array): Promise<void>;
-}
-
-interface BluetoothServiceLike {
-  uuid: string;
-  getCharacteristics(): Promise<BluetoothCharacteristicLike[]>;
-}
-
-interface BluetoothServerLike {
-  connected?: boolean;
-  connect(): Promise<BluetoothServerLike>;
-  disconnect(): void;
-  getPrimaryServices(): Promise<BluetoothServiceLike[]>;
-  getPrimaryService(service: string): Promise<BluetoothServiceLike>;
-}
-
-interface BluetoothDeviceLike {
-  id?: string;
-  name?: string | null;
-  gatt?: BluetoothServerLike | null;
-}
-
 type NavigatorWithDevices = Navigator & {
   usb?: UsbNavigatorLike;
   serial?: SerialNavigatorLike;
   bluetooth?: {
-    getDevices?(): Promise<BluetoothDeviceLike[]>;
+    getDevices?(): Promise<unknown[]>;
     requestDevice(options: {
       acceptAllDevices: boolean;
       optionalServices: string[];
-    }): Promise<BluetoothDeviceLike>;
+    }): Promise<unknown>;
   };
 };
 
@@ -211,87 +157,10 @@ function isAccessDeniedError(error: unknown) {
   return message.includes("access denied") || message.includes("permission denied");
 }
 
-function normalizeBluetoothUuid(value: string | null | undefined) {
-  const normalized = value?.trim().toLowerCase() ?? null;
-
-  if (!normalized) {
-    return null;
-  }
-
-  if (/^[0-9a-f]{4}$/u.test(normalized)) {
-    return `0000${normalized}-0000-1000-8000-00805f9b34fb`;
-  }
-
-  if (/^[0-9a-f]{8}$/u.test(normalized)) {
-    return `${normalized}-0000-1000-8000-00805f9b34fb`;
-  }
-
-  return normalized;
-}
-
 function toHexId(value: number | null | undefined) {
   return value === null || value === undefined
     ? null
     : `0x${value.toString(16).padStart(4, "0").toUpperCase()}`;
-}
-
-function getBluetoothOptionalServices(preferredServiceUuid?: string | null) {
-  const serviceUuids = new Set(COMMON_BLUETOOTH_PRINTER_SERVICE_UUIDS);
-
-  const normalizedPreferredServiceUuid = normalizeBluetoothUuid(preferredServiceUuid);
-
-  if (normalizedPreferredServiceUuid) {
-    serviceUuids.add(normalizedPreferredServiceUuid);
-  }
-
-  return Array.from(serviceUuids);
-}
-
-function cacheBluetoothDevice(device: BluetoothDeviceLike) {
-  if (!device.id) {
-    return;
-  }
-
-  bluetoothDeviceCache.set(device.id, device);
-}
-
-async function findBluetoothDevice(config: PrinterConfigDto) {
-  const deviceId = config.deviceId?.trim();
-
-  if (!deviceId || !isBluetoothSupported()) {
-    return null;
-  }
-
-  const cachedDevice = bluetoothDeviceCache.get(deviceId) ?? null;
-
-  if (cachedDevice) {
-    return cachedDevice;
-  }
-
-  const navigatorBluetooth = getNavigator().bluetooth;
-
-  if (!navigatorBluetooth?.getDevices) {
-    return null;
-  }
-
-  const devices = await navigatorBluetooth.getDevices();
-  const matchedDevice = devices.find((device) => device.id === deviceId) ?? null;
-
-  if (matchedDevice) {
-    cacheBluetoothDevice(matchedDevice);
-  }
-
-  return matchedDevice;
-}
-
-async function requestBluetoothDevice(preferredServiceUuid?: string | null) {
-  const device = await getNavigator().bluetooth!.requestDevice({
-    acceptAllDevices: true,
-    optionalServices: getBluetoothOptionalServices(preferredServiceUuid),
-  });
-
-  cacheBluetoothDevice(device);
-  return device;
 }
 
 async function findUsbDevice(config: PrinterConfigDto) {
@@ -627,167 +496,14 @@ async function pairSerialPrinter(): Promise<PrinterDeviceSummaryDto> {
   };
 }
 
-function chunkBytes(value: Uint8Array, size: number) {
-  const chunks: Uint8Array[] = [];
-
-  for (let offset = 0; offset < value.length; offset += size) {
-    chunks.push(value.slice(offset, offset + size));
-  }
-
-  return chunks;
-}
-
-async function writeBluetoothCharacteristic(
-  characteristic: BluetoothCharacteristicLike,
-  value: Uint8Array,
-) {
-  const chunks = chunkBytes(value, 180);
-
-  for (const chunk of chunks) {
-    if (characteristic.properties?.writeWithoutResponse && characteristic.writeValueWithoutResponse) {
-      await characteristic.writeValueWithoutResponse(chunk);
-      continue;
-    }
-
-    if (characteristic.writeValueWithResponse) {
-      await characteristic.writeValueWithResponse(chunk);
-      continue;
-    }
-
-    throw new Error("Bluetooth printer characteristic is not writable.");
-  }
-}
-
-async function resolveBluetoothWritableCharacteristic(
-  server: BluetoothServerLike,
-  preferredServiceUuid?: string | null,
-  preferredCharacteristicUuid?: string | null,
-) {
-  if (preferredServiceUuid && preferredCharacteristicUuid) {
-    const normalizedServiceUuid = normalizeBluetoothUuid(preferredServiceUuid);
-    const normalizedCharacteristicUuid = normalizeBluetoothUuid(
-      preferredCharacteristicUuid,
-    );
-
-    if (!normalizedServiceUuid || !normalizedCharacteristicUuid) {
-      throw new Error("Configured Bluetooth printer UUIDs are invalid.");
-    }
-
-    const service = await server.getPrimaryService(normalizedServiceUuid);
-    const characteristics = await service.getCharacteristics();
-    const matchedCharacteristic =
-      characteristics.find(
-        (characteristic) =>
-          normalizeBluetoothUuid(characteristic.uuid) ===
-          normalizedCharacteristicUuid,
-      ) ?? null;
-
-    if (!matchedCharacteristic) {
-      throw new Error("Configured Bluetooth printer characteristic was not found.");
-    }
-
-    return {
-      serviceUuid: service.uuid,
-      characteristic: matchedCharacteristic,
-    };
-  }
-
-  const services = await server.getPrimaryServices();
-
-  for (const service of services) {
-    const characteristics = await service.getCharacteristics();
-    const writableCharacteristics = characteristics.filter(
-      (characteristic) =>
-        Boolean(characteristic.properties?.write) ||
-        Boolean(characteristic.properties?.writeWithoutResponse),
-    );
-
-    const prioritizedCharacteristic =
-      PREFERRED_BLUETOOTH_CHARACTERISTIC_UUIDS.map((uuid) =>
-        writableCharacteristics.find(
-          (characteristic) =>
-            normalizeBluetoothUuid(characteristic.uuid) === normalizeBluetoothUuid(uuid) ||
-            normalizeBluetoothUuid(characteristic.uuid)?.endsWith(uuid),
-        ) ?? null,
-      ).find(Boolean) ??
-      writableCharacteristics[0] ??
-      null;
-
-    if (prioritizedCharacteristic) {
-      return {
-        serviceUuid: service.uuid,
-        characteristic: prioritizedCharacteristic,
-      };
-    }
-  }
-
-  throw new Error(
-    "No writable Bluetooth printer characteristic was found. This printer may be Bluetooth Classic/SPP instead of BLE, or it uses a vendor profile the browser could not access. Try Pair Serial on supported Chrome builds or use USB.",
-  );
-}
-
-async function withBluetoothConnection<T>(
-  device: BluetoothDeviceLike,
-  task: (server: BluetoothServerLike) => Promise<T>,
-) {
-  if (!device.gatt) {
-    throw new Error(
-      "This Bluetooth device does not expose a BLE GATT server. Use Pair Serial for Bluetooth Classic/SPP printers when the browser supports it, or use USB.",
-    );
-  }
-
-  const server = await device.gatt.connect();
-
-  try {
-    return await task(server);
-  } finally {
-    try {
-      device.gatt.disconnect();
-    } catch {
-      // Ignore disconnect errors.
-    }
-  }
-}
-
 async function printBluetooth(
   job: PrintJobDto,
   config: PrinterConfigDto,
 ): Promise<PrintJobResultDto> {
-  const device = await findBluetoothDevice(config);
-
-  if (!device) {
-    return {
-      status: "unsupported",
-      message:
-        "The paired Bluetooth printer is not available in this browser. Pair it again from the Print / Preview button before printing.",
-    };
-  }
-
-  const result = await withBluetoothConnection(device, async (server) => {
-    const { characteristic } = await resolveBluetoothWritableCharacteristic(
-      server,
-      config.serviceUuid,
-      config.characteristicUuid,
-    );
-
-    const printSegments = job.printSegments?.length
-      ? job.printSegments
-      : [job.previewContent];
-
-    for (const segment of printSegments) {
-      await writeBluetoothCharacteristic(
-        characteristic,
-        TEXT_ENCODER.encode(`${segment}\n\n\n`),
-      );
-    }
-
-    return {
-      status: "printed" as const,
-      message: `Printed to ${config.displayName ?? "Bluetooth printer"}.`,
-    };
-  });
-
-  return result;
+  return bluetoothPrinterConnectionService.print(
+    job.printSegments?.length ? job.printSegments : job.previewContent,
+    config,
+  );
 }
 
 async function pairBluetoothPrinter(): Promise<PrinterDeviceSummaryDto> {
@@ -795,35 +511,7 @@ async function pairBluetoothPrinter(): Promise<PrinterDeviceSummaryDto> {
     throw new Error("Web Bluetooth is not supported in this browser.");
   }
 
-  const device = await requestBluetoothDevice();
-
-  const discovered = await withBluetoothConnection(device, async (server) => {
-    const { serviceUuid, characteristic } =
-      await resolveBluetoothWritableCharacteristic(server);
-
-    await writeBluetoothCharacteristic(
-      characteristic,
-      TEXT_ENCODER.encode("POSARD BLUETOOTH TEST PRINT\nPrinter connected successfully.\n\n\n"),
-    );
-
-    return {
-      serviceUuid,
-      characteristicUuid: characteristic.uuid,
-    };
-  });
-
-  return {
-    displayName: device.name || "Bluetooth thermal printer",
-    mode: "bluetooth-ble-web",
-    transport: "bluetooth",
-    driver: "webbluetooth",
-    connectionType: "bluetooth",
-    vendorId: null,
-    productId: null,
-    deviceId: device.id ?? null,
-    serviceUuid: discovered.serviceUuid,
-    characteristicUuid: discovered.characteristicUuid,
-  };
+  return bluetoothPrinterConnectionService.requestPrinter();
 }
 
 function getCapability(

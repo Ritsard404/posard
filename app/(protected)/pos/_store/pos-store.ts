@@ -9,6 +9,7 @@ import {
 import { InvoiceStatusType } from "../_services/_dto/order.dto";
 import type {
   PrinterCapabilityDto,
+  PrinterConnectionStatusDto,
   PrinterConfigDto,
 } from "../_services/_dto/print.dto";
 import type { ManagerVerifierDto, OfflineSyncStatus } from "../_services/_dto/offline.dto";
@@ -83,6 +84,12 @@ const defaultDiscount: POSDiscount = {
 
 const FAST_CHECKOUT_STORAGE_KEY = "posard.fast-checkout-enabled";
 const CUSTOMER_DISPLAY_STORAGE_KEY = "posard.customer-display-enabled";
+const initialPrinterConnectionStatus: PrinterConnectionStatusDto = {
+  state: "idle",
+  message: null,
+  printerName: null,
+  updatedAt: null,
+};
 
 function readFastCheckoutPreference() {
   if (typeof window === "undefined") {
@@ -129,6 +136,7 @@ interface POSState {
   categories: Category[];
   epaymentMethods: EPaymentMethodDto[];
   printerCapabilities: PrinterCapabilityDto[];
+  printerConnectionStatus: PrinterConnectionStatusDto;
 
   // Session Data
   activeSessionId: string | null;
@@ -163,6 +171,7 @@ interface POSState {
   setDeviceId: (deviceId: string | null) => void;
   setActiveTerminalPrinterConfig: (printerConfig: PrinterConfigDto | null) => void;
   setPrinterCapabilities: (capabilities: PrinterCapabilityDto[]) => void;
+  setPrinterConnectionStatus: (status: PrinterConnectionStatusDto) => void;
   setNetworkStatus: (isOnline: boolean) => void;
   setOfflineReady: (ready: boolean) => void;
   setSyncCounts: (data: {
@@ -231,6 +240,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   categories: [],
   epaymentMethods: [],
   printerCapabilities: [],
+  printerConnectionStatus: initialPrinterConnectionStatus,
 
   activeSessionId: null,
   activeTimestampId: null,
@@ -276,6 +286,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setCompanyId: (activeCompanyId) => set({ activeCompanyId }),
   setDeviceId: (activeDeviceId) => set({ activeDeviceId }),
   setPrinterCapabilities: (printerCapabilities) => set({ printerCapabilities }),
+  setPrinterConnectionStatus: (printerConnectionStatus) =>
+    set({ printerConnectionStatus }),
   setActiveTerminalPrinterConfig: (printerConfig) =>
     set((state) => ({
       activeTerminal: state.activeTerminal

@@ -230,6 +230,7 @@ async function syncOfflineActionsInternal() {
     if (action?.type === "PAY_ORDER") {
       await posOfflineDb.sales.update(result.localId, {
         syncStatus: result.syncStatus,
+        ...(result.receipt ? { receipt: result.receipt } : {}),
         retryCount,
         syncError: result.error,
         updatedAt: new Date().toISOString(),
