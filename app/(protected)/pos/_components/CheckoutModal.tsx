@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import {
   POSTenderForm,
   usePOSCheckoutFlow,
 } from "./checkout-shared";
+import { ManagerApprovalModal } from "./ManagerApprovalModal";
 
 interface CheckoutModalProps {
   open: boolean;
@@ -25,6 +27,7 @@ export function CheckoutModal({
   onOpenChange,
   totalAmount,
 }: CheckoutModalProps) {
+  const [approvalOpen, setApprovalOpen] = useState(false);
   const flow = usePOSCheckoutFlow(totalAmount, {
     onFastComplete: () => onOpenChange(false),
   });
@@ -35,6 +38,15 @@ export function CheckoutModal({
     }
 
     onOpenChange(nextOpen);
+  };
+
+  const handleCompleteClick = () => {
+    if (flow.requiresManagerApprovalForCheckout) {
+      setApprovalOpen(true);
+      return;
+    }
+
+    flow.handleComplete();
   };
 
   return (
@@ -115,7 +127,14 @@ export function CheckoutModal({
             selectCashPayment={flow.selectCashPayment}
             selectReferencePayment={flow.selectReferencePayment}
             setAmountTendered={flow.setAmountTendered}
-            handleComplete={flow.handleComplete}
+            handleComplete={handleCompleteClick}
+          />
+          <ManagerApprovalModal
+            open={approvalOpen}
+            onOpenChange={setApprovalOpen}
+            actionType={flow.checkoutApprovalActionType}
+            referenceId={flow.activeTimestampId ?? "checkout"}
+            onSuccess={(_, pin) => flow.handleComplete(pin)}
           />
         </DialogContent>
       )}

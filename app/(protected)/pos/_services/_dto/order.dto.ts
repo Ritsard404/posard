@@ -31,6 +31,7 @@ export interface DiscountDto {
   oscaIdNum?: string;
   discountAmount?: number;
   discountPercent?: number;
+  managerPin?: string;
 }
 
 export interface OrderDto {

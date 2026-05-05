@@ -46,13 +46,13 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className={cn(
             "rounded-lg flex items-center justify-center border border-border overflow-hidden relative",
-            isMobile ? "size-14" : "size-12 bg-muted/50",
+            isMobile ? "size-12" : "size-12 bg-muted/50",
           )}>
             <StorageImage
               src={product.productImageUrl}
               alt={product.name}
               fill
-              sizes={isMobile ? "56px" : "48px"}
+              sizes="48px"
               className="h-full w-full rounded-lg object-cover"
               fallback={<Package className="size-6 text-muted-foreground/30" />}
             />
@@ -78,7 +78,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
             size="sm" 
             variant="outline" 
             disabled={isOutOfStock}
-            className="h-9 rounded-lg border-primary/20 bg-primary/5 px-2.5 text-primary disabled:opacity-50"
+            className="h-8 rounded-lg border-primary/20 bg-primary/5 px-2.5 text-primary disabled:opacity-50"
           >
             <Plus className="size-4" />
             <span>Add</span>
@@ -97,7 +97,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
       onClick={() => !isOutOfStock && handleAdd()}
     >
       <CardHeader className="p-0 relative">
-        <div className="aspect-[5/3] bg-muted/20 w-full flex items-center justify-center overflow-hidden relative">
+        <div className="aspect-[7/4] bg-muted/20 w-full flex items-center justify-center overflow-hidden relative sm:aspect-[5/3]">
           <StorageImage
             src={product.productImageUrl}
             alt={product.name}
@@ -120,13 +120,13 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-grow flex-col justify-between p-2 lg:p-2.5">
-        <div className="mb-1.5 min-w-0">
-          <h3 className="line-clamp-2 min-h-9 font-heading text-sm font-bold leading-tight tracking-tight transition-colors group-hover:text-primary lg:text-[15px]">{product.name}</h3>
+      <CardContent className="flex flex-grow flex-col justify-between p-1.5 sm:p-2 lg:p-2.5">
+        <div className="mb-1 min-w-0">
+          <h3 className="line-clamp-2 min-h-8 font-heading text-[13px] font-bold leading-tight tracking-tight transition-colors group-hover:text-primary sm:text-sm lg:text-[15px]">{product.name}</h3>
           <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">{product.barcode || 'NO BARCODE'}</p>
         </div>
         
-        <div className="space-y-1.5 border-t pt-1.5 lg:pt-2">
+        <div className="space-y-1 border-t pt-1 lg:space-y-1.5 lg:pt-2">
           <div className="flex justify-between items-end">
              <div className="flex flex-col">
               <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">Stock</span>
@@ -140,7 +140,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           <Button 
             size="sm" 
             disabled={isOutOfStock}
-            className="group/btn flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-50"
+            className="group/btn flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-50 sm:h-9 sm:gap-2"
             variant="default"
           >
             <Plus className="size-4 group-hover/btn:scale-125 transition-transform" />

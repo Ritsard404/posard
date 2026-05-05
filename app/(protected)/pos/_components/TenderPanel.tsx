@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { usePOSStore } from "../_store/pos-store";
 import {
   POSReceiptContent,
@@ -14,10 +15,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { ManagerApprovalModal } from "./ManagerApprovalModal";
 
 export function TenderPanel() {
   const { total } = usePOSPaymentSummary();
   const setActiveMobileTab = usePOSStore((state) => state.setActiveMobileTab);
+  const [approvalOpen, setApprovalOpen] = useState(false);
   const flow = usePOSCheckoutFlow(total, {
     onFastComplete: () => setActiveMobileTab("menu"),
   });
@@ -25,6 +28,15 @@ export function TenderPanel() {
   const handleReceiptClose = () => {
     flow.resetCheckoutState(true);
     setActiveMobileTab("menu");
+  };
+
+  const handleCompleteClick = () => {
+    if (flow.requiresManagerApprovalForCheckout) {
+      setApprovalOpen(true);
+      return;
+    }
+
+    flow.handleComplete();
   };
 
   return (
@@ -79,7 +91,15 @@ export function TenderPanel() {
         selectCashPayment={flow.selectCashPayment}
         selectReferencePayment={flow.selectReferencePayment}
         setAmountTendered={flow.setAmountTendered}
-        handleComplete={flow.handleComplete}
+        handleComplete={handleCompleteClick}
+      />
+
+      <ManagerApprovalModal
+        open={approvalOpen}
+        onOpenChange={setApprovalOpen}
+        actionType={flow.checkoutApprovalActionType}
+        referenceId={flow.activeTimestampId ?? "checkout"}
+        onSuccess={(_, pin) => flow.handleComplete(pin)}
       />
 
       <Sheet

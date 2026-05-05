@@ -12,6 +12,7 @@ import type {
   QueuedWithdrawAction,
   SyncActionResultDto,
 } from "@/app/(protected)/pos/_services/_dto/offline.dto";
+import { syncActionsRequestSchema } from "@/app/(protected)/pos/_services/_validators/offline-sync.schema";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -226,8 +227,14 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     }
-    const body = (await request.json()) as { actions?: QueuedPosAction[] };
-    const actions = Array.isArray(body.actions) ? body.actions : [];
+    const parsed = syncActionsRequestSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: "Malformed sync payload." },
+        { status: 400 },
+      );
+    }
+    const actions = parsed.data.actions as QueuedPosAction[];
 
     const sortedActions = [...actions].sort((a, b) =>
       a.createdAtLocal.localeCompare(b.createdAtLocal),

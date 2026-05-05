@@ -3,6 +3,7 @@
 import Dexie, { type Table } from "dexie";
 import type {
   ManagerVerifierDto,
+  LocalSaleRecordDto,
   OfflineBootstrapDto,
   QueuedPosAction,
   SessionSnapshotDto,
@@ -22,6 +23,7 @@ interface SyncMetaRecord {
 }
 
 class POSOfflineDexie extends Dexie {
+  sales!: Table<LocalSaleRecordDto, string>;
   queuedActions!: Table<QueuedPosAction, string>;
   sessionSnapshot!: Table<SnapshotEnvelope<SessionSnapshotDto | null>, string>;
   catalogSnapshot!: Table<SnapshotEnvelope<{ categories: CategoryDto[]; products: ProductDto[] }>, string>;
@@ -35,6 +37,18 @@ class POSOfflineDexie extends Dexie {
     this.version(1).stores({
       queuedActions:
         "localId, syncStatus, type, createdAtLocal, timestampId, terminalId, companyId",
+      sessionSnapshot: "key, updatedAt",
+      catalogSnapshot: "key, updatedAt",
+      paymentMethodSnapshot: "key, updatedAt",
+      managerVerifierSnapshot: "key, updatedAt",
+      syncMeta: "key, updatedAt",
+    });
+
+    this.version(2).stores({
+      sales:
+        "id, clientTxnId, syncStatus, terminalId, cashierId, localSequenceNumber, createdAt, syncedAt",
+      queuedActions:
+        "localId, syncStatus, type, createdAtLocal, timestampId, terminalId, companyId, idempotencyKey, nextRetryAt",
       sessionSnapshot: "key, updatedAt",
       catalogSnapshot: "key, updatedAt",
       paymentMethodSnapshot: "key, updatedAt",

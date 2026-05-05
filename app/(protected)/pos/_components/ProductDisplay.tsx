@@ -64,7 +64,7 @@ export function ProductDisplay() {
 
   return (
     <div data-testid="pos-product-panel" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-background animate-in fade-in duration-300">
-      <div className="shrink-0 space-y-2 border-b bg-background p-2 sm:p-2.5 lg:p-3">
+      <div className="shrink-0 space-y-1.5 border-b bg-background p-1.5 sm:p-2.5 lg:p-3">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 lg:gap-2">
           <div className="group relative min-w-0 flex-[1_1_14rem]">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
@@ -75,16 +75,16 @@ export function ProductDisplay() {
                 setSearchQuery(e.target.value);
                 setPage(1);
               }}
-              className="h-10 w-full rounded-lg pl-9 text-sm font-medium transition-all"
+              className="h-9 w-full rounded-lg pl-9 text-sm font-medium transition-all sm:h-10"
             />
           </div>
-          <BarcodeScannerPanel className="h-10 min-w-0 flex-[1_1_8.75rem] rounded-lg px-3 text-sm sm:flex-none" />
-          <div className="grid h-10 shrink-0 grid-cols-2 rounded-lg border bg-card p-0.5">
+          <BarcodeScannerPanel className="h-9 min-w-0 flex-[1_1_8.75rem] rounded-lg px-2.5 text-sm sm:h-10 sm:flex-none sm:px-3" />
+          <div className="grid h-9 shrink-0 grid-cols-2 rounded-lg border bg-card p-0.5 sm:h-10">
             <Button 
               variant={activeViewMode === 'grid' ? "default" : "ghost"} 
               size="sm" 
               onClick={() => setActiveViewMode('grid')}
-              className="h-9 rounded-md px-2"
+              className="h-8 rounded-md px-2 sm:h-9"
             >
               <LayoutGrid className="size-4" />
               <span className="text-xs">Grid</span>
@@ -93,7 +93,7 @@ export function ProductDisplay() {
               variant={activeViewMode === 'list' ? "default" : "ghost"} 
               size="sm" 
               onClick={() => setActiveViewMode('list')}
-              className="h-9 rounded-md px-2"
+              className="h-8 rounded-md px-2 sm:h-9"
             >
               <List className="size-4" />
               <span className="text-xs">List</span>
@@ -211,7 +211,7 @@ export function ProductDisplay() {
                 <div className="flex w-max min-w-full gap-1.5">
                   <Button
                     variant={selectedCategoryId === null ? 'default' : 'outline'}
-                    className="h-8 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider"
+                    className="h-7 shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3"
                     onClick={() => {
                       setSelectedCategoryId(null);
                       setPage(1);
@@ -222,7 +222,7 @@ export function ProductDisplay() {
                   {selectedCategory && !quickCategories.some((cat) => cat.id === selectedCategory.id) ? (
                     <Button
                       variant="default"
-                      className="h-8 max-w-[10rem] shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider lg:max-w-[12rem]"
+                      className="h-7 max-w-[10rem] shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3 lg:max-w-[12rem]"
                       onClick={() => setCategoryBrowserOpen(true)}
                     >
                       <span className="truncate">{selectedCategory.categoryName}</span>
@@ -232,7 +232,7 @@ export function ProductDisplay() {
                     <Button
                       key={cat.id}
                       variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                      className="h-8 max-w-[10rem] shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider lg:max-w-[12rem]"
+                      className="h-7 max-w-[10rem] shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3 lg:max-w-[12rem]"
                       onClick={() => {
                         setSelectedCategoryId(cat.id);
                         setPage(1);
@@ -243,7 +243,7 @@ export function ProductDisplay() {
                   ))}
                   <Button
                     variant="ghost"
-                    className="h-8 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider"
+                    className="h-7 shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3"
                     onClick={() => setCategoryBrowserOpen(true)}
                   >
                     Browse All
@@ -277,7 +277,7 @@ export function ProductDisplay() {
               <div className="flex w-max min-w-full gap-1.5">
               <Button
                 variant={selectedCategoryId === null ? 'default' : 'outline'}
-                className="h-8 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider"
+                className="h-7 shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3"
                 onClick={() => {
                   setSelectedCategoryId(null);
                   setPage(1);
@@ -289,7 +289,7 @@ export function ProductDisplay() {
                 <Button
                   key={cat.id}
                   variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                  className="h-8 max-w-[10rem] shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider lg:max-w-[12rem]"
+                  className="h-7 max-w-[10rem] shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3 lg:max-w-[12rem]"
                   onClick={() => {
                     setSelectedCategoryId(cat.id);
                     setPage(1);
@@ -305,7 +305,7 @@ export function ProductDisplay() {
         )}
       </div>
 
-      <div data-testid="pos-product-scroll" className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-2.5 lg:p-3">
+      <div data-testid="pos-product-scroll" className="min-h-0 flex-1 overflow-y-auto p-1.5 sm:p-2.5 lg:p-3">
         {paginatedProducts.length === 0 ? (
           <div className="flex min-h-full flex-col items-center justify-center py-20 text-muted-foreground animate-in fade-in zoom-in-95">
             <div className="size-20 rounded-full bg-muted flex items-center justify-center mb-6">
@@ -317,8 +317,8 @@ export function ProductDisplay() {
         ) : (
           <div className={
             activeViewMode === 'grid' 
-              ? "grid min-w-0 grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2 pb-3 xl:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]"
-              : "flex flex-col gap-2 pb-3"
+              ? "grid min-w-0 grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-1.5 pb-2 sm:gap-2 xl:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]"
+              : "flex flex-col gap-1.5 pb-2 sm:gap-2"
           }>
             {paginatedProducts.map((product, idx) => (
               <div 

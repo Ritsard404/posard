@@ -21,7 +21,7 @@ export function SummaryMetric({
 }) {
   return (
     <Card className="rounded-2xl border-border/70 bg-background shadow-sm">
-      <CardContent className="space-y-1.5 p-3 sm:p-4">
+      <CardContent className="space-y-1.5 p-1 sm:p-2">
         <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
           {label}
         </div>

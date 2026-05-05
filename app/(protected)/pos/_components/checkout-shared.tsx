@@ -42,8 +42,9 @@ import { ReceiptPrintControls } from "./ReceiptPrintControls";
 import { printReceipt } from "@/src/lib/capacitor/printer-bridge";
 import { buildProvisionalReceipt } from "../_services/offline-receipt.client";
 import {
-  enqueueOfflineAction,
+  commitLocalSale,
   getOfflineQueueSnapshot,
+  syncOfflineActions,
 } from "../_services/offline-sync.client";
 import { getStockSnapshotVersion } from "../_services/offline-db.client";
 
@@ -332,7 +333,18 @@ export function usePOSCheckoutFlow(
     }
   };
 
-  const handleComplete = async () => {
+  const requiresManagerApprovalForCheckout =
+    discount.type !== "NONE" ||
+    (settlementMode === "debt" &&
+      activeTerminal?.requireManagerApprovalForDebt === true);
+  const checkoutApprovalActionType =
+    discount.type !== "NONE"
+      ? "DISCOUNT_CHECKOUT"
+      : settlementMode === "debt"
+        ? "DEBT_CHECKOUT"
+        : "CHECKOUT";
+
+  const handleComplete = async (managerPin?: string) => {
     if (processingRef.current) return;
     if (!canComplete) return;
 
@@ -426,6 +438,7 @@ export function usePOSCheckoutFlow(
               discountType: discount.type,
               eligibleDiscName: trimmedEligibleName || undefined,
               oscaIdNum: trimmedOscaIdNum || undefined,
+              managerPin: managerPin?.trim() || undefined,
               ...(discount.type === "OTHERS"
                 ? buildOtherDiscountPayload(activeTerminal)
                 : {}),
@@ -439,12 +452,70 @@ export function usePOSCheckoutFlow(
               dueDate: debtDueDate,
               notes: debtNotes.trim() || undefined,
               upfrontCashAmount: debtUpfrontCashAmount,
-              managerPin: debtManagerPin.trim() || undefined,
+              managerPin:
+                managerPin?.trim() || debtManagerPin.trim() || undefined,
             }
           : undefined,
     };
 
-    if (!isOnline) {
+    if (settlementMode === "debt") {
+      if (!isOnline) {
+        processingRef.current = false;
+        setIsProcessing(false);
+        toast.error("Debt issuance is online-only in v1.");
+        return;
+      }
+
+      const res = await payOrderAction(orderDto);
+      processingRef.current = false;
+      setIsProcessing(false);
+
+      if (res.success) {
+        checkoutIdempotencyKeyRef.current = null;
+        applyStockUpdates(res.receipt.stockUpdates);
+
+        if (fastCheckout) {
+          const receiptPrintPayload = receiptPrintService.buildPayload(
+            res.receipt,
+          );
+
+          if (
+            receiptPrintPayload.printerAvailable &&
+            receiptPrintPayload.printerConfig
+          ) {
+            void printReceipt(receiptPrintPayload, {
+              fallbackToPreview: false,
+            });
+          }
+
+          clearCart();
+          setStep("PAYMENT");
+          setReceipt(null);
+          setAmountTendered(0);
+          clearReferencePayments();
+          setDiscount(defaultDiscount);
+          setPaymentMethod("cash");
+          options?.onFastComplete?.();
+          toast.success("Sale complete.", {
+            description: "Ready for the next transaction.",
+          });
+          return;
+        }
+
+        setCustomerDisplayMode("completed");
+        setReceipt(res.receipt);
+        setStep("RECEIPT");
+        return;
+      }
+
+      toast.error("Hindi natuloy ang checkout.", {
+        description: res.error,
+        duration: 5000,
+      });
+      return;
+    }
+
+    {
       if (isBillingLocked) {
         processingRef.current = false;
         setIsProcessing(false);
@@ -453,13 +524,6 @@ export function usePOSCheckoutFlow(
             activeTerminal?.billingMessage ??
             "This terminal subscription is not active.",
         });
-        return;
-      }
-
-      if (settlementMode === "debt") {
-        processingRef.current = false;
-        setIsProcessing(false);
-        toast.error("Debt issuance is online-only in v1.");
         return;
       }
 
@@ -479,6 +543,7 @@ export function usePOSCheckoutFlow(
       }
 
       try {
+        const clickStartedAt = performance.now();
         const queueState = await getOfflineQueueSnapshot();
         const stockSnapshotVersion = await getStockSnapshotVersion();
         const queuedCounter =
@@ -499,7 +564,7 @@ export function usePOSCheckoutFlow(
         });
 
         const localId = crypto.randomUUID();
-        await enqueueOfflineAction({
+        const queuedAction = {
           localId,
           type: "PAY_ORDER",
           idempotencyKey,
@@ -510,6 +575,8 @@ export function usePOSCheckoutFlow(
           companyId: activeCompanyId,
           createdAtLocal: new Date().toISOString(),
           syncStatus: "pending",
+          retryCount: 0,
+          nextRetryAt: null,
           lastError: null,
           syncedAt: null,
           payload: {
@@ -519,7 +586,20 @@ export function usePOSCheckoutFlow(
             },
             invoiceNoLocal: localInvoiceNo,
             stockSnapshotVersion,
+            receipt: provisionalReceipt,
           },
+        } as const;
+
+        const commitStartedAt = performance.now();
+        await commitLocalSale({
+          action: queuedAction,
+          localSequenceNumber: queuedCounter,
+        });
+        console.info("POS checkout local-first timing", {
+          clientTxnId: idempotencyKey,
+          localPayloadBuildMs: Math.round(commitStartedAt - clickStartedAt),
+          dexieCommitMs: Math.round(performance.now() - commitStartedAt),
+          onlineAtCommit: isOnline,
         });
 
         usePOSStore.getState().setSyncCounts({
@@ -550,67 +630,47 @@ export function usePOSCheckoutFlow(
         setIsProcessing(false);
         processingRef.current = false;
         checkoutIdempotencyKeyRef.current = null;
-        toast.success("Offline sale queued.", {
-          description: "It will sync automatically when the device reconnects.",
+        toast.success(isOnline ? "Sale complete." : "Offline sale queued.", {
+          description: isOnline
+            ? "Receipt is ready. Sync is running in the background."
+            : "It will sync automatically when the device reconnects.",
         });
+        if (isOnline) {
+          void syncOfflineActions()
+            .then(async (result) => {
+              const queue = await getOfflineQueueSnapshot();
+              usePOSStore.getState().setSyncCounts({
+                pendingSyncCount: queue.pendingCount,
+                syncingCount: queue.syncingCount,
+                needsReviewCount: queue.needsReviewCount,
+                lastSyncMessage:
+                  result.results.length > 0
+                    ? "Sale synced in the background."
+                    : "Queue is up to date.",
+              });
+            })
+            .catch(async (error) => {
+              const queue = await getOfflineQueueSnapshot();
+              usePOSStore.getState().setSyncCounts({
+                pendingSyncCount: queue.pendingCount,
+                syncingCount: queue.syncingCount,
+                needsReviewCount: queue.needsReviewCount,
+                lastSyncMessage:
+                  error instanceof Error ? error.message : "Background sync failed.",
+              });
+            });
+        }
         return;
       } catch (error) {
         processingRef.current = false;
         setIsProcessing(false);
-        toast.error("Unable to queue offline sale.", {
+        toast.error("Unable to save sale locally.", {
           description:
             error instanceof Error ? error.message : "Please try again.",
         });
         return;
       }
     }
-
-    const res = await payOrderAction(orderDto);
-    processingRef.current = false;
-    setIsProcessing(false);
-
-    if (res.success) {
-      checkoutIdempotencyKeyRef.current = null;
-      applyStockUpdates(res.receipt.stockUpdates);
-
-      if (fastCheckout) {
-        const receiptPrintPayload = receiptPrintService.buildPayload(
-          res.receipt,
-        );
-
-        if (
-          receiptPrintPayload.printerAvailable &&
-          receiptPrintPayload.printerConfig
-        ) {
-          void printReceipt(receiptPrintPayload, {
-            fallbackToPreview: false,
-          });
-        }
-
-        clearCart();
-        setStep("PAYMENT");
-        setReceipt(null);
-        setAmountTendered(0);
-        clearReferencePayments();
-        setDiscount(defaultDiscount);
-        setPaymentMethod("cash");
-        options?.onFastComplete?.();
-        toast.success("Sale complete.", {
-          description: "Ready for the next transaction.",
-        });
-        return;
-      }
-
-      setCustomerDisplayMode("completed");
-      setReceipt(res.receipt);
-      setStep("RECEIPT");
-      return;
-    }
-
-    toast.error("Hindi natuloy ang checkout.", {
-      description: res.error,
-      duration: 5000,
-    });
   };
 
   return {
@@ -640,6 +700,9 @@ export function usePOSCheckoutFlow(
     isBillingLocked,
     billingMessage: activeTerminal?.billingMessage ?? null,
     terminalDiscountCapSummary,
+    requiresManagerApprovalForCheckout,
+    checkoutApprovalActionType,
+    activeTimestampId,
     settlementMode,
     setSettlementMode,
     debtCustomers,
@@ -726,7 +789,7 @@ interface POSTenderFormProps {
   selectCashPayment: () => void;
   selectReferencePayment: (saleTypeId: string) => void;
   setAmountTendered: (amount: number) => void;
-  handleComplete: () => void;
+  handleComplete: (managerPin?: string) => void;
 }
 
 export function POSTenderForm({
@@ -799,10 +862,10 @@ export function POSTenderForm({
           ? "Add cash or reference payments until the balance is fully paid."
           : "Ready to complete checkout.";
   const mobileConfigCardClassName = isMobileVariant
-    ? "rounded-2xl border bg-card p-2"
+    ? "rounded-xl border bg-card p-2"
     : "rounded-2xl border bg-card p-4";
   const mobileCashCardClassName = isMobileVariant
-    ? "rounded-2xl border bg-card p-2"
+    ? "rounded-xl border bg-card p-2"
     : "rounded-2xl border bg-card p-4";
   const [mobileEditor, setMobileEditor] = useState<
     "payment" | "discount" | null
@@ -845,22 +908,11 @@ export function POSTenderForm({
       }
     >
       <div
-        className={isMobileVariant ? "border-b bg-card px-2 py-1.5" : "hidden"}
+        className={isMobileVariant ? "border-b bg-card px-2 py-1" : "hidden"}
       >
-        <div className="grid gap-2 lg:hidden">
-          <div className="grid grid-cols-2 gap-2">
-            <SummaryMetric
-              label="Total Due"
-              value={`PHP ${formatCurrency(totalAmount)}`}
-              emphasis="strong"
-            />
-            <SummaryMetric
-              label="Payment Method"
-              value={activePaymentMethodLabel}
-            />
-          </div>
-          <div className="rounded-2xl border border-primary/15 bg-primary/5 p-2">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+        <div className="grid gap-1.5 lg:hidden">
+          <div className="rounded-xl border border-primary/15 bg-primary/5 p-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-1.5">
               <div className="space-y-1">
                 <Label
                   htmlFor={`mobile-cash-${variant}`}
@@ -882,7 +934,7 @@ export function POSTenderForm({
                     onChange={(event) =>
                       setAmountTendered(parseFloat(event.target.value) || 0)
                     }
-                    className="h-11 rounded-2xl border-primary/20 bg-background pl-11 font-heading text-lg font-black"
+                    className="h-10 rounded-xl border-primary/20 bg-background pl-10 font-heading text-base font-black"
                     placeholder="0.00"
                     inputMode="decimal"
                   />
@@ -892,7 +944,7 @@ export function POSTenderForm({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-8 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.1em]"
+                  className="h-7 rounded-lg px-2.5 text-[10px] font-black uppercase tracking-[0.08em]"
                   disabled={disableCashEntry}
                   onClick={() =>
                     setAmountTendered(
@@ -905,7 +957,7 @@ export function POSTenderForm({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="h-8 rounded-xl border px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-destructive hover:text-destructive"
+                  className="h-7 rounded-lg border px-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-destructive hover:text-destructive"
                   disabled={disableCashEntry}
                   onClick={() => setAmountTendered(0)}
                 >
@@ -913,7 +965,7 @@ export function POSTenderForm({
                 </Button>
               </div>
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
               <SummaryMetric
                 label="Remaining"
                 value={`PHP ${formatCurrency(remainingDue)}`}
@@ -925,11 +977,11 @@ export function POSTenderForm({
                 tone={change < 0 ? "danger" : "success"}
               />
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
               <Button
                 type="button"
                 variant={!showMobileSplitEditor ? "default" : "outline"}
-                className="h-9 rounded-2xl text-[10px] font-black uppercase tracking-[0.12em]"
+                className="h-8 rounded-xl text-[10px] font-black uppercase tracking-[0.1em]"
                 onClick={handleMobileCashOption}
               >
                 Cash
@@ -937,7 +989,7 @@ export function POSTenderForm({
               <Button
                 type="button"
                 variant={showMobileSplitEditor ? "default" : "outline"}
-                className="h-9 rounded-2xl text-[10px] font-black uppercase tracking-[0.12em]"
+                className="h-8 rounded-xl text-[10px] font-black uppercase tracking-[0.1em]"
                 disabled={
                   settlementMode === "debt" || epaymentMethods.length === 0
                 }
@@ -955,14 +1007,14 @@ export function POSTenderForm({
           <div
             className={
               isMobileVariant
-                ? "flex h-full min-h-0 flex-col gap-1 px-2 py-1.5"
+                ? "flex h-full min-h-0 flex-col gap-1 px-2 py-1"
                 : "min-h-0 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4"
             }
           >
             <div
               className={
                 isMobileVariant
-                  ? "min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pb-1"
+                  ? "min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pb-1"
                   : "space-y-4 pb-2"
               }
             >
@@ -990,27 +1042,27 @@ export function POSTenderForm({
               <div
                 className={
                   isMobileVariant
-                    ? "rounded-2xl border bg-card p-2"
+                    ? "rounded-xl border bg-card p-2"
                     : "rounded-2xl border bg-card p-4"
                 }
               >
-                <div className="space-y-3">
+                <div className={isMobileVariant ? "space-y-2" : "space-y-3"}>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground">
                       Settlement
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[11px] leading-snug text-muted-foreground">
                       Choose whether this invoice is settled now or recorded as
                       utang.
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5">
                     <Button
                       type="button"
                       variant={
                         settlementMode === "pay_now" ? "default" : "outline"
                       }
-                      className="rounded-2xl"
+                      className={isMobileVariant ? "h-8 rounded-xl text-[13px]" : "rounded-2xl"}
                       onClick={() => setSettlementMode("pay_now")}
                     >
                       Pay Now
@@ -1020,7 +1072,7 @@ export function POSTenderForm({
                       variant={
                         settlementMode === "debt" ? "default" : "outline"
                       }
-                      className="rounded-2xl"
+                      className={isMobileVariant ? "h-8 rounded-xl text-[13px]" : "rounded-2xl"}
                       onClick={() => {
                         setSettlementMode("debt");
                         selectCashPayment();
@@ -1200,12 +1252,18 @@ export function POSTenderForm({
                             : "discount",
                         )
                       }
-                      className="rounded-2xl bg-primary px-2.5 py-2 text-left text-primary-foreground shadow-sm"
+                      className="rounded-xl bg-primary px-2.5 py-1.5 text-left text-primary-foreground shadow-sm"
                     >
-                      <span className="block text-[9px] font-black uppercase tracking-[0.1em] opacity-80">
-                        Discount
+                      <span className="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.1em] opacity-80">
+                        <span>Discount</span>
+                        <span className="flex items-center gap-0.5">
+                          {showMobileDiscountEditor ? "Open" : "Closed"}
+                          <ChevronDown
+                            className={`size-3 transition-transform ${showMobileDiscountEditor ? "rotate-180" : ""}`}
+                          />
+                        </span>
                       </span>
-                      <span className="mt-0.5 block truncate text-xs font-bold">
+                      <span className="block truncate text-xs font-bold">
                         {activeDiscountLabel}
                       </span>
                     </button>
@@ -1218,12 +1276,20 @@ export function POSTenderForm({
                             : "payment",
                         )
                       }
-                      className="rounded-2xl bg-primary px-2.5 py-2 text-left text-primary-foreground shadow-sm"
+                      className="rounded-xl bg-primary px-2.5 py-1.5 text-left text-primary-foreground shadow-sm"
                     >
-                      <span className="block text-[9px] font-black uppercase tracking-[0.1em] opacity-80">
-                        {paymentMethod === "cash" ? "E-Payment" : "Payment"}
+                      <span className="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.1em] opacity-80">
+                        <span>
+                          {paymentMethod === "cash" ? "E-Payment" : "Payment"}
+                        </span>
+                        <span className="flex items-center gap-0.5">
+                          {showMobilePaymentEditor ? "Open" : "Closed"}
+                          <ChevronDown
+                            className={`size-3 transition-transform ${showMobilePaymentEditor ? "rotate-180" : ""}`}
+                          />
+                        </span>
                       </span>
-                      <span className="mt-0.5 block truncate text-xs font-bold">
+                      <span className="block truncate text-xs font-bold">
                         {showMobileSplitEditor
                           ? "Split Active"
                           : paymentMethod === "cash"
@@ -1718,7 +1784,7 @@ export function POSTenderForm({
       <div
         className={
           isMobileVariant
-            ? "border-t bg-background px-2 py-1.5"
+            ? "border-t bg-background px-2 py-1"
             : "border-t bg-background px-4 py-2.5 sm:px-5"
         }
       >
@@ -1729,17 +1795,17 @@ export function POSTenderForm({
         )}
 
         {isMobileVariant ? (
-          <div className="flex items-stretch gap-2">
+          <div className="flex items-stretch gap-1.5">
             <FastCheckoutToggle
               checked={fastCheckout}
               onCheckedChange={setFastCheckout}
               compact
             />
             <Button
-              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl px-3 font-heading text-[13px] font-black uppercase tracking-[0.12em]"
+              className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl px-3 font-heading text-[13px] font-black uppercase tracking-[0.1em]"
               size="lg"
               disabled={!canComplete || isProcessing}
-              onClick={handleComplete}
+              onClick={() => handleComplete()}
             >
               {isProcessing ? (
                 <>
@@ -1766,7 +1832,7 @@ export function POSTenderForm({
               className="flex h-12 min-w-0 flex-1 items-center justify-center gap-3 rounded-2xl px-4 font-heading text-base font-black uppercase tracking-[0.14em]"
               size="lg"
               disabled={!canComplete || isProcessing}
-              onClick={handleComplete}
+              onClick={() => handleComplete()}
             >
               {isProcessing ? (
                 <>
@@ -1813,13 +1879,13 @@ function SummaryMetric({
 
   return (
     <div
-      className={`rounded-2xl border px-2.5 py-2 sm:px-4 sm:py-3 ${toneClassName}`}
+      className={`rounded-xl border px-2 py-1.5 sm:rounded-2xl sm:px-4 sm:py-3 ${toneClassName}`}
     >
-      <p className="text-[8px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+      <p className="text-[8px] font-black uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
       <p
-        className={`mt-0.5 truncate ${emphasis === "strong" ? "font-heading text-lg font-black tracking-tighter sm:text-2xl" : "text-[11px] font-semibold sm:text-sm"} ${valueClassName}`}
+        className={`truncate ${emphasis === "strong" ? "font-heading text-base font-black tracking-tighter sm:text-2xl" : "text-[11px] font-semibold sm:text-sm"} ${valueClassName}`}
       >
         {value}
       </p>
@@ -1877,17 +1943,17 @@ function SplitPaymentEditor({
     <div
       className={
         isMobileVariant
-          ? "rounded-2xl border bg-card p-3"
+          ? "rounded-xl border bg-card p-2"
           : "rounded-2xl border border-primary/15 bg-primary/5 p-4"
       }
     >
-      <div className="space-y-3">
+      <div className={isMobileVariant ? "space-y-2" : "space-y-3"}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
               Tender Entry
             </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
+            <p className="mt-0.5 text-[13px] font-semibold text-foreground">
               Cash received and reference payment details
             </p>
           </div>
@@ -1895,7 +1961,7 @@ function SplitPaymentEditor({
             type="button"
             variant="outline"
             size="sm"
-            className="rounded-2xl"
+            className={isMobileVariant ? "h-8 rounded-xl px-2 text-xs" : "rounded-2xl"}
             disabled={disabled || epaymentMethods.length === 0}
             onClick={() =>
               addReferencePayment({
@@ -2108,7 +2174,7 @@ function FastCheckoutToggle({
 }) {
   if (compact) {
     return (
-      <label className="flex min-w-[78px] cursor-pointer items-center justify-center gap-1 rounded-2xl border bg-card px-2 py-1.5 text-left">
+      <label className="flex min-w-[70px] cursor-pointer items-center justify-center gap-1 rounded-xl border bg-card px-2 py-1 text-left">
         <Checkbox
           checked={checked}
           onCheckedChange={(value) => onCheckedChange(value === true)}

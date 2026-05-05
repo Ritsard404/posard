@@ -27,6 +27,8 @@ export interface QueuedActionBase {
   companyId: string;
   createdAtLocal: string;
   syncStatus: OfflineSyncStatus;
+  retryCount?: number;
+  nextRetryAt?: string | null;
   lastError: string | null;
   syncedAt: string | null;
 }
@@ -35,6 +37,7 @@ export interface QueuedSalePayload {
   order: OrderDto;
   invoiceNoLocal: string;
   stockSnapshotVersion: string;
+  receipt: ReceiptDto;
 }
 
 export interface QueuedVoidPayload {
@@ -151,4 +154,21 @@ export interface OfflineSnapshotRecordDto {
   categories: CategoryDto[];
   products: ProductDto[];
   epaymentMethods: EPaymentMethodDto[];
+}
+
+export interface LocalSaleRecordDto {
+  id: string;
+  clientTxnId: string;
+  terminalId: string;
+  cashierId: string;
+  localSequenceNumber: number;
+  payload: QueuedSalePayload;
+  receipt: ReceiptDto;
+  syncStatus: OfflineSyncStatus;
+  retryCount: number;
+  syncError: string | null;
+  createdAt: string;
+  updatedAt: string;
+  syncedAt: string | null;
+  offlineCreatedAt: string;
 }

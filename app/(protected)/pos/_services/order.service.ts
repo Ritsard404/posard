@@ -556,8 +556,6 @@ async function createInvoiceEPayments(
 async function resolveDebtApproval(params: {
   db: Prisma.TransactionClient;
   companyId: string;
-  currentProfileId: string;
-  currentRole: string;
   managerPin?: string;
   requiresApproval: boolean;
 }) {
@@ -567,6 +565,40 @@ async function resolveDebtApproval(params: {
 
   if (!params.managerPin?.trim()) {
     throw new Error("Manager approval PIN is required for debt checkout.");
+  }
+
+  const approver = await params.db.profile.findFirst({
+    where: {
+      companyId: params.companyId,
+      pin: params.managerPin.trim(),
+      role: { in: ["manager", "admin"] },
+      status: "active",
+    },
+    select: {
+      id: true,
+      fullName: true,
+    },
+  });
+
+  if (!approver) {
+    throw new Error("Invalid manager PIN.");
+  }
+
+  return approver;
+}
+
+async function resolveDiscountApproval(params: {
+  db: Prisma.TransactionClient;
+  companyId: string;
+  managerPin?: string;
+  requiresApproval: boolean;
+}) {
+  if (!params.requiresApproval) {
+    return null;
+  }
+
+  if (!params.managerPin?.trim()) {
+    throw new Error("Manager approval PIN is required for discounted checkout.");
   }
 
   const approver = await params.db.profile.findFirst({
@@ -714,6 +746,13 @@ export const orderService = {
       let customerNameOverride: string | undefined;
       let approvedById: string | null = null;
       let approvedByName: string | null = null;
+      const discountApprover = await resolveDiscountApproval({
+        db: tx,
+        companyId,
+        managerPin: discount?.managerPin,
+        requiresApproval: Boolean(discount?.discountType),
+      });
+      const discountApprovedById = discountApprover?.id ?? null;
 
       if (settlementMode === "debt") {
         if (
@@ -753,8 +792,6 @@ export const orderService = {
         const approver = await resolveDebtApproval({
           db: tx,
           companyId,
-          currentProfileId: profile.id,
-          currentRole: profile.role,
           managerPin: dto.debt?.managerPin,
           requiresApproval: terminal.requireManagerApprovalForDebt,
         });
@@ -901,6 +938,22 @@ export const orderService = {
           amount: calc.totalAmount,
         });
 
+        if (discountApprovedById) {
+          await auditLogService.create(tx, {
+            companyId,
+            actorProfileId: discountApprovedById,
+            posTerminalId: terminal.id,
+            actionType: "DISCOUNT_APPROVED",
+            referenceId: invoice.id,
+            changes: JSON.stringify({
+              discountType: discount?.discountType,
+              discountAmount: calc.discountAmount,
+              cashierId: activeTimestamp.cashierId,
+            }),
+            amount: calc.discountAmount,
+          });
+        }
+
         if (approvedById) {
           await auditLogService.create(tx, {
             companyId,
@@ -1022,6 +1075,7 @@ export const orderService = {
           changeAmount: calc.changeAmount,
           discountType: discount?.discountType ?? null,
           discountAmount: calc.discountAmount,
+          discountApprovedById,
           referencePaymentTotal: ePaymentData?.reduce(
             (sum, payment) => sum + payment.amount,
             0,
@@ -1038,6 +1092,22 @@ export const orderService = {
         }),
         amount: calc.totalAmount,
       });
+
+      if (discountApprovedById) {
+        await auditLogService.create(tx, {
+          companyId,
+          actorProfileId: discountApprovedById,
+          posTerminalId: terminal.id,
+          actionType: "DISCOUNT_APPROVED",
+          referenceId: invoice.id,
+          changes: JSON.stringify({
+            discountType: discount?.discountType,
+            discountAmount: calc.discountAmount,
+            cashierId: activeTimestamp.cashierId,
+          }),
+          amount: calc.discountAmount,
+        });
+      }
 
       const receiptStartedAt = performance.now();
       const receipt = buildReceiptFromOrder({

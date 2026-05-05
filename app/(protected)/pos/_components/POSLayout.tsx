@@ -4,14 +4,12 @@ import React, { useEffect, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Cable,
-  CloudOff,
   LayoutGrid,
   LogOut,
   Maximize2,
   MoreHorizontal,
   MonitorUp,
   Minimize2,
-  RefreshCw,
   ShoppingCart,
   Wallet,
 } from "lucide-react";
@@ -34,7 +32,6 @@ import { WithdrawModal } from "./WithdrawModal";
 import { CloseSessionModal } from "./CloseSessionModal";
 import { SessionPrinterConfigDialog } from "./SessionPrinterConfigDialog";
 import { formatCurrency, usePOSPaymentSummary } from "./checkout-shared";
-import { getOfflineQueueSnapshot, syncOfflineActions } from "../_services/offline-sync.client";
 import { CustomerDisplayPublisher } from "./CustomerDisplayPublisher";
 import { publishCustomerDisplayAction } from "../_actions/customer-display.action";
 
@@ -63,11 +60,6 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   );
   const setSession = usePOSStore((state) => state.setSession);
   const isOnline = usePOSStore((state) => state.isOnline);
-  const pendingSyncCount = usePOSStore((state) => state.pendingSyncCount);
-  const syncingCount = usePOSStore((state) => state.syncingCount);
-  const needsReviewCount = usePOSStore((state) => state.needsReviewCount);
-  const lastSyncMessage = usePOSStore((state) => state.lastSyncMessage);
-  const setSyncCounts = usePOSStore((state) => state.setSyncCounts);
   const activeMobileTab = usePOSStore((state) => state.activeMobileTab);
   const setActiveMobileTab = usePOSStore((state) => state.setActiveMobileTab);
   const { activeItemCount, total } = usePOSPaymentSummary();
@@ -157,55 +149,6 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
     });
   }
 
-  async function handleManualSync() {
-    if (!isOnline) {
-      toast.error("Reconnect this device before retrying sync.");
-      return;
-    }
-
-    try {
-      const result = await syncOfflineActions();
-      for (const item of result.results) {
-        usePOSStore
-          .getState()
-          .offlineReceipts.filter((receipt) => receipt.localId === item.localId)
-          .forEach((receipt) => {
-            usePOSStore
-              .getState()
-              .updateOfflineReceiptStatus(receipt.receiptId, item.syncStatus);
-          });
-      }
-      const queue = await getOfflineQueueSnapshot();
-      const syncedCount = result.results.filter(
-        (item) => item.syncStatus === "synced",
-      ).length;
-
-      setSyncCounts({
-        pendingSyncCount: queue.pendingCount,
-        syncingCount: queue.syncingCount,
-        needsReviewCount: queue.needsReviewCount,
-        lastSyncMessage:
-          syncedCount > 0 ? `Synced ${syncedCount} queued action(s).` : "Queue is up to date.",
-      });
-
-      toast.success(
-        syncedCount > 0 ? "Offline queue synced." : "No queued actions to sync.",
-      );
-    } catch (error) {
-      const queue = await getOfflineQueueSnapshot();
-      setSyncCounts({
-        pendingSyncCount: queue.pendingCount,
-        syncingCount: queue.syncingCount,
-        needsReviewCount: queue.needsReviewCount,
-        lastSyncMessage:
-          error instanceof Error ? error.message : "Unable to sync offline queue.",
-      });
-      toast.error(
-        error instanceof Error ? error.message : "Unable to sync offline queue.",
-      );
-    }
-  }
-
   return (
     <div data-testid="pos-shell" className="flex h-full max-h-full w-full max-w-full flex-col overflow-hidden bg-background">
       <CustomerDisplayPublisher />
@@ -217,20 +160,6 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           >
             {isOnline ? "Online" : "Offline Mode"}
           </Badge>
-          <Badge
-            variant="outline"
-            className="hidden rounded-full px-3 py-1 sm:inline-flex"
-          >
-            Pending Sync {pendingSyncCount}
-          </Badge>
-          {needsReviewCount > 0 ? (
-            <Badge
-              variant="outline"
-              className="hidden rounded-full border-amber-500/30 px-3 py-1 text-amber-600 sm:inline-flex"
-            >
-              Needs Review {needsReviewCount}
-            </Badge>
-          ) : null}
           {isMobile ? (
             <>
               <CashTrackTrigger />
@@ -243,14 +172,6 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64 rounded-xl">
                   <DropdownMenuLabel>Session Actions</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => void handleManualSync()}>
-                    {syncingCount > 0 ? (
-                      <RefreshCw className="mr-2 size-4 animate-spin" />
-                    ) : (
-                      <CloudOff className="mr-2 size-4" />
-                    )}
-                    {syncingCount > 0 ? "Syncing queue" : "Retry sync"}
-                  </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={!activeTerminalId}
                     onClick={() =>
@@ -291,22 +212,6 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
             </>
           ) : (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleManualSync()}
-                className="h-9 shrink-0 rounded-lg px-2.5"
-              >
-                {syncingCount > 0 ? (
-                  <RefreshCw className="size-4 animate-spin" />
-                ) : (
-                  <CloudOff className="size-4" />
-                )}
-                <span className="hidden lg:inline">
-                  {syncingCount > 0 ? "Syncing" : "Retry Sync"}
-                </span>
-                <span className="lg:hidden">Sync</span>
-              </Button>
               <CashTrackTrigger />
               {customerDisplayEnabled ? (
                 <Button
@@ -380,22 +285,6 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
         </div>
       </HeaderActions>
 
-      <div className="flex items-center justify-between gap-2 border-b bg-muted/10 px-3 py-2 text-xs sm:hidden">
-        <Badge variant={isOnline ? "secondary" : "destructive"} className="rounded-full px-2.5 py-0.5">
-          {isOnline ? "Online" : "Offline Mode"}
-        </Badge>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="rounded-full px-2.5 py-0.5">
-            Pending {pendingSyncCount}
-          </Badge>
-          {needsReviewCount > 0 ? (
-            <Badge variant="outline" className="rounded-full border-amber-500/30 px-2.5 py-0.5 text-amber-600">
-              Review {needsReviewCount}
-            </Badge>
-          ) : null}
-        </div>
-      </div>
-
       {activeTerminal?.billingLocked ? (
         <div className="border-b border-amber-300/60 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-950">
           {activeTerminal.billingMessage ??
@@ -415,27 +304,27 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
             <button
               type="button"
               onClick={() => setActiveMobileTab("cart")}
-              className="flex shrink-0 items-center justify-between border-t bg-card px-4 py-3 text-left"
+              className="flex shrink-0 items-center justify-between border-t bg-card px-3 py-2 text-left"
             >
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground">
                   Active Order
                 </p>
-                <p className="mt-1 text-sm font-semibold text-foreground">
+                <p className="text-[13px] font-semibold text-foreground">
                   {activeItemCount} {activeItemCount === 1 ? "item" : "items"}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground">
                   Running Total
                 </p>
-                <p className="mt-1 font-heading text-2xl font-black tracking-tight text-foreground">
+                <p className="font-heading text-xl font-black tracking-tight text-foreground">
                   ₱ {formatCurrency(total)}
                 </p>
               </div>
             </button>
 
-            <div className="grid h-16 shrink-0 grid-cols-3 border-t bg-background">
+            <div className="grid h-14 shrink-0 grid-cols-3 border-t bg-background">
               {mobileTabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeMobileTab === tab.id;
@@ -446,11 +335,11 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                     type="button"
                     onClick={() => setActiveMobileTab(tab.id)}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                      "flex flex-col items-center justify-center gap-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors",
                       isActive ? "text-primary" : "text-muted-foreground",
                     )}
                   >
-                    <Icon className="size-5" />
+                    <Icon className="size-4" />
                     <span>{tab.label}</span>
                   </button>
                 );
@@ -466,12 +355,6 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           </>
         )}
       </div>
-
-      {lastSyncMessage ? (
-        <div className="border-t bg-muted/20 px-4 py-2 text-xs font-medium text-muted-foreground">
-          {lastSyncMessage}
-        </div>
-      ) : null}
 
       {showWithdraw && activeTimestampId && (
         <WithdrawModal

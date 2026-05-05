@@ -20,7 +20,10 @@ interface ManagerApprovalModalProps {
   onOpenChange: (open: boolean) => void;
   actionType: string;
   referenceId: string;
-  onSuccess: (manager: { id: string; email: string; name: string; role?: string }) => void | Promise<void>;
+  onSuccess: (
+    manager: { id: string; email: string; name: string; role?: string },
+    pin: string,
+  ) => void | Promise<void>;
 }
 
 export function ManagerApprovalModal({
@@ -79,9 +82,10 @@ export function ManagerApprovalModal({
           return;
         }
 
+        const approvedPin = pin;
         setPin("");
         setError(null);
-        await onSuccess(match);
+        await onSuccess(match, approvedPin);
         onOpenChange(false);
         return;
       }
@@ -89,9 +93,10 @@ export function ManagerApprovalModal({
       const result = await authorizeManagerAction(pin, actionType, referenceId);
 
       if (result.success) {
+        const approvedPin = pin;
         setPin("");
         setError(null);
-        await onSuccess(result.manager);
+        await onSuccess(result.manager, approvedPin);
         onOpenChange(false);
         return;
       }

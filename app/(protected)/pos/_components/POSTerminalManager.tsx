@@ -312,11 +312,17 @@ export function POSTerminalManager() {
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     navigator.serviceWorker?.addEventListener("message", handleServiceWorkerMessage);
+    const retryTimer = window.setInterval(() => {
+      if (navigator.onLine) {
+        void syncNow(getDeviceIdentity());
+      }
+    }, 30_000);
 
     return () => {
       cancelled = true;
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.clearInterval(retryTimer);
       navigator.serviceWorker?.removeEventListener(
         "message",
         handleServiceWorkerMessage,
