@@ -65,10 +65,7 @@ export function buildProvisionalReceipt(input: {
 
       return {
         productId: item.productId,
-        remainingQuantity: Math.max(
-          0,
-          Number(product.quantity ?? 0) - item.qty,
-        ),
+        remainingQuantity: Number(product.quantity ?? 0) - item.qty,
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);

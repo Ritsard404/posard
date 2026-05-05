@@ -30,6 +30,7 @@ export interface POSDiscount {
 }
 export type PaymentMethodType = "cash" | "reference";
 export type CartMutationFailureReason = "OUT_OF_STOCK" | "LIMIT_REACHED";
+export type CartMutationWarningReason = "NEGATIVE_STOCK";
 
 export interface POSReferencePayment {
   id: string;
@@ -41,6 +42,7 @@ export interface POSReferencePayment {
 export interface CartMutationResult {
   success: boolean;
   reason?: CartMutationFailureReason;
+  warning?: CartMutationWarningReason;
 }
 
 export type POSMobileTab = "menu" | "cart" | "tender";
@@ -317,13 +319,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
       .reduce((sum, item) => sum + item.cartQuantity, 0);
     const availableQuantity = Math.max(0, Number(product.quantity ?? 0));
 
-    if (product.trackInventory && availableQuantity <= 0) {
-      return { success: false, reason: "OUT_OF_STOCK" };
-    }
-
-    if (product.trackInventory && activeQuantityForProduct >= availableQuantity) {
-      return { success: false, reason: "LIMIT_REACHED" };
-    }
+    const willGoNegative =
+      product.trackInventory && activeQuantityForProduct + 1 > availableQuantity;
 
     const existingActive = cart.find(
       (item) => item.id === product.id && item.itemStatus !== "VOID",
@@ -352,7 +349,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
       });
     }
 
-    return { success: true };
+    return {
+      success: true,
+      warning: willGoNegative ? "NEGATIVE_STOCK" : undefined,
+    };
   },
 
   removeFromCart: (cartItemId) =>
@@ -387,16 +387,9 @@ export const usePOSStore = create<POSState>((set, get) => ({
       )
       .reduce((sum, item) => sum + item.cartQuantity, 0);
 
-    if (sourceProduct.trackInventory && availableQuantity <= 0) {
-      return { success: false, reason: "OUT_OF_STOCK" };
-    }
-
-    if (
+    const willGoNegative =
       sourceProduct.trackInventory &&
-      quantity + otherActiveQuantity > availableQuantity
-    ) {
-      return { success: false, reason: "LIMIT_REACHED" };
-    }
+      quantity + otherActiveQuantity > availableQuantity;
 
     set({
       cart: cart.map((item) =>
@@ -407,7 +400,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
       customerDisplayMode: null,
     });
 
-    return { success: true };
+    return {
+      success: true,
+      warning: willGoNegative ? "NEGATIVE_STOCK" : undefined,
+    };
   },
 
   updateItemSubtotal: (cartItemId, subtotal) => {

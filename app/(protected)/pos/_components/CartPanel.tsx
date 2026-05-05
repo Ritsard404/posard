@@ -72,6 +72,15 @@ export function CartPanel() {
           duration: 5000,
         },
       );
+      return;
+    }
+
+    if (result.warning === "NEGATIVE_STOCK") {
+      const item = cart.find((cartItem) => cartItem.cartItemId === cartItemId);
+      toast.warning("Inventory will go negative.", {
+        description: `${item?.name ?? "This item"} is tracked and the quantity exceeds available stock.`,
+        duration: 5000,
+      });
     }
   };
 

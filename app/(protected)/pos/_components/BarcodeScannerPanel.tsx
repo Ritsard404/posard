@@ -129,6 +129,14 @@ export function BarcodeScannerPanel({ className }: BarcodeScannerPanelProps) {
         return false;
       }
 
+      if (result.warning === "NEGATIVE_STOCK") {
+        toast.warning("Inventory will go negative.", {
+          description: `${product.name} is tracked and the sale exceeds available stock.`,
+          duration: 5000,
+        });
+        return true;
+      }
+
       toast.success("Product added to cart.", {
         description: product.name,
       });

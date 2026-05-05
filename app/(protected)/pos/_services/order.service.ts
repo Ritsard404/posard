@@ -331,15 +331,6 @@ async function loadAndValidateProducts(
     for (const item of items) {
       const product = productMap.get(item.productId);
       if (!product) throw new Error(`Product not found: ${item.productId}`);
-
-      if (product.trackInventory) {
-        const available = Number(product.quantity ?? 0);
-        if (available < item.qty) {
-          throw new Error(
-            `Insufficient stock for "${product.name}". Available: ${available}, Required: ${item.qty}`,
-          );
-        }
-      }
     }
   }
 
@@ -488,7 +479,6 @@ async function deductStock(
       const result = await db.product.updateMany({
         where: {
           id: productId,
-          quantity: { gte: qty },
         },
         data: {
           quantity: { decrement: qty },
@@ -509,7 +499,7 @@ async function deductStock(
 
       return {
         productId,
-        remainingQuantity: Math.max(0, Number(product?.quantity ?? 0)),
+        remainingQuantity: Number(product?.quantity ?? 0),
       };
     }),
   );

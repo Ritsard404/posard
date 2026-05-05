@@ -31,6 +31,14 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           duration: 5000,
         },
       );
+      return;
+    }
+
+    if (result.warning === "NEGATIVE_STOCK") {
+      toast.warning("Inventory will go negative.", {
+        description: `${product.name} is tracked and the sale exceeds available stock.`,
+        duration: 5000,
+      });
     }
   };
 
@@ -39,9 +47,9 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
       <Card 
         className={cn(
           "group flex min-w-0 flex-row items-center justify-between gap-2 border bg-card p-2 transition-all",
-          isOutOfStock ? "opacity-60 grayscale-[0.5] cursor-not-allowed" : "cursor-pointer border-border active:scale-[0.99]"
+          isOutOfStock ? "cursor-pointer border-amber-500/40 bg-amber-500/5" : "cursor-pointer border-border active:scale-[0.99]"
         )} 
-        onClick={() => !isOutOfStock && handleAdd()}
+        onClick={handleAdd}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className={cn(
@@ -77,8 +85,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           <Button 
             size="sm" 
             variant="outline" 
-            disabled={isOutOfStock}
-            className="h-8 rounded-lg border-primary/20 bg-primary/5 px-2.5 text-primary disabled:opacity-50"
+            className="h-8 rounded-lg border-primary/20 bg-primary/5 px-2.5 text-primary"
           >
             <Plus className="size-4" />
             <span>Add</span>
@@ -92,9 +99,9 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
     <Card 
       className={cn(
         "flex flex-col overflow-hidden group border-border transition-all duration-300 h-full bg-card",
-        isOutOfStock ? "opacity-60 grayscale-[0.5] cursor-not-allowed" : "cursor-pointer hover:border-primary/40"
+        isOutOfStock ? "cursor-pointer border-amber-500/40 bg-amber-500/5" : "cursor-pointer hover:border-primary/40"
       )} 
-      onClick={() => !isOutOfStock && handleAdd()}
+      onClick={handleAdd}
     >
       <CardHeader className="p-0 relative">
         <div className="aspect-[7/4] bg-muted/20 w-full flex items-center justify-center overflow-hidden relative sm:aspect-[5/3]">
@@ -139,12 +146,11 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           
           <Button 
             size="sm" 
-            disabled={isOutOfStock}
-            className="group/btn flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-50 sm:h-9 sm:gap-2"
+            className="group/btn flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 sm:h-9 sm:gap-2"
             variant="default"
           >
             <Plus className="size-4 group-hover/btn:scale-125 transition-transform" />
-            <span className="font-bold text-[10px] uppercase tracking-wider">{isOutOfStock ? 'No Stock' : 'Add to Cart'}</span>
+            <span className="font-bold text-[10px] uppercase tracking-wider">{isOutOfStock ? 'Add Negative' : 'Add to Cart'}</span>
           </Button>
         </div>
       </CardContent>
