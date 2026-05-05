@@ -90,6 +90,7 @@ let device: BluetoothDeviceLike | null = null;
 let server: BluetoothServerLike | null = null;
 let characteristic: BluetoothCharacteristicLike | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectPromise: Promise<boolean> | null = null;
 let reconnectAttempts = 0;
 let lastConfig: PrinterConfigDto | null = null;
 const listeners = new Set<Listener>();
@@ -118,6 +119,17 @@ function toErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim()
     ? error.message
     : fallback;
+}
+
+function isPermissionUnavailableMessage(message: string) {
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes("permission is not available") ||
+    normalized.includes("permission denied") ||
+    normalized.includes("user denied") ||
+    normalized.includes("not allowed")
+  );
 }
 
 function isBluetoothSupported() {
@@ -311,8 +323,12 @@ function handleDisconnected() {
   scheduleReconnect(lastConfig);
 }
 
-function scheduleReconnect(config: PrinterConfigDto) {
-  if (reconnectTimer || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+function scheduleReconnect(config: PrinterConfigDto, allowActiveReconnect = false) {
+  if (
+    reconnectTimer ||
+    (reconnectPromise && !allowActiveReconnect) ||
+    reconnectAttempts >= MAX_RECONNECT_ATTEMPTS
+  ) {
     return;
   }
 
@@ -375,6 +391,11 @@ async function connectDevice(
   characteristic = resolved.characteristic;
   reconnectAttempts = 0;
 
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+
   savePrinterMetadata({
     ...config,
     deviceId: nextDevice.id ?? config.deviceId,
@@ -418,6 +439,12 @@ export const bluetoothPrinterConnectionService = {
       throw new Error("Web Bluetooth is not supported in this browser.");
     }
 
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
+    reconnectAttempts = 0;
     emit({
       state: "requesting",
       message: "Choose a Bluetooth printer.",
@@ -488,6 +515,8 @@ export const bluetoothPrinterConnectionService = {
       throw new Error("Web Bluetooth is not supported in this browser.");
     }
 
+    lastConfig = config;
+
     if (server?.connected && characteristic) {
       emit({
         state: "connected",
@@ -536,32 +565,53 @@ export const bluetoothPrinterConnectionService = {
       return false;
     }
 
+    lastConfig = targetConfig;
+
+    if (server?.connected && characteristic) {
+      emit({
+        state: "connected",
+        message: "Bluetooth printer is already connected.",
+        printerName: device?.name ?? targetConfig.displayName,
+      });
+      return true;
+    }
+
+    if (reconnectPromise) {
+      return reconnectPromise;
+    }
+
     emit({
       state: "reconnecting",
       message: "Reconnecting Bluetooth printer.",
       printerName: targetConfig.displayName,
     });
 
-    try {
-      await this.connectPrinter(targetConfig);
-      return true;
-    } catch (error) {
-      const message = toErrorMessage(error, "Unable to reconnect Bluetooth printer.");
+    reconnectPromise = (async () => {
+      try {
+        await this.connectPrinter(targetConfig);
+        return true;
+      } catch (error) {
+        const message = toErrorMessage(error, "Unable to reconnect Bluetooth printer.");
 
-      if (
-        reconnectAttempts < MAX_RECONNECT_ATTEMPTS &&
-        !message.toLowerCase().includes("permission is not available")
-      ) {
-        scheduleReconnect(targetConfig);
+        if (
+          reconnectAttempts < MAX_RECONNECT_ATTEMPTS &&
+          !isPermissionUnavailableMessage(message)
+        ) {
+          scheduleReconnect(targetConfig, true);
+        }
+
+        emit({
+          state: isPermissionUnavailableMessage(message) ? "disconnected" : "error",
+          message,
+          printerName: targetConfig.displayName,
+        });
+        return false;
+      } finally {
+        reconnectPromise = null;
       }
+    })();
 
-      emit({
-        state: "error",
-        message,
-        printerName: targetConfig.displayName,
-      });
-      return false;
-    }
+    return reconnectPromise;
   },
 
   disconnectPrinter() {
@@ -604,11 +654,22 @@ export const bluetoothPrinterConnectionService = {
 
     const segments = Array.isArray(data) ? data : [data];
 
-    for (const segment of segments) {
-      await writeCharacteristic(
-        characteristic,
-        TEXT_ENCODER.encode(`${segment}\n\n\n`),
-      );
+    try {
+      for (const segment of segments) {
+        await writeCharacteristic(
+          characteristic,
+          TEXT_ENCODER.encode(`${segment}\n\n\n`),
+        );
+      }
+    } catch (error) {
+      characteristic = null;
+      server = null;
+      emit({
+        state: "error",
+        message: toErrorMessage(error, "Bluetooth printer write failed."),
+        printerName: device?.name ?? config.displayName,
+      });
+      throw error;
     }
 
     return {

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { registrationRequestService } from "@/app/auth/_services/registration-request.service";
+import { resolveLoginDestination } from "@/lib/auth/login-destination";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -8,8 +9,13 @@ import { createClient } from "@/lib/supabase/server";
 function getSafeNextUrl(request: NextRequest) {
   const next = request.nextUrl.searchParams.get("next");
 
-  if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return "/auth/post-login";
+  if (
+    !next ||
+    !next.startsWith("/") ||
+    next.startsWith("//") ||
+    next === "/auth/post-login"
+  ) {
+    return null;
   }
 
   return next;
@@ -152,5 +158,16 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return NextResponse.redirect(new URL(next, request.url));
+  if (next) {
+    return NextResponse.redirect(new URL(next, request.url));
+  }
+
+  const destination = await resolveLoginDestination();
+
+  if (!destination.ok) {
+    await supabase.auth.signOut();
+    return NextResponse.redirect(new URL("/auth/login", request.url));
+  }
+
+  return NextResponse.redirect(new URL(destination.destination, request.url));
 }

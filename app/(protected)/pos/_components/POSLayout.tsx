@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Cable,
@@ -48,6 +48,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const [showCloseSession, setShowCloseSession] = useState(false);
   const [showPrinterConfig, setShowPrinterConfig] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const lastReconnectKeyRef = useRef<string | null>(null);
 
   const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
   const activeSessionId = usePOSStore((state) => state.activeSessionId);
@@ -104,11 +105,24 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
     const printerConfig = activeTerminal?.printerConfig;
 
     if (printerConfig?.driver !== "webbluetooth") {
+      lastReconnectKeyRef.current = null;
       return;
     }
 
+    const reconnectKey = [
+      activeTerminal?.id,
+      printerConfig.deviceId,
+      printerConfig.serviceUuid,
+      printerConfig.characteristicUuid,
+    ].join(":");
+
+    if (lastReconnectKeyRef.current === reconnectKey) {
+      return;
+    }
+
+    lastReconnectKeyRef.current = reconnectKey;
     void printClientService.reconnectKnownPrinter(printerConfig);
-  }, [activeTerminal?.printerConfig]);
+  }, [activeTerminal?.id, activeTerminal?.printerConfig]);
 
   const printerLabel =
     activeTerminal?.printerConfig?.driver === "webbluetooth"

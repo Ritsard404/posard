@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Chrome } from "lucide-react";
+import { toast } from "sonner";
 
 import { getRegistrationRequestLoginStatusAction } from "@/app/auth/_actions/registration-request.action";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
@@ -24,6 +25,38 @@ type LoginDestinationResponse = {
   destination?: string;
   error?: string;
 };
+
+const LOGIN_DESTINATION_TIMEOUT_MS = 2500;
+
+async function resolveLoginDestinationWithTimeout() {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => {
+    controller.abort();
+  }, LOGIN_DESTINATION_TIMEOUT_MS);
+
+  try {
+    const destinationResponse = await fetch("/api/auth/login-destination", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+    const destinationPayload =
+      (await destinationResponse.json()) as LoginDestinationResponse;
+
+    if (!destinationResponse.ok || !destinationPayload.destination) {
+      throw new Error(
+        destinationPayload.error ??
+          "Login succeeded, but your account destination could not be loaded. Please try again.",
+      );
+    }
+
+    return destinationPayload.destination;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
 
 export function LoginForm({
   className,
@@ -94,23 +127,20 @@ export function LoginForm({
           throw error;
         }
 
-        const destinationResponse = await fetch("/api/auth/login-destination", {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-          },
-        });
-        const destinationPayload =
-          (await destinationResponse.json()) as LoginDestinationResponse;
+        try {
+          router.replace(await resolveLoginDestinationWithTimeout());
+        } catch (destinationError) {
+          if (
+            destinationError instanceof DOMException &&
+            destinationError.name === "AbortError"
+          ) {
+            toast.info("Login restored. Opening dashboard while POS status loads.");
+            router.replace("/dashboard");
+            return;
+          }
 
-        if (!destinationResponse.ok || !destinationPayload.destination) {
-          throw new Error(
-            destinationPayload.error ??
-              "Login succeeded, but your account destination could not be loaded. Please try again.",
-          );
+          throw destinationError;
         }
-
-        router.replace(destinationPayload.destination);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "An error occurred");
       }
@@ -124,9 +154,7 @@ export function LoginForm({
 
     startTransition(async () => {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-        "/auth/post-login",
-      )}`;
+      const redirectTo = `${window.location.origin}/auth/callback`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",

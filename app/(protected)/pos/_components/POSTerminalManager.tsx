@@ -26,6 +26,8 @@ import {
 } from "../_services/offline-db.client";
 import type { SessionSnapshotDto } from "../_services/_dto/offline.dto";
 
+const INITIAL_SESSION_WAIT_MS = 1800;
+
 async function refreshQueueState(setSyncCounts: ReturnType<typeof usePOSStore.getState>["setSyncCounts"]) {
   const queue = await getOfflineQueueSnapshot();
   setSyncCounts({
@@ -201,6 +203,39 @@ export function POSTerminalManager() {
       }
     }
 
+    function applySessionResult(
+      deviceId: string,
+      sessionRes: Awaited<ReturnType<typeof getCurrentSessionAction>>,
+    ) {
+      if (sessionRes.success && sessionRes.data) {
+        setSession({
+          ...sessionRes.data,
+          deviceId: sessionRes.data.deviceId ?? deviceId,
+        });
+        return;
+      }
+
+      setSession({
+        sessionId: null,
+        timestampId: null,
+        deviceId,
+        profileId: null,
+        terminal: null,
+        user: null,
+      });
+    }
+
+    async function resolveInitialSession(
+      sessionPromise: Promise<Awaited<ReturnType<typeof getCurrentSessionAction>>>,
+    ) {
+      return Promise.race([
+        sessionPromise,
+        new Promise<null>((resolve) => {
+          window.setTimeout(() => resolve(null), INITIAL_SESSION_WAIT_MS);
+        }),
+      ]);
+    }
+
     async function loadData() {
       const startedAt = performance.now();
       const deviceId = getDeviceIdentity();
@@ -222,31 +257,34 @@ export function POSTerminalManager() {
           }
 
           const bootstrapPromise = fetchOfflineBootstrap(deviceId);
-          const sessionRes = await getCurrentSessionAction();
+          const sessionPromise = getCurrentSessionAction();
+          const sessionRes = await resolveInitialSession(sessionPromise);
 
           if (cancelled) {
             return;
           }
 
-          if (sessionRes.success && sessionRes.data) {
-            setSession({
-              ...sessionRes.data,
-              deviceId: sessionRes.data.deviceId ?? deviceId,
-            });
-          } else {
-            setSession({
-              sessionId: null,
-              timestampId: null,
-              deviceId,
-              profileId: null,
-              terminal: null,
-              user: null,
+          if (sessionRes) {
+            applySessionResult(deviceId, sessionRes);
+          } else if (process.env.NODE_ENV !== "production") {
+            console.info("POS terminal session restore deferred", {
+              waitMs: INITIAL_SESSION_WAIT_MS,
             });
           }
 
           setOfflineReady(true);
           setMounted(true);
           setLoading(false);
+
+          if (!sessionRes) {
+            sessionPromise
+              .then((lateSessionRes) => {
+                if (!cancelled) {
+                  applySessionResult(deviceId, lateSessionRes);
+                }
+              })
+              .catch(() => undefined);
+          }
 
           const bootstrap = await bootstrapPromise;
 

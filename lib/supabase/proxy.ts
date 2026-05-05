@@ -67,8 +67,8 @@ export async function updateSession(request: NextRequest) {
 
   if (isPublic) {
     if (user && (pathname === "/" || isAuthRoute(pathname))) {
-      logAuthTiming("auth-user-to-post-login");
-      return NextResponse.redirect(new URL("/auth/post-login", request.url));
+      logAuthTiming("auth-user-to-dashboard");
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     logAuthTiming("public");
     return supabaseResponse;
