@@ -12,6 +12,8 @@ const withPWA = createPWA({
   sw: "sw.js",
   scope: "/",
   skipWaiting: true,
+  clientsClaim: true,
+  cleanupOutdatedCaches: true,
   cacheStartUrl: false,
   dynamicStartUrl: true,
   reloadOnOnline: false,
@@ -25,19 +27,6 @@ const withPWA = createPWA({
   fallbacks: {
     document: "/_offline",
   },
-});
-
-// next-pwa is CommonJS and does not ship TypeScript declarations.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const withPWA = require("next-pwa")({
-  dest: "public",
-  sw: "sw.js",
-  register: false,
-  skipWaiting: true,
-  clientsClaim: true,
-  cleanupOutdatedCaches: true,
-  customWorkerDir: "worker",
-  disable: process.env.NODE_ENV === "development",
 });
 
 const nextConfig: NextConfig = {
