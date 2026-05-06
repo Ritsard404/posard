@@ -1,8 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Nunito_Sans, Rubik } from "next/font/google";
 import { absoluteUrl, siteConfig } from "@/lib/seo";
 import { AppProviders } from "./providers";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+  width: "device-width",
+  initialScale: 1,
+  minimumScale: 1,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -94,9 +101,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${nunitoSans.variable} ${rubik.variable} font-sans antialiased`}
       >
-        <AppProviders>
-          {children}
-        </AppProviders>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

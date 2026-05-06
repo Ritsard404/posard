@@ -172,7 +172,7 @@ function setupInstallListeners() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register("/pos-sw.js", { scope: "/", updateViaCache: "none" })
+      .register("/sw.js", { scope: "/", updateViaCache: "none" })
       .then((registration) => {
         debugInstall("service worker registered", {
           scope: registration.scope,
@@ -193,7 +193,7 @@ function setupInstallListeners() {
         });
       })
       .catch((error) => {
-        console.warn("Unable to register POSard service worker", error);
+        console.warn("Unable to register POSard PWA service worker", error);
         setInstallState({
           error: "Service worker registration failed.",
           status: "unsupported",
