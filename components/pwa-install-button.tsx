@@ -21,6 +21,7 @@ type InstallStatus =
   | "available"
   | "installing"
   | "installed"
+  | "accepted"
   | "unsupported";
 
 type InstallState = {
@@ -299,34 +300,11 @@ export function usePwaInstall() {
 
       setInstallState({
         prompt: null,
-        isInstalled: choice.outcome === "accepted" ? isStandaloneMode() : false,
-        status:
-          choice.outcome === "accepted"
-            ? isStandaloneMode()
-              ? "installed"
-              : "checking"
-            : "unsupported",
+        isInstalled: choice.outcome === "accepted",
+        status: choice.outcome === "accepted" ? "accepted" : "unsupported",
         unsupportedReason:
           choice.outcome === "accepted" ? null : getUnsupportedReason(),
       });
-
-      if (choice.outcome === "accepted") {
-        window.setTimeout(() => {
-          if (isStandaloneMode()) {
-            debugInstall("installed display mode detected");
-            setInstallState({ isInstalled: true, status: "installed" });
-            return;
-          }
-
-          if (installState.status === "checking") {
-            setInstallState({
-              status: "unsupported",
-              unsupportedReason: getUnsupportedReason(),
-              error: "The browser did not complete installation after accepting the prompt.",
-            });
-          }
-        }, 4000);
-      }
     } catch (error) {
       console.warn("POSard install prompt failed", error);
       setInstallState({
@@ -360,7 +338,7 @@ export function PwaInstallButton({
   const [fallbackVisible, setFallbackVisible] = useState(false);
 
   useEffect(() => {
-    if (status === "available" || status === "installed") {
+    if (status === "available" || status === "installed" || status === "accepted") {
       setFallbackVisible(false);
     }
   }, [status]);
@@ -377,7 +355,7 @@ export function PwaInstallButton({
     return "This browser does not expose a direct install prompt. Use the browser menu if Add to Home Screen is available.";
   }, [unsupportedReason]);
 
-  if (isInstalled && status !== "installed") {
+  if (isInstalled && status !== "installed" && status !== "accepted") {
     return null;
   }
 
@@ -395,17 +373,23 @@ export function PwaInstallButton({
   }
 
   const isBusy = status === "checking" || status === "installing";
-  const isDisabled = status === "checking" || status === "installing" || status === "installed";
+  const isDisabled =
+    status === "checking" ||
+    status === "installing" ||
+    status === "installed" ||
+    status === "accepted";
   const buttonLabel =
     status === "checking"
       ? "Checking..."
       : status === "installing"
         ? "Installing..."
-        : status === "installed"
+      : status === "installed"
+        ? "Installed"
+        : status === "accepted"
           ? "Installed"
-          : status === "unsupported"
-            ? "Not supported on this browser"
-            : label;
+        : status === "unsupported"
+          ? "Not supported on this browser"
+          : label;
 
   return (
     <div className={cn("flex flex-col items-stretch gap-2", className)}>
@@ -420,7 +404,7 @@ export function PwaInstallButton({
       >
         {isBusy ? (
           <Loader2 className="size-4 animate-spin" />
-        ) : status === "installed" ? (
+        ) : status === "installed" || status === "accepted" ? (
           <Check className="size-4" />
         ) : (
           <Download className="size-4" />
