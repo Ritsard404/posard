@@ -24,7 +24,6 @@ import {
   getOfflineManagerVerifiers,
   getOfflineSessionSnapshot,
 } from "../_services/offline-db.client";
-import { refillInvoicePool } from "../_services/invoice-pool.client";
 import type { SessionSnapshotDto } from "../_services/_dto/offline.dto";
 
 const INITIAL_SESSION_WAIT_MS = 1800;
@@ -165,7 +164,6 @@ export function POSTerminalManager() {
       }
 
       try {
-        await refillInvoicePool().catch(() => undefined);
         await fetchOfflineBootstrap(deviceId);
         const syncResult = await syncOfflineActions();
         for (const result of syncResult.results) {
@@ -259,7 +257,6 @@ export function POSTerminalManager() {
           }
 
           const bootstrapPromise = fetchOfflineBootstrap(deviceId);
-          void refillInvoicePool().catch(() => undefined);
           const sessionPromise = getCurrentSessionAction();
           const sessionRes = await resolveInitialSession(sessionPromise);
 

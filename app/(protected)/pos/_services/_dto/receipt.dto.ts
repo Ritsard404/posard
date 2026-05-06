@@ -35,7 +35,7 @@ export interface ReceiptDebtDetailsDto {
 
 export interface ReceiptDto {
   id: string;
-  invoiceNumber: number;
+  invoiceNumber: number | null;
   localInvoiceNo?: string | null;
   isProvisional?: boolean;
   syncStatus?: "pending" | "syncing" | "synced" | "failed" | "needs_review";

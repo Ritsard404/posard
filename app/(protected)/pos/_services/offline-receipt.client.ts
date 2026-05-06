@@ -12,12 +12,25 @@ export function buildProvisionalInvoiceNumber(input: {
   createdAt: Date;
   counter: number;
 }) {
-  const date = input.createdAt.toISOString().slice(0, 10).replace(/-/g, "");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(input.createdAt);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "00";
+  const date = `${value("year")}${value("month")}${value("day")}`;
+  const time = `${value("hour")}${value("minute")}${value("second")}`;
   const terminal = input.terminalLabel
     .replace(/[^A-Za-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toUpperCase();
-  return `OFF-${terminal || "TERM"}-${date}-${String(input.counter).padStart(4, "0")}`;
+  const suffix = String(input.counter).padStart(4, "0");
+  return `SI-${date}-${time}-${terminal || "TERM"}-${suffix}`;
 }
 
 export function buildProvisionalReceipt(input: {
@@ -76,7 +89,7 @@ export function buildProvisionalReceipt(input: {
 
   const receipt: ReceiptDto = {
     id: `local-${crypto.randomUUID()}`,
-    invoiceNumber: input.invoiceNumber ?? 0,
+    invoiceNumber: input.invoiceNumber ?? null,
     localInvoiceNo,
     isProvisional: !input.invoiceNumber,
     syncStatus: "pending",

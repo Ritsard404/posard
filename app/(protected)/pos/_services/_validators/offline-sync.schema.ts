@@ -9,7 +9,7 @@ const orderSchema = z.object({
   timestampId: z.string().min(1),
   deviceId: z.string().optional(),
   idempotencyKey: z.string().min(1).optional(),
-  invoiceNumber: z.number().int().positive().optional(),
+  invoiceNumber: z.number().int().positive().nullable().optional(),
   localInvoiceNo: z.string().min(1).optional(),
   items: z
     .array(
@@ -56,7 +56,7 @@ const orderSchema = z.object({
 
 const receiptSchema = z.object({
   id: z.string(),
-  invoiceNumber: z.number(),
+  invoiceNumber: z.number().nullable(),
   localInvoiceNo: z.string().nullable().optional(),
   isProvisional: z.boolean().optional(),
   syncStatus: z.string().optional(),
@@ -86,6 +86,7 @@ export const queuedPosActionSchema = z.discriminatedUnion("type", [
     payload: z.object({
       order: orderSchema,
       invoiceNoLocal: z.string().min(1),
+      invoiceNumber: z.number().int().positive().nullable().optional(),
       stockSnapshotVersion: z.string().min(1),
       receipt: receiptSchema,
     }),

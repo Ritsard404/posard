@@ -36,6 +36,7 @@ import {
 import { payOrderAction } from "../_actions/order.action";
 import type { OrderDto } from "../_services/_dto/order.dto";
 import type { ReceiptDto } from "../_services/_dto/receipt.dto";
+import type { QueuedSaleAction } from "../_services/_dto/offline.dto";
 import { calculatePayment } from "../_services/payment-calculation.service";
 import { formatInvoiceNumber } from "../_services/print-format.service";
 import { receiptPrintService } from "../_services/receipt-print.service";
@@ -62,6 +63,56 @@ const currencyFormatter = new Intl.NumberFormat(undefined, {
 
 export function formatCurrency(amount: number) {
   return currencyFormatter.format(amount);
+}
+
+function assertQueuedSaleReadyForLocalCommit(action: QueuedSaleAction) {
+  if (!action.localId.trim()) {
+    throw new Error("Local sale id is missing.");
+  }
+
+  if (!action.idempotencyKey.trim()) {
+    throw new Error("Checkout transaction id is missing.");
+  }
+
+  if (!action.payload.invoiceNoLocal.trim()) {
+    throw new Error("Local invoice reference is missing.");
+  }
+
+  if (!action.payload.receipt.id.trim()) {
+    throw new Error("Provisional receipt id is missing.");
+  }
+
+  if (!action.payload.stockSnapshotVersion.trim()) {
+    throw new Error("Stock snapshot version is missing.");
+  }
+}
+
+function scheduleCheckoutBackgroundSync(delayMs = 2000) {
+  window.setTimeout(() => {
+    void syncOfflineActions()
+      .then(async (result) => {
+        const queue = await getOfflineQueueSnapshot();
+        usePOSStore.getState().setSyncCounts({
+          pendingSyncCount: queue.pendingCount,
+          syncingCount: queue.syncingCount,
+          needsReviewCount: queue.needsReviewCount,
+          lastSyncMessage:
+            result.results.length > 0
+              ? "Sale synced in the background."
+              : "Queue is up to date.",
+        });
+      })
+      .catch(async (error) => {
+        const queue = await getOfflineQueueSnapshot();
+        usePOSStore.getState().setSyncCounts({
+          pendingSyncCount: queue.pendingCount,
+          syncingCount: queue.syncingCount,
+          needsReviewCount: queue.needsReviewCount,
+          lastSyncMessage:
+            error instanceof Error ? error.message : "Background sync failed.",
+        });
+      });
+  }, delayMs);
 }
 
 function getPaymentMethodLabel(name: string | null) {
@@ -597,7 +648,7 @@ export function usePOSCheckoutFlow(
         });
 
         const localId = crypto.randomUUID();
-        const queuedAction = {
+        const queuedAction: QueuedSaleAction = {
           localId,
           type: "PAY_ORDER",
           idempotencyKey,
@@ -618,11 +669,13 @@ export function usePOSCheckoutFlow(
               localInvoiceNo,
             },
             invoiceNoLocal: localInvoiceNo,
-            invoiceNumber: 0,
+            invoiceNumber: null,
             stockSnapshotVersion,
             receipt: provisionalReceipt,
           },
-        } as const;
+        };
+
+        assertQueuedSaleReadyForLocalCommit(queuedAction);
 
         const commitStartedAt = performance.now();
         await commitLocalSale({
@@ -650,54 +703,8 @@ export function usePOSCheckoutFlow(
           syncStatus: "pending",
         });
 
-        let fastCheckoutSyncedOnline = false;
-
         if (fastCheckout) {
-          let receiptToPrint = provisionalReceipt;
-
-          if (isOnline) {
-            try {
-              const syncResult = await syncOfflineActions();
-              fastCheckoutSyncedOnline = true;
-              const syncedSale = syncResult.results.find(
-                (result) =>
-                  result.localId === localId &&
-                  result.syncStatus === "synced" &&
-                  result.receipt,
-              );
-
-              if (syncedSale?.receipt) {
-                receiptToPrint = syncedSale.receipt;
-                upsertOfflineReceipt({
-                  localId,
-                  receiptId: syncedSale.receipt.id,
-                  localInvoiceNo:
-                    syncedSale.receipt.localInvoiceNo ?? localInvoiceNo,
-                  syncStatus: "synced",
-                });
-              }
-
-              const queue = await getOfflineQueueSnapshot();
-              usePOSStore.getState().setSyncCounts({
-                pendingSyncCount: queue.pendingCount,
-                syncingCount: queue.syncingCount,
-                needsReviewCount: queue.needsReviewCount,
-                lastSyncMessage:
-                  syncedSale?.receipt
-                    ? "Sale synced before fast checkout print."
-                    : "Sale sync completed without a receipt payload.",
-              });
-            } catch (error) {
-              toast.error("Official invoice is not ready yet.", {
-                description:
-                  error instanceof Error
-                    ? error.message
-                    : "Printing the provisional receipt instead.",
-              });
-            }
-          }
-
-          await printFastCheckoutReceipt(receiptToPrint);
+          await printFastCheckoutReceipt(provisionalReceipt);
           resetAfterFastCheckout();
         } else {
           setCustomerDisplayMode("completed");
@@ -710,41 +717,29 @@ export function usePOSCheckoutFlow(
         checkoutIdempotencyKeyRef.current = null;
         toast.success(isOnline ? "Sale complete." : "Offline sale queued.", {
           description: isOnline
-            ? "Receipt is ready. Sync is running in the background."
+            ? "Receipt is ready. Sync will run in the background."
             : "It will sync automatically when the device reconnects.",
         });
-        if (isOnline && !fastCheckoutSyncedOnline) {
-          void syncOfflineActions()
-            .then(async (result) => {
-              const queue = await getOfflineQueueSnapshot();
-              usePOSStore.getState().setSyncCounts({
-                pendingSyncCount: queue.pendingCount,
-                syncingCount: queue.syncingCount,
-                needsReviewCount: queue.needsReviewCount,
-                lastSyncMessage:
-                  result.results.length > 0
-                    ? "Sale synced in the background."
-                    : "Queue is up to date.",
-              });
-            })
-            .catch(async (error) => {
-              const queue = await getOfflineQueueSnapshot();
-              usePOSStore.getState().setSyncCounts({
-                pendingSyncCount: queue.pendingCount,
-                syncingCount: queue.syncingCount,
-                needsReviewCount: queue.needsReviewCount,
-                lastSyncMessage:
-                  error instanceof Error ? error.message : "Background sync failed.",
-              });
-            });
+        if (isOnline) {
+          scheduleCheckoutBackgroundSync();
         }
         return;
       } catch (error) {
         processingRef.current = false;
         setIsProcessing(false);
+        const message =
+          error instanceof Error ? error.message : "Please try again.";
+        console.error("POS local sale save failed", {
+          idempotencyKey,
+          timestampId: activeTimestampId,
+          terminalId: activeTerminal?.id ?? null,
+          deviceId: activeDeviceId,
+          companyId: activeCompanyId,
+          profileId: activeProfileId,
+          error,
+        });
         toast.error("Unable to save sale locally.", {
-          description:
-            error instanceof Error ? error.message : "Please try again.",
+          description: message,
         });
         return;
       }
@@ -2326,7 +2321,9 @@ export function POSReceiptContent({
   }).format(new Date(receipt.createdAt));
   const formattedInvoiceNumber = receipt.isProvisional
     ? (receipt.localInvoiceNo ?? "OFFLINE-PENDING")
-    : formatInvoiceNumber(receipt.invoiceNumber);
+    : receipt.invoiceNumber
+      ? formatInvoiceNumber(receipt.invoiceNumber)
+      : (receipt.localInvoiceNo ?? "OFFLINE-PENDING");
   const shouldShowTaxBreakdown = receipt.vatAmount > 0;
   const receiptPrintPayload = receiptPrintService.buildPayload(receipt);
   const hasCashPayment = receipt.cashTendered > 0;
