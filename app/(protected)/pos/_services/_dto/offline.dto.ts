@@ -36,7 +36,7 @@ export interface QueuedActionBase {
 export interface QueuedSalePayload {
   order: OrderDto;
   invoiceNoLocal: string;
-  invoiceNumber: number;
+  invoiceNumber?: number;
   stockSnapshotVersion: string;
   receipt: ReceiptDto;
 }

@@ -48,7 +48,6 @@ import {
   syncOfflineActions,
 } from "../_services/offline-sync.client";
 import { getStockSnapshotVersion } from "../_services/offline-db.client";
-import { reserveNextInvoiceNumber } from "../_services/invoice-pool.client";
 
 export const defaultDiscount = {
   type: "NONE" as const,
@@ -580,7 +579,6 @@ export function usePOSCheckoutFlow(
         const clickStartedAt = performance.now();
         const queueState = await getOfflineQueueSnapshot();
         const stockSnapshotVersion = await getStockSnapshotVersion();
-        const invoiceNumber = await reserveNextInvoiceNumber();
         const queuedCounter =
           queueState.actions.filter((action) => action.type === "PAY_ORDER")
             .length + 1;
@@ -596,7 +594,6 @@ export function usePOSCheckoutFlow(
           terminalVat: activeTerminal.vat,
           printerConfig: activeTerminal.printerConfig ?? null,
           counter: queuedCounter,
-          invoiceNumber,
         });
 
         const localId = crypto.randomUUID();
@@ -618,11 +615,10 @@ export function usePOSCheckoutFlow(
           payload: {
             order: {
               ...orderDto,
-              invoiceNumber,
               localInvoiceNo,
             },
             invoiceNoLocal: localInvoiceNo,
-            invoiceNumber,
+            invoiceNumber: 0,
             stockSnapshotVersion,
             receipt: provisionalReceipt,
           },
