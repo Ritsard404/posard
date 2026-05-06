@@ -55,30 +55,55 @@ export async function refillInvoicePool() {
 export async function reserveNextInvoiceNumber() {
   let reserved: number | null = null;
 
-  await posOfflineDb.transaction("rw", posOfflineDb.invoicePool, async () => {
-    let pool = await posOfflineDb.invoicePool.get(POOL_ID);
+  while (reserved === null) {
+    const current = await posOfflineDb.invoicePool.get(POOL_ID);
 
-    if (!pool || pool.nextAvailable > pool.poolEnd) {
+    if (!current || current.nextAvailable > current.poolEnd) {
       const range = await reserveInvoiceNumbers();
-      pool = {
-        id: POOL_ID,
-        nextAvailable: range.from,
-        poolEnd: range.to,
+      let insertedRange = false;
+
+      await posOfflineDb.transaction("rw", posOfflineDb.invoicePool, async () => {
+        const latest = await posOfflineDb.invoicePool.get(POOL_ID);
+
+        if (latest && latest.nextAvailable <= latest.poolEnd) {
+          return;
+        }
+
+        await posOfflineDb.invoicePool.put({
+          id: POOL_ID,
+          nextAvailable: range.from + 1,
+          poolEnd: range.to,
+          updatedAt: new Date().toISOString(),
+        });
+        insertedRange = true;
+      });
+
+      if (insertedRange) {
+        reserved = range.from;
+        break;
+      }
+
+      continue;
+    }
+
+    await posOfflineDb.transaction("rw", posOfflineDb.invoicePool, async () => {
+      const pool = await posOfflineDb.invoicePool.get(POOL_ID);
+
+      if (!pool || pool.nextAvailable > pool.poolEnd) {
+        return;
+      }
+
+      reserved = pool.nextAvailable;
+      await posOfflineDb.invoicePool.update(POOL_ID, {
+        nextAvailable: pool.nextAvailable + 1,
         updatedAt: new Date().toISOString(),
-      };
-      await posOfflineDb.invoicePool.put(pool);
-    }
+      });
 
-    reserved = pool.nextAvailable;
-    await posOfflineDb.invoicePool.update(POOL_ID, {
-      nextAvailable: pool.nextAvailable + 1,
-      updatedAt: new Date().toISOString(),
+      if (pool.poolEnd - pool.nextAvailable <= REFILL_THRESHOLD) {
+        void refillInvoicePool().catch(() => undefined);
+      }
     });
-
-    if (pool.poolEnd - pool.nextAvailable <= REFILL_THRESHOLD) {
-      void refillInvoicePool().catch(() => undefined);
-    }
-  });
+  }
 
   if (!reserved) {
     throw new Error("Unable to reserve an invoice number.");
