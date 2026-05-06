@@ -5,6 +5,7 @@ import type { ReceiptDto } from "./_dto/receipt.dto";
 import type { ProductDto } from "./_dto/pos.dto";
 import type { PrinterConfigDto } from "./_dto/print.dto";
 import { calculatePayment } from "./payment-calculation.service";
+import { formatInvoiceNumber } from "./print-format.service";
 
 export function buildProvisionalInvoiceNumber(input: {
   terminalLabel: string;
@@ -27,14 +28,17 @@ export function buildProvisionalReceipt(input: {
   terminalVat: number;
   printerConfig: PrinterConfigDto | null;
   counter: number;
+  invoiceNumber?: number;
 }) {
   const productMap = new Map(input.products.map((product) => [product.id, product]));
   const createdAt = new Date();
-  const localInvoiceNo = buildProvisionalInvoiceNumber({
-    terminalLabel: input.terminalName,
-    createdAt,
-    counter: input.counter,
-  });
+  const localInvoiceNo = input.invoiceNumber
+    ? formatInvoiceNumber(input.invoiceNumber)
+    : buildProvisionalInvoiceNumber({
+        terminalLabel: input.terminalName,
+        createdAt,
+        counter: input.counter,
+      });
 
   const calc = calculatePayment({
     items: input.order.items.map((item) => ({
@@ -72,9 +76,9 @@ export function buildProvisionalReceipt(input: {
 
   const receipt: ReceiptDto = {
     id: `local-${crypto.randomUUID()}`,
-    invoiceNumber: 0,
+    invoiceNumber: input.invoiceNumber ?? 0,
     localInvoiceNo,
-    isProvisional: true,
+    isProvisional: !input.invoiceNumber,
     syncStatus: "pending",
     syncError: null,
     createdAt: createdAt.toISOString(),

@@ -44,7 +44,10 @@ export async function registerPOSServiceWorker() {
     return;
   }
 
-  await navigator.serviceWorker.register("/sw.js");
+  await navigator.serviceWorker.register("/sw.js", {
+    scope: "/",
+    updateViaCache: "none",
+  });
 }
 
 export async function fetchOfflineBootstrap(deviceId: string) {
@@ -84,6 +87,7 @@ export async function commitLocalSale(input: {
     clientTxnId: input.action.idempotencyKey,
     terminalId: input.action.terminalId,
     cashierId: input.action.cashierId,
+    invoiceNumber: input.action.payload.invoiceNumber,
     localSequenceNumber: input.localSequenceNumber,
     payload: input.action.payload,
     receipt: input.action.payload.receipt,

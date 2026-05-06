@@ -167,7 +167,9 @@ function setupInstallListeners() {
     isInstalled: installed,
     status: installed ? "installed" : "checking",
     serviceWorkerControlled:
-      "serviceWorker" in navigator ? navigator.serviceWorker.controller !== null : false,
+      "serviceWorker" in navigator
+        ? navigator.serviceWorker.controller !== null
+        : false,
   });
 
   if ("serviceWorker" in navigator) {
@@ -193,7 +195,7 @@ function setupInstallListeners() {
         });
       })
       .catch((error) => {
-        console.warn("Unable to register POSard service worker", error);
+        console.warn("Unable to register POSard PWA service worker", error);
         setInstallState({
           error: "Service worker registration failed.",
           status: "unsupported",
@@ -257,7 +259,10 @@ function setupInstallListeners() {
 
   window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   window.addEventListener("appinstalled", handleInstalled);
-  navigator.serviceWorker?.addEventListener("controllerchange", handleControllerChange);
+  navigator.serviceWorker?.addEventListener(
+    "controllerchange",
+    handleControllerChange,
+  );
   standaloneQuery.addEventListener("change", handleDisplayModeChange);
 
   // Some browsers never expose beforeinstallprompt. After a short check window,
@@ -268,9 +273,15 @@ function setupInstallListeners() {
   );
 
   cleanupInstallListeners = () => {
-    window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.removeEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt,
+    );
     window.removeEventListener("appinstalled", handleInstalled);
-    navigator.serviceWorker?.removeEventListener("controllerchange", handleControllerChange);
+    navigator.serviceWorker?.removeEventListener(
+      "controllerchange",
+      handleControllerChange,
+    );
     standaloneQuery.removeEventListener("change", handleDisplayModeChange);
     if (checkingTimer !== null) {
       window.clearTimeout(checkingTimer);
@@ -319,7 +330,8 @@ export function usePwaInstall() {
         prompt: null,
         isInstalled: choice.outcome === "accepted",
         status: choice.outcome === "accepted" ? "accepted" : "manual",
-        fallbackReason: choice.outcome === "accepted" ? null : getFallbackReason(),
+        fallbackReason:
+          choice.outcome === "accepted" ? null : getFallbackReason(),
       });
     } catch (error) {
       console.warn("POSard install prompt failed", error);
@@ -354,7 +366,11 @@ export function PwaInstallButton({
   const [fallbackVisible, setFallbackVisible] = useState(false);
 
   useEffect(() => {
-    if (status === "available" || status === "installed" || status === "accepted") {
+    if (
+      status === "available" ||
+      status === "installed" ||
+      status === "accepted"
+    ) {
       setFallbackVisible(false);
     }
   }, [status]);
@@ -404,15 +420,15 @@ export function PwaInstallButton({
       ? "Preparing install..."
       : status === "installing"
         ? "Installing..."
-      : status === "installed"
-        ? "Installed"
-        : status === "accepted"
+        : status === "installed"
           ? "Installed"
-        : status === "manual"
-          ? "Install App"
-        : status === "unsupported"
-          ? "Not supported"
-          : label;
+          : status === "accepted"
+            ? "Installed"
+            : status === "manual"
+              ? "Install App"
+              : status === "unsupported"
+                ? "Not supported"
+                : label;
 
   return (
     <div className={cn("flex flex-col items-stretch gap-2", className)}>
@@ -423,6 +439,7 @@ export function PwaInstallButton({
         className="h-auto min-h-10 whitespace-normal text-center leading-tight"
         onClick={handleInstall}
         disabled={isDisabled}
+        hidden={status === "installed" || status === "accepted"}
         aria-live="polite"
       >
         {isBusy ? (
@@ -434,13 +451,15 @@ export function PwaInstallButton({
         )}
         {buttonLabel}
       </Button>
-      {status === "available" && (!serviceWorkerReady || !serviceWorkerControlled) ? (
+      {status === "available" &&
+      (!serviceWorkerReady || !serviceWorkerControlled) ? (
         <p className="max-w-xs text-xs leading-5 text-muted-foreground">
           Install is available. The offline service worker is still becoming
           ready for this tab.
         </p>
       ) : null}
-      {showFallback && (fallbackVisible || status === "manual" || status === "unsupported") ? (
+      {showFallback &&
+      (fallbackVisible || status === "manual" || status === "unsupported") ? (
         <p className="max-w-xs text-xs leading-5 text-muted-foreground">
           {fallbackMessage}
           {error ? ` ${error}` : ""}

@@ -38,6 +38,7 @@ export interface OrderDto {
   timestampId: string;
   deviceId?: string;
   idempotencyKey?: string;
+  invoiceNumber?: number;
   localInvoiceNo?: string;
   items: ItemRequestDto[];
   cashTenderAmount: number;

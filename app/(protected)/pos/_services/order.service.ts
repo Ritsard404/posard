@@ -728,11 +728,13 @@ export const orderService = {
         validatePayment(calc);
       }
 
-      const invoiceNumber = await generateInvoiceNumber(
-        tx,
-        terminal.id,
-        terminal.isTrainMode,
-      );
+      const invoiceNumber =
+        dto.invoiceNumber ??
+        (await generateInvoiceNumber(
+          tx,
+          terminal.id,
+          terminal.isTrainMode,
+        ));
 
       let debtReceipt: ReceiptDto["debt"] = null;
       let customerNameOverride: string | undefined;
