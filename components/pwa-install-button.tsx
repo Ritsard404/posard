@@ -22,13 +22,14 @@ type InstallStatus =
   | "installing"
   | "installed"
   | "accepted"
+  | "manual"
   | "unsupported";
 
 type InstallState = {
   isInstalled: boolean;
   status: InstallStatus;
   prompt: BeforeInstallPromptEvent | null;
-  unsupportedReason: "ios" | "desktop" | "browser" | null;
+  fallbackReason: "ios" | "desktop" | "android" | "browser" | null;
   serviceWorkerReady: boolean;
   serviceWorkerControlled: boolean;
   error: string | null;
@@ -38,7 +39,7 @@ let installState: InstallState = {
   isInstalled: false,
   status: "checking",
   prompt: null,
-  unsupportedReason: null,
+  fallbackReason: null,
   serviceWorkerReady: false,
   serviceWorkerControlled: false,
   error: null,
@@ -105,12 +106,20 @@ function isIosBrowser() {
   return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
 }
 
-function isDesktopChromiumBrowser() {
-  const userAgent = window.navigator.userAgent;
-  return !isIosBrowser() && /chrome|edg|opr|brave/i.test(userAgent);
+function isAndroidBrowser() {
+  return /android/i.test(window.navigator.userAgent);
 }
 
-function getUnsupportedReason(): InstallState["unsupportedReason"] {
+function isDesktopChromiumBrowser() {
+  const userAgent = window.navigator.userAgent;
+  return (
+    !isIosBrowser() &&
+    !isAndroidBrowser() &&
+    /chrome|edg|opr|brave/i.test(userAgent)
+  );
+}
+
+function getFallbackReason(): InstallState["fallbackReason"] {
   if (isIosBrowser()) {
     return "ios";
   }
@@ -119,7 +128,15 @@ function getUnsupportedReason(): InstallState["unsupportedReason"] {
     return "desktop";
   }
 
+  if (isAndroidBrowser()) {
+    return "android";
+  }
+
   return "browser";
+}
+
+function hasManualInstallPath() {
+  return isIosBrowser() || isAndroidBrowser() || isDesktopChromiumBrowser();
 }
 
 function finishCheckingIfNoPrompt() {
@@ -128,11 +145,11 @@ function finishCheckingIfNoPrompt() {
   }
 
   debugInstall("beforeinstallprompt unavailable; showing fallback", {
-    reason: getUnsupportedReason(),
+    reason: getFallbackReason(),
   });
   setInstallState({
-    status: "unsupported",
-    unsupportedReason: getUnsupportedReason(),
+    status: hasManualInstallPath() ? "manual" : "unsupported",
+    fallbackReason: getFallbackReason(),
   });
 }
 
@@ -180,13 +197,13 @@ function setupInstallListeners() {
         setInstallState({
           error: "Service worker registration failed.",
           status: "unsupported",
-          unsupportedReason: getUnsupportedReason(),
+          fallbackReason: getFallbackReason(),
         });
       });
   } else {
     setInstallState({
       status: "unsupported",
-      unsupportedReason: getUnsupportedReason(),
+      fallbackReason: getFallbackReason(),
       error: "Service workers are unavailable in this browser.",
     });
   }
@@ -202,7 +219,7 @@ function setupInstallListeners() {
       isInstalled: false,
       status: "available",
       prompt: event as BeforeInstallPromptEvent,
-      unsupportedReason: null,
+      fallbackReason: null,
       error: null,
     });
   };
@@ -213,7 +230,7 @@ function setupInstallListeners() {
       isInstalled: true,
       status: "installed",
       prompt: null,
-      unsupportedReason: null,
+      fallbackReason: null,
     });
   };
 
@@ -301,16 +318,15 @@ export function usePwaInstall() {
       setInstallState({
         prompt: null,
         isInstalled: choice.outcome === "accepted",
-        status: choice.outcome === "accepted" ? "accepted" : "unsupported",
-        unsupportedReason:
-          choice.outcome === "accepted" ? null : getUnsupportedReason(),
+        status: choice.outcome === "accepted" ? "accepted" : "manual",
+        fallbackReason: choice.outcome === "accepted" ? null : getFallbackReason(),
       });
     } catch (error) {
       console.warn("POSard install prompt failed", error);
       setInstallState({
         prompt: null,
-        status: "unsupported",
-        unsupportedReason: getUnsupportedReason(),
+        status: hasManualInstallPath() ? "manual" : "unsupported",
+        fallbackReason: getFallbackReason(),
         error: "Install prompt failed or was dismissed.",
       });
     }
@@ -329,7 +345,7 @@ export function PwaInstallButton({
   const {
     isInstalled,
     status,
-    unsupportedReason,
+    fallbackReason,
     serviceWorkerReady,
     serviceWorkerControlled,
     error,
@@ -344,16 +360,20 @@ export function PwaInstallButton({
   }, [status]);
 
   const fallbackMessage = useMemo(() => {
-    if (unsupportedReason === "ios") {
+    if (fallbackReason === "ios") {
       return "On iPhone or iPad, open Safari, tap Share, then choose Add to Home Screen.";
     }
 
-    if (unsupportedReason === "desktop") {
-      return "If install is not offered, make sure the site is open over HTTPS in Chrome or Edge, then use the browser menu and choose Install POSard or Apps > Install this site.";
+    if (fallbackReason === "desktop") {
+      return "Chrome or Edge supports manual install here. Open the browser menu and choose Install POSard or Apps > Install this site.";
+    }
+
+    if (fallbackReason === "android") {
+      return "If the install prompt does not appear, open the browser menu and choose Install app or Add to Home screen.";
     }
 
     return "This browser does not expose a direct install prompt. Use the browser menu if Add to Home Screen is available.";
-  }, [unsupportedReason]);
+  }, [fallbackReason]);
 
   if (isInstalled && status !== "installed" && status !== "accepted") {
     return null;
@@ -368,7 +388,7 @@ export function PwaInstallButton({
     await install();
   };
 
-  if (status === "unsupported" && !showFallback) {
+  if ((status === "manual" || status === "unsupported") && !showFallback) {
     return null;
   }
 
@@ -377,18 +397,21 @@ export function PwaInstallButton({
     status === "checking" ||
     status === "installing" ||
     status === "installed" ||
-    status === "accepted";
+    status === "accepted" ||
+    status === "manual";
   const buttonLabel =
     status === "checking"
-      ? "Checking..."
+      ? "Preparing install..."
       : status === "installing"
         ? "Installing..."
       : status === "installed"
         ? "Installed"
         : status === "accepted"
           ? "Installed"
+        : status === "manual"
+          ? "Install App"
         : status === "unsupported"
-          ? "Not supported on this browser"
+          ? "Not supported"
           : label;
 
   return (
@@ -397,7 +420,7 @@ export function PwaInstallButton({
         type="button"
         variant={variant}
         size={size}
-        className="cursor-pointer"
+        className="h-auto min-h-10 whitespace-normal text-center leading-tight"
         onClick={handleInstall}
         disabled={isDisabled}
         aria-live="polite"
@@ -417,7 +440,7 @@ export function PwaInstallButton({
           ready for this tab.
         </p>
       ) : null}
-      {showFallback && (fallbackVisible || status === "unsupported") ? (
+      {showFallback && (fallbackVisible || status === "manual" || status === "unsupported") ? (
         <p className="max-w-xs text-xs leading-5 text-muted-foreground">
           {fallbackMessage}
           {error ? ` ${error}` : ""}

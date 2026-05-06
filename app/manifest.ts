@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "POSard POS System",
+    name: "POSard",
     short_name: "POSard",
     description:
       "POSard is a mobile-first POS system for checkout, inventory, receipts, discounts, and sales reports.",
