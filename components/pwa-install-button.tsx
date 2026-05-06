@@ -172,7 +172,7 @@ function setupInstallListeners() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register("/pos-sw.js", { scope: "/", updateViaCache: "none" })
+      .register("/sw.js", { scope: "/", updateViaCache: "none" })
       .then((registration) => {
         debugInstall("service worker registered", {
           scope: registration.scope,

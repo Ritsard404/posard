@@ -44,7 +44,7 @@ export async function registerPOSServiceWorker() {
     return;
   }
 
-  await navigator.serviceWorker.register("/pos-sw.js");
+  await navigator.serviceWorker.register("/sw.js");
 }
 
 export async function fetchOfflineBootstrap(deviceId: string) {
