@@ -151,7 +151,7 @@ export default function Home() {
         </nav>
 
         {/* Hero Section */}
-        <section className="relative w-full max-w-7xl pt-20 pb-16 px-6 lg:pt-32 lg:pb-32">
+        <section className="relative w-full max-w-7xl pt-12 pb-16 px-6 lg:pt-18 lg:pb-32">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="text-center lg:text-left space-y-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold uppercase tracking-wider">
