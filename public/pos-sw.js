@@ -7,7 +7,8 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", () => {
-  // A fetch handler makes this a controlling service worker for PWA installability.
+  // Keep network behavior unchanged while making this a controlling service
+  // worker for browser PWA installability checks.
 });
 
 async function broadcastSyncTrigger() {

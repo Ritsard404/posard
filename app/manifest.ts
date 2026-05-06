@@ -2,19 +2,30 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: "POSard POS System",
     short_name: "POSard",
     description:
       "POSard is a mobile-first POS system for checkout, inventory, receipts, discounts, and sales reports.",
     start_url: "/",
+    scope: "/",
     display: "standalone",
+    orientation: "portrait-primary",
     background_color: "#071a3d",
     theme_color: "#1447e6",
+    categories: ["business", "productivity", "finance"],
     icons: [
       {
         src: "/icon.png",
         sizes: "512x512",
         type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
       },
       {
         src: "/apple-icon.png",
@@ -25,6 +36,22 @@ export default function manifest(): MetadataRoute.Manifest {
         src: "/favicon.ico",
         sizes: "any",
         type: "image/x-icon",
+      },
+    ],
+    screenshots: [
+      {
+        src: "/images/pos-mobile.png",
+        sizes: "1084x2046",
+        type: "image/png",
+        form_factor: "narrow",
+        label: "POSard mobile checkout",
+      },
+      {
+        src: "/images/pos-desktop.png",
+        sizes: "1672x941",
+        type: "image/png",
+        form_factor: "wide",
+        label: "POSard desktop point of sale",
       },
     ],
   };
