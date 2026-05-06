@@ -20,6 +20,9 @@
 /public/workbox-*.js
 /public/worker-*.js
 /public/fallback-*.js
+!/public/pwa-icon-192.png
+!/public/pwa-icon-512.png
+!/public/pwa-maskable-512.png
 
 # production
 /build
