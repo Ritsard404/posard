@@ -29,6 +29,7 @@ type InstallState = {
   prompt: BeforeInstallPromptEvent | null;
   unsupportedReason: "ios" | "desktop" | "browser" | null;
   serviceWorkerReady: boolean;
+  serviceWorkerControlled: boolean;
   error: string | null;
 };
 
@@ -38,6 +39,7 @@ let installState: InstallState = {
   prompt: null,
   unsupportedReason: null,
   serviceWorkerReady: false,
+  serviceWorkerControlled: false,
   error: null,
 };
 
@@ -45,6 +47,25 @@ let isListening = false;
 let checkingTimer: number | null = null;
 let cleanupInstallListeners: (() => void) | null = null;
 const subscribers = new Set<() => void>();
+const installDebugEnabled = process.env.NODE_ENV !== "production";
+
+function debugInstall(message: string, details?: Record<string, unknown>) {
+  let isDebugEnabled = installDebugEnabled;
+  try {
+    isDebugEnabled =
+      isDebugEnabled ||
+      (typeof window !== "undefined" &&
+        window.localStorage.getItem("POSARD_PWA_DEBUG") === "1");
+  } catch {
+    isDebugEnabled = installDebugEnabled;
+  }
+
+  if (!isDebugEnabled) {
+    return;
+  }
+
+  console.info(`[POSard PWA] ${message}`, details ?? {});
+}
 
 function emitInstallState() {
   for (const subscriber of subscribers) {
@@ -83,12 +104,17 @@ function isIosBrowser() {
   return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
 }
 
+function isDesktopChromiumBrowser() {
+  const userAgent = window.navigator.userAgent;
+  return !isIosBrowser() && /chrome|edg|opr|brave/i.test(userAgent);
+}
+
 function getUnsupportedReason(): InstallState["unsupportedReason"] {
   if (isIosBrowser()) {
     return "ios";
   }
 
-  if (/chrome|crios|edg|opr|brave/i.test(window.navigator.userAgent)) {
+  if (isDesktopChromiumBrowser()) {
     return "desktop";
   }
 
@@ -100,6 +126,9 @@ function finishCheckingIfNoPrompt() {
     return;
   }
 
+  debugInstall("beforeinstallprompt unavailable; showing fallback", {
+    reason: getUnsupportedReason(),
+  });
   setInstallState({
     status: "unsupported",
     unsupportedReason: getUnsupportedReason(),
@@ -113,17 +142,37 @@ function setupInstallListeners() {
 
   isListening = true;
   const installed = isStandaloneMode();
+  if (installed) {
+    debugInstall("installed display mode detected");
+  }
   setInstallState({
     isInstalled: installed,
     status: installed ? "installed" : "checking",
+    serviceWorkerControlled:
+      "serviceWorker" in navigator ? navigator.serviceWorker.controller !== null : false,
   });
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
       .register("/pos-sw.js", { scope: "/", updateViaCache: "none" })
-      .then(() => navigator.serviceWorker.ready)
-      .then(() => {
-        setInstallState({ serviceWorkerReady: true });
+      .then((registration) => {
+        debugInstall("service worker registered", {
+          scope: registration.scope,
+          controlled: navigator.serviceWorker.controller !== null,
+        });
+        registration.update().catch(() => undefined);
+        return navigator.serviceWorker.ready;
+      })
+      .then((registration) => {
+        debugInstall("service worker ready", {
+          scope: registration.scope,
+          active: registration.active?.state,
+          controlled: navigator.serviceWorker.controller !== null,
+        });
+        setInstallState({
+          serviceWorkerReady: true,
+          serviceWorkerControlled: navigator.serviceWorker.controller !== null,
+        });
       })
       .catch((error) => {
         console.warn("Unable to register POSard service worker", error);
@@ -143,6 +192,7 @@ function setupInstallListeners() {
 
   const handleBeforeInstallPrompt = (event: Event) => {
     event.preventDefault();
+    debugInstall("beforeinstallprompt fired");
     if (checkingTimer !== null) {
       window.clearTimeout(checkingTimer);
       checkingTimer = null;
@@ -157,6 +207,7 @@ function setupInstallListeners() {
   };
 
   const handleInstalled = () => {
+    debugInstall("appinstalled fired");
     setInstallState({
       isInstalled: true,
       status: "installed",
@@ -167,20 +218,41 @@ function setupInstallListeners() {
 
   const standaloneQuery = window.matchMedia("(display-mode: standalone)");
   const handleDisplayModeChange = () => {
-    setInstallState({ isInstalled: isStandaloneMode() });
+    const nextInstalled = isStandaloneMode();
+    if (nextInstalled) {
+      debugInstall("installed display mode detected");
+    }
+    setInstallState({
+      isInstalled: nextInstalled,
+      status: nextInstalled ? "installed" : installState.status,
+    });
+  };
+
+  const handleControllerChange = () => {
+    debugInstall("service worker controller changed", {
+      controlled: navigator.serviceWorker.controller !== null,
+    });
+    setInstallState({
+      serviceWorkerControlled: navigator.serviceWorker.controller !== null,
+    });
   };
 
   window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   window.addEventListener("appinstalled", handleInstalled);
+  navigator.serviceWorker?.addEventListener("controllerchange", handleControllerChange);
   standaloneQuery.addEventListener("change", handleDisplayModeChange);
 
   // Some browsers never expose beforeinstallprompt. After a short check window,
   // show explicit browser instructions instead of pretending install is ready.
-  checkingTimer = window.setTimeout(finishCheckingIfNoPrompt, 1800);
+  checkingTimer = window.setTimeout(
+    finishCheckingIfNoPrompt,
+    isDesktopChromiumBrowser() ? 8000 : 1800,
+  );
 
   cleanupInstallListeners = () => {
     window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.removeEventListener("appinstalled", handleInstalled);
+    navigator.serviceWorker?.removeEventListener("controllerchange", handleControllerChange);
     standaloneQuery.removeEventListener("change", handleDisplayModeChange);
     if (checkingTimer !== null) {
       window.clearTimeout(checkingTimer);
@@ -217,15 +289,44 @@ export function usePwaInstall() {
     setInstallState({ status: "installing", error: null });
 
     try {
+      debugInstall("prompt shown");
       await state.prompt.prompt();
       const choice = await state.prompt.userChoice;
+      debugInstall("userChoice outcome", {
+        outcome: choice.outcome,
+        platform: choice.platform,
+      });
 
       setInstallState({
         prompt: null,
-        status: choice.outcome === "accepted" ? "installing" : "unsupported",
+        isInstalled: choice.outcome === "accepted" ? isStandaloneMode() : false,
+        status:
+          choice.outcome === "accepted"
+            ? isStandaloneMode()
+              ? "installed"
+              : "checking"
+            : "unsupported",
         unsupportedReason:
           choice.outcome === "accepted" ? null : getUnsupportedReason(),
       });
+
+      if (choice.outcome === "accepted") {
+        window.setTimeout(() => {
+          if (isStandaloneMode()) {
+            debugInstall("installed display mode detected");
+            setInstallState({ isInstalled: true, status: "installed" });
+            return;
+          }
+
+          if (installState.status === "checking") {
+            setInstallState({
+              status: "unsupported",
+              unsupportedReason: getUnsupportedReason(),
+              error: "The browser did not complete installation after accepting the prompt.",
+            });
+          }
+        }, 4000);
+      }
     } catch (error) {
       console.warn("POSard install prompt failed", error);
       setInstallState({
@@ -252,6 +353,7 @@ export function PwaInstallButton({
     status,
     unsupportedReason,
     serviceWorkerReady,
+    serviceWorkerControlled,
     error,
     install,
   } = usePwaInstall();
@@ -269,7 +371,7 @@ export function PwaInstallButton({
     }
 
     if (unsupportedReason === "desktop") {
-      return "If install is not offered, open the Chrome or Edge menu and choose Install POSard or Apps > Install this site.";
+      return "If install is not offered, make sure the site is open over HTTPS in Chrome or Edge, then use the browser menu and choose Install POSard or Apps > Install this site.";
     }
 
     return "This browser does not expose a direct install prompt. Use the browser menu if Add to Home Screen is available.";
@@ -325,10 +427,10 @@ export function PwaInstallButton({
         )}
         {buttonLabel}
       </Button>
-      {status === "available" && !serviceWorkerReady ? (
+      {status === "available" && (!serviceWorkerReady || !serviceWorkerControlled) ? (
         <p className="max-w-xs text-xs leading-5 text-muted-foreground">
           Install is available. The offline service worker is still becoming
-          ready.
+          ready for this tab.
         </p>
       ) : null}
       {showFallback && (fallbackVisible || status === "unsupported") ? (
