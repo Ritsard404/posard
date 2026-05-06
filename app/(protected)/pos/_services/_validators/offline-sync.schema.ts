@@ -9,6 +9,7 @@ const orderSchema = z.object({
   timestampId: z.string().min(1),
   deviceId: z.string().optional(),
   idempotencyKey: z.string().min(1).optional(),
+  invoiceNumber: z.number().int().positive().optional(),
   localInvoiceNo: z.string().min(1).optional(),
   items: z
     .array(

@@ -87,6 +87,7 @@ export async function commitLocalSale(input: {
     clientTxnId: input.action.idempotencyKey,
     terminalId: input.action.terminalId,
     cashierId: input.action.cashierId,
+    invoiceNumber: input.action.payload.invoiceNumber,
     localSequenceNumber: input.localSequenceNumber,
     payload: input.action.payload,
     receipt: input.action.payload.receipt,

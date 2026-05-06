@@ -22,9 +22,17 @@ interface SyncMetaRecord {
   updatedAt: string;
 }
 
+export interface InvoicePoolRecord {
+  id: string;
+  nextAvailable: number;
+  poolEnd: number;
+  updatedAt: string;
+}
+
 class POSOfflineDexie extends Dexie {
   sales!: Table<LocalSaleRecordDto, string>;
   queuedActions!: Table<QueuedPosAction, string>;
+  invoicePool!: Table<InvoicePoolRecord, string>;
   sessionSnapshot!: Table<SnapshotEnvelope<SessionSnapshotDto | null>, string>;
   catalogSnapshot!: Table<SnapshotEnvelope<{ categories: CategoryDto[]; products: ProductDto[] }>, string>;
   paymentMethodSnapshot!: Table<SnapshotEnvelope<EPaymentMethodDto[]>, string>;
@@ -49,6 +57,19 @@ class POSOfflineDexie extends Dexie {
         "id, clientTxnId, syncStatus, terminalId, cashierId, localSequenceNumber, createdAt, syncedAt",
       queuedActions:
         "localId, syncStatus, type, createdAtLocal, timestampId, terminalId, companyId, idempotencyKey, nextRetryAt",
+      sessionSnapshot: "key, updatedAt",
+      catalogSnapshot: "key, updatedAt",
+      paymentMethodSnapshot: "key, updatedAt",
+      managerVerifierSnapshot: "key, updatedAt",
+      syncMeta: "key, updatedAt",
+    });
+
+    this.version(3).stores({
+      sales:
+        "id, clientTxnId, syncStatus, terminalId, cashierId, invoiceNumber, localSequenceNumber, createdAt, syncedAt",
+      queuedActions:
+        "localId, syncStatus, type, createdAtLocal, timestampId, terminalId, companyId, idempotencyKey, nextRetryAt",
+      invoicePool: "id, nextAvailable, poolEnd, updatedAt",
       sessionSnapshot: "key, updatedAt",
       catalogSnapshot: "key, updatedAt",
       paymentMethodSnapshot: "key, updatedAt",

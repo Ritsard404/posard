@@ -865,6 +865,7 @@ model Invoice {
   @@index([cashierId])
   @@index([voidedById])
   @@index([posTerminalId, isTrainMode, invoiceNumber])
+  @@unique([invoiceNumber], name: "uk_invoice_number_global")
   @@unique([posTerminalId, invoiceNumber], name: "uk_invoice_terminal_invoice_number")
   @@map("invoice")
   @@schema("public")

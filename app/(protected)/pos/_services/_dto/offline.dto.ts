@@ -36,6 +36,7 @@ export interface QueuedActionBase {
 export interface QueuedSalePayload {
   order: OrderDto;
   invoiceNoLocal: string;
+  invoiceNumber: number;
   stockSnapshotVersion: string;
   receipt: ReceiptDto;
 }
@@ -161,6 +162,7 @@ export interface LocalSaleRecordDto {
   clientTxnId: string;
   terminalId: string;
   cashierId: string;
+  invoiceNumber: number;
   localSequenceNumber: number;
   payload: QueuedSalePayload;
   receipt: ReceiptDto;
