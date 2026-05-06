@@ -715,11 +715,11 @@ export function usePOSCheckoutFlow(
         setIsProcessing(false);
         processingRef.current = false;
         checkoutIdempotencyKeyRef.current = null;
-        toast.success(isOnline ? "Sale complete." : "Offline sale queued.", {
-          description: isOnline
-            ? "Receipt is ready. Sync will run in the background."
-            : "It will sync automatically when the device reconnects.",
-        });
+        // toast.success(isOnline ? "Sale complete." : "Offline sale queued.", {
+        //   description: isOnline
+        //     ? "Receipt is ready. Sync will run in the background."
+        //     : "It will sync automatically when the device reconnects.",
+        // });
         if (isOnline) {
           scheduleCheckoutBackgroundSync();
         }

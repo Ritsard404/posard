@@ -647,7 +647,8 @@ export const bluetoothPrinterConnectionService = {
 
       if (!reconnected || !characteristic) {
         throw new Error(
-          "Bluetooth printer is offline. Reconnect the printer or use receipt preview.",
+          "Bluetooth printer is offline.",
+          // "Bluetooth printer is offline. Reconnect the printer or use receipt preview.",
         );
       }
     }
