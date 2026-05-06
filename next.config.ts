@@ -27,11 +27,24 @@ const withPWA = createPWA({
   },
 });
 
+// next-pwa is CommonJS and does not ship TypeScript declarations.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const withPWA = require("next-pwa")({
+  dest: "public",
+  sw: "sw.js",
+  register: false,
+  skipWaiting: true,
+  clientsClaim: true,
+  cleanupOutdatedCaches: true,
+  customWorkerDir: "worker",
+  disable: process.env.NODE_ENV === "development",
+});
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/pos-sw.js",
+        source: "/sw.js",
         headers: [
           {
             key: "Content-Type",
