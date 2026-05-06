@@ -391,7 +391,7 @@ export function PwaInstallButton({
     return "This browser does not expose a direct install prompt. Use the browser menu if Add to Home Screen is available.";
   }, [fallbackReason]);
 
-  if (isInstalled && status !== "installed" && status !== "accepted") {
+  if (isInstalled || status === "installed" || status === "accepted") {
     return null;
   }
 
@@ -410,25 +410,17 @@ export function PwaInstallButton({
 
   const isBusy = status === "checking" || status === "installing";
   const isDisabled =
-    status === "checking" ||
-    status === "installing" ||
-    status === "installed" ||
-    status === "accepted" ||
-    status === "manual";
+    status === "checking" || status === "installing" || status === "manual";
   const buttonLabel =
     status === "checking"
       ? "Preparing install..."
       : status === "installing"
         ? "Installing..."
-        : status === "installed"
-          ? "Installed"
-          : status === "accepted"
-            ? "Installed"
-            : status === "manual"
-              ? "Install App"
-              : status === "unsupported"
-                ? "Not supported"
-                : label;
+        : status === "manual"
+          ? "Install App"
+          : status === "unsupported"
+            ? "Not supported"
+            : label;
 
   return (
     <div className={cn("flex flex-col items-stretch gap-2", className)}>
@@ -439,13 +431,10 @@ export function PwaInstallButton({
         className="h-auto min-h-10 whitespace-normal text-center leading-tight"
         onClick={handleInstall}
         disabled={isDisabled}
-        hidden={status === "installed" || status === "accepted"}
         aria-live="polite"
       >
         {isBusy ? (
           <Loader2 className="size-4 animate-spin" />
-        ) : status === "installed" || status === "accepted" ? (
-          <Check className="size-4" />
         ) : (
           <Download className="size-4" />
         )}
