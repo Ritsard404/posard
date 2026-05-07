@@ -2368,24 +2368,32 @@ export function POSReceiptContent({
                 ? "Training Receipt"
                 : "Official Receipt"}
           </p>
-          <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
+          {/* <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
             123 Business Avenue, Metro Suite
           </p>
           <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
             Registration: 000-000-000-000
-          </p>
+          </p> */}
 
-          <div className="mt-6 flex items-center justify-between border-y border-dashed py-3 text-[10px] font-bold text-muted-foreground/70">
-            <span>{formattedReceiptDate}</span>
-            <span>{receipt.posTerminalName}</span>
-          </div>
-          <div className="mt-3 space-y-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+          <div className="mt-6 space-y-1 border-y border-dashed py-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
             <div className="flex justify-between">
+              <span>Date</span>
+              <span className="text-right text-foreground">
+                {formattedReceiptDate}
+              </span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span>Terminal</span>
+              <span className="text-right text-foreground">
+                {receipt.posTerminalName}
+              </span>
+            </div>
+            <div className="flex justify-between gap-4">
               <span>Invoice No.</span>
               <span className="text-foreground">{formattedInvoiceNumber}</span>
             </div>
             {receipt.isProvisional ? (
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-4">
                 <span>Sync Status</span>
                 <span className="text-foreground">
                   {(receipt.syncStatus ?? "pending").replace("_", " ")}

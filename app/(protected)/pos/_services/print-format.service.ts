@@ -178,6 +178,7 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
       : []),
     "",
     `Date: ${formatInvoiceDate(receipt.createdAt)}`.padEnd(RECEIPT_WIDTH),
+    `Terminal: ${receipt.posTerminalName}`.padEnd(RECEIPT_WIDTH),
     `Cashier: ${receipt.cashierName}`.padEnd(RECEIPT_WIDTH),
     ...(receipt.debt
       ? [
