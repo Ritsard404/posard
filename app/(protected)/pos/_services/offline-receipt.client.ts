@@ -25,12 +25,8 @@ export function buildProvisionalInvoiceNumber(input: {
     parts.find((part) => part.type === type)?.value ?? "00";
   const date = `${value("year")}${value("month")}${value("day")}`;
   const time = `${value("hour")}${value("minute")}${value("second")}`;
-  const terminal = input.terminalLabel
-    .replace(/[^A-Za-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toUpperCase();
   const suffix = String(input.counter).padStart(4, "0");
-  return `SI-${date}-${time}-${terminal || "TERM"}-${suffix}`;
+  return `SI-${date}-${time}-${suffix}`;
 }
 
 export function buildProvisionalReceipt(input: {
@@ -43,7 +39,9 @@ export function buildProvisionalReceipt(input: {
   counter: number;
   invoiceNumber?: number;
 }) {
-  const productMap = new Map(input.products.map((product) => [product.id, product]));
+  const productMap = new Map(
+    input.products.map((product) => [product.id, product]),
+  );
   const createdAt = new Date();
   const localInvoiceNo = input.invoiceNumber
     ? formatInvoiceNumber(input.invoiceNumber)
