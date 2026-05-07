@@ -28,6 +28,10 @@ import {
   formatInvoiceNumber,
   buildZReadingPrintContent,
 } from "@/app/(protected)/pos/_services/print-format.service";
+import {
+  formatReportDate,
+  formatReportDateTime,
+} from "@/lib/report-date-format";
 
 const LINE_WIDTH = 42;
 
@@ -50,21 +54,11 @@ type ReportDetailDto =
   | ZReadingDto;
 
 function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(value);
+  return formatReportDate(value);
 }
 
 function formatDateTime(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(value);
+  return formatReportDateTime(value);
 }
 
 function formatCurrency(value: number) {

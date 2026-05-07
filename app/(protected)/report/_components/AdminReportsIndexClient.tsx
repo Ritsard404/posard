@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { formatReportDate } from "@/lib/report-date-format";
 import { AdminPaginationControls } from "@/app/(protected)/companies/_components/AdminPaginationControls";
 import type { ReportCompaniesWorkspaceDto } from "../_services/_dto/report.dto";
 
@@ -213,7 +214,7 @@ export function AdminReportsIndexClient({
                           </div>
                         </td>
                         <td className="px-5 py-4 text-muted-foreground">
-                          {new Date(company.createdAt).toLocaleDateString()}
+                          {formatReportDate(new Date(company.createdAt))}
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex justify-end gap-2">

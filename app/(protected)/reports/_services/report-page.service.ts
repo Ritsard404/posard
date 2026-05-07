@@ -30,6 +30,10 @@ import {
   type ReportPreset,
 } from "../_components/reports-config";
 import type { ReportSortOrder } from "@/app/(protected)/report/_components/report-workspace-config";
+import {
+  formatReportDate,
+  formatReportDateInput,
+} from "@/lib/report-date-format";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 export type LoadedReportData =
@@ -245,15 +249,11 @@ async function resolveDateRange(input: {
 }
 
 function formatDateInput(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return formatReportDateInput(value);
 }
 
 function formatDateLabel(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(value);
+  return formatReportDate(value);
 }
 
 export const reportPageService = {

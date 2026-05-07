@@ -24,24 +24,19 @@ import {
   UserRound,
 } from "lucide-react";
 import type { AuditTrailDto, AuditTrailItemDto } from "../_services/_dto/report.dto";
+import {
+  REPORT_TIME_ZONE,
+  formatReportDate,
+  formatReportDateTime,
+  formatReportTime,
+} from "@/lib/report-date-format";
 
 function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(value);
+  return formatReportDate(value);
 }
 
 function formatDateTime(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(value);
+  return formatReportDateTime(value, { seconds: true });
 }
 
 function formatCurrency(value: number) {
@@ -53,10 +48,7 @@ function formatCurrency(value: number) {
 }
 
 function formatTime(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(value);
+  return formatReportTime(value);
 }
 
 function formatAuditAction(action: string, amount: number | null) {
@@ -123,12 +115,16 @@ function groupAuditItemsByDay(audit: AuditTrailDto) {
         : item.occurredAt.toDateString() === yesterday.toDateString()
           ? "Yesterday"
           : formatDate(item.occurredAt);
-    const badgeTop = new Intl.DateTimeFormat("en-US", { weekday: "short" })
+    const badgeTop = new Intl.DateTimeFormat("en-US", {
+      timeZone: REPORT_TIME_ZONE,
+      weekday: "short",
+    })
       .format(item.occurredAt)
       .toUpperCase();
-    const badgeBottom = new Intl.DateTimeFormat("en-US", { day: "numeric" }).format(
-      item.occurredAt,
-    );
+    const badgeBottom = new Intl.DateTimeFormat("en-US", {
+      timeZone: REPORT_TIME_ZONE,
+      day: "numeric",
+    }).format(item.occurredAt);
     const existing = groups.get(key);
 
     if (existing) {

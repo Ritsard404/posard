@@ -19,6 +19,10 @@ import type {
   ZReadingDto,
 } from "@/app/(protected)/report/_services/_dto/report.dto";
 import type { ReportsRouteSlug } from "../_components/reports-config";
+import {
+  formatReportExportDate,
+  formatReportExportDateTime,
+} from "@/lib/report-date-format";
 
 type ExportableReportData =
   | AuditTrailDto
@@ -38,17 +42,11 @@ type ExportableReportData =
   | ZReadingDto;
 
 function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("en-CA").format(value);
+  return formatReportExportDate(value);
 }
 
 function formatDateTime(value: Date) {
-  return new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
+  return formatReportExportDateTime(value);
 }
 
 function stringifyCell(value: unknown): string {

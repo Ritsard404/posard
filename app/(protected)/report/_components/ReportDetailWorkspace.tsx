@@ -65,6 +65,10 @@ import {
   type ReportPrintableView,
   type ReportSortOrder,
 } from "./report-workspace-config";
+import {
+  formatReportDate,
+  formatReportDateInput,
+} from "@/lib/report-date-format";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 type DetailResult =
@@ -92,15 +96,11 @@ function isValidDate(value?: string) {
 }
 
 function formatDateInput(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return formatReportDateInput(value);
 }
 
 function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(value);
+  return formatReportDate(value);
 }
 
 function buildReportHref(input: {

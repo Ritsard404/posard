@@ -7,6 +7,10 @@ import { printConfigService } from "@/app/(protected)/pos/_services/print-config
 import { formatInvoiceNumber } from "@/app/(protected)/pos/_services/print-format.service";
 import { printArchiveService } from "@/app/(protected)/pos/_services/print-archive.service";
 import { auditLogService } from "@/lib/services/audit-log.service";
+import {
+  REPORT_TIME_ZONE,
+  formatReportDateInput,
+} from "@/lib/report-date-format";
 import type {
   AuditTrailDto,
   AuditTrailItemDto,
@@ -283,7 +287,10 @@ function calculatePercentChange(current: number, previous: number) {
 }
 
 function formatTrendLabel(value: Date) {
-  return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(value);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: REPORT_TIME_ZONE,
+    weekday: "short",
+  }).format(value);
 }
 
 function buildSalesTrend(
@@ -301,7 +308,7 @@ function buildSalesTrend(
     date.setDate(date.getDate() - (6 - index));
 
     return {
-      date: date.toISOString().slice(0, 10),
+      date: formatReportDateInput(date),
       label: formatTrendLabel(date),
       sales: 0,
       transactions: 0,
@@ -314,7 +321,7 @@ function buildSalesTrend(
       continue;
     }
 
-    const key = normalizeStartOfDay(invoice.createdAt).toISOString().slice(0, 10);
+    const key = formatReportDateInput(invoice.createdAt);
     const bucket = map.get(key);
 
     if (!bucket) {
