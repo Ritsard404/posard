@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { reportExportService } from "../_services/report-export.service";
 import { reportPageService } from "../_services/report-page.service";
+import { formatReportDateInput } from "@/lib/report-date-format";
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const format = url.searchParams.get("format");
     const detail = await reportPageService.loadExportData(url.searchParams);
-    const dateSuffix = new Date().toISOString().slice(0, 10);
+    const dateSuffix = formatReportDateInput(new Date());
     const baseName = `${detail.definition.slug}-report-${dateSuffix}`;
 
     if (format === "xlsx") {
@@ -35,4 +36,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

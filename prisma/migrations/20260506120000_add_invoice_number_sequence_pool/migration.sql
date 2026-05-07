@@ -40,5 +40,3 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_invoice_number_global
-  ON invoice (invoice_number);

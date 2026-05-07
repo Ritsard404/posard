@@ -440,13 +440,13 @@ export function PwaInstallButton({
         )}
         {buttonLabel}
       </Button>
-      {status === "available" &&
+      {/* {status === "available" &&
       (!serviceWorkerReady || !serviceWorkerControlled) ? (
         <p className="max-w-xs text-xs leading-5 text-muted-foreground">
           Install is available. The offline service worker is still becoming
           ready for this tab.
         </p>
-      ) : null}
+      ) : null} */}
       {showFallback &&
       (fallbackVisible || status === "manual" || status === "unsupported") ? (
         <p className="max-w-xs text-xs leading-5 text-muted-foreground">

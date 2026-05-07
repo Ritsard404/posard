@@ -47,7 +47,10 @@ function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-async function getActiveTimestampForOrder(companyId: string, timestampId: string) {
+async function getActiveTimestampForOrder(
+  companyId: string,
+  timestampId: string,
+) {
   if (!timestampId) {
     throw new Error("Active POS session is required");
   }
@@ -106,7 +109,10 @@ async function getActiveTimestampForOrder(companyId: string, timestampId: string
     throw new Error("Active POS session not found for this terminal");
   }
 
-  await assertTerminalBillingAllowsTransactions(companyId, timestamp.posTerminal.id);
+  await assertTerminalBillingAllowsTransactions(
+    companyId,
+    timestamp.posTerminal.id,
+  );
 
   return timestamp;
 }
@@ -214,30 +220,34 @@ async function findInvoiceByIdempotencyKey(
 
 async function generateInvoiceNumber(
   db: Prisma.TransactionClient | typeof prisma,
-  terminalId: string,
   isTrainMode: boolean,
 ): Promise<number> {
-  const last = await db.invoice.findFirst({
-    where: { posTerminalId: terminalId, isTrainMode },
-    orderBy: { invoiceNumber: "desc" },
-    select: { invoiceNumber: true },
-  });
+  const seqName = isTrainMode
+    ? "invoice_number_train_seq"
+    : "invoice_number_seq";
 
-  const nextNumber = last ? last.invoiceNumber + 1 : 1;
-  return isTrainMode ? 9_000_000 + nextNumber : nextNumber;
+  const result = await db.$queryRaw<Array<{ nextval: bigint | number }>>`
+    SELECT nextval(${seqName}::regclass)
+  `;
+  const row = result[0];
+  if (!row) {
+    throw new Error("Invoice number sequence did not return a value.");
+  }
+
+  const no = Number(row.nextval);
+  return isTrainMode ? 9_000_000 + no : no;
 }
 
 async function updateTerminalCounter(
   db: Prisma.TransactionClient | typeof prisma,
   terminalId: string,
   isTrainMode: boolean,
-  current: { resetCounterNo: number; resetCounterTrainNo: number },
 ) {
   await db.posTerminalInfo.update({
     where: { id: terminalId },
     data: isTrainMode
-      ? { resetCounterTrainNo: current.resetCounterTrainNo + 1 }
-      : { resetCounterNo: current.resetCounterNo + 1 },
+      ? { resetCounterTrainNo: { increment: 1 } }
+      : { resetCounterNo: { increment: 1 } },
   });
 }
 
@@ -264,7 +274,9 @@ function validateOrderRequest(dto: OrderDto) {
     }
 
     if (dto.ePayments?.length) {
-      throw new Error("Reference payments are not supported during debt issuance");
+      throw new Error(
+        "Reference payments are not supported during debt issuance",
+      );
     }
   }
 
@@ -292,7 +304,10 @@ function validatePayment(calc: ReturnType<typeof calculatePayment>) {
   }
 }
 
-function validateDebtPayment(calc: ReturnType<typeof calculatePayment>, upfrontCashAmount: number) {
+function validateDebtPayment(
+  calc: ReturnType<typeof calculatePayment>,
+  upfrontCashAmount: number,
+) {
   if (upfrontCashAmount < 0) {
     throw new Error("Upfront cash amount cannot be negative");
   }
@@ -347,7 +362,9 @@ function buildReceiptFromOrder(input: {
     isTrainMode: boolean;
     localInvoiceNo?: string | null;
   };
-  terminal: Awaited<ReturnType<typeof getActiveTimestampForOrder>>["posTerminal"];
+  terminal: Awaited<
+    ReturnType<typeof getActiveTimestampForOrder>
+  >["posTerminal"];
   cashierName: string | null;
   calc: ReturnType<typeof calculatePayment>;
   discount?: DiscountDto;
@@ -590,7 +607,9 @@ async function resolveDiscountApproval(params: {
   }
 
   if (!params.managerPin?.trim()) {
-    throw new Error("Manager approval PIN is required for discounted checkout.");
+    throw new Error(
+      "Manager approval PIN is required for discounted checkout.",
+    );
   }
 
   const approver = await params.db.profile.findFirst({
@@ -673,10 +692,16 @@ export const orderService = {
     mark("sessionMs", stageStartedAt);
 
     if (activeTimestamp.forceClosedAt) {
-      throw new Error("This terminal session was force-closed and needs review before syncing.");
+      throw new Error(
+        "This terminal session was force-closed and needs review before syncing.",
+      );
     }
 
-    if (dto.deviceId && activeTimestamp.deviceId && dto.deviceId !== activeTimestamp.deviceId) {
+    if (
+      dto.deviceId &&
+      activeTimestamp.deviceId &&
+      dto.deviceId !== activeTimestamp.deviceId
+    ) {
       throw new Error("This queued action belongs to a different device.");
     }
 
@@ -685,121 +710,324 @@ export const orderService = {
     const transactionStartedAt = performance.now();
 
     try {
-    const receipt = await prisma.$transaction(async (tx) => {
-      if (dto.idempotencyKey) {
-        const existingInvoice = await findInvoiceByIdempotencyKey(
+      const receipt = await prisma.$transaction(async (tx) => {
+        if (dto.idempotencyKey) {
+          const existingInvoice = await findInvoiceByIdempotencyKey(
+            tx,
+            dto.idempotencyKey,
+          );
+
+          if (existingInvoice) {
+            return mapInvoiceToReceipt(existingInvoice);
+          }
+        }
+
+        const ePaymentData = dto.ePayments?.length
+          ? await buildEPaymentData(tx, dto.ePayments)
+          : undefined;
+
+        const transactionProductMap = await loadAndValidateProducts(
           tx,
-          dto.idempotencyKey,
+          dto.items,
+          false,
         );
 
-        if (existingInvoice) {
-          return mapInvoiceToReceipt(existingInvoice);
-        }
-      }
-
-      const ePaymentData = dto.ePayments?.length
-        ? await buildEPaymentData(tx, dto.ePayments)
-        : undefined;
-
-      const transactionProductMap = await loadAndValidateProducts(
-        tx,
-        dto.items,
-        false,
-      );
-
-      const calc = calculatePayment({
-        items: buildCalculationItems(dto.items, transactionProductMap),
-        discount,
-        vatRate: terminal.vat ?? 0,
-        discountCapType: terminal.discountCapType,
-        discountCapValue: terminal.discountMax ? Number(terminal.discountMax) : null,
-        cashTenderAmount: dto.cashTenderAmount,
-        ePayments: dto.ePayments,
-      });
-
-      const upfrontCashAmount =
-        settlementMode === "debt"
-          ? round2(dto.debt?.upfrontCashAmount ?? dto.cashTenderAmount ?? 0)
-          : calc.totalTendered;
-
-      if (settlementMode === "debt") {
-        validateDebtPayment(calc, upfrontCashAmount);
-      } else {
-        validatePayment(calc);
-      }
-
-      const invoiceNumber =
-        dto.invoiceNumber ??
-        (await generateInvoiceNumber(
-          tx,
-          terminal.id,
-          terminal.isTrainMode,
-        ));
-
-      let debtReceipt: ReceiptDto["debt"] = null;
-      let customerNameOverride: string | undefined;
-      let approvedById: string | null = null;
-      let approvedByName: string | null = null;
-      const discountApprover = await resolveDiscountApproval({
-        db: tx,
-        companyId,
-        managerPin: discount?.managerPin,
-        requiresApproval: Boolean(discount?.discountType),
-      });
-      const discountApprovedById = discountApprover?.id ?? null;
-
-      if (settlementMode === "debt") {
-        if (
-          profile.role === "cashier" &&
-          !terminal.allowCashierDebtCreate
-        ) {
-          throw new Error("Cashier debt issuance is not allowed for this terminal.");
-        }
-
-        const debtCustomer = await tx.customer.findFirst({
-          where: {
-            id: dto.debt!.customerId,
-            companyId,
-            isActive: true,
-          },
-          select: {
-            id: true,
-            name: true,
-          },
+        const calc = calculatePayment({
+          items: buildCalculationItems(dto.items, transactionProductMap),
+          discount,
+          vatRate: terminal.vat ?? 0,
+          discountCapType: terminal.discountCapType,
+          discountCapValue: terminal.discountMax
+            ? Number(terminal.discountMax)
+            : null,
+          cashTenderAmount: dto.cashTenderAmount,
+          ePayments: dto.ePayments,
         });
 
-        if (!debtCustomer) {
-          throw new Error("Debt customer not found.");
+        const upfrontCashAmount =
+          settlementMode === "debt"
+            ? round2(dto.debt?.upfrontCashAmount ?? dto.cashTenderAmount ?? 0)
+            : calc.totalTendered;
+
+        if (settlementMode === "debt") {
+          validateDebtPayment(calc, upfrontCashAmount);
+        } else {
+          validatePayment(calc);
         }
 
-        customerNameOverride = debtCustomer.name;
+        const invoiceNumber =
+          dto.invoiceNumber ??
+          (await generateInvoiceNumber(tx, terminal.isTrainMode));
 
-        const dueDate = new Date(dto.debt!.dueDate);
-        if (Number.isNaN(dueDate.getTime())) {
-          throw new Error("Debt due date is invalid.");
-        }
-
-        if (upfrontCashAmount < 0 || upfrontCashAmount > calc.totalAmount) {
-          throw new Error("Invalid upfront cash amount.");
-        }
-
-        const approver = await resolveDebtApproval({
+        let debtReceipt: ReceiptDto["debt"] = null;
+        let customerNameOverride: string | undefined;
+        let approvedById: string | null = null;
+        let approvedByName: string | null = null;
+        const discountApprover = await resolveDiscountApproval({
           db: tx,
           companyId,
-          managerPin: dto.debt?.managerPin,
-          requiresApproval: terminal.requireManagerApprovalForDebt,
+          managerPin: discount?.managerPin,
+          requiresApproval: Boolean(discount?.discountType),
         });
-        approvedById = approver?.id ?? null;
-        approvedByName = approver?.fullName ?? null;
+        const discountApprovedById = discountApprover?.id ?? null;
 
-        const paidAmount = round2(upfrontCashAmount);
-        const remainingAmount = round2(calc.totalAmount - paidAmount);
-        const debtStatus =
-          remainingAmount <= 0
-            ? DebtStatus.PAID
-            : paidAmount > 0
-              ? DebtStatus.PARTIAL
-              : DebtStatus.UNPAID;
+        if (settlementMode === "debt") {
+          if (profile.role === "cashier" && !terminal.allowCashierDebtCreate) {
+            throw new Error(
+              "Cashier debt issuance is not allowed for this terminal.",
+            );
+          }
+
+          const debtCustomer = await tx.customer.findFirst({
+            where: {
+              id: dto.debt!.customerId,
+              companyId,
+              isActive: true,
+            },
+            select: {
+              id: true,
+              name: true,
+            },
+          });
+
+          if (!debtCustomer) {
+            throw new Error("Debt customer not found.");
+          }
+
+          customerNameOverride = debtCustomer.name;
+
+          const dueDate = new Date(dto.debt!.dueDate);
+          if (Number.isNaN(dueDate.getTime())) {
+            throw new Error("Debt due date is invalid.");
+          }
+
+          if (upfrontCashAmount < 0 || upfrontCashAmount > calc.totalAmount) {
+            throw new Error("Invalid upfront cash amount.");
+          }
+
+          const approver = await resolveDebtApproval({
+            db: tx,
+            companyId,
+            managerPin: dto.debt?.managerPin,
+            requiresApproval: terminal.requireManagerApprovalForDebt,
+          });
+          approvedById = approver?.id ?? null;
+          approvedByName = approver?.fullName ?? null;
+
+          const paidAmount = round2(upfrontCashAmount);
+          const remainingAmount = round2(calc.totalAmount - paidAmount);
+          const debtStatus =
+            remainingAmount <= 0
+              ? DebtStatus.PAID
+              : paidAmount > 0
+                ? DebtStatus.PARTIAL
+                : DebtStatus.UNPAID;
+
+          const invoice = await tx.invoice.create({
+            data: {
+              invoiceNumber,
+              idempotencyKey: dto.idempotencyKey ?? null,
+              sourceDeviceId: dto.deviceId ?? activeTimestamp.deviceId ?? null,
+              sourceTimestampId: activeTimestamp.id,
+              localInvoiceNo: dto.localInvoiceNo ?? null,
+              posTerminalId: terminal.id,
+              cashierId: activeTimestamp.cashierId,
+
+              grossAmount: calc.grossAmount,
+              totalAmount: calc.totalAmount,
+              subTotal: calc.subTotal,
+              cashTendered: paidAmount,
+              dueAmount: remainingAmount,
+              totalTendered: paidAmount,
+              changeAmount: 0,
+              vatSales: calc.vatSales,
+              vatExempt: calc.vatExempt,
+              vatAmount: calc.vatAmount,
+              vatZero: calc.vatZero,
+              discountAmount: calc.discountAmount,
+
+              customerName: customerNameOverride,
+              eligibleDiscName: discount?.eligibleDiscName,
+              oscaIdNum: discount?.oscaIdNum,
+              discountType: discount?.discountType,
+              discountPercent: getEffectiveDiscountPercent(
+                discount,
+                terminal.discountCapType === "percent"
+                  ? terminal.discountMax
+                    ? Number(terminal.discountMax)
+                    : 0
+                  : undefined,
+              ),
+
+              status:
+                debtStatus === DebtStatus.PAID
+                  ? ("PAID" satisfies InvoiceStatusType)
+                  : ("PENDING" satisfies InvoiceStatusType),
+              isTrainMode: terminal.isTrainMode,
+            },
+            select: {
+              id: true,
+              invoiceNumber: true,
+              createdAt: true,
+              isTrainMode: true,
+              localInvoiceNo: true,
+            },
+          });
+
+          await createInvoiceItems(
+            tx,
+            invoice.id,
+            dto.items,
+            terminal.isTrainMode,
+          );
+
+          const debt = await tx.customerDebt.create({
+            data: {
+              companyId,
+              terminalId: terminal.id,
+              customerId: debtCustomer.id,
+              invoiceId: invoice.id,
+              originalAmount: calc.totalAmount,
+              paidAmount,
+              remainingAmount,
+              status: debtStatus,
+              dueDate,
+              paidAt: remainingAmount <= 0 ? invoice.createdAt : null,
+              notes: dto.debt?.notes?.trim() || null,
+              createdById: profile.id,
+              approvedById,
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          if (paidAmount > 0) {
+            await tx.customerDebtPayment.create({
+              data: {
+                debtId: debt.id,
+                companyId,
+                terminalId: terminal.id,
+                timestampId: activeTimestamp.id,
+                amount: paidAmount,
+                method: "CASH",
+                referenceNo: null,
+                notes: "Upfront cash collected during debt issuance",
+                receivedById: profile.id,
+              },
+            });
+
+            await auditLogService.create(tx, {
+              companyId,
+              actorProfileId: profile.id,
+              posTerminalId: terminal.id,
+              actionType: "DEBT_UPFRONT_PAYMENT_COLLECTED",
+              referenceId: debt.id,
+              changes: JSON.stringify({
+                invoiceId: invoice.id,
+                customerId: debtCustomer.id,
+                method: "CASH",
+                remainingAmount,
+              }),
+              amount: paidAmount,
+            });
+          }
+
+          const inventoryStartedAt = performance.now();
+          const stockUpdates = !terminal.isTrainMode
+            ? await deductStock(tx, dto.items, transactionProductMap)
+            : [];
+          inventoryMs += Math.round(performance.now() - inventoryStartedAt);
+
+          await updateTerminalCounter(
+            tx,
+            terminal.id,
+            terminal.isTrainMode,
+          );
+
+          await auditLogService.create(tx, {
+            companyId,
+            actorProfileId: profile.id,
+            posTerminalId: terminal.id,
+            actionType: "DEBT_CREATED",
+            referenceId: debt.id,
+            changes: JSON.stringify({
+              invoiceId: invoice.id,
+              customerId: debtCustomer.id,
+              dueDate: dueDate.toISOString(),
+              originalAmount: calc.totalAmount,
+              paidAmount,
+              remainingAmount,
+              cashierId: activeTimestamp.cashierId,
+              approvedById,
+            }),
+            amount: calc.totalAmount,
+          });
+
+          if (discountApprovedById) {
+            await auditLogService.create(tx, {
+              companyId,
+              actorProfileId: discountApprovedById,
+              posTerminalId: terminal.id,
+              actionType: "DISCOUNT_APPROVED",
+              referenceId: invoice.id,
+              changes: JSON.stringify({
+                discountType: discount?.discountType,
+                discountAmount: calc.discountAmount,
+                cashierId: activeTimestamp.cashierId,
+              }),
+              amount: calc.discountAmount,
+            });
+          }
+
+          if (approvedById) {
+            await auditLogService.create(tx, {
+              companyId,
+              actorProfileId: approvedById,
+              posTerminalId: terminal.id,
+              actionType: "DEBT_APPROVED",
+              referenceId: debt.id,
+              changes: `Approved debt issuance for invoice ${invoice.id}`,
+              amount: calc.totalAmount,
+            });
+          }
+
+          debtReceipt = buildDebtReceiptDetails({
+            debtId: debt.id,
+            customerId: debtCustomer.id,
+            customerName: debtCustomer.name,
+            dueDate,
+            originalAmount: calc.totalAmount,
+            paidAmount,
+            remainingAmount,
+            notes: dto.debt?.notes?.trim() || null,
+            approvedByName,
+          });
+
+          const receiptStartedAt = performance.now();
+          const receipt = buildReceiptFromOrder({
+            invoice,
+            terminal,
+            cashierName: activeTimestamp.cashier.fullName,
+            calc: {
+              ...calc,
+              cashTendered: paidAmount,
+              totalTendered: paidAmount,
+              dueAmount: remainingAmount,
+              changeAmount: 0,
+            },
+            discount,
+            items: dto.items,
+            productMap: transactionProductMap,
+            otherPayments: [],
+            stockUpdates,
+            debt: debtReceipt,
+          });
+          receiptPreparationMs += Math.round(
+            performance.now() - receiptStartedAt,
+          );
+          return receipt;
+        }
 
         const invoice = await tx.invoice.create({
           data: {
@@ -814,31 +1042,33 @@ export const orderService = {
             grossAmount: calc.grossAmount,
             totalAmount: calc.totalAmount,
             subTotal: calc.subTotal,
-            cashTendered: paidAmount,
-            dueAmount: remainingAmount,
-            totalTendered: paidAmount,
-            changeAmount: 0,
+            cashTendered: calc.cashTendered,
+            dueAmount: calc.dueAmount,
+            totalTendered: calc.totalTendered,
+            changeAmount: calc.changeAmount,
             vatSales: calc.vatSales,
             vatExempt: calc.vatExempt,
             vatAmount: calc.vatAmount,
             vatZero: calc.vatZero,
             discountAmount: calc.discountAmount,
 
-            customerName: customerNameOverride,
+            ...(discount?.eligibleDiscName
+              ? { customerName: discount.eligibleDiscName }
+              : {}),
+
             eligibleDiscName: discount?.eligibleDiscName,
             oscaIdNum: discount?.oscaIdNum,
             discountType: discount?.discountType,
             discountPercent: getEffectiveDiscountPercent(
               discount,
               terminal.discountCapType === "percent"
-                ? (terminal.discountMax ? Number(terminal.discountMax) : 0)
+                ? terminal.discountMax
+                  ? Number(terminal.discountMax)
+                  : 0
                 : undefined,
             ),
 
-            status:
-              debtStatus === DebtStatus.PAID
-                ? ("PAID" satisfies InvoiceStatusType)
-                : ("PENDING" satisfies InvoiceStatusType),
+            status: "PAID" satisfies InvoiceStatusType,
             isTrainMode: terminal.isTrainMode,
           },
           select: {
@@ -850,84 +1080,52 @@ export const orderService = {
           },
         });
 
-        await createInvoiceItems(tx, invoice.id, dto.items, terminal.isTrainMode);
-
-        const debt = await tx.customerDebt.create({
-          data: {
-            companyId,
-            terminalId: terminal.id,
-            customerId: debtCustomer.id,
-            invoiceId: invoice.id,
-            originalAmount: calc.totalAmount,
-            paidAmount,
-            remainingAmount,
-            status: debtStatus,
-            dueDate,
-            paidAt: remainingAmount <= 0 ? invoice.createdAt : null,
-            notes: dto.debt?.notes?.trim() || null,
-            createdById: profile.id,
-            approvedById,
-          },
-          select: {
-            id: true,
-          },
-        });
-
-        if (paidAmount > 0) {
-          await tx.customerDebtPayment.create({
-            data: {
-              debtId: debt.id,
-              companyId,
-              terminalId: terminal.id,
-              timestampId: activeTimestamp.id,
-              amount: paidAmount,
-              method: "CASH",
-              referenceNo: null,
-              notes: "Upfront cash collected during debt issuance",
-              receivedById: profile.id,
-            },
-          });
-
-          await auditLogService.create(tx, {
-            companyId,
-            actorProfileId: profile.id,
-            posTerminalId: terminal.id,
-            actionType: "DEBT_UPFRONT_PAYMENT_COLLECTED",
-            referenceId: debt.id,
-            changes: JSON.stringify({
-              invoiceId: invoice.id,
-              customerId: debtCustomer.id,
-              method: "CASH",
-              remainingAmount,
-            }),
-            amount: paidAmount,
-          });
-        }
+        await createInvoiceItems(
+          tx,
+          invoice.id,
+          dto.items,
+          terminal.isTrainMode,
+        );
+        await createInvoiceEPayments(tx, invoice.id, ePaymentData);
 
         const inventoryStartedAt = performance.now();
-        const stockUpdates =
-          !terminal.isTrainMode
-            ? await deductStock(tx, dto.items, transactionProductMap)
-            : [];
+        const stockUpdates = !terminal.isTrainMode
+          ? await deductStock(tx, dto.items, transactionProductMap)
+          : [];
         inventoryMs += Math.round(performance.now() - inventoryStartedAt);
 
-        await updateTerminalCounter(tx, terminal.id, terminal.isTrainMode, terminal);
+        await updateTerminalCounter(
+          tx,
+          terminal.id,
+          terminal.isTrainMode,
+        );
 
         await auditLogService.create(tx, {
           companyId,
           actorProfileId: profile.id,
           posTerminalId: terminal.id,
-          actionType: "DEBT_CREATED",
-          referenceId: debt.id,
+          actionType: "SALE_COMPLETED",
+          referenceId: invoice.id,
           changes: JSON.stringify({
-            invoiceId: invoice.id,
-            customerId: debtCustomer.id,
-            dueDate: dueDate.toISOString(),
-            originalAmount: calc.totalAmount,
-            paidAmount,
-            remainingAmount,
+            invoiceNumber: invoice.invoiceNumber,
+            cashTendered: calc.cashTendered,
+            totalTendered: calc.totalTendered,
+            changeAmount: calc.changeAmount,
+            discountType: discount?.discountType ?? null,
+            discountAmount: calc.discountAmount,
+            discountApprovedById,
+            referencePaymentTotal:
+              ePaymentData?.reduce((sum, payment) => sum + payment.amount, 0) ??
+              0,
+            referencePayments:
+              ePaymentData?.map((payment) => ({
+                saleTypeId: payment.saleTypeId,
+                name: payment.name,
+                amount: payment.amount,
+                reference: payment.reference,
+              })) ?? [],
+            itemCount: dto.items.length,
             cashierId: activeTimestamp.cashierId,
-            approvedById,
           }),
           amount: calc.totalAmount,
         });
@@ -948,188 +1146,38 @@ export const orderService = {
           });
         }
 
-        if (approvedById) {
-          await auditLogService.create(tx, {
-            companyId,
-            actorProfileId: approvedById,
-            posTerminalId: terminal.id,
-            actionType: "DEBT_APPROVED",
-            referenceId: debt.id,
-            changes: `Approved debt issuance for invoice ${invoice.id}`,
-            amount: calc.totalAmount,
-          });
-        }
-
-        debtReceipt = buildDebtReceiptDetails({
-          debtId: debt.id,
-          customerId: debtCustomer.id,
-          customerName: debtCustomer.name,
-          dueDate,
-          originalAmount: calc.totalAmount,
-          paidAmount,
-          remainingAmount,
-          notes: dto.debt?.notes?.trim() || null,
-          approvedByName,
-        });
-
         const receiptStartedAt = performance.now();
         const receipt = buildReceiptFromOrder({
           invoice,
           terminal,
           cashierName: activeTimestamp.cashier.fullName,
-          calc: {
-            ...calc,
-            cashTendered: paidAmount,
-            totalTendered: paidAmount,
-            dueAmount: remainingAmount,
-            changeAmount: 0,
-          },
+          calc,
           discount,
           items: dto.items,
           productMap: transactionProductMap,
-          otherPayments: [],
-          stockUpdates,
-          debt: debtReceipt,
-        });
-        receiptPreparationMs += Math.round(performance.now() - receiptStartedAt);
-        return receipt;
-      }
-
-      const invoice = await tx.invoice.create({
-        data: {
-          invoiceNumber,
-          idempotencyKey: dto.idempotencyKey ?? null,
-          sourceDeviceId: dto.deviceId ?? activeTimestamp.deviceId ?? null,
-          sourceTimestampId: activeTimestamp.id,
-          localInvoiceNo: dto.localInvoiceNo ?? null,
-          posTerminalId: terminal.id,
-          cashierId: activeTimestamp.cashierId,
-
-          grossAmount: calc.grossAmount,
-          totalAmount: calc.totalAmount,
-          subTotal: calc.subTotal,
-          cashTendered: calc.cashTendered,
-          dueAmount: calc.dueAmount,
-          totalTendered: calc.totalTendered,
-          changeAmount: calc.changeAmount,
-          vatSales: calc.vatSales,
-          vatExempt: calc.vatExempt,
-          vatAmount: calc.vatAmount,
-          vatZero: calc.vatZero,
-          discountAmount: calc.discountAmount,
-
-          ...(discount?.eligibleDiscName
-            ? { customerName: discount.eligibleDiscName }
-            : {}),
-
-          eligibleDiscName: discount?.eligibleDiscName,
-          oscaIdNum: discount?.oscaIdNum,
-          discountType: discount?.discountType,
-          discountPercent: getEffectiveDiscountPercent(
-            discount,
-            terminal.discountCapType === "percent"
-              ? (terminal.discountMax ? Number(terminal.discountMax) : 0)
-              : undefined,
-          ),
-
-          status: "PAID" satisfies InvoiceStatusType,
-          isTrainMode: terminal.isTrainMode,
-        },
-        select: {
-          id: true,
-          invoiceNumber: true,
-          createdAt: true,
-          isTrainMode: true,
-          localInvoiceNo: true,
-        },
-      });
-
-      await createInvoiceItems(tx, invoice.id, dto.items, terminal.isTrainMode);
-      await createInvoiceEPayments(tx, invoice.id, ePaymentData);
-
-      const inventoryStartedAt = performance.now();
-      const stockUpdates =
-        !terminal.isTrainMode
-          ? await deductStock(tx, dto.items, transactionProductMap)
-          : [];
-      inventoryMs += Math.round(performance.now() - inventoryStartedAt);
-
-      await updateTerminalCounter(tx, terminal.id, terminal.isTrainMode, terminal);
-
-      await auditLogService.create(tx, {
-        companyId,
-        actorProfileId: profile.id,
-        posTerminalId: terminal.id,
-        actionType: "SALE_COMPLETED",
-        referenceId: invoice.id,
-        changes: JSON.stringify({
-          invoiceNumber: invoice.invoiceNumber,
-          cashTendered: calc.cashTendered,
-          totalTendered: calc.totalTendered,
-          changeAmount: calc.changeAmount,
-          discountType: discount?.discountType ?? null,
-          discountAmount: calc.discountAmount,
-          discountApprovedById,
-          referencePaymentTotal: ePaymentData?.reduce(
-            (sum, payment) => sum + payment.amount,
-            0,
-          ) ?? 0,
-          referencePayments:
+          otherPayments:
             ePaymentData?.map((payment) => ({
-              saleTypeId: payment.saleTypeId,
               name: payment.name,
               amount: payment.amount,
               reference: payment.reference,
             })) ?? [],
-          itemCount: dto.items.length,
-          cashierId: activeTimestamp.cashierId,
-        }),
-        amount: calc.totalAmount,
-      });
-
-      if (discountApprovedById) {
-        await auditLogService.create(tx, {
-          companyId,
-          actorProfileId: discountApprovedById,
-          posTerminalId: terminal.id,
-          actionType: "DISCOUNT_APPROVED",
-          referenceId: invoice.id,
-          changes: JSON.stringify({
-            discountType: discount?.discountType,
-            discountAmount: calc.discountAmount,
-            cashierId: activeTimestamp.cashierId,
-          }),
-          amount: calc.discountAmount,
+          stockUpdates,
+          debt: null,
         });
-      }
-
-      const receiptStartedAt = performance.now();
-      const receipt = buildReceiptFromOrder({
-        invoice,
-        terminal,
-        cashierName: activeTimestamp.cashier.fullName,
-        calc,
-        discount,
-        items: dto.items,
-        productMap: transactionProductMap,
-        otherPayments: ePaymentData?.map((payment) => ({
-          name: payment.name,
-          amount: payment.amount,
-          reference: payment.reference,
-        })) ?? [],
-        stockUpdates,
-        debt: null,
+        receiptPreparationMs += Math.round(
+          performance.now() - receiptStartedAt,
+        );
+        return receipt;
       });
-      receiptPreparationMs += Math.round(performance.now() - receiptStartedAt);
-      return receipt;
-    });
-    timing.transactionMs = Math.round(performance.now() - transactionStartedAt);
-    timing.inventoryMs = inventoryMs;
-    timing.receiptPreparationMs = receiptPreparationMs;
-    timing.totalMs = Math.round(performance.now() - startedAt);
-    console.info("POS checkout timing", timing);
+      timing.transactionMs = Math.round(
+        performance.now() - transactionStartedAt,
+      );
+      timing.inventoryMs = inventoryMs;
+      timing.receiptPreparationMs = receiptPreparationMs;
+      timing.totalMs = Math.round(performance.now() - startedAt);
+      console.info("POS checkout timing", timing);
 
-    return receipt;
+      return receipt;
     } catch (error) {
       if (
         dto.idempotencyKey &&
@@ -1142,7 +1190,9 @@ export const orderService = {
         );
 
         if (existingInvoice) {
-          timing.transactionMs = Math.round(performance.now() - transactionStartedAt);
+          timing.transactionMs = Math.round(
+            performance.now() - transactionStartedAt,
+          );
           timing.inventoryMs = inventoryMs;
           timing.receiptPreparationMs = receiptPreparationMs;
           timing.totalMs = Math.round(performance.now() - startedAt);
@@ -1196,7 +1246,9 @@ export const orderService = {
       discount,
       vatRate: terminal.vat ?? 0,
       discountCapType: terminal.discountCapType,
-      discountCapValue: terminal.discountMax ? Number(terminal.discountMax) : null,
+      discountCapValue: terminal.discountMax
+        ? Number(terminal.discountMax)
+        : null,
       cashTenderAmount: dto.order.cashTenderAmount,
       ePayments: dto.order.ePayments,
     });
@@ -1204,7 +1256,6 @@ export const orderService = {
     await prisma.$transaction(async (tx) => {
       const invoiceNumber = await generateInvoiceNumber(
         tx,
-        terminal.id,
         terminal.isTrainMode,
       );
 
@@ -1269,7 +1320,6 @@ export const orderService = {
         tx,
         terminal.id,
         terminal.isTrainMode,
-        terminal,
       );
     });
   },
