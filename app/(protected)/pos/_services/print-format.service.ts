@@ -166,16 +166,10 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
     receipt.invoiceNumber && receipt.invoiceNumber > 0
       ? formatInvoiceNumber(receipt.invoiceNumber)
       : (receipt.localInvoiceNo ?? "OFFLINE-PENDING");
-  const shouldShowLocalReference = Boolean(
-    receipt.invoiceNumber && receipt.localInvoiceNo,
-  );
 
   content.push(
     "",
     `INV: ${displayInvoiceNumber}`.padEnd(RECEIPT_WIDTH),
-    ...(shouldShowLocalReference
-      ? [`REF: ${receipt.localInvoiceNo}`.padEnd(RECEIPT_WIDTH)]
-      : []),
     "",
     `Date: ${formatInvoiceDate(receipt.createdAt)}`.padEnd(RECEIPT_WIDTH),
     `Terminal: ${receipt.posTerminalName}`.padEnd(RECEIPT_WIDTH),
