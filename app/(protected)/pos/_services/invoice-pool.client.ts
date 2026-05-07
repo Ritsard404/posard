@@ -53,12 +53,28 @@ export async function refillInvoicePool() {
 }
 
 export async function reserveNextInvoiceNumber() {
+  return reserveNextInvoiceNumberFromPool({ allowNetworkRefill: true });
+}
+
+export async function reserveNextLocalInvoiceNumber() {
+  return reserveNextInvoiceNumberFromPool({ allowNetworkRefill: false });
+}
+
+async function reserveNextInvoiceNumberFromPool(options: {
+  allowNetworkRefill: boolean;
+}) {
   let reserved: number | null = null;
 
   while (reserved === null) {
     const current = await posOfflineDb.invoicePool.get(POOL_ID);
 
     if (!current || current.nextAvailable > current.poolEnd) {
+      if (!options.allowNetworkRefill) {
+        throw new Error(
+          "Official invoice numbers are still preparing. Please wait a moment and try again.",
+        );
+      }
+
       const range = await reserveInvoiceNumbers();
       let insertedRange = false;
 

@@ -74,7 +74,7 @@ export async function fetchOfflineBootstrap(deviceId: string) {
 
 export async function enqueueOfflineAction(action: QueuedPosAction) {
   await posOfflineDb.queuedActions.put(action);
-  await notifyServiceWorkerToSync();
+  void notifyServiceWorkerToSync().catch(() => undefined);
 }
 
 export async function commitLocalSale(input: {
@@ -117,11 +117,13 @@ export async function commitLocalSale(input: {
     await posOfflineDb.queuedActions.put(input.action);
   });
 
-  console.info("POS local checkout commit", {
-    clientTxnId: input.action.idempotencyKey,
-    localId: input.action.localId,
-    committedAt: now,
-  });
+  if (process.env.NODE_ENV !== "production") {
+    console.info("POS local checkout commit", {
+      clientTxnId: input.action.idempotencyKey,
+      localId: input.action.localId,
+      committedAt: now,
+    });
+  }
 
   await notifyServiceWorkerToSync();
 }
@@ -246,10 +248,12 @@ async function syncOfflineActionsInternal() {
     }
   }
 
-  console.info("POS background sync timing", {
-    actionCount: actions.length,
-    syncedCount: payload.data.results.filter((item) => item.syncStatus === "synced").length,
-  });
+  if (process.env.NODE_ENV !== "production") {
+    console.info("POS background sync timing", {
+      actionCount: actions.length,
+      syncedCount: payload.data.results.filter((item) => item.syncStatus === "synced").length,
+    });
+  }
 
   return payload.data;
 }

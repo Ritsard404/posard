@@ -49,6 +49,10 @@ import {
   syncOfflineActions,
 } from "../_services/offline-sync.client";
 import { getStockSnapshotVersion } from "../_services/offline-db.client";
+import {
+  refillInvoicePool,
+  reserveNextLocalInvoiceNumber,
+} from "../_services/invoice-pool.client";
 
 export const defaultDiscount = {
   type: "NONE" as const,
@@ -630,6 +634,7 @@ export function usePOSCheckoutFlow(
         const clickStartedAt = performance.now();
         const queueState = await getOfflineQueueSnapshot();
         const stockSnapshotVersion = await getStockSnapshotVersion();
+        const invoiceNumber = await reserveNextLocalInvoiceNumber();
         const queuedCounter =
           queueState.actions.filter((action) => action.type === "PAY_ORDER")
             .length + 1;
@@ -645,6 +650,7 @@ export function usePOSCheckoutFlow(
           terminalVat: activeTerminal.vat,
           printerConfig: activeTerminal.printerConfig ?? null,
           counter: queuedCounter,
+          invoiceNumber,
         });
 
         const localId = crypto.randomUUID();
@@ -667,9 +673,10 @@ export function usePOSCheckoutFlow(
             order: {
               ...orderDto,
               localInvoiceNo,
+              invoiceNumber,
             },
             invoiceNoLocal: localInvoiceNo,
-            invoiceNumber: null,
+            invoiceNumber,
             stockSnapshotVersion,
             receipt: provisionalReceipt,
           },
@@ -682,12 +689,16 @@ export function usePOSCheckoutFlow(
           action: queuedAction,
           localSequenceNumber: queuedCounter,
         });
-        console.info("POS checkout local-first timing", {
-          clientTxnId: idempotencyKey,
-          localPayloadBuildMs: Math.round(commitStartedAt - clickStartedAt),
-          dexieCommitMs: Math.round(performance.now() - commitStartedAt),
-          onlineAtCommit: isOnline,
-        });
+        if (process.env.NODE_ENV !== "production") {
+          const totalMs = Math.round(performance.now() - clickStartedAt);
+          console.info("POS checkout local-first timing", {
+            clientTxnId: idempotencyKey,
+            localPayloadBuildMs: Math.round(commitStartedAt - clickStartedAt),
+            dexieCommitMs: Math.round(performance.now() - commitStartedAt),
+            totalMs,
+            onlineAtCommit: isOnline,
+          });
+        }
 
         usePOSStore.getState().setSyncCounts({
           pendingSyncCount: queueState.pendingCount + 1,
@@ -704,8 +715,8 @@ export function usePOSCheckoutFlow(
         });
 
         if (fastCheckout) {
-          await printFastCheckoutReceipt(provisionalReceipt);
           resetAfterFastCheckout();
+          void printFastCheckoutReceipt(provisionalReceipt);
         } else {
           setCustomerDisplayMode("completed");
           setReceipt(provisionalReceipt);
@@ -722,6 +733,7 @@ export function usePOSCheckoutFlow(
         // });
         if (isOnline) {
           scheduleCheckoutBackgroundSync();
+          void refillInvoicePool().catch(() => undefined);
         }
         return;
       } catch (error) {
