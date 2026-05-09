@@ -11,6 +11,7 @@ import type {
   EPaymentDto,
   ItemRequestDto,
   OrderDto,
+  ReturnInvoiceDto,
   InvoiceStatusType as OrderInvoiceStatusType,
 } from "./_dto/order.dto";
 import type { ReceiptDto } from "./_dto/receipt.dto";
@@ -721,6 +722,45 @@ async function resolveDiscountApproval(params: {
   return approver;
 }
 
+async function resolveReturnApproval(params: {
+  db: Prisma.TransactionClient;
+  companyId: string;
+  managerPin?: string;
+}) {
+  if (!params.managerPin?.trim()) {
+    throw new Error("Manager approval PIN is required for returns.");
+  }
+
+  const approver = await params.db.profile.findFirst({
+    where: {
+      companyId: params.companyId,
+      pin: params.managerPin.trim(),
+      role: { in: ["manager", "admin"] },
+      status: "active",
+    },
+    select: { id: true, fullName: true },
+  });
+
+  if (!approver) {
+    throw new Error("Invalid manager PIN.");
+  }
+
+  return approver;
+}
+
+async function reserveNextReturnNumber(
+  db: Prisma.TransactionClient,
+  terminalId: string,
+) {
+  const latest = await db.invoiceReturn.findFirst({
+    where: { terminalId },
+    orderBy: { returnNumber: "desc" },
+    select: { returnNumber: true },
+  });
+
+  return (latest?.returnNumber ?? 0) + 1;
+}
+
 function buildDebtReceiptDetails(input: {
   debtId: string;
   customerId: string;
@@ -1324,6 +1364,226 @@ export const orderService = {
       content: printPayload.archiveContent,
       invoiceId: receipt.id,
       isTrainMode: receipt.isTrainMode,
+    });
+  },
+
+  async returnInvoice(dto: ReturnInvoiceDto): Promise<{ returnId: string; returnNumber: number; totalReturned: number }> {
+    const profile = await getCurrentProfile();
+    if (!profile.companyId) throw new Error("User has no assigned company");
+    const companyId = profile.companyId;
+    if (!dto.invoiceId?.trim()) throw new Error("Invoice is required.");
+    if (!dto.reason?.trim()) throw new Error("Return reason is required.");
+    const requestedItems = dto.items.filter((item) => item.quantity > 0);
+    if (requestedItems.length === 0) throw new Error("Select at least one item to return.");
+
+    return prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findFirst({
+        where: {
+          id: dto.invoiceId,
+          posTerminal: { companyId },
+          status: { in: ["PAID", "RETURNED"] },
+        },
+        include: {
+          posTerminal: { select: { id: true, companyId: true, isTrainMode: true, posName: true } },
+          items: {
+            include: {
+              product: { select: { id: true, name: true, trackInventory: true } },
+              selections: {
+                orderBy: { sortOrder: "asc" },
+                select: {
+                  modifierGroupName: true,
+                  modifierGroupType: true,
+                  optionName: true,
+                  priceDelta: true,
+                  quantity: true,
+                  sortOrder: true,
+                },
+              },
+              returnItems: { select: { returnedQty: true } },
+            },
+          },
+          returns: { select: { totalReturned: true } },
+        },
+      });
+
+      if (!invoice) {
+        throw new Error("Invoice is not returnable or was not found.");
+      }
+
+      const approver = await resolveReturnApproval({
+        db: tx,
+        companyId,
+        managerPin: dto.managerPin,
+      });
+
+      const itemMap = new Map(invoice.items.map((item) => [item.id, item]));
+      const returnLines = requestedItems.map((request) => {
+        const item = itemMap.get(request.invoiceItemId);
+        if (!item || item.status === "VOID" || item.status === "CANCELLED") {
+          throw new Error("One or more selected items cannot be returned.");
+        }
+
+        const soldQty = Number(item.qty);
+        const alreadyReturned = item.returnItems.reduce(
+          (sum, returnItem) => sum + Number(returnItem.returnedQty),
+          0,
+        );
+        const remainingQty = round2(soldQty - alreadyReturned);
+        const requestedQty = round2(request.quantity);
+
+        if (requestedQty <= 0 || requestedQty > remainingQty) {
+          throw new Error(`Return quantity for ${item.product.name} exceeds the remaining sold quantity.`);
+        }
+
+        const unitAmount = soldQty > 0 ? Number(item.subTotal) / soldQty : Number(item.price);
+        const lineAmount = round2(unitAmount * requestedQty);
+
+        return {
+          item,
+          requestedQty,
+          remainingAfterReturn: round2(remainingQty - requestedQty),
+          lineAmount,
+        };
+      });
+
+      const subtotalReturned = round2(returnLines.reduce((sum, line) => sum + line.lineAmount, 0));
+      const priorReturned = invoice.returns.reduce(
+        (sum, invoiceReturn) => sum + Number(invoiceReturn.totalReturned),
+        0,
+      );
+      const totalReturned = round2(subtotalReturned);
+      const nextReturnedAmount = round2(priorReturned + totalReturned);
+      const invoiceTotal = Number(invoice.totalAmount);
+      const allRemainingReturned = invoice.items.every((item) => {
+        const line = returnLines.find((returnLine) => returnLine.item.id === item.id);
+        if (line) return line.remainingAfterReturn <= 0;
+        const alreadyReturned = item.returnItems.reduce(
+          (sum, returnItem) => sum + Number(returnItem.returnedQty),
+          0,
+        );
+        return Number(item.qty) - alreadyReturned <= 0;
+      });
+
+      if (nextReturnedAmount - invoiceTotal > 0.01) {
+        throw new Error("Return total exceeds the original invoice amount.");
+      }
+
+      const invoiceReturn = await tx.invoiceReturn.create({
+        data: {
+          companyId,
+          terminalId: invoice.posTerminal.id,
+          invoiceId: invoice.id,
+          returnNumber: await reserveNextReturnNumber(tx, invoice.posTerminal.id),
+          returnType: allRemainingReturned ? "FULL" : "PARTIAL",
+          reason: dto.reason.trim(),
+          notes: dto.notes?.trim() || null,
+          subtotalReturned,
+          totalReturned,
+          processedById: profile.id,
+          approvedById: approver.id,
+          items: {
+            create: returnLines.map((line) => ({
+              invoiceItemId: line.item.id,
+              productId: line.item.productId,
+              returnedQty: line.requestedQty,
+              unitPriceSnapshot: line.item.price,
+              lineAmount: line.lineAmount,
+              productNameSnapshot: line.item.product.name,
+              selectionsSnapshot:
+                line.item.selections.length > 0 || line.item.specialInstructions?.trim()
+                  ? ({
+                      selections: line.item.selections,
+                      specialInstructions: line.item.specialInstructions ?? null,
+                    } as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
+            })),
+          },
+        },
+        select: { id: true, returnNumber: true, returnType: true },
+      });
+
+      for (const line of returnLines) {
+        if (line.remainingAfterReturn <= 0) {
+          await tx.item.update({
+            where: { id: line.item.id },
+            data: { status: "RETURNED" },
+          });
+        }
+
+        if (!invoice.posTerminal.isTrainMode && line.item.product.trackInventory) {
+          await tx.product.update({
+            where: { id: line.item.productId },
+            data: { quantity: { increment: line.requestedQty } },
+          });
+          await tx.inventory.create({
+            data: {
+              productId: line.item.productId,
+              quantity: line.requestedQty,
+              type: "IN",
+              reference: `Return R-${invoiceReturn.returnNumber} / Invoice ${invoice.invoiceNumber}`,
+            },
+          });
+        }
+      }
+
+      await tx.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          returnedAmount: nextReturnedAmount,
+          status: allRemainingReturned ? "RETURNED" : "PAID",
+          reason: dto.reason.trim(),
+          voidedById: approver.id,
+        },
+      });
+
+      await auditLogService.create(tx, {
+        companyId,
+        actorProfileId: profile.id,
+        posTerminalId: invoice.posTerminal.id,
+        actionType: allRemainingReturned ? "INVOICE_RETURNED_FULL" : "INVOICE_RETURNED_PARTIAL",
+        referenceId: invoice.id,
+        changes: JSON.stringify({
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          returnId: invoiceReturn.id,
+          returnNumber: invoiceReturn.returnNumber,
+          returnType: invoiceReturn.returnType,
+          reason: dto.reason.trim(),
+          notes: dto.notes?.trim() || null,
+          approvedById: approver.id,
+          approvedByName: approver.fullName,
+          items: returnLines.map((line) => ({
+            invoiceItemId: line.item.id,
+            productId: line.item.productId,
+            productName: line.item.product.name,
+            returnedQty: line.requestedQty,
+            lineAmount: line.lineAmount,
+          })),
+          totalReturned,
+        }),
+        amount: totalReturned,
+      });
+
+      await auditLogService.create(tx, {
+        companyId,
+        actorProfileId: approver.id,
+        posTerminalId: invoice.posTerminal.id,
+        actionType: "RETURN_APPROVED",
+        referenceId: invoice.id,
+        changes: JSON.stringify({
+          invoiceNumber: invoice.invoiceNumber,
+          returnNumber: invoiceReturn.returnNumber,
+          approvedForProfileId: profile.id,
+          totalReturned,
+        }),
+        amount: totalReturned,
+      });
+
+      return {
+        returnId: invoiceReturn.id,
+        returnNumber: invoiceReturn.returnNumber,
+        totalReturned,
+      };
     });
   },
 

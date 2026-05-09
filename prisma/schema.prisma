@@ -168,6 +168,8 @@ model Profile {
 
   invoicesAsCashier    Invoice[]             @relation("CashierInvoice")
   invoicesAsVoidedBy   Invoice[]             @relation("VoidedByInvoice")
+  returnsProcessed     InvoiceReturn[]       @relation("ReturnProcessedBy")
+  returnsApproved      InvoiceReturn[]       @relation("ReturnApprovedBy")
   debtsCreated         CustomerDebt[]        @relation("DebtCreatedBy")
   debtsApproved        CustomerDebt[]        @relation("DebtApprovedBy")
   debtPaymentsReceived CustomerDebtPayment[] @relation("DebtPaymentReceivedBy")
@@ -255,6 +257,7 @@ model Company {
   customers        Customer[]
   customerDebts    CustomerDebt[]
   debtPayments     CustomerDebtPayment[]
+  invoiceReturns   InvoiceReturn[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -363,6 +366,7 @@ model PosTerminalInfo {
   createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz
   invoices             Invoice[]
+  invoiceReturns       InvoiceReturn[]
   sessions             PosSession[]
   auditLogs            AuditLog[]
   customerDebts        CustomerDebt[]
@@ -682,6 +686,7 @@ model Product {
   images         ProductImage[]
   inventory      Inventory[]
   modifierGroups ProductModifierGroup[]
+  returnItems    InvoiceReturnItem[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -970,6 +975,7 @@ model Invoice {
   items        Item[]
   ePayments    EPayment[]
   documents    InvoiceDocument[]
+  returns      InvoiceReturn[]
   customerDebt CustomerDebt?
 
   //////////////////////////////////////////////////
@@ -1136,6 +1142,7 @@ model Item {
   invoiceId  String               @map("uuid_invoice") @db.Uuid
   invoice    Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   selections OrderItemSelection[]
+  returnItems InvoiceReturnItem[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -1143,6 +1150,71 @@ model Item {
   @@index([productId])
   @@index([invoiceId])
   @@map("item")
+  @@schema("public")
+}
+
+model InvoiceReturn {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_invoice_return") @db.Uuid
+
+  returnNumber Int    @map("return_number")
+  returnType   String @map("return_type")
+  reason       String
+  notes        String?
+
+  subtotalReturned Decimal @map("subtotal_returned") @db.Decimal(15, 2)
+  totalReturned    Decimal @map("total_returned") @db.Decimal(15, 2)
+
+  companyId  String  @map("company_id") @db.Uuid
+  terminalId String  @map("terminal_id") @db.Uuid
+  invoiceId  String  @map("invoice_id") @db.Uuid
+
+  processedById String  @map("processed_by_id") @db.Uuid
+  approvedById  String? @map("approved_by_id") @db.Uuid
+
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminal    PosTerminalInfo @relation(fields: [terminalId], references: [id], onDelete: Restrict)
+  invoice     Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  processedBy Profile         @relation("ReturnProcessedBy", fields: [processedById], references: [id], onDelete: Restrict)
+  approvedBy  Profile?        @relation("ReturnApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  items       InvoiceReturnItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([terminalId, returnNumber], name: "uk_invoice_return_terminal_return_number")
+  @@index([companyId, createdAt])
+  @@index([terminalId, createdAt])
+  @@index([invoiceId])
+  @@index([processedById])
+  @@index([approvedById])
+  @@map("invoice_return")
+  @@schema("public")
+}
+
+model InvoiceReturnItem {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_invoice_return_item") @db.Uuid
+
+  returnedQty         Decimal @map("returned_qty") @db.Decimal(19, 4)
+  unitPriceSnapshot   Decimal @map("unit_price_snapshot") @db.Decimal(19, 4)
+  lineAmount          Decimal @map("line_amount") @db.Decimal(15, 2)
+  productNameSnapshot String  @map("product_name_snapshot")
+  selectionsSnapshot  Json?   @map("selections_snapshot")
+
+  returnId      String @map("return_id") @db.Uuid
+  invoiceItemId String @map("invoice_item_id") @db.Uuid
+  productId     String @map("product_id") @db.Uuid
+
+  invoiceReturn InvoiceReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  invoiceItem   Item          @relation(fields: [invoiceItemId], references: [id], onDelete: Restrict)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([returnId])
+  @@index([invoiceItemId])
+  @@index([productId])
+  @@map("invoice_return_item")
   @@schema("public")
 }
 

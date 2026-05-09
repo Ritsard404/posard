@@ -21,6 +21,7 @@ import type {
 import { AuditEventLog } from "./AuditEventLog";
 import { InvoiceDocumentPrintButton } from "./InvoiceDocumentPrintButton";
 import { ReportInvoicePrintButton } from "./ReportInvoicePrintButton";
+import { ReturnInvoiceDialog } from "./ReturnInvoiceDialog";
 import { formatInvoiceNumber } from "@/app/(protected)/pos/_services/print-format.service";
 import {
   formatReportDate,
@@ -58,6 +59,43 @@ function formatDocumentType(value: string) {
   return "Invoice";
 }
 
+function formatFulfillment(value: string) {
+  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function SelectionLines({
+  selections,
+  note,
+}: {
+  selections: Array<{
+    modifierGroupName: string;
+    modifierGroupType: string;
+    optionName: string | null;
+    priceDelta: number;
+    quantity: number;
+    sortOrder: number;
+  }>;
+  note?: string | null;
+}) {
+  if (selections.length === 0 && !note) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 space-y-1 rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+      {selections.map((selection) => (
+        <div key={`${selection.modifierGroupName}-${selection.optionName}-${selection.sortOrder}`}>
+          - {selection.modifierGroupType === "ADDON" ? "Add-on" : selection.modifierGroupName}:{" "}
+          {selection.optionName ?? "Instruction"}
+          {selection.priceDelta > 0 ? ` (+${formatCurrency(selection.priceDelta)})` : ""}
+          {selection.quantity > 1 ? ` x${selection.quantity}` : ""}
+        </div>
+      ))}
+      {note ? <div>- Note: {note}</div> : null}
+    </div>
+  );
+}
+
 export function OverviewPanel({ overview }: { overview: ReportOverviewDto }) {
   return (
     <div className="space-y-4">
@@ -77,6 +115,21 @@ export function OverviewPanel({ overview }: { overview: ReportOverviewDto }) {
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <ReportSectionCard
+          title="Fulfillment Mix"
+          description="Order count and sales by fulfillment type."
+          badge="Orders"
+        >
+          {overview.fulfillmentBreakdown.map((item) => (
+            <ReportListCard
+              key={item.type}
+              title={item.label}
+              subtitle={`${item.count} order${item.count === 1 ? "" : "s"} / ${item.share.toFixed(0)}% share`}
+              value={formatCurrency(item.sales)}
+            />
+          ))}
+        </ReportSectionCard>
+
+        <ReportSectionCard
           title="Payment Breakdown"
           description="Sales by non-cash payment method."
           badge="Summary"
@@ -93,6 +146,61 @@ export function OverviewPanel({ overview }: { overview: ReportOverviewDto }) {
                 title={payment.name}
                 subtitle={`${payment.count} transaction${payment.count === 1 ? "" : "s"}`}
                 value={formatCurrency(payment.amount)}
+              />
+            ))
+          )}
+        </ReportSectionCard>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <ReportSectionCard
+          title="Top Products"
+          description="Best-selling products in the selected range."
+          badge="Products"
+        >
+          {overview.topProducts.map((item) => (
+            <ReportListCard
+              key={item.id}
+              title={item.name}
+              subtitle={`${item.quantitySold} sold`}
+              value={formatCurrency(item.revenue)}
+            />
+          ))}
+        </ReportSectionCard>
+
+        <ReportSectionCard
+          title="Configured Items"
+          description="Products sold with variants, modifiers, add-ons, or notes."
+          badge="Configured"
+        >
+          {overview.topConfiguredProducts.length === 0 ? (
+            <EmptyState title="No configured sales" message="No configured products were sold in this range." />
+          ) : (
+            overview.topConfiguredProducts.map((item) => (
+              <ReportListCard
+                key={item.id}
+                title={item.name}
+                subtitle={`${item.quantitySold} configured sale${item.quantitySold === 1 ? "" : "s"}`}
+                value={formatCurrency(item.revenue)}
+              />
+            ))
+          )}
+        </ReportSectionCard>
+
+        <ReportSectionCard
+          title="Top Add-ons"
+          description="Add-on quantity and revenue from item snapshots."
+          badge="Add-ons"
+        >
+          {overview.topAddOns.length === 0 ? (
+            <EmptyState title="No add-ons" message="No add-on selections were sold in this range." />
+          ) : (
+            overview.topAddOns.map((item) => (
+              <ReportListCard
+                key={item.id}
+                title={item.name}
+                subtitle={`${item.parentProductName} / Qty ${item.quantity}`}
+                value={formatCurrency(item.revenue)}
               />
             ))
           )}
@@ -452,13 +560,75 @@ export function TransactionsPanel({ history }: { history: TransactionHistoryDto 
           subtitle={`${formatDateTime(item.createdAt)} / ${item.terminalName} / ${item.cashierName}${
             item.localInvoiceNo ? ` / Local ref ${item.localInvoiceNo}` : ""
           }`}
-          badges={<Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>}
+          badges={
+            <>
+              <Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>
+              <Badge variant="outline" className="rounded-full">{formatFulfillment(item.fulfillmentType)}</Badge>
+              {item.containsConfiguredItems ? (
+                <Badge variant="outline" className="rounded-full">Configured</Badge>
+              ) : null}
+              {item.returnStatus !== "NONE" ? (
+                <Badge variant="destructive" className="rounded-full">
+                  {item.returnStatus === "FULL" ? "Returned" : "Partially Returned"}
+                </Badge>
+              ) : null}
+            </>
+          }
           value={formatCurrency(item.totalAmount)}
+          meta={
+            <>
+              <ReportField label="Customer" value={item.customerName || "Walk-in"} />
+              {item.tableNumber ? <ReportField label="Table" value={item.tableNumber} /> : null}
+              {item.deliveryReference ? <ReportField label="Delivery Ref" value={item.deliveryReference} /> : null}
+              {item.deliveryAddress ? <ReportField label="Delivery Address" value={item.deliveryAddress} /> : null}
+              <div className="sm:col-span-2 xl:col-span-3">
+                <div className="space-y-2">
+                  {item.items.map((line) => (
+                    <div key={line.itemId} className="rounded-2xl bg-muted/25 px-3 py-2">
+                      <div className="flex justify-between gap-3 text-sm font-medium text-foreground">
+                        <span>{line.quantity} x {line.itemName}</span>
+                        <span>{formatCurrency(line.subtotal)}</span>
+                      </div>
+                      {line.returnedQuantity > 0 ? (
+                        <div className="mt-1 text-xs font-medium text-destructive">
+                          Returned {line.returnedQuantity} / Available {line.returnableQuantity}
+                        </div>
+                      ) : null}
+                      <SelectionLines selections={line.selections} note={line.specialInstructions} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {item.returns.length > 0 ? (
+                <div className="sm:col-span-2 xl:col-span-3">
+                  <div className="space-y-2 rounded-2xl border border-destructive/20 bg-destructive/5 p-3">
+                    <div className="text-xs font-semibold uppercase text-destructive">Linked Returns</div>
+                    {item.returns.map((invoiceReturn) => (
+                      <div key={invoiceReturn.returnId} className="text-sm">
+                        <div className="font-semibold">
+                          R-{invoiceReturn.returnNumber} / {invoiceReturn.returnType.toLowerCase()} /{" "}
+                          {formatCurrency(invoiceReturn.totalReturned)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDateTime(invoiceReturn.createdAt)} / Processed by {invoiceReturn.processedByName}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          }
           actions={
-            <ReportInvoicePrintButton
-              invoiceId={item.invoiceId}
-              invoiceNumber={item.invoiceNumber}
-            />
+            <div className="flex flex-wrap justify-end gap-2">
+              {item.status !== "VOID" && item.returnStatus !== "FULL" ? (
+                <ReturnInvoiceDialog invoice={item} />
+              ) : null}
+              <ReportInvoicePrintButton
+                invoiceId={item.invoiceId}
+                invoiceNumber={item.invoiceNumber}
+              />
+            </div>
           }
         />
       ))}
@@ -538,13 +708,49 @@ export function SalesPanel({ report }: { report: SalesReportDto }) {
       description={`Item-level sales and return impact. ${report.pagination.totalItems} matching line item${report.pagination.totalItems === 1 ? "" : "s"}.`}
       badge="Sales"
     >
+      {(report.topAddOns.length > 0 || report.topConfiguredProducts.length > 0) ? (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border p-3">
+            <div className="mb-2 text-sm font-semibold">Top Add-ons</div>
+            {report.topAddOns.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No add-ons in the current page.</p>
+            ) : (
+              report.topAddOns.map((item) => (
+                <div key={item.id} className="flex justify-between gap-3 py-1 text-sm">
+                  <span>{item.name} / {item.parentProductName}</span>
+                  <span className="font-semibold">{formatCurrency(item.revenue)}</span>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="rounded-2xl border p-3">
+            <div className="mb-2 text-sm font-semibold">Configured Products</div>
+            {report.topConfiguredProducts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No configured products in the current page.</p>
+            ) : (
+              report.topConfiguredProducts.map((item) => (
+                <div key={item.id} className="flex justify-between gap-3 py-1 text-sm">
+                  <span>{item.name}</span>
+                  <span className="font-semibold">{formatCurrency(item.revenue)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
       {report.items.map((item) => (
         <ReportListCard
           key={`${item.invoiceId}-${item.itemId}`}
           title={item.itemName}
           subtitle={`Invoice #${formatInvoiceNumber(item.invoiceNumber)} / ${formatDate(item.invoiceDate)} / ${item.itemGroup || "Uncategorized"}`}
+          badges={item.isConfigurable ? <Badge variant="outline" className="rounded-full">Configured</Badge> : null}
           value={formatCurrency(item.revenue)}
-          meta={<ReportField label="Profit" value={formatCurrency(item.profit)} />}
+          meta={
+            <>
+              <ReportField label="Profit" value={formatCurrency(item.profit)} />
+              <SelectionLines selections={item.selections} note={item.specialInstructions} />
+            </>
+          }
         />
       ))}
     </ReportSectionCard>

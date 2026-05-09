@@ -51,41 +51,6 @@ function formatTime(value: Date) {
   return formatReportTime(value);
 }
 
-function formatAuditAction(action: string, amount: number | null) {
-  const label = action
-    .toLowerCase()
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-
-  if (action === "SALE_COMPLETED" && amount !== null) {
-    return `completed sale of ${formatCurrency(amount)}`;
-  }
-
-  if (action === "LOG_IN") {
-    return "logged in via PIN";
-  }
-
-  if (action === "SET_CASH_IN_DRAWER" && amount !== null) {
-    return `started shift with ${formatCurrency(amount)} opening cash`;
-  }
-
-  if (action === "SET_CASH_OUT_DRAWER" && amount !== null) {
-    return `closed shift with ${formatCurrency(amount)} cash out`;
-  }
-
-  if (action === "CASH_WITHDRAWAL" && amount !== null) {
-    return `recorded cash withdrawal of ${formatCurrency(amount)}`;
-  }
-
-  if (action === "ORDER_VOIDED" && amount !== null) {
-    return `voided sale of ${formatCurrency(amount)}`;
-  }
-
-  return amount !== null
-    ? `${label.toLowerCase()} / ${formatCurrency(amount)}`
-    : label.toLowerCase();
-}
-
 function getAuditIcon(action: string) {
   if (action === "SALE_COMPLETED") return ShoppingCart;
   if (action === "LOG_IN" || action === "SET_CASH_IN_DRAWER") return LogIn;
@@ -160,7 +125,7 @@ function EventDetailField({
 
 function AuditEventDialog({ item }: { item: AuditTrailItemDto }) {
   const Icon = getAuditIcon(item.action);
-  const summary = `${item.actorName} ${formatAuditAction(item.action, item.amount)}`;
+  const summary = item.displaySummary;
 
   return (
     <Dialog>
@@ -178,8 +143,7 @@ function AuditEventDialog({ item }: { item: AuditTrailItemDto }) {
               <div className="flex min-w-0 items-start gap-2">
                 <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <p className="min-w-0 text-sm font-semibold leading-5 text-foreground sm:text-base">
-                  <span className="font-black">{item.actorName}</span>{" "}
-                  {formatAuditAction(item.action, item.amount)}
+                  {summary}
                 </p>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
@@ -191,9 +155,11 @@ function AuditEventDialog({ item }: { item: AuditTrailItemDto }) {
                   {item.source === "audit_log" ? "Transaction" : "Session"}
                 </Badge>
               </div>
-              {item.changes ? (
+              {item.detailRows.length > 0 || item.detailItems.length > 0 ? (
                 <p className="mt-2 max-h-10 overflow-hidden text-xs leading-5 text-muted-foreground">
-                  {item.changes}
+                  {[...item.detailRows.map((row) => `${row.label}: ${row.value}`), ...item.detailItems]
+                    .slice(0, 2)
+                    .join(" / ")}
                 </p>
               ) : null}
             </div>
@@ -263,14 +229,29 @@ function AuditEventDialog({ item }: { item: AuditTrailItemDto }) {
             />
           </div>
 
-          {item.changes ? (
+          {item.detailRows.length > 0 || item.detailItems.length > 0 ? (
             <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
               <div className="text-xs font-black uppercase text-muted-foreground">
                 Details
               </div>
-              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-foreground">
-                {item.changes}
-              </pre>
+              <div className="mt-3 space-y-2 text-sm">
+                {item.detailRows.map((row) => (
+                  <div key={`${row.label}-${row.value}`} className="grid gap-1 rounded-xl bg-background px-3 py-2 sm:grid-cols-[140px_minmax(0,1fr)]">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">{row.label}</span>
+                    <span className="break-words font-medium">{row.value}</span>
+                  </div>
+                ))}
+                {item.detailItems.length > 0 ? (
+                  <div className="rounded-xl bg-background px-3 py-2">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">Items</div>
+                    <ul className="mt-2 space-y-1 text-sm font-medium">
+                      {item.detailItems.map((detail) => (
+                        <li key={detail}>{detail}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>

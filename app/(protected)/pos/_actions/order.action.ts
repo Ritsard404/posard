@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { CancelOrderDto, OrderDto } from "../_services/_dto/order.dto";
+import { CancelOrderDto, OrderDto, ReturnInvoiceDto } from "../_services/_dto/order.dto";
 import type { ReceiptDto } from "../_services/_dto/receipt.dto";
 import { orderService } from "../_services/order.service";
 
@@ -39,6 +39,20 @@ export async function cancelOrderAction(dto: CancelOrderDto) {
     return {
       success: false,
       error: error instanceof Error ? error.message : "Cancellation failed",
+    };
+  }
+}
+
+export async function returnInvoiceAction(dto: ReturnInvoiceDto) {
+  try {
+    const data = await orderService.returnInvoice(dto);
+    revalidatePath("/report");
+    revalidatePath("/reports");
+    return { success: true as const, data };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Return failed",
     };
   }
 }

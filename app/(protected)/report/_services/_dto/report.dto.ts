@@ -105,6 +105,22 @@ export interface ReportTopProductDto {
   revenue: number;
 }
 
+export interface ReportFulfillmentBreakdownDto {
+  type: "WALK_IN" | "DINE_IN" | "TAKE_OUT" | "DELIVERY" | "PICKUP";
+  label: string;
+  count: number;
+  sales: number;
+  share: number;
+}
+
+export interface ReportAddOnStatDto {
+  id: string;
+  name: string;
+  parentProductName: string;
+  quantity: number;
+  revenue: number;
+}
+
 export interface ReportOverviewDto {
   range: ReportDateRangeDto;
   totalSales: number;
@@ -139,6 +155,9 @@ export interface ReportOverviewDto {
   };
   inventoryHealth: ReportInventoryHealthDto;
   topProducts: ReportTopProductDto[];
+  topConfiguredProducts: ReportTopProductDto[];
+  topAddOns: ReportAddOnStatDto[];
+  fulfillmentBreakdown: ReportFulfillmentBreakdownDto[];
 }
 
 export interface XReadingDto {
@@ -259,6 +278,55 @@ export interface TransactionHistoryItemDto {
   cashCollected: number;
   ePaymentAmount: number;
   paymentMethods: ReportPaymentBreakdownDto[];
+  fulfillmentType: "WALK_IN" | "DINE_IN" | "TAKE_OUT" | "DELIVERY" | "PICKUP";
+  tableNumber: string | null;
+  guestCount: number | null;
+  deliveryCustomerName: string | null;
+  deliveryAddress: string | null;
+  deliveryReference: string | null;
+  containsConfiguredItems: boolean;
+  returnStatus: "NONE" | "PARTIAL" | "FULL";
+  returns: TransactionHistoryReturnDto[];
+  items: TransactionHistoryLineItemDto[];
+}
+
+export interface TransactionHistoryLineItemDto {
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  returnedQuantity: number;
+  returnableQuantity: number;
+  subtotal: number;
+  specialInstructions: string | null;
+  selections: TransactionHistoryItemSelectionDto[];
+}
+
+export interface TransactionHistoryReturnDto {
+  returnId: string;
+  returnNumber: number;
+  returnType: string;
+  reason: string;
+  totalReturned: number;
+  createdAt: Date;
+  processedByName: string;
+  approvedByName: string | null;
+  items: TransactionHistoryReturnItemDto[];
+}
+
+export interface TransactionHistoryReturnItemDto {
+  invoiceItemId: string;
+  itemName: string;
+  quantity: number;
+  lineAmount: number;
+}
+
+export interface TransactionHistoryItemSelectionDto {
+  modifierGroupName: string;
+  modifierGroupType: "VARIANT" | "MODIFIER" | "ADDON" | "INSTRUCTION";
+  optionName: string | null;
+  priceDelta: number;
+  quantity: number;
+  sortOrder: number;
 }
 
 export interface TransactionHistoryDto {
@@ -281,7 +349,17 @@ export interface AuditTrailItemDto {
   amount: number | null;
   referenceId: string | null;
   changes: string | null;
+  displaySummary: string;
+  detailRows: AuditTrailDetailRowDto[];
+  detailItems: string[];
   source: "audit_log" | "timestamp";
+}
+
+export interface AuditTrailDetailRowDto {
+  label: string;
+  value: string;
+  before?: string | null;
+  after?: string | null;
 }
 
 export interface AuditTrailDto {
@@ -456,6 +534,9 @@ export interface RefundInvoiceItemDto {
   reason: string | null;
   isFullRefund: boolean;
   isTrainMode: boolean;
+  returnId?: string;
+  returnNumber?: number;
+  processedByName?: string | null;
 }
 
 export interface RefundInvoicesDto {
@@ -504,6 +585,9 @@ export interface ReturnedInvoiceRecordItemDto {
   itemCount: number;
   reason: string | null;
   recordType: "FULL_RETURN" | "PARTIAL_RETURN";
+  returnId?: string;
+  returnNumber?: number;
+  processedByName?: string | null;
 }
 
 export interface ReturnedInvoiceRecordsDto {
@@ -530,6 +614,9 @@ export interface SalesReportItemDto {
   totalCost: number;
   revenue: number;
   profit: number;
+  isConfigurable: boolean;
+  selections: TransactionHistoryItemSelectionDto[];
+  specialInstructions: string | null;
 }
 
 export interface SalesReportTotalsDto {
@@ -545,6 +632,8 @@ export interface SalesReportDto {
   items: SalesReportItemDto[];
   pagination: ReportPaginationDto;
   totals: SalesReportTotalsDto;
+  topAddOns: ReportAddOnStatDto[];
+  topConfiguredProducts: ReportTopProductDto[];
 }
 
 export interface DebtOutstandingItemDto {

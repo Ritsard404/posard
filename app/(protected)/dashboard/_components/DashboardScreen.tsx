@@ -86,12 +86,12 @@ function MetricCard({
           : "text-foreground";
 
   return (
-    <Card className="rounded-3xl border-border/60 bg-white/90 shadow-sm">
-      <CardContent className="p-5">
+    <Card className="rounded-xl border-border/60 bg-background shadow-sm">
+      <CardContent className="p-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           {label}
         </p>
-        <p className={`mt-3 text-3xl font-black tracking-tight ${toneClass}`}>
+        <p className={`mt-1.5 text-2xl font-black tracking-tight ${toneClass}`}>
           {label.toLowerCase().includes("sales") ||
           label.toLowerCase().includes("basket") ||
           label.toLowerCase().includes("returns") ||
@@ -99,7 +99,7 @@ function MetricCard({
             ? formatCurrency(value)
             : formatCompact(value)}
         </p>
-        {hint ? <p className="mt-2 text-sm text-muted-foreground">{hint}</p> : null}
+        {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
       </CardContent>
     </Card>
   );
@@ -115,12 +115,12 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <Card className="rounded-3xl border-border/60 bg-white/90 shadow-sm">
-      <CardHeader className="pb-3">
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+    <Card className="rounded-xl border-border/60 bg-background shadow-sm">
+      <CardHeader className="p-4 pb-2">
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription className="text-xs">{description}</CardDescription>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className="p-4 pt-2">{children}</CardContent>
     </Card>
   );
 }
@@ -132,7 +132,7 @@ function TrendChart({ data }: { data: DashboardDataDto["trend"] }) {
   } satisfies ChartConfig;
 
   return (
-    <ChartContainer config={chartConfig} height={320}>
+    <ChartContainer config={chartConfig} height={220}>
       <AreaChart accessibilityLayer data={data} margin={{ left: 8, right: 8, top: 12 }}>
         <defs>
           <linearGradient id="fillSales" x1="0" y1="0" x2="0" y2="1">
@@ -193,7 +193,7 @@ function RankedBars({
 
   return (
     <div className="space-y-4">
-      <ChartContainer config={chartConfig} height={300}>
+      <ChartContainer config={chartConfig} height={220}>
         <BarChart accessibilityLayer data={items} layout="vertical" margin={{ left: 8, right: 12 }}>
           <CartesianGrid horizontal={false} strokeDasharray="4 4" />
           <XAxis type="number" hide />
@@ -252,7 +252,7 @@ function PaymentMixChart({ items }: { items: DashboardDataDto["paymentMix"] }) {
   }));
 
   return (
-    <ChartContainer config={chartConfig} height={300}>
+    <ChartContainer config={chartConfig} height={220}>
       <PieChart>
         <ChartTooltip
           content={
@@ -305,6 +305,61 @@ function ProductList({
           <div className="text-right">
             <div className="font-semibold">{quantityLabel} {formatCompact(item.quantity)}</div>
             <div className="text-sm text-muted-foreground">{formatCurrency(item.sales)}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FulfillmentList({ items }: { items: DashboardDataDto["fulfillmentMix"] }) {
+  if (items.length === 0) {
+    return <p className="text-sm text-muted-foreground">No fulfillment data yet.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((item) => (
+        <div key={item.type} className="rounded-lg border px-3 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">{item.label}</div>
+              <div className="text-xs text-muted-foreground">
+                {item.count} order{item.count === 1 ? "" : "s"} / {item.share.toFixed(0)}%
+              </div>
+            </div>
+            <div className="text-right text-sm font-semibold">
+              {formatCurrency(item.sales)}
+            </div>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${Math.min(100, item.share)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AddOnList({ items }: { items?: DashboardDataDto["topAddOns"] }) {
+  if (!items?.length) {
+    return <p className="text-sm text-muted-foreground">No add-ons sold in this window yet.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">{item.name}</div>
+            <div className="truncate text-xs text-muted-foreground">{item.parentProductName}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-semibold">{formatCurrency(item.revenue)}</div>
+            <div className="text-xs text-muted-foreground">Qty {formatCompact(item.quantity)}</div>
           </div>
         </div>
       ))}
@@ -567,17 +622,40 @@ function AdminDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
 }
 
 function OperationsDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
+  const isCashier = dashboard.role === "cashier";
+
   return (
     <>
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
-        <Section title="7-Day Sales Trend" description="A quick read on daily sales and transaction pace.">
+      {isCashier ? (
+        <Section title="Quick Actions" description="Common cashier paths for the current shift.">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Button asChild className="h-10 justify-start rounded-lg">
+              <Link href="/pos"><ShoppingCart className="size-4" /> New Sale</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-10 justify-start rounded-lg">
+              <Link href="/report?view=transactions"><Receipt className="size-4" /> History</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-10 justify-start rounded-lg">
+              <Link href="/report?view=invoice-documents"><Receipt className="size-4" /> Reprint</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-10 justify-start rounded-lg">
+              <Link href="/pos"><Wallet className="size-4" /> Cash In/Out</Link>
+            </Button>
+          </div>
+        </Section>
+      ) : null}
+
+      <div className="grid gap-4 xl:grid-cols-[1fr_0.7fr_0.7fr]">
+        <Section title="7-Day Trend" description="Daily sales and transaction pace.">
           <TrendChart data={dashboard.trend} />
         </Section>
-
+        <Section title="Fulfillment Mix" description="Order types for today.">
+          <FulfillmentList items={dashboard.fulfillmentMix} />
+        </Section>
         <AlertsPanel dashboard={dashboard} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-3">
         {dashboard.companyLeaderboard ? (
           <Section title="Top Companies" description="Best performing branches in the last 30 days.">
             <RankedBars items={dashboard.companyLeaderboard} metricLabel="Net sales" />
@@ -595,6 +673,16 @@ function OperationsDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
             <ProductList items={dashboard.topProducts} quantityLabel="Sold" />
           </Section>
         ) : null}
+
+        {dashboard.topConfiguredProducts ? (
+          <Section title="Configured Items" description="Best configured products by revenue.">
+            <ProductList items={dashboard.topConfiguredProducts} quantityLabel="Sold" />
+          </Section>
+        ) : null}
+
+        <Section title="Top Add-ons" description="Most useful add-on options by revenue.">
+          <AddOnList items={dashboard.topAddOns} />
+        </Section>
 
         {dashboard.lowStockProducts ? (
           <Section title="Low Stock Watch" description="Tracked items that may need replenishment soon.">
@@ -650,7 +738,7 @@ function OperationsDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
         ) : null}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[0.7fr_1.3fr]">
+      <div className="grid gap-4 xl:grid-cols-[0.65fr_1.35fr]">
         <Section title="Payment Mix" description="How sales were split across payment methods today.">
           <div className="space-y-4">
             <PaymentMixChart items={dashboard.paymentMix} />

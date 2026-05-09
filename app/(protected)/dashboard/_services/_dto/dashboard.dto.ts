@@ -26,6 +26,14 @@ export interface DashboardPaymentMixDto {
   amount: number;
 }
 
+export interface DashboardFulfillmentMixDto {
+  type: "WALK_IN" | "DINE_IN" | "TAKE_OUT" | "DELIVERY" | "PICKUP";
+  label: string;
+  count: number;
+  sales: number;
+  share: number;
+}
+
 export interface DashboardTerminalStatDto {
   id: string;
   name: string;
@@ -41,6 +49,14 @@ export interface DashboardProductStatDto {
   category: string | null;
   quantity: number;
   sales: number;
+}
+
+export interface DashboardAddOnStatDto {
+  id: string;
+  name: string;
+  parentProductName: string;
+  quantity: number;
+  revenue: number;
 }
 
 export interface DashboardActivityDto {
@@ -120,10 +136,13 @@ export interface DashboardDataDto {
   summary: DashboardMetricDto[];
   trend: DashboardTrendPointDto[];
   paymentMix: DashboardPaymentMixDto[];
+  fulfillmentMix: DashboardFulfillmentMixDto[];
   recentActivities: DashboardActivityDto[];
   alerts: DashboardAlertDto[];
   terminals?: DashboardTerminalStatDto[];
   topProducts?: DashboardProductStatDto[];
+  topConfiguredProducts?: DashboardProductStatDto[];
+  topAddOns?: DashboardAddOnStatDto[];
   recentInvoices?: DashboardInvoiceListItemDto[];
   lowStockProducts?: DashboardProductStatDto[];
   companyLeaderboard?: DashboardTerminalStatDto[];

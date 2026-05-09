@@ -2,7 +2,11 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import type { DashboardDataDto, DashboardViewerDto } from "./_dto/dashboard.dto";
+import type {
+  DashboardDataDto,
+  DashboardFulfillmentMixDto,
+  DashboardViewerDto,
+} from "./_dto/dashboard.dto";
 
 function toNumber(value: unknown) {
   return Number(value ?? 0);
@@ -88,6 +92,56 @@ function buildTrend(
   }
 
   return labels;
+}
+
+const fulfillmentLabels: Record<DashboardFulfillmentMixDto["type"], string> = {
+  WALK_IN: "Walk-in",
+  DINE_IN: "Dine-in",
+  TAKE_OUT: "Take-out",
+  DELIVERY: "Delivery",
+  PICKUP: "Pickup",
+};
+
+function calculateInvoiceNet(invoice: {
+  totalAmount: unknown;
+  discountAmount: unknown;
+  returnedAmount: unknown;
+}) {
+  return (
+    toNumber(invoice.totalAmount) -
+    toNumber(invoice.discountAmount) -
+    toNumber(invoice.returnedAmount)
+  );
+}
+
+function buildFulfillmentMix(
+  invoices: Array<{
+    fulfillmentType: DashboardFulfillmentMixDto["type"];
+    status: string;
+    totalAmount: unknown;
+    discountAmount: unknown;
+    returnedAmount: unknown;
+  }>,
+): DashboardFulfillmentMixDto[] {
+  const buckets = new Map<DashboardFulfillmentMixDto["type"], DashboardFulfillmentMixDto>(
+    (Object.keys(fulfillmentLabels) as DashboardFulfillmentMixDto["type"][]).map((type) => [
+      type,
+      { type, label: fulfillmentLabels[type], count: 0, sales: 0, share: 0 },
+    ]),
+  );
+  const paidInvoices = invoices.filter((invoice) => invoice.status === "PAID");
+
+  for (const invoice of paidInvoices) {
+    const bucket = buckets.get(invoice.fulfillmentType) ?? buckets.get("WALK_IN")!;
+    bucket.count += 1;
+    bucket.sales += calculateInvoiceNet(invoice);
+  }
+
+  const totalCount = paidInvoices.length;
+  return [...buckets.values()].map((bucket) => ({
+    ...bucket,
+    share: totalCount > 0 ? (bucket.count / totalCount) * 100 : 0,
+  }));
 }
 
 async function getViewer(): Promise<DashboardViewerDto> {
@@ -346,6 +400,7 @@ export const dashboardService = {
         ],
         trend: [],
         paymentMix: [],
+        fulfillmentMix: [],
         adminWorkspaceStats: [
           { label: "Active Managers", value: activeManagers, hint: "Approved managers with active accounts" },
           { label: "Active Cashiers", value: activeCashiers, hint: "Cashiers available across all companies" },
@@ -421,6 +476,7 @@ export const dashboardService = {
           totalAmount: true,
           discountAmount: true,
           returnedAmount: true,
+          fulfillmentType: true,
           status: true,
           createdAt: true,
           cashierId: true,
@@ -449,10 +505,21 @@ export const dashboardService = {
           id: true,
           qty: true,
           subTotal: true,
+          selections: {
+            select: {
+              id: true,
+              modifierGroupType: true,
+              optionName: true,
+              priceDelta: true,
+              quantity: true,
+            },
+          },
           invoice: { select: { status: true, returnedAmount: true, totalAmount: true } },
           product: {
             select: {
+              id: true,
               name: true,
+              isConfigurable: true,
               category: { select: { categoryName: true } },
             },
           },
@@ -519,6 +586,7 @@ export const dashboardService = {
           invoiceNumber: true,
           customerName: true,
           totalAmount: true,
+          fulfillmentType: true,
           status: true,
           createdAt: true,
           posTerminal: { select: { posName: true } },
@@ -605,6 +673,8 @@ export const dashboardService = {
     }
 
     const productMap = new Map<string, { id: string; category: string | null; quantity: number; sales: number }>();
+    const configuredProductMap = new Map<string, { id: string; name: string; category: string | null; quantity: number; sales: number }>();
+    const addOnMap = new Map<string, { id: string; name: string; parentProductName: string; quantity: number; revenue: number }>();
     for (const item of monthItems) {
       const current = productMap.get(item.product.name) ?? {
         id: item.id,
@@ -615,6 +685,37 @@ export const dashboardService = {
       current.quantity += toNumber(item.qty);
       current.sales += toNumber(item.subTotal);
       productMap.set(item.product.name, current);
+
+      if (item.product.isConfigurable || item.selections.length > 0) {
+        const configured = configuredProductMap.get(item.product.id) ?? {
+          id: item.product.id,
+          name: item.product.name,
+          category: item.product.category.categoryName,
+          quantity: 0,
+          sales: 0,
+        };
+        configured.quantity += toNumber(item.qty);
+        configured.sales += toNumber(item.subTotal);
+        configuredProductMap.set(item.product.id, configured);
+      }
+
+      for (const selection of item.selections) {
+        if (selection.modifierGroupType !== "ADDON" || !selection.optionName) {
+          continue;
+        }
+
+        const key = `${selection.optionName}::${item.product.name}`;
+        const currentAddOn = addOnMap.get(key) ?? {
+          id: selection.id,
+          name: selection.optionName,
+          parentProductName: item.product.name,
+          quantity: 0,
+          revenue: 0,
+        };
+        currentAddOn.quantity += selection.quantity * toNumber(item.qty);
+        currentAddOn.revenue += toNumber(selection.priceDelta) * selection.quantity * toNumber(item.qty);
+        addOnMap.set(key, currentAddOn);
+      }
     }
 
     const commonData = {
@@ -626,6 +727,7 @@ export const dashboardService = {
       paymentMix: [...paymentMap.entries()]
         .map(([label, amount]) => ({ label, amount }))
         .sort((a, b) => b.amount - a.amount),
+      fulfillmentMix: buildFulfillmentMix(todayScopedInvoices),
       recentActivities: auditLogs.map((log) => ({
         id: log.id,
         title: log.actionType,
@@ -692,6 +794,12 @@ export const dashboardService = {
             sales: item.sales,
           }))
           .sort((a, b) => b.sales - a.sales)
+          .slice(0, 5),
+        topConfiguredProducts: [...configuredProductMap.values()]
+          .sort((a, b) => b.sales - a.sales)
+          .slice(0, 5),
+        topAddOns: [...addOnMap.values()]
+          .sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity)
           .slice(0, 5),
         lowStockProducts: lowStockProducts.map((product) => ({
           id: product.id,
@@ -769,6 +877,9 @@ export const dashboardService = {
           : []),
       ],
       billingRestriction,
+      topAddOns: [...addOnMap.values()]
+        .sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity)
+        .slice(0, 3),
       ...commonData,
     };
   },

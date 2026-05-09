@@ -81,6 +81,19 @@ export interface CancelOrderDto {
   reason: string;
 }
 
+export interface ReturnInvoiceItemDto {
+  invoiceItemId: string;
+  quantity: number;
+}
+
+export interface ReturnInvoiceDto {
+  invoiceId: string;
+  items: ReturnInvoiceItemDto[];
+  reason: string;
+  notes?: string;
+  managerPin?: string;
+}
+
 // ─────────────────────────────────────────────
 // Internal calculation type (not exposed to caller)
 // ─────────────────────────────────────────────

@@ -27,6 +27,7 @@ import type {
   ReportDateRangeDto,
   ReportInvoicePrintPayloadDto,
   ReportOverviewDto,
+  ReportFulfillmentBreakdownDto,
   ReportPaginationDto,
   ReportPaymentBreakdownDto,
   ReportTerminalContextDto,
@@ -365,6 +366,151 @@ function buildSalesTrend(
   return labels;
 }
 
+const reportFulfillmentLabels: Record<ReportFulfillmentBreakdownDto["type"], string> = {
+  WALK_IN: "Walk-in",
+  DINE_IN: "Dine-in",
+  TAKE_OUT: "Take-out",
+  DELIVERY: "Delivery",
+  PICKUP: "Pickup",
+};
+
+function buildReportFulfillmentBreakdown(
+  invoices: Array<{
+    fulfillmentType: ReportFulfillmentBreakdownDto["type"];
+    status: string;
+    totalAmount: unknown;
+    discountAmount: unknown;
+    returnedAmount: unknown;
+  }>,
+): ReportFulfillmentBreakdownDto[] {
+  const buckets = new Map<ReportFulfillmentBreakdownDto["type"], ReportFulfillmentBreakdownDto>(
+    (Object.keys(reportFulfillmentLabels) as ReportFulfillmentBreakdownDto["type"][]).map((type) => [
+      type,
+      { type, label: reportFulfillmentLabels[type], count: 0, sales: 0, share: 0 },
+    ]),
+  );
+  const paidInvoices = invoices.filter(isSettledSalesInvoice);
+
+  for (const invoice of paidInvoices) {
+    const bucket = buckets.get(invoice.fulfillmentType) ?? buckets.get("WALK_IN")!;
+    bucket.count += 1;
+    bucket.sales += calculateNetSales([invoice]);
+  }
+
+  return [...buckets.values()].map((bucket) => ({
+    ...bucket,
+    share: paidInvoices.length > 0 ? (bucket.count / paidInvoices.length) * 100 : 0,
+  }));
+}
+
+function mapItemSelections(
+  selections: Array<{
+    modifierGroupName: string;
+    modifierGroupType: "VARIANT" | "MODIFIER" | "ADDON" | "INSTRUCTION";
+    optionName: string | null;
+    priceDelta: unknown;
+    quantity: number;
+    sortOrder: number;
+  }>,
+) {
+  return selections
+    .map((selection) => ({
+      modifierGroupName: selection.modifierGroupName,
+      modifierGroupType: selection.modifierGroupType,
+      optionName: selection.optionName,
+      priceDelta: toNumber(selection.priceDelta),
+      quantity: selection.quantity,
+      sortOrder: selection.sortOrder,
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function parseAuditChanges(value: string | null) {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function humanizeAuditLabel(value: string) {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatAuditValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return "None";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") return String(value);
+  return String(value).replace(/_/g, " ");
+}
+
+function formatAuditMoney(value: number) {
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function buildAuditDisplay(input: {
+  action: string;
+  actorName: string;
+  amount: number | null;
+  changes: string | null;
+}) {
+  const payload = parseAuditChanges(input.changes);
+  const invoiceNumber = payload?.invoiceNumber ? `Invoice ${formatInvoiceNumber(Number(payload.invoiceNumber))}` : null;
+  const returnNumber = payload?.returnNumber ? `Return R-${payload.returnNumber}` : null;
+  const detailRows: { label: string; value: string; before?: string | null; after?: string | null }[] = [];
+  const detailItems: string[] = [];
+
+  if (payload) {
+    for (const [key, value] of Object.entries(payload)) {
+      if (["items", "referencePayments"].includes(key) || key.toLowerCase().endsWith("id")) continue;
+      detailRows.push({ label: humanizeAuditLabel(key), value: formatAuditValue(value) });
+    }
+
+    for (const item of Array.isArray(payload.items) ? payload.items : []) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      const name = formatAuditValue(row.productName ?? row.name ?? "Item");
+      const qty = formatAuditValue(row.returnedQty ?? row.quantity ?? row.qty ?? 1);
+      const amount = row.lineAmount === undefined ? "" : ` / ${formatAuditMoney(toNumber(row.lineAmount))}`;
+      detailItems.push(`${name} x ${qty}${amount}`);
+    }
+  } else if (input.changes) {
+    detailRows.push({ label: "Details", value: input.changes });
+  }
+
+  const amountText = input.amount !== null ? ` (${formatAuditMoney(input.amount)})` : "";
+  const summaryByAction: Record<string, string> = {
+    SALE_COMPLETED: `${input.actorName} completed ${invoiceNumber ?? "a sale"}${amountText}`,
+    ORDER_VOIDED: `${input.actorName} voided ${invoiceNumber ?? "a sale"}${amountText}`,
+    INVOICE_RETURNED_FULL: `${input.actorName} fully returned ${invoiceNumber ?? "an invoice"}${amountText}`,
+    INVOICE_RETURNED_PARTIAL: `${input.actorName} partially returned ${invoiceNumber ?? "an invoice"}${amountText}`,
+    RETURN_APPROVED: `${input.actorName} approved ${returnNumber ?? "a return"} for ${invoiceNumber ?? "an invoice"}${amountText}`,
+    CASH_WITHDRAWAL: `${input.actorName} recorded cash withdrawal${amountText}`,
+    SET_CASH_IN_DRAWER: `${input.actorName} opened cash drawer${amountText}`,
+    SET_CASH_OUT_DRAWER: `${input.actorName} closed cash drawer${amountText}`,
+    LOG_IN: `${input.actorName} logged in`,
+    LOG_OUT: `${input.actorName} logged out`,
+  };
+
+  return {
+    displaySummary:
+      summaryByAction[input.action] ??
+      `${input.actorName} ${humanizeAuditLabel(input.action).toLowerCase()}${amountText}`,
+    detailRows,
+    detailItems,
+  };
+}
+
 function formatDocumentTitle(input: {
   type: InvoiceDocumentType;
   invoiceNumber?: number | null;
@@ -482,6 +628,9 @@ async function getInvoicesForRange(
       },
       items: {
         include: {
+          selections: {
+            orderBy: { sortOrder: "asc" },
+          },
           product: {
             include: {
               category: {
@@ -1107,6 +1256,14 @@ export const reportService = {
       string,
       { id: string; name: string; quantitySold: number; revenue: number }
     >();
+    const configuredProductMap = new Map<
+      string,
+      { id: string; name: string; quantitySold: number; revenue: number }
+    >();
+    const addOnMap = new Map<
+      string,
+      { id: string; name: string; parentProductName: string; quantity: number; revenue: number }
+    >();
 
     for (const invoice of paidInvoices) {
       for (const item of invoice.items) {
@@ -1119,6 +1276,36 @@ export const reportService = {
         current.quantitySold += toNumber(item.qty);
         current.revenue += toNumber(item.subTotal);
         topProductMap.set(item.productId, current);
+
+        if (item.product.isConfigurable || item.selections.length > 0) {
+          const configured = configuredProductMap.get(item.productId) ?? {
+            id: item.productId,
+            name: item.product.name,
+            quantitySold: 0,
+            revenue: 0,
+          };
+          configured.quantitySold += toNumber(item.qty);
+          configured.revenue += toNumber(item.subTotal);
+          configuredProductMap.set(item.productId, configured);
+        }
+
+        for (const selection of item.selections) {
+          if (selection.modifierGroupType !== "ADDON" || !selection.optionName) {
+            continue;
+          }
+
+          const key = `${selection.optionName}::${item.product.name}`;
+          const addOn = addOnMap.get(key) ?? {
+            id: selection.id,
+            name: selection.optionName,
+            parentProductName: item.product.name,
+            quantity: 0,
+            revenue: 0,
+          };
+          addOn.quantity += selection.quantity * toNumber(item.qty);
+          addOn.revenue += toNumber(selection.priceDelta) * selection.quantity * toNumber(item.qty);
+          addOnMap.set(key, addOn);
+        }
       }
     }
 
@@ -1230,6 +1417,13 @@ export const reportService = {
       topProducts: [...topProductMap.values()]
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5),
+      topConfiguredProducts: [...configuredProductMap.values()]
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5),
+      topAddOns: [...addOnMap.values()]
+        .sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity)
+        .slice(0, 5),
+      fulfillmentBreakdown: buildReportFulfillmentBreakdown(paidInvoices),
     };
   },
 
@@ -1867,6 +2061,52 @@ export const reportService = {
               },
             },
           },
+          items: {
+            where: { status: { not: "VOID" } },
+            select: {
+              id: true,
+              qty: true,
+              subTotal: true,
+              specialInstructions: true,
+              returnItems: {
+                select: {
+                  returnedQty: true,
+                  lineAmount: true,
+                },
+              },
+              selections: {
+                orderBy: { sortOrder: "asc" },
+                select: {
+                  modifierGroupName: true,
+                  modifierGroupType: true,
+                  optionName: true,
+                  priceDelta: true,
+                  quantity: true,
+                  sortOrder: true,
+                },
+              },
+              product: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+          returns: {
+            include: {
+              processedBy: { select: { fullName: true } },
+              approvedBy: { select: { fullName: true } },
+              items: {
+                select: {
+                  invoiceItemId: true,
+                  productNameSnapshot: true,
+                  returnedQty: true,
+                  lineAmount: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          },
         },
         orderBy: {
           createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc",
@@ -1895,6 +2135,54 @@ export const reportService = {
           0,
         ),
         paymentMethods: buildPaymentBreakdown([invoice]),
+        fulfillmentType: invoice.fulfillmentType,
+        tableNumber: invoice.tableNumber ?? null,
+        guestCount: invoice.guestCount ?? null,
+        deliveryCustomerName: invoice.deliveryCustomerName ?? null,
+        deliveryAddress: invoice.deliveryAddress ?? null,
+        deliveryReference: invoice.deliveryReference ?? null,
+        containsConfiguredItems: invoice.items.some(
+          (item) => item.selections.length > 0 || Boolean(item.specialInstructions?.trim()),
+        ),
+        returnStatus:
+          toNumber(invoice.returnedAmount) <= 0
+            ? "NONE"
+            : invoice.status === "RETURNED"
+              ? "FULL"
+              : "PARTIAL",
+        returns: invoice.returns.map((invoiceReturn) => ({
+          returnId: invoiceReturn.id,
+          returnNumber: invoiceReturn.returnNumber,
+          returnType: invoiceReturn.returnType,
+          reason: invoiceReturn.reason,
+          totalReturned: toNumber(invoiceReturn.totalReturned),
+          createdAt: invoiceReturn.createdAt,
+          processedByName: invoiceReturn.processedBy.fullName ?? "Unknown",
+          approvedByName: invoiceReturn.approvedBy?.fullName ?? null,
+          items: invoiceReturn.items.map((returnItem) => ({
+            invoiceItemId: returnItem.invoiceItemId,
+            itemName: returnItem.productNameSnapshot,
+            quantity: toNumber(returnItem.returnedQty),
+            lineAmount: toNumber(returnItem.lineAmount),
+          })),
+        })),
+        items: invoice.items.map((item) => ({
+          itemId: item.id,
+          itemName: item.product.name,
+          quantity: toNumber(item.qty),
+          returnedQuantity: item.returnItems.reduce(
+            (sum, returnItem) => sum + toNumber(returnItem.returnedQty),
+            0,
+          ),
+          returnableQuantity: Math.max(
+            0,
+            toNumber(item.qty) -
+              item.returnItems.reduce((sum, returnItem) => sum + toNumber(returnItem.returnedQty), 0),
+          ),
+          subtotal: toNumber(item.subTotal),
+          specialInstructions: item.specialInstructions ?? null,
+          selections: mapItemSelections(item.selections),
+        })),
       }));
 
     return {
@@ -2054,17 +2342,31 @@ export const reportService = {
         }),
       ]);
 
-    const auditItems: AuditTrailItemDto[] = auditLogs.map((log) => ({
-      occurredAt: log.createdAt,
-      actorName: log.actorProfile.fullName ?? "Unknown",
-      actorRole: log.actorProfile.role,
-      terminalName: log.posTerminal?.posName ?? null,
-      action: log.actionType,
-      amount: log.amount === null ? null : toNumber(log.amount),
-      referenceId: log.referenceId ?? null,
-      changes: log.changes ?? null,
-      source: "audit_log",
-    }));
+    const auditItems: AuditTrailItemDto[] = auditLogs.map((log) => {
+      const actorName = log.actorProfile.fullName ?? "Unknown";
+      const amount = log.amount === null ? null : toNumber(log.amount);
+      const display = buildAuditDisplay({
+        action: log.actionType,
+        actorName,
+        amount,
+        changes: log.changes ?? null,
+      });
+
+      return {
+        occurredAt: log.createdAt,
+        actorName,
+        actorRole: log.actorProfile.role,
+        terminalName: log.posTerminal?.posName ?? null,
+        action: log.actionType,
+        amount,
+        referenceId: log.referenceId ?? null,
+        changes: log.changes ?? null,
+        displaySummary: display.displaySummary,
+        detailRows: display.detailRows,
+        detailItems: display.detailItems,
+        source: "audit_log",
+      };
+    });
 
     auditItems.push(
       ...timestampIns.map((timestamp) => ({
@@ -2077,6 +2379,14 @@ export const reportService = {
         amount: toNumber(timestamp.cashInDrawerAmount),
         referenceId: timestamp.id,
         changes: null,
+        displaySummary: buildAuditDisplay({
+          action: toNumber(timestamp.cashInDrawerAmount) > 0 ? "SET_CASH_IN_DRAWER" : "LOG_IN",
+          actorName: timestamp.managerIn?.fullName ?? timestamp.cashier.fullName ?? "Unknown",
+          amount: toNumber(timestamp.cashInDrawerAmount),
+          changes: null,
+        }).displaySummary,
+        detailRows: [],
+        detailItems: [],
         source: "timestamp" as const,
       })),
       ...timestampOuts.map((timestamp) => ({
@@ -2096,6 +2406,18 @@ export const reportService = {
         amount: toNumber(timestamp.cashOutDrawerAmount),
         referenceId: timestamp.id,
         changes: null,
+        displaySummary: buildAuditDisplay({
+          action: toNumber(timestamp.cashOutDrawerAmount) > 0 ? "SET_CASH_OUT_DRAWER" : "LOG_OUT",
+          actorName:
+            timestamp.managerOut?.fullName ??
+            timestamp.managerIn?.fullName ??
+            timestamp.cashier.fullName ??
+            "Unknown",
+          amount: toNumber(timestamp.cashOutDrawerAmount),
+          changes: null,
+        }).displaySummary,
+        detailRows: [],
+        detailItems: [],
         source: "timestamp" as const,
       })),
     );
@@ -2128,6 +2450,17 @@ export const reportService = {
       prisma.item.findMany({
         where,
         include: {
+          selections: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              modifierGroupName: true,
+              modifierGroupType: true,
+              optionName: true,
+              priceDelta: true,
+              quantity: true,
+              sortOrder: true,
+            },
+          },
           invoice: {
             select: {
               id: true,
@@ -2216,9 +2549,46 @@ export const reportService = {
         totalCost,
         revenue: revenue - returnAmount,
         profit: revenue - returnAmount - totalCost,
+        isConfigurable: item.product.isConfigurable || item.selections.length > 0,
+        selections: mapItemSelections(item.selections),
+        specialInstructions: item.specialInstructions ?? null,
       };
     });
     const totals = totalsRows[0];
+    const topAddOnMap = new Map<string, { id: string; name: string; parentProductName: string; quantity: number; revenue: number }>();
+    const topConfiguredMap = new Map<string, { id: string; name: string; quantitySold: number; revenue: number }>();
+
+    for (const item of itemRows) {
+      if (item.product.isConfigurable || item.selections.length > 0) {
+        const configured = topConfiguredMap.get(item.productId) ?? {
+          id: item.productId,
+          name: item.product.name,
+          quantitySold: 0,
+          revenue: 0,
+        };
+        configured.quantitySold += toNumber(item.qty);
+        configured.revenue += toNumber(item.subTotal);
+        topConfiguredMap.set(item.productId, configured);
+      }
+
+      for (const selection of item.selections) {
+        if (selection.modifierGroupType !== "ADDON" || !selection.optionName) {
+          continue;
+        }
+
+        const key = `${selection.optionName}::${item.product.name}`;
+        const addOn = topAddOnMap.get(key) ?? {
+          id: `${item.id}-${selection.sortOrder}`,
+          name: selection.optionName,
+          parentProductName: item.product.name,
+          quantity: 0,
+          revenue: 0,
+        };
+        addOn.quantity += selection.quantity * toNumber(item.qty);
+        addOn.revenue += toNumber(selection.priceDelta) * selection.quantity * toNumber(item.qty);
+        topAddOnMap.set(key, addOn);
+      }
+    }
 
     return {
       range: createRange(input.from, input.to),
@@ -2231,6 +2601,12 @@ export const reportService = {
         totalRevenue: toNumber(totals?.total_revenue),
         totalProfit: toNumber(totals?.total_profit),
       },
+      topAddOns: [...topAddOnMap.values()]
+        .sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity)
+        .slice(0, 5),
+      topConfiguredProducts: [...topConfiguredMap.values()]
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5),
     };
   },
 
@@ -2404,6 +2780,13 @@ export const reportService = {
         vatExempt: true,
         vatAmount: true,
         isTrainMode: true,
+        fulfillmentType: true,
+        tableNumber: true,
+        guestCount: true,
+        deliveryCustomerName: true,
+        deliveryAddress: true,
+        deliveryReference: true,
+        deliveryFee: true,
         reason: true,
         cashier: {
           select: {
@@ -2877,7 +3260,7 @@ export const reportService = {
     const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
     const where = {
       ...createInvoiceWhere(companyId, input.from, input.to, terminalId),
-      status: "RETURNED" as const,
+      returnedAmount: { gt: 0 },
     } satisfies Prisma.InvoiceWhereInput;
 
     const [totalItems, invoices] = await Promise.all([
@@ -2889,6 +3272,13 @@ export const reportService = {
           voidedBy: { select: { fullName: true } },
           posTerminal: { select: { posName: true } },
           items: { select: { id: true, status: true } },
+          returns: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: {
+              processedBy: { select: { fullName: true } },
+            },
+          },
         },
         orderBy: { updatedAt: isOldestFirst(input.sortOrder) ? "asc" : "desc" },
         skip: (input.page - 1) * input.pageSize,
@@ -2909,10 +3299,13 @@ export const reportService = {
       returnedAmount: toNumber(invoice.returnedAmount),
       itemCount: invoice.items.length,
       refundRatio: calculateRefundRatio(invoice.totalAmount, invoice.returnedAmount),
-      reason: invoice.reason ?? null,
       isFullRefund:
         Math.abs(toNumber(invoice.returnedAmount) - toNumber(invoice.totalAmount)) < 0.01,
       isTrainMode: invoice.isTrainMode,
+      returnId: invoice.returns[0]?.id,
+      returnNumber: invoice.returns[0]?.returnNumber,
+      reason: invoice.returns[0]?.reason ?? invoice.reason ?? null,
+      processedByName: invoice.returns[0]?.processedBy.fullName ?? null,
     }));
 
     return {
@@ -2929,55 +3322,57 @@ export const reportService = {
   ): Promise<ReturnedItemsDto> {
     const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
     const where = {
-      status: "RETURNED" as const,
-      invoice: createInvoiceWhere(companyId, input.from, input.to, terminalId),
-    } satisfies Prisma.ItemWhereInput;
+      invoiceReturn: {
+        invoice: createInvoiceWhere(companyId, input.from, input.to, terminalId),
+      },
+    } satisfies Prisma.InvoiceReturnItemWhereInput;
 
     const [totalItems, rows] = await Promise.all([
-      prisma.item.count({ where }),
-      prisma.item.findMany({
+      prisma.invoiceReturnItem.count({ where }),
+      prisma.invoiceReturnItem.findMany({
         where,
         include: {
           product: { select: { name: true, barcode: true } },
-          invoice: {
+          invoiceReturn: {
             include: {
-              cashier: { select: { fullName: true } },
-              voidedBy: { select: { fullName: true } },
-              posTerminal: { select: { posName: true } },
+              processedBy: { select: { fullName: true } },
+              approvedBy: { select: { fullName: true } },
+              terminal: { select: { posName: true } },
+              invoice: {
+                include: {
+                  cashier: { select: { fullName: true } },
+                },
+              },
             },
           },
         },
-        orderBy: { updatedAt: isOldestFirst(input.sortOrder) ? "asc" : "desc" },
+        orderBy: { createdAt: isOldestFirst(input.sortOrder) ? "asc" : "desc" },
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,
       }),
     ]);
 
-    const items: ReturnedItemDto[] = rows.map((item) => {
-      const returnRatio = calculateRefundRatio(
-        item.invoice.totalAmount,
-        item.invoice.returnedAmount,
-      );
-      const lineSubtotal = toNumber(item.subTotal);
-
-      return {
-        invoiceId: item.invoice.id,
-        invoiceNumber: item.invoice.invoiceNumber,
+    const items: ReturnedItemDto[] = rows.map((item) => ({
+        invoiceId: item.invoiceReturn.invoice.id,
+        invoiceNumber: item.invoiceReturn.invoice.invoiceNumber,
         itemId: item.id,
-        itemName: item.product.name,
+        itemName: item.productNameSnapshot || item.product.name,
         barcode: item.product.barcode,
-        quantity: toNumber(item.qty),
-        price: toNumber(item.price),
-        lineSubtotal,
-        returnAmount: Math.round(lineSubtotal * returnRatio * 100) / 100,
-        transactionDate: item.invoice.createdAt,
-        returnDate: item.updatedAt,
-        terminalName: item.invoice.posTerminal.posName ?? "Unnamed terminal",
-        cashierName: item.invoice.cashier.fullName ?? "Unknown",
-        managerName: item.invoice.voidedBy?.fullName ?? null,
-        isTrainMode: item.invoice.isTrainMode,
-      };
-    });
+        quantity: toNumber(item.returnedQty),
+        price: toNumber(item.unitPriceSnapshot),
+        lineSubtotal: toNumber(item.lineAmount),
+        returnAmount: toNumber(item.lineAmount),
+        transactionDate: item.invoiceReturn.invoice.createdAt,
+        returnDate: item.invoiceReturn.createdAt,
+        terminalName: item.invoiceReturn.terminal.posName ?? "Unnamed terminal",
+        cashierName: item.invoiceReturn.invoice.cashier.fullName ?? "Unknown",
+        managerName: item.invoiceReturn.approvedBy?.fullName ?? null,
+        isTrainMode: item.invoiceReturn.invoice.isTrainMode,
+        returnId: item.invoiceReturn.id,
+        returnNumber: item.invoiceReturn.returnNumber,
+        reason: item.invoiceReturn.reason,
+        processedByName: item.invoiceReturn.processedBy.fullName ?? null,
+    }));
 
     return {
       range: createRange(input.from, input.to),
@@ -3006,6 +3401,9 @@ export const reportService = {
       itemCount: invoice.itemCount,
       reason: invoice.reason,
       recordType: invoice.isFullRefund ? "FULL_RETURN" : "PARTIAL_RETURN",
+      returnId: invoice.returnId,
+      returnNumber: invoice.returnNumber,
+      processedByName: invoice.processedByName,
     }));
 
     return {
@@ -3053,6 +3451,13 @@ export const reportService = {
         vatZero: true,
         vatAmount: true,
         isTrainMode: true,
+        fulfillmentType: true,
+        tableNumber: true,
+        guestCount: true,
+        deliveryCustomerName: true,
+        deliveryAddress: true,
+        deliveryReference: true,
+        deliveryFee: true,
         posTerminal: {
           select: {
             posName: true,
@@ -3096,6 +3501,18 @@ export const reportService = {
             qty: true,
             subTotal: true,
             status: true,
+            specialInstructions: true,
+            selections: {
+              orderBy: { sortOrder: "asc" },
+              select: {
+                modifierGroupName: true,
+                modifierGroupType: true,
+                optionName: true,
+                priceDelta: true,
+                quantity: true,
+                sortOrder: true,
+              },
+            },
             product: {
               select: {
                 name: true,
@@ -3124,6 +3541,13 @@ export const reportService = {
       terminalVat: invoice.posTerminal.vat ?? 0,
       cashierName: invoice.cashier.fullName ?? "Unknown",
       isTrainMode: invoice.isTrainMode,
+      fulfillmentType: invoice.fulfillmentType,
+      tableNumber: invoice.tableNumber ?? null,
+      guestCount: invoice.guestCount ?? null,
+      deliveryCustomerName: invoice.deliveryCustomerName ?? null,
+      deliveryAddress: invoice.deliveryAddress ?? null,
+      deliveryReference: invoice.deliveryReference ?? null,
+      deliveryFee: invoice.deliveryFee == null ? null : toNumber(invoice.deliveryFee),
       discountType: invoice.discountType ?? null,
       discountAmount: toNumber(invoice.discountAmount),
       dueAmount: toNumber(invoice.dueAmount),
@@ -3148,6 +3572,8 @@ export const reportService = {
         qty: toNumber(item.qty),
         subTotal: toNumber(item.subTotal),
         status: item.status,
+        specialInstructions: item.specialInstructions ?? null,
+        selections: mapItemSelections(item.selections),
       })),
       stockUpdates: [],
       debt: null,
