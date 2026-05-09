@@ -19,7 +19,6 @@ import {
   registerPOSServiceWorker,
   syncOfflineActions,
 } from "../_services/offline-sync.client";
-import { refillInvoicePool } from "../_services/invoice-pool.client";
 import {
   getOfflineCatalogSnapshot,
   getOfflineManagerVerifiers,
@@ -166,7 +165,6 @@ export function POSTerminalManager() {
 
       try {
         await fetchOfflineBootstrap(deviceId);
-        void refillInvoicePool().catch(() => undefined);
         const syncResult = await syncOfflineActions();
         for (const result of syncResult.results) {
           usePOSStore
@@ -289,7 +287,6 @@ export function POSTerminalManager() {
           }
 
           const bootstrap = await bootstrapPromise;
-          void refillInvoicePool().catch(() => undefined);
 
           if (cancelled) {
             return;

@@ -71,9 +71,39 @@ interface InvoiceDocumentsInput extends ReportPagedRangeInput {
 interface ReportPaginationInput {
   page: number;
   pageSize: number;
+  keyword?: string;
 }
 
 interface ReportPagedRangeInput extends ReportRangeInput, ReportPaginationInput {}
+
+function normalizeInvoiceKeyword(keyword?: string) {
+  const value = keyword?.trim();
+  return value ? value : null;
+}
+
+function buildInvoiceTraceWhere(keyword?: string): Prisma.InvoiceWhereInput {
+  const normalized = normalizeInvoiceKeyword(keyword);
+  if (!normalized) {
+    return {};
+  }
+
+  const digits = normalized.replace(/\D/g, "");
+  const invoiceNumber = digits ? Number(digits) : NaN;
+  const conditions: Prisma.InvoiceWhereInput[] = [
+    {
+      localInvoiceNo: {
+        contains: normalized,
+        mode: "insensitive",
+      },
+    },
+  ];
+
+  if (Number.isInteger(invoiceNumber) && invoiceNumber > 0) {
+    conditions.push({ invoiceNumber });
+  }
+
+  return { OR: conditions };
+}
 
 function isOldestFirst(sortOrder?: ReportSortOrder) {
   return sortOrder === "oldest";
@@ -1260,6 +1290,9 @@ export const reportService = {
       ...scopeWhere,
       ...typeFilter,
       ...trainModeFilter,
+      ...(normalizeInvoiceKeyword(input.keyword)
+        ? { invoice: buildInvoiceTraceWhere(input.keyword) }
+        : {}),
       createdAt: {
         gte: input.from,
         lte: input.to,
@@ -1280,6 +1313,7 @@ export const reportService = {
             invoice: {
               select: {
                 invoiceNumber: true,
+                localInvoiceNo: true,
                 posTerminal: {
                   select: {
                     posName: true,
@@ -1316,6 +1350,7 @@ export const reportService = {
         type: item.type,
         invoiceId: item.invoiceId,
         invoiceNumber: item.invoice?.invoiceNumber ?? null,
+        localInvoiceNo: item.invoice?.localInvoiceNo ?? null,
         terminalName: item.invoice?.posTerminal.posName ?? null,
         isTrainMode: item.isTrainMode,
         reprintCount: item.reprintCount,
@@ -1793,6 +1828,7 @@ export const reportService = {
     const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
     const where = {
       ...createInvoiceWhere(companyId, input.from, input.to, terminalId),
+      ...buildInvoiceTraceWhere(input.keyword),
       status: {
         not: "PENDING" as const,
       },
@@ -1844,6 +1880,7 @@ export const reportService = {
       .map((invoice) => ({
         invoiceId: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
+        localInvoiceNo: invoice.localInvoiceNo ?? null,
         createdAt: invoice.createdAt,
         status: invoice.status,
         cashierName: invoice.cashier.fullName ?? "Unknown",
@@ -2342,10 +2379,14 @@ export const reportService = {
   ): Promise<TransactionListDto> {
     const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
     const invoices = await prisma.invoice.findMany({
-      where: createInvoiceWhere(companyId, input.from, input.to, terminalId),
+      where: {
+        ...createInvoiceWhere(companyId, input.from, input.to, terminalId),
+        ...buildInvoiceTraceWhere(input.keyword),
+      },
       select: {
         id: true,
         invoiceNumber: true,
+        localInvoiceNo: true,
         createdAt: true,
         updatedAt: true,
         status: true,
@@ -2403,6 +2444,7 @@ export const reportService = {
       const baseEntry: TransactionListItemDto = {
         invoiceId: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
+        localInvoiceNo: invoice.localInvoiceNo ?? null,
         entryDate: invoice.createdAt,
         source: "BASE",
         status: invoice.status,

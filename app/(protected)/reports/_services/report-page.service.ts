@@ -342,6 +342,7 @@ export const reportPageService = {
     const pageSize = 25;
     const sortOrder: ReportSortOrder =
       getParam(searchParams, "sortOrder") === "oldest" ? "oldest" : "newest";
+    const keyword = getParam(searchParams, "keyword")?.trim() ?? "";
     const workspace = await reportService.getWorkspace(viewer, { companyId });
     const overview = await reportService.getOverview(viewer, {
       companyId,
@@ -358,6 +359,7 @@ export const reportPageService = {
       page: Number.isFinite(page) ? Math.max(1, page) : 1,
       pageSize,
       sortOrder,
+      keyword,
     };
 
     let data: LoadedReportData;
@@ -448,6 +450,7 @@ export const reportPageService = {
         toInput: formatDateInput(range.to),
         label: `${formatDateLabel(range.from)} to ${formatDateLabel(range.to)}`,
         sortOrder,
+        keyword,
         documentType: getDocumentTypeParam(getParam(searchParams, "documentType")),
         trainMode: getTrainModeParam(getParam(searchParams, "trainMode")),
       },

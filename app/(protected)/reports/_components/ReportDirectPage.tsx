@@ -85,6 +85,7 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
         dateControlsDisabled={data.isDateLockedToAllHistory}
         view={data.definition.view}
         sortOrder={data.range.sortOrder}
+        keyword={data.range.keyword}
         dateHint={
           data.definition.slug === "documents"
             ? "Document reports use only document type, date range, and train-mode filters."
@@ -120,6 +121,7 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
           period={data.range.period}
           documentType={data.range.documentType}
           trainMode={data.range.trainMode}
+          keyword={data.range.keyword}
         />
       ) : null}
     </div>

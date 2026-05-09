@@ -279,6 +279,11 @@ export function InvoiceDocumentsPanel({ report }: { report: InvoiceDocumentsDto 
                   <div className="text-xs text-muted-foreground">
                     {item.terminalName ?? "Document archive"}
                   </div>
+                  {item.localInvoiceNo ? (
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Local ref: {item.localInvoiceNo}
+                    </div>
+                  ) : null}
                 </td>
                 <td className="py-2.5 pr-3">
                   <Badge variant={item.isTrainMode ? "outline" : "secondary"} className="rounded-full">
@@ -444,7 +449,9 @@ export function TransactionsPanel({ history }: { history: TransactionHistoryDto 
         <ReportListCard
           key={item.invoiceId}
           title={`#${formatInvoiceNumber(item.invoiceNumber)}`}
-          subtitle={`${formatDateTime(item.createdAt)} / ${item.terminalName} / ${item.cashierName}`}
+          subtitle={`${formatDateTime(item.createdAt)} / ${item.terminalName} / ${item.cashierName}${
+            item.localInvoiceNo ? ` / Local ref ${item.localInvoiceNo}` : ""
+          }`}
           badges={<Badge variant="secondary" className="rounded-full uppercase">{item.status}</Badge>}
           value={formatCurrency(item.totalAmount)}
           actions={
@@ -479,7 +486,9 @@ export function TransactionListPanel({ report }: { report: TransactionListDto })
         <ReportListCard
           key={`${item.invoiceId}-${item.source}-${index}`}
           title={`#${formatInvoiceNumber(item.invoiceNumber)}`}
-          subtitle={`${formatDateTime(item.entryDate)} / ${item.terminalName} / ${item.cashierName}`}
+          subtitle={`${formatDateTime(item.entryDate)} / ${item.terminalName} / ${item.cashierName}${
+            item.localInvoiceNo ? ` / Local ref ${item.localInvoiceNo}` : ""
+          }`}
           badges={
             <>
               <Badge variant="outline" className="rounded-full uppercase">{item.source}</Badge>

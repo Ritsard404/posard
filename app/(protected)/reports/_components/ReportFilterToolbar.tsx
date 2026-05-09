@@ -7,6 +7,7 @@ import {
   Download,
   FileSpreadsheet,
   MonitorSmartphone,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +46,7 @@ export function ReportFilterToolbar({
   documentType = "all",
   trainMode = "all",
   documentMode = false,
+  keyword = "",
 }: {
   basePath: string;
   slug?: ReportsRouteSlug;
@@ -64,6 +66,7 @@ export function ReportFilterToolbar({
   documentType?: InvoiceDocumentItemDto["type"] | "all";
   trainMode?: "all" | "training" | "live";
   documentMode?: boolean;
+  keyword?: string;
 }) {
   const presets: Array<{ id: ReportPreset; label: string }> = [
     { id: "today", label: "Today" },
@@ -80,6 +83,10 @@ export function ReportFilterToolbar({
     { id: "annual", label: "Annual", preset: "thisYear" },
   ];
   const canSort = view ? supportsReportSort(view) : false;
+  const canSearchInvoiceTrace =
+    view === "transactions" ||
+    view === "transaction-list" ||
+    view === "invoice-documents";
   const activeTerminalLabel = terminalId
     ? terminalOptions.find((item) => item.id === terminalId)?.name ?? "Selected terminal"
     : "All terminals";
@@ -274,6 +281,7 @@ export function ReportFilterToolbar({
             <input type="hidden" name="preset" value="custom" />
             <input type="hidden" name="period" value={period} />
             {canSort ? <input type="hidden" name="sortOrder" value={sortOrder} /> : null}
+            {keyword ? <input type="hidden" name="keyword" value={keyword} /> : null}
             {documentMode ? <input type="hidden" name="documentType" value={documentType} /> : null}
             {documentMode ? <input type="hidden" name="trainMode" value={trainMode} /> : null}
             <Input
@@ -311,6 +319,7 @@ export function ReportFilterToolbar({
                 <input type="hidden" name="preset" value="custom" />
                 <input type="hidden" name="period" value={period} />
                 {canSort ? <input type="hidden" name="sortOrder" value={sortOrder} /> : null}
+                {keyword ? <input type="hidden" name="keyword" value={keyword} /> : null}
                 {documentMode ? <input type="hidden" name="documentType" value={documentType} /> : null}
                 {documentMode ? <input type="hidden" name="trainMode" value={trainMode} /> : null}
                 <Input
@@ -436,6 +445,34 @@ export function ReportFilterToolbar({
               </DropdownMenu>
             ) : null}
 
+          {canSearchInvoiceTrace ? (
+            <form
+              action={basePath}
+              method="get"
+              className="flex min-w-[14rem] items-center gap-1.5"
+            >
+              {slug ? <input type="hidden" name="type" value={slug} /> : null}
+              {companyId ? <input type="hidden" name="companyId" value={companyId} /> : null}
+              {terminalId ? <input type="hidden" name="terminalId" value={terminalId} /> : null}
+              <input type="hidden" name="preset" value={preset} />
+              <input type="hidden" name="period" value={period} />
+              <input type="hidden" name="from" value={fromInput} />
+              <input type="hidden" name="to" value={toInput} />
+              {canSort ? <input type="hidden" name="sortOrder" value={sortOrder} /> : null}
+              {documentMode ? <input type="hidden" name="documentType" value={documentType} /> : null}
+              {documentMode ? <input type="hidden" name="trainMode" value={trainMode} /> : null}
+              <Input
+                name="keyword"
+                defaultValue={keyword}
+                placeholder="Search invoice or SI ref"
+                className="h-9 w-48 rounded-xl text-sm"
+              />
+              <Button type="submit" variant="outline" className="h-9 rounded-xl px-3 text-sm">
+                <Search className="size-4" />
+              </Button>
+            </form>
+          ) : null}
+
           {exportBaseUrl && !documentMode ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -526,6 +563,7 @@ function buildFilterHref(input: {
   sortOrder?: ReportSortOrder;
   documentType?: InvoiceDocumentItemDto["type"] | "all";
   trainMode?: "all" | "training" | "live";
+  keyword?: string;
 }) {
   const params = new URLSearchParams({
     preset: input.preset,
@@ -535,6 +573,7 @@ function buildFilterHref(input: {
   if (input.companyId) params.set("companyId", input.companyId);
   if (input.terminalId) params.set("terminalId", input.terminalId);
   if (input.sortOrder) params.set("sortOrder", input.sortOrder);
+  if (input.keyword) params.set("keyword", input.keyword);
   if (input.documentType && input.documentType !== "all") {
     params.set("documentType", input.documentType);
   }

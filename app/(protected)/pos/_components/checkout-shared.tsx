@@ -49,10 +49,6 @@ import {
   syncOfflineActions,
 } from "../_services/offline-sync.client";
 import { getStockSnapshotVersion } from "../_services/offline-db.client";
-import {
-  refillInvoicePool,
-  reserveNextLocalInvoiceNumber,
-} from "../_services/invoice-pool.client";
 
 export const defaultDiscount = {
   type: "NONE" as const,
@@ -650,11 +646,6 @@ export function usePOSCheckoutFlow(
           5000,
           "Local stock snapshot read timed out. Please retry checkout.",
         );
-        const invoiceNumber = await withTimeout(
-          reserveNextLocalInvoiceNumber(),
-          5000,
-          "Invoice number reservation timed out. Please retry checkout.",
-        );
         const queuedCounter =
           queueState.actions.filter((action) => action.type === "PAY_ORDER")
             .length + 1;
@@ -670,7 +661,6 @@ export function usePOSCheckoutFlow(
           terminalVat: activeTerminal.vat,
           printerConfig: activeTerminal.printerConfig ?? null,
           counter: queuedCounter,
-          invoiceNumber,
         });
 
         const localId = crypto.randomUUID();
@@ -693,10 +683,8 @@ export function usePOSCheckoutFlow(
             order: {
               ...orderDto,
               localInvoiceNo,
-              invoiceNumber,
             },
             invoiceNoLocal: localInvoiceNo,
-            invoiceNumber,
             stockSnapshotVersion,
             receipt: provisionalReceipt,
           },
@@ -757,7 +745,6 @@ export function usePOSCheckoutFlow(
         // });
         if (isOnline) {
           scheduleCheckoutBackgroundSync();
-          void refillInvoicePool().catch(() => undefined);
         }
         return;
       } catch (error) {

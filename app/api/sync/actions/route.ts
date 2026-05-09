@@ -101,8 +101,12 @@ async function validateQueuedActionAccess(
 }
 
 async function processSale(profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>, action: QueuedSaleAction): Promise<SyncActionResultDto> {
-  const receipt = await orderService.payOrder({
+  const order = {
     ...action.payload.order,
+    invoiceNumber: undefined,
+  };
+  const receipt = await orderService.payOrder({
+    ...order,
     timestampId: action.timestampId,
     deviceId: action.deviceId,
     idempotencyKey: action.idempotencyKey,

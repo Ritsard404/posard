@@ -247,6 +247,7 @@ export interface ZReadingDto {
 export interface TransactionHistoryItemDto {
   invoiceId: string;
   invoiceNumber: number;
+  localInvoiceNo: string | null;
   createdAt: Date;
   status: "PENDING" | "PAID" | "RETURNED" | "VOID" | "CANCELLED";
   cashierName: string;
@@ -311,6 +312,7 @@ export interface DailyTransactionsDto {
 export interface TransactionListItemDto {
   invoiceId: string;
   invoiceNumber: number;
+  localInvoiceNo: string | null;
   entryDate: Date;
   source: "BASE" | "VOIDED" | "REFUNDED";
   status: "PENDING" | "PAID" | "RETURNED" | "VOID" | "CANCELLED";
@@ -600,6 +602,7 @@ export interface InvoiceDocumentItemDto {
   type: "INVOICE" | "XREPORT" | "ZREPORT";
   invoiceId: string | null;
   invoiceNumber: number | null;
+  localInvoiceNo: string | null;
   terminalName: string | null;
   isTrainMode: boolean;
   reprintCount: number;

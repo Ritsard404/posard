@@ -218,37 +218,48 @@ async function findInvoiceByIdempotencyKey(
   });
 }
 
-async function generateInvoiceNumber(
-  db: Prisma.TransactionClient | typeof prisma,
-  isTrainMode: boolean,
-): Promise<number> {
-  const seqName = isTrainMode
-    ? "invoice_number_train_seq"
-    : "invoice_number_seq";
-
-  const result = await db.$queryRaw<Array<{ nextval: bigint | number }>>`
-    SELECT nextval(${seqName}::regclass)
-  `;
-  const row = result[0];
-  if (!row) {
-    throw new Error("Invoice number sequence did not return a value.");
-  }
-
-  const no = Number(row.nextval);
-  return isTrainMode ? 9_000_000 + no : no;
-}
-
-async function updateTerminalCounter(
+async function reserveNextTerminalInvoiceNumber(
   db: Prisma.TransactionClient | typeof prisma,
   terminalId: string,
   isTrainMode: boolean,
 ) {
+  const terminal = await db.posTerminalInfo.findUnique({
+    where: { id: terminalId },
+    select: {
+      resetCounterNo: true,
+      resetCounterTrainNo: true,
+    },
+  });
+
+  if (!terminal) {
+    throw new Error("Terminal not found for invoice numbering.");
+  }
+
+  const maxInvoice = await db.invoice.aggregate({
+    where: {
+      posTerminalId: terminalId,
+      isTrainMode,
+    },
+    _max: { invoiceNumber: true },
+  });
+
+  const trainOffset = 9_000_000;
+  const maxInvoiceCounter = isTrainMode
+    ? Math.max(0, (maxInvoice._max.invoiceNumber ?? trainOffset) - trainOffset)
+    : (maxInvoice._max.invoiceNumber ?? 0);
+  const currentCounter = isTrainMode
+    ? terminal.resetCounterTrainNo
+    : terminal.resetCounterNo;
+  const nextCounter = Math.max(currentCounter, maxInvoiceCounter) + 1;
+
   await db.posTerminalInfo.update({
     where: { id: terminalId },
     data: isTrainMode
-      ? { resetCounterTrainNo: { increment: 1 } }
-      : { resetCounterNo: { increment: 1 } },
+      ? { resetCounterTrainNo: nextCounter }
+      : { resetCounterNo: nextCounter },
   });
+
+  return isTrainMode ? trainOffset + nextCounter : nextCounter;
 }
 
 function validateOrderRequest(dto: OrderDto) {
@@ -757,7 +768,11 @@ export const orderService = {
 
         const invoiceNumber =
           dto.invoiceNumber ??
-          (await generateInvoiceNumber(tx, terminal.isTrainMode));
+          (await reserveNextTerminalInvoiceNumber(
+            tx,
+            terminal.id,
+            terminal.isTrainMode,
+          ));
 
         let debtReceipt: ReceiptDto["debt"] = null;
         let customerNameOverride: string | undefined;
@@ -939,12 +954,6 @@ export const orderService = {
             : [];
           inventoryMs += Math.round(performance.now() - inventoryStartedAt);
 
-          await updateTerminalCounter(
-            tx,
-            terminal.id,
-            terminal.isTrainMode,
-          );
-
           await auditLogService.create(tx, {
             companyId,
             actorProfileId: profile.id,
@@ -1093,12 +1102,6 @@ export const orderService = {
           ? await deductStock(tx, dto.items, transactionProductMap)
           : [];
         inventoryMs += Math.round(performance.now() - inventoryStartedAt);
-
-        await updateTerminalCounter(
-          tx,
-          terminal.id,
-          terminal.isTrainMode,
-        );
 
         await auditLogService.create(tx, {
           companyId,
@@ -1254,8 +1257,9 @@ export const orderService = {
     });
 
     await prisma.$transaction(async (tx) => {
-      const invoiceNumber = await generateInvoiceNumber(
+      const invoiceNumber = await reserveNextTerminalInvoiceNumber(
         tx,
+        terminal.id,
         terminal.isTrainMode,
       );
 
@@ -1316,11 +1320,6 @@ export const orderService = {
         amount: calc.grossAmount,
       });
 
-      await updateTerminalCounter(
-        tx,
-        terminal.id,
-        terminal.isTrainMode,
-      );
     });
   },
 };

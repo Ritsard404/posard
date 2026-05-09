@@ -125,7 +125,7 @@ export async function commitLocalSale(input: {
     });
   }
 
-  await notifyServiceWorkerToSync();
+  void notifyServiceWorkerToSync().catch(() => undefined);
 }
 
 export async function getOfflineQueueSnapshot() {

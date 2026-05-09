@@ -17,6 +17,7 @@ export function ReportPaginationBar({
   period,
   documentType,
   trainMode,
+  keyword,
 }: {
   pagination: ReportPaginationDto;
   basePath: string;
@@ -28,6 +29,7 @@ export function ReportPaginationBar({
   period?: ReportPeriod;
   documentType?: InvoiceDocumentItemDto["type"] | "all";
   trainMode?: "all" | "training" | "live";
+  keyword?: string;
 }) {
   if (pagination.totalItems <= pagination.pageSize) {
     return null;
@@ -59,6 +61,7 @@ export function ReportPaginationBar({
                   period,
                   documentType,
                   trainMode,
+                  keyword,
                 })}
               >
                 Previous
@@ -86,6 +89,7 @@ export function ReportPaginationBar({
                   period,
                   documentType,
                   trainMode,
+                  keyword,
                 })}
               >
                 Next
@@ -111,6 +115,7 @@ function buildReportHref(input: {
   period?: ReportPeriod;
   documentType?: InvoiceDocumentItemDto["type"] | "all";
   trainMode?: "all" | "training" | "live";
+  keyword?: string;
 }) {
   const params = new URLSearchParams({
     view: input.view,
@@ -141,6 +146,10 @@ function buildReportHref(input: {
 
   if (input.trainMode && input.trainMode !== "all") {
     params.set("trainMode", input.trainMode);
+  }
+
+  if (input.keyword) {
+    params.set("keyword", input.keyword);
   }
 
   return `${input.basePath}?${params.toString()}`;
