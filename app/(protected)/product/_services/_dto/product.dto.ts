@@ -1,4 +1,23 @@
-import type { ItemType, VatType } from "@prisma/client";
+import type { BusinessMode, ItemType, ModifierGroupType, VatType } from "@prisma/client";
+
+export interface ModifierOptionDto {
+  id: string;
+  name: string;
+  priceDelta: number;
+  displayOrder: number;
+  isDefault: boolean;
+}
+
+export interface ModifierGroupDto {
+  id: string;
+  name: string;
+  type: ModifierGroupType;
+  required: boolean;
+  minSelect: number;
+  maxSelect: number;
+  displayOrder: number;
+  options: ModifierOptionDto[];
+}
 
 // ─────────────────────────────────────────────
 // Response DTO (mirrors Java ProductDto)
@@ -19,6 +38,9 @@ export interface ProductDto {
   vatType: VatType;
   categoryId: string;
   categoryName: string | null;
+  isConfigurable: boolean;
+  configurationMode: BusinessMode | null;
+  modifierGroups: ModifierGroupDto[];
 }
 
 // ─────────────────────────────────────────────
@@ -39,6 +61,24 @@ export interface ProductSaveDto {
   itemType?: ItemType;
   vatType?: VatType;
   productImageUrl?: string;
+  isConfigurable?: boolean;
+  configurationMode?: BusinessMode | null;
+  modifierGroups?: Array<{
+    id?: string;
+    name: string;
+    type: ModifierGroupType;
+    required?: boolean;
+    minSelect?: number;
+    maxSelect?: number;
+    displayOrder?: number;
+    options: Array<{
+      id?: string;
+      name: string;
+      priceDelta?: number;
+      displayOrder?: number;
+      isDefault?: boolean;
+    }>;
+  }>;
 }
 
 export interface ProductBatchRowDto {

@@ -5,6 +5,8 @@ import {
   EPaymentMethodDto,
   VatType,
   ItemType,
+  FulfillmentType,
+  ModifierGroupType,
 } from "../_services/_dto/pos.dto";
 import { InvoiceStatusType } from "../_services/_dto/order.dto";
 import type {
@@ -16,11 +18,35 @@ import type { ManagerVerifierDto, OfflineSyncStatus } from "../_services/_dto/of
 
 export type { Product, Category, VatType, ItemType };
 
+export interface CartItemSelection {
+  groupId?: string;
+  groupName: string;
+  groupType: ModifierGroupType;
+  optionId?: string;
+  optionName?: string;
+  priceDelta: number;
+  quantity: number;
+  sortOrder: number;
+}
+
+export interface FulfillmentDetails {
+  type: FulfillmentType;
+  tableNumber?: string;
+  guestCount?: number;
+  deliveryCustomerName?: string;
+  deliveryAddress?: string;
+  deliveryReference?: string;
+  deliveryFee?: number;
+}
+
 export interface CartItem extends Product {
   cartItemId: string;
   cartQuantity: number;
   customSubtotal?: number;
   itemStatus?: InvoiceStatusType;
+  selections?: CartItemSelection[];
+  specialInstructions?: string;
+  basePrice?: number;
 }
 
 export type DiscountType = "NONE" | "OTHERS" | "PWD" | "SENIOR";
@@ -67,6 +93,12 @@ interface ActiveTerminalState {
   printerConfig?: PrinterConfigDto | null;
   billingLocked?: boolean;
   billingMessage?: string | null;
+  businessMode: "RETAIL" | "RESTAURANT" | "HYBRID";
+  enableFulfillmentTypes: boolean;
+  enableRestaurantFeatures: boolean;
+  enableTableService: boolean;
+  enableDeliveryDetails: boolean;
+  enableProductModifiers: boolean;
 }
 
 interface OfflineReceiptState {
@@ -117,6 +149,7 @@ interface POSState {
   referencePayments: POSReferencePayment[];
   amountTendered: number;
   fastCheckoutEnabled: boolean;
+  fulfillment: FulfillmentDetails;
 
   // View state
   searchQuery: string;
@@ -189,6 +222,17 @@ interface POSState {
   clearOfflineReceipts: () => void;
 
   addToCart: (product: Product) => CartMutationResult;
+  addConfiguredItemToCart: (
+    product: Product,
+    data: {
+      quantity: number;
+      selections?: CartItemSelection[];
+      specialInstructions?: string;
+      subtotal: number;
+      cartItemId?: string;
+      duplicate?: boolean;
+    },
+  ) => CartMutationResult;
   removeFromCart: (cartItemId: string) => void;
   updateCartQuantity: (
     cartItemId: string,
@@ -215,6 +259,7 @@ interface POSState {
   clearReferencePayments: () => void;
   setAmountTendered: (amount: number) => void;
   setFastCheckoutEnabled: (enabled: boolean) => void;
+  setFulfillment: (details: Partial<FulfillmentDetails>) => void;
 
   setSearchQuery: (query: string) => void;
   setSelectedCategoryId: (id: string | null) => void;
@@ -235,6 +280,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   referencePayments: [],
   amountTendered: 0,
   fastCheckoutEnabled: readFastCheckoutPreference(),
+  fulfillment: { type: "WALK_IN" },
 
   products: [],
   categories: [],
@@ -325,6 +371,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
   clearOfflineReceipts: () => set({ offlineReceipts: [] }),
 
   addToCart: (product) => {
+    if (product.isConfigurable && product.modifierGroups.length > 0) {
+      return { success: false, reason: "LIMIT_REACHED" };
+    }
+
     const { cart } = get();
     const activeQuantityForProduct = cart
       .filter((item) => item.id === product.id && item.itemStatus !== "VOID")
@@ -365,6 +415,33 @@ export const usePOSStore = create<POSState>((set, get) => ({
       success: true,
       warning: willGoNegative ? "NEGATIVE_STOCK" : undefined,
     };
+  },
+
+  addConfiguredItemToCart: (product, data) => {
+    const quantity = Math.max(1, data.quantity);
+    const subtotal = Math.round(data.subtotal * 100) / 100;
+    const nextItem: CartItem = {
+      ...product,
+      cartItemId: data.duplicate || !data.cartItemId ? crypto.randomUUID() : data.cartItemId,
+      cartQuantity: quantity,
+      customSubtotal: subtotal,
+      itemStatus: "PENDING",
+      selections: data.selections ?? [],
+      specialInstructions: data.specialInstructions?.trim() || undefined,
+      basePrice: product.price,
+    };
+
+    set((state) => ({
+      cart:
+        data.cartItemId && !data.duplicate
+          ? state.cart.map((item) =>
+              item.cartItemId === data.cartItemId ? nextItem : item,
+            )
+          : [...state.cart, nextItem],
+      customerDisplayMode: null,
+    }));
+
+    return { success: true };
   },
 
   removeFromCart: (cartItemId) =>
@@ -564,6 +641,14 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
     set({ fastCheckoutEnabled });
   },
+  setFulfillment: (details) =>
+    set((state) => ({
+      fulfillment: {
+        ...state.fulfillment,
+        ...details,
+        type: details.type ?? state.fulfillment.type,
+      },
+    })),
 
   setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
   setSelectedCategoryId: (selectedCategoryId) =>

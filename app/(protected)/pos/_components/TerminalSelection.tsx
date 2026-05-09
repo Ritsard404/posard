@@ -23,6 +23,12 @@ interface Terminal {
   allowCashierDebtCollect: boolean;
   requireManagerApprovalForDebt: boolean;
   defaultDebtDueDays: number | null;
+  businessMode: "RETAIL" | "RESTAURANT" | "HYBRID";
+  enableFulfillmentTypes: boolean;
+  enableRestaurantFeatures: boolean;
+  enableTableService: boolean;
+  enableDeliveryDetails: boolean;
+  enableProductModifiers: boolean;
   printerConfig?: PrinterConfigDto | null;
   sessions: {
     profile: {
@@ -62,6 +68,12 @@ interface TerminalSelectionProps {
     allowCashierDebtCollect: boolean,
     requireManagerApprovalForDebt: boolean,
     defaultDebtDueDays: number | null,
+    businessMode: "RETAIL" | "RESTAURANT" | "HYBRID",
+    enableFulfillmentTypes: boolean,
+    enableRestaurantFeatures: boolean,
+    enableTableService: boolean,
+    enableDeliveryDetails: boolean,
+    enableProductModifiers: boolean,
     printerConfig?: PrinterConfigDto | null,
   ) => void;
 }
@@ -139,6 +151,12 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                     t.allowCashierDebtCollect,
                     t.requireManagerApprovalForDebt,
                     t.defaultDebtDueDays,
+                    t.businessMode,
+                    t.enableFulfillmentTypes,
+                    t.enableRestaurantFeatures,
+                    t.enableTableService,
+                    t.enableDeliveryDetails,
+                    t.enableProductModifiers,
                     t.printerConfig ?? null,
                   )
                 }

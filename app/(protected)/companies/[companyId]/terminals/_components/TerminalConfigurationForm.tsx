@@ -73,6 +73,13 @@ export default function TerminalConfigurationForm({
         allowCashierDebtCollect: false,
         requireManagerApprovalForDebt: false,
         defaultDebtDueDays: undefined,
+        businessModeOverride: null,
+        enableFulfillmentTypes: false,
+        enableRestaurantFeatures: false,
+        enableTableService: false,
+        enableDeliveryDetails: false,
+        enableProductModifiers: false,
+        enableKitchenTickets: false,
       });
       setPrinterConfig(null);
       return;
@@ -89,6 +96,13 @@ export default function TerminalConfigurationForm({
       allowCashierDebtCollect: terminal.allowCashierDebtCollect,
       requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
       defaultDebtDueDays: terminal.defaultDebtDueDays ?? undefined,
+      businessModeOverride: terminal.businessModeOverride ?? null,
+      enableFulfillmentTypes: terminal.enableFulfillmentTypes,
+      enableRestaurantFeatures: terminal.enableRestaurantFeatures,
+      enableTableService: terminal.enableTableService,
+      enableDeliveryDetails: terminal.enableDeliveryDetails,
+      enableProductModifiers: terminal.enableProductModifiers,
+      enableKitchenTickets: terminal.enableKitchenTickets,
     });
     setPrinterConfig(terminal.printerConfig ?? null);
   }, [terminal, reset]);
@@ -319,6 +333,44 @@ export default function TerminalConfigurationForm({
             ? "When Max Discount is used during checkout, the discount will be capped by this percentage."
             : "When Max Discount is used during checkout, the discount will be capped by this peso amount."}
         </p>
+      </SectionCard>
+
+      <SectionCard
+        title="Terminal Business Features"
+        description="Enable restaurant and hybrid behavior only on terminals that need it."
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <FieldGroup label="Business Mode" error={errors.businessModeOverride?.message}>
+            <select
+              {...register("businessModeOverride")}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Inherit retail default</option>
+              <option value="RETAIL">Retail</option>
+              <option value="RESTAURANT">Restaurant</option>
+              <option value="HYBRID">Hybrid</option>
+            </select>
+          </FieldGroup>
+          {[
+            ["enableRestaurantFeatures", "Restaurant flow"],
+            ["enableFulfillmentTypes", "Fulfillment picker"],
+            ["enableTableService", "Dine-in/table service"],
+            ["enableDeliveryDetails", "Delivery details"],
+            ["enableProductModifiers", "Product modifiers/add-ons"],
+            ["enableKitchenTickets", "Kitchen ticket readiness"],
+          ].map(([name, label]) => (
+            <label key={name} className="flex items-start gap-3 rounded-xl border p-3">
+              <input
+                type="checkbox"
+                className="mt-1"
+                {...register(name as keyof TerminalConfigurationPayload)}
+              />
+              <span className="space-y-1">
+                <span className="block text-sm font-medium text-foreground">{label}</span>
+              </span>
+            </label>
+          ))}
+        </div>
       </SectionCard>
 
       <SectionCard

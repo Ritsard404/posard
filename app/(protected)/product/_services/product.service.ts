@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { mutationContextService } from "@/lib/services/mutation-context.service";
-import type { Prisma, ItemType, VatType } from "@prisma/client";
+import type { Prisma, BusinessMode, ItemType, VatType } from "@prisma/client";
 import type {
   ProductBatchPreviewDto,
   ProductBatchPreviewRowDto,
@@ -16,8 +16,34 @@ import type {
   PageResponse,
 } from "@/app/(protected)/product/_services/_dto/product.dto";
 
-type ProductWithCategory = Prisma.ProductGetPayload<{ include: { category: true } }>;
+type ProductWithCategory = Prisma.ProductGetPayload<{
+  include: {
+    category: true;
+    modifierGroups: {
+      include: {
+        modifierGroup: {
+          include: {
+            options: true;
+          };
+        };
+      };
+    };
+  };
+}>;
 type DbClient = typeof prisma | Prisma.TransactionClient;
+
+const productDtoInclude = {
+  category: true,
+  modifierGroups: {
+    include: {
+      modifierGroup: {
+        include: {
+          options: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.ProductInclude;
 
 const SORTABLE_FIELDS: Record<string, keyof Prisma.ProductOrderByWithRelationInput> = {
   name: "name",
@@ -112,6 +138,8 @@ interface NormalizedProductInput {
   itemType: ItemType;
   vatType: VatType;
   productImageUrl: string | null;
+  isConfigurable: boolean;
+  configurationMode: BusinessMode | null;
 }
 
 async function getCompanyId(): Promise<string | null> {
@@ -124,6 +152,29 @@ function toProductDto(product: ProductWithCategory): ProductDto {
     id: product.id,
     name: product.name,
     productImageUrl: product.productImageUrl,
+    isConfigurable: product.isConfigurable,
+    configurationMode: product.configurationMode,
+    modifierGroups: product.modifierGroups
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map((link) => ({
+        id: link.modifierGroup.id,
+        name: link.modifierGroup.name,
+        type: link.modifierGroup.type,
+        required: link.modifierGroup.required,
+        minSelect: link.modifierGroup.minSelect,
+        maxSelect: link.modifierGroup.maxSelect,
+        displayOrder: link.displayOrder || link.modifierGroup.displayOrder,
+        options: link.modifierGroup.options
+          .filter((option) => option.isActive)
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+          .map((option) => ({
+            id: option.id,
+            name: option.name,
+            priceDelta: Number(option.priceDelta),
+            displayOrder: option.displayOrder,
+            isDefault: option.isDefault,
+          })),
+      })),
     barcode: product.barcode,
     baseUnit: product.baseUnit,
     quantity: product.quantity === null ? null : Number(product.quantity),
@@ -209,6 +260,8 @@ function normalizeProductInput(dto: ProductSaveDto): NormalizedProductInput {
     itemType,
     vatType,
     productImageUrl: asOptionalString(dto.productImageUrl),
+    isConfigurable: dto.isConfigurable ?? false,
+    configurationMode: dto.configurationMode ?? null,
   };
 }
 
@@ -416,6 +469,79 @@ async function ensureUniqueProduct(
   }
 }
 
+async function syncProductModifierGroups(
+  tx: Prisma.TransactionClient,
+  productId: string,
+  companyId: string,
+  groups: ProductSaveDto["modifierGroups"] | undefined,
+) {
+  await tx.productModifierGroup.deleteMany({ where: { productId } });
+
+  if (!groups?.length) return;
+
+  for (const [groupIndex, group] of groups.entries()) {
+    const minSelect = group.required
+      ? Math.max(1, group.minSelect ?? 1)
+      : Math.max(0, group.minSelect ?? 0);
+    const maxSelect = Math.max(1, group.maxSelect ?? 1);
+
+    const modifierGroup = group.id
+      ? await tx.modifierGroup.update({
+          where: { id: group.id },
+          data: {
+            name: group.name.trim(),
+            type: group.type,
+            required: group.required ?? false,
+            minSelect,
+            maxSelect,
+            displayOrder: group.displayOrder ?? groupIndex,
+            isActive: true,
+          },
+          select: { id: true },
+        })
+      : await tx.modifierGroup.create({
+          data: {
+            companyId,
+            name: group.name.trim(),
+            type: group.type,
+            required: group.required ?? false,
+            minSelect,
+            maxSelect,
+            displayOrder: group.displayOrder ?? groupIndex,
+            isActive: true,
+          },
+          select: { id: true },
+        });
+
+    await tx.modifierOption.deleteMany({
+      where: { modifierGroupId: modifierGroup.id },
+    });
+
+    if (group.options.length === 0) {
+      throw new Error(`Modifier group "${group.name}" needs at least one option.`);
+    }
+
+    await tx.modifierOption.createMany({
+      data: group.options.map((option, optionIndex) => ({
+        modifierGroupId: modifierGroup.id,
+        name: option.name.trim(),
+        priceDelta: option.priceDelta ?? 0,
+        displayOrder: option.displayOrder ?? optionIndex,
+        isDefault: option.isDefault ?? false,
+        isActive: true,
+      })),
+    });
+
+    await tx.productModifierGroup.create({
+      data: {
+        productId,
+        modifierGroupId: modifierGroup.id,
+        displayOrder: group.displayOrder ?? groupIndex,
+      },
+    });
+  }
+}
+
 export const productService = {
   async findAll(params?: {
     keyword?: string;
@@ -474,7 +600,7 @@ export const productService = {
     const [products, totalElements] = await Promise.all([
       prisma.product.findMany({
         where,
-        include: { category: true },
+        include: productDtoInclude,
         skip: page * size,
         take: size,
         orderBy: { [sortField]: direction },
@@ -498,7 +624,7 @@ export const productService = {
   async findById(id: string): Promise<ProductDto | null> {
     const product = await prisma.product.findFirst({
       where: { id, isDeleted: false },
-      include: { category: true },
+      include: productDtoInclude,
     });
 
     return product ? toProductDto(product) : null;
@@ -537,7 +663,7 @@ export const productService = {
         categoryId: params.categoryId,
         ...(companyId ? { OR: [{ companyId }, { companyId: null }] } : {}),
       },
-      include: { category: true },
+      include: productDtoInclude,
       skip: page * size,
       take: size,
       orderBy: { [sortField]: direction },
@@ -572,10 +698,19 @@ export const productService = {
           itemType: normalized.itemType,
           vatType: normalized.vatType,
           productImageUrl: normalized.productImageUrl,
+          isConfigurable: normalized.isConfigurable,
+          configurationMode: normalized.configurationMode,
           categoryId: category.id,
           companyId: context.companyId,
         },
       });
+
+      await syncProductModifierGroups(
+        tx,
+        created.id,
+        context.companyId,
+        dto.modifierGroups,
+      );
 
       await auditLogService.create(tx, {
         companyId: context.companyId,
@@ -694,7 +829,7 @@ export const productService = {
     await prisma.$transaction(async (tx) => {
       const existing = await tx.product.findFirst({
         where: { id, isDeleted: false },
-        include: { category: true },
+        include: productDtoInclude,
       });
 
       if (!existing) {
@@ -723,9 +858,18 @@ export const productService = {
           itemType: normalized.itemType,
           vatType: normalized.vatType,
           productImageUrl: normalized.productImageUrl,
+          isConfigurable: normalized.isConfigurable,
+          configurationMode: normalized.configurationMode,
           categoryId: category.id,
         },
       });
+
+      await syncProductModifierGroups(
+        tx,
+        id,
+        context.companyId,
+        dto.modifierGroups,
+      );
 
       await auditLogService.create(tx, {
         companyId: context.companyId,
@@ -743,7 +887,7 @@ export const productService = {
     await prisma.$transaction(async (tx) => {
       const existing = await tx.product.findFirst({
         where: { id, isDeleted: false },
-        include: { category: true },
+        include: productDtoInclude,
       });
 
       if (!existing) {

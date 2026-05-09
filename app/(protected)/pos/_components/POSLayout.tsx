@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { HeaderActions } from "@/components/layout/HeaderActions";
 import { CashTrackTrigger } from "@/components/layout/CashTrackTrigger";
@@ -53,6 +54,8 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
   const activeSessionId = usePOSStore((state) => state.activeSessionId);
   const activeTerminal = usePOSStore((state) => state.activeTerminal);
+  const fulfillment = usePOSStore((state) => state.fulfillment);
+  const setFulfillment = usePOSStore((state) => state.setFulfillment);
   const printerConnectionStatus = usePOSStore(
     (state) => state.printerConnectionStatus,
   );
@@ -345,6 +348,47 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
         <div className="border-b border-amber-300/60 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-950">
           {activeTerminal.billingMessage ??
             "Transactions are disabled because this terminal subscription is not active. Cash tracking and session controls remain available."}
+        </div>
+      ) : null}
+
+      {activeTerminal?.enableFulfillmentTypes ? (
+        <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b bg-card px-3 py-2">
+          {(["WALK_IN", "DINE_IN", "TAKE_OUT", "DELIVERY", "PICKUP"] as const)
+            .filter((type) => {
+              if (type === "DINE_IN") return activeTerminal.enableTableService;
+              if (type === "DELIVERY") return activeTerminal.enableDeliveryDetails;
+              return true;
+            })
+            .map((type) => (
+              <Button
+                key={type}
+                type="button"
+                size="sm"
+                variant={fulfillment.type === type ? "default" : "outline"}
+                className="h-8 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase"
+                onClick={() => setFulfillment({ type })}
+              >
+                {type.replace(/_/g, " ")}
+              </Button>
+            ))}
+          {fulfillment.type === "DINE_IN" && activeTerminal.enableTableService ? (
+            <Input
+              value={fulfillment.tableNumber ?? ""}
+              onChange={(event) => setFulfillment({ tableNumber: event.target.value })}
+              placeholder="Table"
+              className="h-8 w-24 shrink-0 text-xs"
+            />
+          ) : null}
+          {fulfillment.type === "DELIVERY" && activeTerminal.enableDeliveryDetails ? (
+            <Input
+              value={fulfillment.deliveryReference ?? ""}
+              onChange={(event) =>
+                setFulfillment({ deliveryReference: event.target.value })
+              }
+              placeholder="Delivery ref"
+              className="h-8 w-32 shrink-0 text-xs"
+            />
+          ) : null}
         </div>
       ) : null}
 

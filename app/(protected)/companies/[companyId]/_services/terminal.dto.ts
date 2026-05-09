@@ -94,6 +94,13 @@ export const TerminalSchema = z.object({
   allowCashierDebtCollect: z.boolean().default(false),
   requireManagerApprovalForDebt: z.boolean().default(false),
   defaultDebtDueDays: z.number().int().min(1).max(365).nullable().optional(),
+  businessModeOverride: z.enum(["RETAIL", "RESTAURANT", "HYBRID"]).nullable().optional(),
+  enableFulfillmentTypes: z.boolean().default(false),
+  enableRestaurantFeatures: z.boolean().default(false),
+  enableTableService: z.boolean().default(false),
+  enableDeliveryDetails: z.boolean().default(false),
+  enableProductModifiers: z.boolean().default(false),
+  enableKitchenTickets: z.boolean().default(false),
   printerName: z.string().nullable(),
   printerDisplayName: z.string().nullable().optional(),
   printerConnectionType: z.enum(["usb", "bluetooth", "serial", "built_in"]).nullable().optional(),
@@ -208,6 +215,13 @@ const TerminalConfigurationBaseSchema = z.object({
 
     return value;
   }, z.coerce.number().int().min(1).max(365).nullable()),
+  businessModeOverride: z.enum(["RETAIL", "RESTAURANT", "HYBRID"]).nullable().optional(),
+  enableFulfillmentTypes: z.boolean().default(false),
+  enableRestaurantFeatures: z.boolean().default(false),
+  enableTableService: z.boolean().default(false),
+  enableDeliveryDetails: z.boolean().default(false),
+  enableProductModifiers: z.boolean().default(false),
+  enableKitchenTickets: z.boolean().default(false),
 }).merge(TerminalDiscountCapFieldsBaseSchema);
 
 export const TerminalConfigurationSchema = applyTerminalDiscountCapValidation(

@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { StorageImage } from '@/components/storage/StorageImage';
+import { useState } from 'react';
+import { ProductConfigurationDialog } from './ProductConfigurationDialog';
 
 interface ProductCardProps {
   product: Product;
@@ -16,11 +18,26 @@ interface ProductCardProps {
 export function ProductCard({ product, viewMode }: ProductCardProps) {
   const isMobile = useIsMobile();
   const addToCart = usePOSStore((state) => state.addToCart);
+  const addConfiguredItemToCart = usePOSStore((state) => state.addConfiguredItemToCart);
+  const activeTerminal = usePOSStore((state) => state.activeTerminal);
   const categories = usePOSStore((state) => state.categories);
+  const [configOpen, setConfigOpen] = useState(false);
   const categoryName = categories.find(c => c.id === product.categoryId)?.categoryName || 'Uncategorized';
   const isOutOfStock = product.trackInventory && product.quantity <= 0;
 
   const handleAdd = () => {
+    if (product.isConfigurable && product.modifierGroups.length > 0) {
+      if (!activeTerminal?.enableProductModifiers) {
+        toast.error("Modifiers are disabled for this terminal.", {
+          description: "Enable product modifiers in terminal settings before selling this configured item.",
+        });
+        return;
+      }
+
+      setConfigOpen(true);
+      return;
+    }
+
     const result = addToCart(product);
 
     if (!result.success) {
@@ -44,6 +61,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
 
   if (viewMode === 'list') {
     return (
+      <>
       <Card 
         className={cn(
           "group flex min-w-0 flex-row items-center justify-between gap-2 border bg-card p-2 transition-all",
@@ -92,10 +110,21 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           </Button>
         </div>
       </Card>
+      <ProductConfigurationDialog
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        product={product}
+        mode="add"
+        onSave={(data) => {
+          addConfiguredItemToCart(product, data);
+        }}
+      />
+      </>
     );
   }
 
   return (
+    <>
     <Card 
       className={cn(
         "flex flex-col overflow-hidden group border-border transition-all duration-300 h-full bg-card",
@@ -155,5 +184,15 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
         </div>
       </CardContent>
     </Card>
+    <ProductConfigurationDialog
+      open={configOpen}
+      onOpenChange={setConfigOpen}
+      product={product}
+      mode="add"
+      onSave={(data) => {
+        addConfiguredItemToCart(product, data);
+      }}
+    />
+    </>
   );
 }

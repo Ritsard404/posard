@@ -248,6 +248,7 @@ export function usePOSCheckoutFlow(
     setCustomerDisplayMode,
     applyStockUpdates,
     upsertOfflineReceipt,
+    fulfillment,
   } = usePOSStore();
   const isOnline = usePOSStore((state) => state.isOnline);
 
@@ -536,13 +537,30 @@ export function usePOSCheckoutFlow(
         productId: item.id,
         qty: item.cartQuantity,
         price: item.price,
+        basePrice: item.basePrice ?? item.price,
         subTotal:
           item.itemStatus === "VOID"
             ? 0
             : (item.customSubtotal ?? item.price * item.cartQuantity),
         status: item.itemStatus || "PENDING",
+        selections: item.selections?.map((selection) => ({
+          modifierGroupName: selection.groupName,
+          modifierGroupType: selection.groupType,
+          optionName: selection.optionName,
+          priceDelta: selection.priceDelta,
+          quantity: selection.quantity,
+          sortOrder: selection.sortOrder,
+        })),
+        specialInstructions: item.specialInstructions,
       })),
       cashTenderAmount: amountTendered,
+      fulfillmentType: fulfillment.type,
+      tableNumber: fulfillment.tableNumber,
+      guestCount: fulfillment.guestCount,
+      deliveryCustomerName: fulfillment.deliveryCustomerName,
+      deliveryAddress: fulfillment.deliveryAddress,
+      deliveryReference: fulfillment.deliveryReference,
+      deliveryFee: fulfillment.deliveryFee,
       ePayments:
         settlementMode === "pay_now" && referencePayments.length > 0
           ? referencePayments.map((payment) => ({

@@ -58,6 +58,12 @@ function mapSessionSnapshotToStore(
       printerConfig: sessionSnapshot.printerConfig,
       billingLocked: sessionSnapshot.billingLocked,
       billingMessage: sessionSnapshot.billingMessage,
+      businessMode: "RETAIL",
+      enableFulfillmentTypes: false,
+      enableRestaurantFeatures: false,
+      enableTableService: false,
+      enableDeliveryDetails: false,
+      enableProductModifiers: false,
     },
     user: {
       name: sessionSnapshot.cashierName,
@@ -82,6 +88,12 @@ export function POSTerminalManager() {
     printerConfig?: PrinterConfigDto | null;
     billingLocked?: boolean;
     billingMessage?: string | null;
+    businessMode?: "RETAIL" | "RESTAURANT" | "HYBRID";
+    enableFulfillmentTypes?: boolean;
+    enableRestaurantFeatures?: boolean;
+    enableTableService?: boolean;
+    enableDeliveryDetails?: boolean;
+    enableProductModifiers?: boolean;
   } | null>(null);
 
   const {
@@ -417,6 +429,12 @@ export function POSTerminalManager() {
             allowCashierDebtCollect,
             requireManagerApprovalForDebt,
             defaultDebtDueDays,
+            businessMode,
+            enableFulfillmentTypes,
+            enableRestaurantFeatures,
+            enableTableService,
+            enableDeliveryDetails,
+            enableProductModifiers,
             printerConfig,
           ) =>
             setSelectedTerminal({
@@ -430,6 +448,12 @@ export function POSTerminalManager() {
               requireManagerApprovalForDebt,
               defaultDebtDueDays,
               printerConfig,
+              businessMode,
+              enableFulfillmentTypes,
+              enableRestaurantFeatures,
+              enableTableService,
+              enableDeliveryDetails,
+              enableProductModifiers,
             })
           }
         />
@@ -458,6 +482,16 @@ export function POSTerminalManager() {
                   printerConfig: selectedTerminal.printerConfig ?? null,
                   billingLocked: false,
                   billingMessage: null,
+                  businessMode: selectedTerminal.businessMode ?? "RETAIL",
+                  enableFulfillmentTypes:
+                    selectedTerminal.enableFulfillmentTypes ?? false,
+                  enableRestaurantFeatures:
+                    selectedTerminal.enableRestaurantFeatures ?? false,
+                  enableTableService: selectedTerminal.enableTableService ?? false,
+                  enableDeliveryDetails:
+                    selectedTerminal.enableDeliveryDetails ?? false,
+                  enableProductModifiers:
+                    selectedTerminal.enableProductModifiers ?? false,
                 },
                 user: data.user,
               });

@@ -44,6 +44,62 @@ function formatItemLine(qty: string, description: string, amount: string) {
   return `${qty.padEnd(QTY_WIDTH)}${description.padEnd(DESC_WIDTH)}${amount.padStart(AMOUNT_WIDTH)}`;
 }
 
+function wrapIndentedLine(text: string, indent = "   - ") {
+  const width = RECEIPT_WIDTH - indent.length;
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > width && current) {
+      lines.push(`${indent}${current}`);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) {
+    lines.push(`${indent}${current}`);
+  }
+
+  return lines;
+}
+
+function formatSelectionLabel(type: string, groupName: string) {
+  if (type === "ADDON") return "Add-on";
+  if (type === "INSTRUCTION") return "Note";
+  return groupName.trim() || "Option";
+}
+
+function formatOrderItemSelectionsForPrint(item: ReceiptDto["items"][number]) {
+  const lines: string[] = [];
+
+  for (const selection of [...(item.selections ?? [])].sort(
+    (a, b) => a.sortOrder - b.sortOrder,
+  )) {
+    const label = formatSelectionLabel(
+      selection.modifierGroupType,
+      selection.modifierGroupName,
+    );
+    const option = selection.optionName?.trim();
+    if (!option) continue;
+
+    const delta =
+      selection.priceDelta > 0 ? ` (+${formatAmount(selection.priceDelta)})` : "";
+    const qty = selection.quantity > 1 ? ` x${selection.quantity}` : "";
+    lines.push(...wrapIndentedLine(`${label}: ${option}${delta}${qty}`));
+  }
+
+  const note = item.specialInstructions?.trim();
+  if (note) {
+    lines.push(...wrapIndentedLine(`Note: ${note}`));
+  }
+
+  return lines;
+}
+
 function formatInvoiceDate(value: string) {
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
@@ -174,6 +230,10 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
     `Date: ${formatInvoiceDate(receipt.createdAt)}`.padEnd(RECEIPT_WIDTH),
     `Terminal: ${receipt.posTerminalName}`.padEnd(RECEIPT_WIDTH),
     `Cashier: ${receipt.cashierName}`.padEnd(RECEIPT_WIDTH),
+    receipt.fulfillmentType && receipt.fulfillmentType !== "WALK_IN"
+      ? `Fulfillment: ${receipt.fulfillmentType.replace(/_/g, " ")}`.padEnd(RECEIPT_WIDTH)
+      : "",
+    receipt.tableNumber ? `Table: ${receipt.tableNumber}`.padEnd(RECEIPT_WIDTH) : "",
     ...(receipt.debt
       ? [
           `Customer: ${receipt.debt.customerName}`.padEnd(RECEIPT_WIDTH),
@@ -196,6 +256,7 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
           : item.productName,
         formatAmount(item.subTotal),
       ),
+      ...formatOrderItemSelectionsForPrint(item),
     );
   }
 

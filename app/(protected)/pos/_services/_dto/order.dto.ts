@@ -6,6 +6,17 @@ export type DiscountType = "PWD" | "SENIOR" | "OTHERS";
 export type InvoiceStatusType = "CANCELLED" | "RETURNED" | "VOID" | "PENDING" | "PAID";
 export type VatType = "VATABLE" | "EXEMPT" | "ZERO";
 export type SettlementMode = "pay_now" | "debt";
+export type FulfillmentType = "WALK_IN" | "DINE_IN" | "TAKE_OUT" | "DELIVERY" | "PICKUP";
+export type ModifierGroupType = "VARIANT" | "MODIFIER" | "ADDON" | "INSTRUCTION";
+
+export interface OrderItemSelectionDto {
+  modifierGroupName: string;
+  modifierGroupType: ModifierGroupType;
+  optionName?: string;
+  priceDelta: number;
+  quantity: number;
+  sortOrder: number;
+}
 
 // ─────────────────────────────────────────────
 // Request DTOs
@@ -17,6 +28,9 @@ export interface ItemRequestDto {
   price: number;
   subTotal: number;
   status?: InvoiceStatusType;
+  basePrice?: number;
+  specialInstructions?: string;
+  selections?: OrderItemSelectionDto[];
 }
 
 export interface EPaymentDto {
@@ -44,6 +58,13 @@ export interface OrderDto {
   cashTenderAmount: number;
   ePayments?: EPaymentDto[];
   discount?: DiscountDto;
+  fulfillmentType?: FulfillmentType;
+  tableNumber?: string;
+  guestCount?: number;
+  deliveryCustomerName?: string;
+  deliveryAddress?: string;
+  deliveryReference?: string;
+  deliveryFee?: number;
   settlementMode?: SettlementMode;
   debt?: {
     customerId: string;

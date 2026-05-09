@@ -6,6 +6,15 @@ export interface ReceiptItemDto {
   qty: number;
   subTotal: number;
   status: "CANCELLED" | "RETURNED" | "VOID" | "PENDING" | "PAID";
+  selections?: {
+    modifierGroupName: string;
+    modifierGroupType: "VARIANT" | "MODIFIER" | "ADDON" | "INSTRUCTION";
+    optionName?: string | null;
+    priceDelta: number;
+    quantity: number;
+    sortOrder: number;
+  }[];
+  specialInstructions?: string | null;
 }
 
 export interface ReceiptOtherPaymentDto {
@@ -51,6 +60,13 @@ export interface ReceiptDto {
   terminalVat: number;
   cashierName: string;
   isTrainMode: boolean;
+  fulfillmentType?: "WALK_IN" | "DINE_IN" | "TAKE_OUT" | "DELIVERY" | "PICKUP";
+  tableNumber?: string | null;
+  guestCount?: number | null;
+  deliveryCustomerName?: string | null;
+  deliveryAddress?: string | null;
+  deliveryReference?: string | null;
+  deliveryFee?: number | null;
   discountType: string | null;
   discountAmount: number;
   dueAmount: number;

@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePOSPaymentSummary } from "./checkout-shared";
+import { ProductConfigurationDialog } from "./ProductConfigurationDialog";
 import {
   enqueueOfflineAction,
   getOfflineQueueSnapshot,
@@ -32,6 +33,7 @@ export function CartPanel() {
     removeFromCart,
     clearCart,
     updateItemSubtotal,
+    addConfiguredItemToCart,
     setActiveMobileTab,
     setCustomerDisplayMode,
     activeDeviceId,
@@ -53,9 +55,11 @@ export function CartPanel() {
   >(null);
 
   const [isVoiding, setIsVoiding] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const { activeCart, subtotal, discountAmount, total, taxDerived } =
     usePOSPaymentSummary();
+  const editingItem = cart.find((item) => item.cartItemId === editingItemId) ?? null;
 
   const handleCartQuantityChange = (cartItemId: string, quantity: number) => {
     if (isVoiding) return;
@@ -138,6 +142,11 @@ export function CartPanel() {
                   key={item.cartItemId}
                   className={`flex min-w-0 flex-col rounded-lg border bg-background p-2 transition-all animate-in fade-in slide-in-from-right-2 ${isVoid ? "grayscale opacity-40" : ""}`}
                   style={{ animationDelay: `${idx * 50}ms` }}
+                  onClick={() => {
+                    if (!isVoid && item.isConfigurable && item.modifierGroups.length > 0) {
+                      setEditingItemId(item.cartItemId);
+                    }
+                  }}
                 >
                   <div className="mb-2 flex min-w-0 items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -193,13 +202,15 @@ export function CartPanel() {
                         variant="ghost"
                         size="icon"
                         className={`h-8 w-8 rounded-lg ${isVoid ? "opacity-50" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-                        onClick={() =>
-                          !isVoid &&
-                          handleCartQuantityChange(
-                            item.cartItemId,
-                            item.cartQuantity - 1,
-                          )
-                        }
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (!isVoid) {
+                              handleCartQuantityChange(
+                                item.cartItemId,
+                                item.cartQuantity - 1,
+                              );
+                            }
+                          }}
                         disabled={isVoid || isVoiding}
                       >
                         <Minus className="size-4" />
@@ -213,13 +224,15 @@ export function CartPanel() {
                         variant="ghost"
                         size="icon"
                         className={`h-8 w-8 rounded-lg ${isVoid ? "opacity-50" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-                        onClick={() =>
-                          !isVoid &&
-                          handleCartQuantityChange(
-                            item.cartItemId,
-                            item.cartQuantity + 1,
-                          )
-                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                            if (!isVoid) {
+                              handleCartQuantityChange(
+                                item.cartItemId,
+                                item.cartQuantity + 1,
+                              );
+                            }
+                        }}
                         disabled={isVoid || isVoiding}
                       >
                         <Plus className="size-4" />
@@ -237,7 +250,8 @@ export function CartPanel() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-lg border border-destructive/10 bg-destructive/5 text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => {
+                        onClick={(event) => {
+                          event.stopPropagation();
                           if (isVoiding) return;
 
                           setApprovalType("VOID_ITEM");
@@ -448,6 +462,27 @@ export function CartPanel() {
           return Promise.resolve(action(manager)).finally(() => {
             setPendingAction(null);
           });
+        }}
+      />
+      <ProductConfigurationDialog
+        open={Boolean(editingItem)}
+        onOpenChange={(open) => {
+          if (!open) setEditingItemId(null);
+        }}
+        product={editingItem}
+        mode="edit"
+        onSave={(data) => {
+          if (!editingItem) return;
+          addConfiguredItemToCart(editingItem, {
+            ...data,
+            cartItemId: editingItem.cartItemId,
+          });
+          setEditingItemId(null);
+        }}
+        onRemove={() => {
+          if (!editingItem) return;
+          removeFromCart(editingItem.cartItemId);
+          setEditingItemId(null);
         }}
       />
     </div>

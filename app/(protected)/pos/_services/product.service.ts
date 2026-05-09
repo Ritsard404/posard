@@ -24,6 +24,36 @@ export const productService = {
         itemType: true,
         vatType: true,
         categoryId: true,
+        isConfigurable: true,
+        configurationMode: true,
+        modifierGroups: {
+          orderBy: { displayOrder: "asc" },
+          select: {
+            displayOrder: true,
+            modifierGroup: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                required: true,
+                minSelect: true,
+                maxSelect: true,
+                displayOrder: true,
+                options: {
+                  where: { isActive: true },
+                  orderBy: { displayOrder: "asc" },
+                  select: {
+                    id: true,
+                    name: true,
+                    priceDelta: true,
+                    displayOrder: true,
+                    isDefault: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: {
         name: "asc"
@@ -44,6 +74,24 @@ export const productService = {
       itemType: p.itemType as ItemType,
       vatType: p.vatType as VatType,
       categoryId: p.categoryId,
+      isConfigurable: p.isConfigurable,
+      configurationMode: p.configurationMode,
+      modifierGroups: p.modifierGroups.map((link) => ({
+        id: link.modifierGroup.id,
+        name: link.modifierGroup.name,
+        type: link.modifierGroup.type,
+        required: link.modifierGroup.required,
+        minSelect: link.modifierGroup.minSelect,
+        maxSelect: link.modifierGroup.maxSelect,
+        displayOrder: link.displayOrder || link.modifierGroup.displayOrder,
+        options: link.modifierGroup.options.map((option) => ({
+          id: option.id,
+          name: option.name,
+          priceDelta: Number(option.priceDelta),
+          displayOrder: option.displayOrder,
+          isDefault: option.isDefault,
+        })),
+      })),
     }));
   }
 };

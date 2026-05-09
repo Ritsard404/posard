@@ -2,6 +2,28 @@ import type { PrinterConfigDto } from "./print.dto";
 
 export type ItemType = 'RESALE' | 'WHOLESALE';
 export type VatType = 'VATABLE' | 'EXEMPT' | 'ZERO';
+export type BusinessMode = "RETAIL" | "RESTAURANT" | "HYBRID";
+export type FulfillmentType = "WALK_IN" | "DINE_IN" | "TAKE_OUT" | "DELIVERY" | "PICKUP";
+export type ModifierGroupType = "VARIANT" | "MODIFIER" | "ADDON" | "INSTRUCTION";
+
+export interface ModifierOptionDto {
+  id: string;
+  name: string;
+  priceDelta: number;
+  displayOrder: number;
+  isDefault: boolean;
+}
+
+export interface ModifierGroupDto {
+  id: string;
+  name: string;
+  type: ModifierGroupType;
+  required: boolean;
+  minSelect: number;
+  maxSelect: number;
+  displayOrder: number;
+  options: ModifierOptionDto[];
+}
 
 export interface CategoryDto {
   id: string;
@@ -22,6 +44,9 @@ export interface ProductDto {
   itemType: ItemType;
   vatType: VatType;
   categoryId: string;
+  isConfigurable: boolean;
+  configurationMode: BusinessMode | null;
+  modifierGroups: ModifierGroupDto[];
 }
 
 export interface EPaymentMethodDto {

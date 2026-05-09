@@ -142,6 +142,13 @@ async function findInvoiceByIdempotencyKey(
       vatAmount: true,
       isTrainMode: true,
       localInvoiceNo: true,
+      fulfillmentType: true,
+      tableNumber: true,
+      guestCount: true,
+      deliveryCustomerName: true,
+      deliveryAddress: true,
+      deliveryReference: true,
+      deliveryFee: true,
       posTerminal: {
         select: {
           posName: true,
@@ -185,6 +192,18 @@ async function findInvoiceByIdempotencyKey(
           qty: true,
           subTotal: true,
           status: true,
+          specialInstructions: true,
+          selections: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              modifierGroupName: true,
+              modifierGroupType: true,
+              optionName: true,
+              priceDelta: true,
+              quantity: true,
+              sortOrder: true,
+            },
+          },
           product: {
             select: {
               name: true,
@@ -372,6 +391,13 @@ function buildReceiptFromOrder(input: {
     createdAt: Date;
     isTrainMode: boolean;
     localInvoiceNo?: string | null;
+    fulfillmentType?: ReceiptDto["fulfillmentType"];
+    tableNumber?: string | null;
+    guestCount?: number | null;
+    deliveryCustomerName?: string | null;
+    deliveryAddress?: string | null;
+    deliveryReference?: string | null;
+    deliveryFee?: Prisma.Decimal | number | null;
   };
   terminal: Awaited<
     ReturnType<typeof getActiveTimestampForOrder>
@@ -405,6 +431,14 @@ function buildReceiptFromOrder(input: {
     terminalVat,
     cashierName: input.cashierName ?? "Unknown",
     isTrainMode: input.invoice.isTrainMode,
+    fulfillmentType: input.invoice.fulfillmentType ?? "WALK_IN",
+    tableNumber: input.invoice.tableNumber ?? null,
+    guestCount: input.invoice.guestCount ?? null,
+    deliveryCustomerName: input.invoice.deliveryCustomerName ?? null,
+    deliveryAddress: input.invoice.deliveryAddress ?? null,
+    deliveryReference: input.invoice.deliveryReference ?? null,
+    deliveryFee:
+      input.invoice.deliveryFee == null ? null : Number(input.invoice.deliveryFee),
     discountType: input.discount?.discountType ?? null,
     discountAmount: input.calc.discountAmount,
     dueAmount: input.calc.dueAmount,
@@ -427,6 +461,8 @@ function buildReceiptFromOrder(input: {
       qty: item.qty,
       subTotal: item.status === "VOID" ? 0 : item.subTotal,
       status: item.status ?? ("PAID" satisfies OrderInvoiceStatusType),
+      selections: item.selections,
+      specialInstructions: item.specialInstructions ?? null,
     })),
   };
 }
@@ -543,17 +579,59 @@ async function createInvoiceItems(
   items: ItemRequestDto[],
   isTrainMode: boolean,
 ) {
-  await db.item.createMany({
-    data: items.map((item) => ({
+  const hasSelections = items.some(
+    (item) => item.selections?.length || item.specialInstructions?.trim(),
+  );
+
+  if (!hasSelections) {
+    await db.item.createMany({
+      data: items.map((item) => ({
+        invoiceId,
+        productId: item.productId,
+        qty: item.qty,
+        price: item.price,
+        basePrice: item.basePrice ?? item.price,
+        subTotal: item.status === "VOID" ? 0 : item.subTotal,
+        status: item.status || ("PAID" satisfies InvoiceStatusType),
+        isTrainingMode: isTrainMode,
+      })),
+    });
+    return;
+  }
+
+  for (const item of items) {
+    const created = await db.item.create({
+      data: {
       invoiceId,
       productId: item.productId,
       qty: item.qty,
       price: item.price,
+      basePrice: item.basePrice ?? item.price,
       subTotal: item.status === "VOID" ? 0 : item.subTotal,
       status: item.status || ("PAID" satisfies InvoiceStatusType),
       isTrainingMode: isTrainMode,
-    })),
-  });
+      specialInstructions: item.specialInstructions?.trim() || null,
+      configurationSnapshot: item.selections?.length
+        ? (item.selections as unknown as Prisma.InputJsonValue)
+        : Prisma.JsonNull,
+      },
+      select: { id: true },
+    });
+
+    if (item.selections?.length) {
+      await db.orderItemSelection.createMany({
+        data: item.selections.map((selection) => ({
+          orderItemId: created.id,
+          modifierGroupName: selection.modifierGroupName,
+          modifierGroupType: selection.modifierGroupType,
+          optionName: selection.optionName ?? null,
+          priceDelta: selection.priceDelta,
+          quantity: selection.quantity,
+          sortOrder: selection.sortOrder,
+        })),
+      });
+    }
+  }
 }
 
 async function createInvoiceEPayments(
@@ -879,6 +957,13 @@ export const orderService = {
                   ? ("PAID" satisfies InvoiceStatusType)
                   : ("PENDING" satisfies InvoiceStatusType),
               isTrainMode: terminal.isTrainMode,
+              fulfillmentType: dto.fulfillmentType ?? "WALK_IN",
+              tableNumber: dto.tableNumber?.trim() || null,
+              guestCount: dto.guestCount ?? null,
+              deliveryCustomerName: dto.deliveryCustomerName?.trim() || null,
+              deliveryAddress: dto.deliveryAddress?.trim() || null,
+              deliveryReference: dto.deliveryReference?.trim() || null,
+              deliveryFee: dto.deliveryFee ?? null,
             },
             select: {
               id: true,
@@ -886,6 +971,13 @@ export const orderService = {
               createdAt: true,
               isTrainMode: true,
               localInvoiceNo: true,
+              fulfillmentType: true,
+              tableNumber: true,
+              guestCount: true,
+              deliveryCustomerName: true,
+              deliveryAddress: true,
+              deliveryReference: true,
+              deliveryFee: true,
             },
           });
 
@@ -1079,6 +1171,13 @@ export const orderService = {
 
             status: "PAID" satisfies InvoiceStatusType,
             isTrainMode: terminal.isTrainMode,
+            fulfillmentType: dto.fulfillmentType ?? "WALK_IN",
+            tableNumber: dto.tableNumber?.trim() || null,
+            guestCount: dto.guestCount ?? null,
+            deliveryCustomerName: dto.deliveryCustomerName?.trim() || null,
+            deliveryAddress: dto.deliveryAddress?.trim() || null,
+            deliveryReference: dto.deliveryReference?.trim() || null,
+            deliveryFee: dto.deliveryFee ?? null,
           },
           select: {
             id: true,
@@ -1086,6 +1185,13 @@ export const orderService = {
             createdAt: true,
             isTrainMode: true,
             localInvoiceNo: true,
+            fulfillmentType: true,
+            tableNumber: true,
+            guestCount: true,
+            deliveryCustomerName: true,
+            deliveryAddress: true,
+            deliveryReference: true,
+            deliveryFee: true,
           },
         });
 

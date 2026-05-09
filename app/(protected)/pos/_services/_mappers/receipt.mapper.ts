@@ -11,6 +11,13 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
     id: true;
     invoiceNumber: true;
     localInvoiceNo: true;
+    fulfillmentType: true;
+    tableNumber: true;
+    guestCount: true;
+    deliveryCustomerName: true;
+    deliveryAddress: true;
+    deliveryReference: true;
+    deliveryFee: true;
     createdAt: true;
     dueAmount: true;
     totalTendered: true;
@@ -69,6 +76,17 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
         qty: true;
         subTotal: true;
         status: true;
+        specialInstructions: true;
+        selections: {
+          select: {
+            modifierGroupName: true;
+            modifierGroupType: true;
+            optionName: true;
+            priceDelta: true;
+            quantity: true;
+            sortOrder: true;
+          };
+        };
         product: {
           select: {
             name: true;
@@ -122,6 +140,13 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
     terminalVat,
     cashierName: invoice.cashier.fullName ?? "Unknown",
     isTrainMode: invoice.isTrainMode,
+    fulfillmentType: invoice.fulfillmentType,
+    tableNumber: invoice.tableNumber ?? null,
+    guestCount: invoice.guestCount ?? null,
+    deliveryCustomerName: invoice.deliveryCustomerName ?? null,
+    deliveryAddress: invoice.deliveryAddress ?? null,
+    deliveryReference: invoice.deliveryReference ?? null,
+    deliveryFee: invoice.deliveryFee == null ? null : Number(invoice.deliveryFee),
     discountType: invoice.discountType ?? null,
     discountAmount: Number(invoice.discountAmount ?? 0),
     dueAmount: Number(invoice.dueAmount ?? 0),
@@ -162,6 +187,15 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
       qty: Number(item.qty),
       subTotal: Number(item.subTotal),
       status: item.status,
+      specialInstructions: item.specialInstructions ?? null,
+      selections: item.selections.map((selection) => ({
+        modifierGroupName: selection.modifierGroupName,
+        modifierGroupType: selection.modifierGroupType,
+        optionName: selection.optionName,
+        priceDelta: Number(selection.priceDelta),
+        quantity: selection.quantity,
+        sortOrder: selection.sortOrder,
+      })),
     })),
   };
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Package2, Tags, Wallet } from "lucide-react";
+import { Loader2, Package2, SlidersHorizontal, Tags, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +44,9 @@ const productSchema = z
     isAvailable: z.boolean(),
     trackInventory: z.boolean(),
     productImageUrl: z.string().nullable().optional(),
+    isConfigurable: z.boolean(),
+    configurationMode: z.enum(["RETAIL", "RESTAURANT", "HYBRID"]).nullable(),
+    modifierGroupsJson: z.string().optional(),
   })
   .superRefine((value, ctx) => {
     const price = Number(value.price);
@@ -73,6 +76,21 @@ const productSchema = z
           code: z.ZodIssueCode.custom,
           path: ["quantity"],
           message: "Quantity must be zero or greater.",
+        });
+      }
+    }
+
+    if (value.isConfigurable && value.modifierGroupsJson?.trim()) {
+      try {
+        const parsed = JSON.parse(value.modifierGroupsJson);
+        if (!Array.isArray(parsed)) {
+          throw new Error("Configuration must be an array.");
+        }
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["modifierGroupsJson"],
+          message: "Use valid JSON for modifier groups.",
         });
       }
     }
@@ -135,6 +153,9 @@ export function ProductFormSheet({
       isAvailable: true,
       trackInventory: false,
       productImageUrl: null,
+      isConfigurable: false,
+      configurationMode: null,
+      modifierGroupsJson: "",
     }),
     [],
   );
@@ -153,6 +174,7 @@ export function ProductFormSheet({
 
   const trackInventory = watch("trackInventory");
   const isAvailable = watch("isAvailable");
+  const isConfigurable = watch("isConfigurable");
   const selectedCategoryId = watch("categoryId");
 
   useEffect(() => {
@@ -173,6 +195,26 @@ export function ProductFormSheet({
         isAvailable: product.isAvailable,
         trackInventory: product.trackInventory,
         productImageUrl: product.productImageUrl ?? null,
+        isConfigurable: product.isConfigurable,
+        configurationMode: product.configurationMode,
+        modifierGroupsJson: JSON.stringify(
+          product.modifierGroups.map((group) => ({
+            id: group.id,
+            name: group.name,
+            type: group.type,
+            required: group.required,
+            minSelect: group.minSelect,
+            maxSelect: group.maxSelect,
+            options: group.options.map((option) => ({
+              id: option.id,
+              name: option.name,
+              priceDelta: option.priceDelta,
+              isDefault: option.isDefault,
+            })),
+          })),
+          null,
+          2,
+        ),
       });
     } else {
       reset(defaultValues);
@@ -198,6 +240,11 @@ export function ProductFormSheet({
       isAvailable: values.isAvailable,
       trackInventory: values.trackInventory,
       productImageUrl: values.productImageUrl?.trim() || undefined,
+      isConfigurable: values.isConfigurable,
+      configurationMode: values.configurationMode,
+      modifierGroups: values.isConfigurable && values.modifierGroupsJson?.trim()
+        ? JSON.parse(values.modifierGroupsJson)
+        : [],
     };
 
     const result = isEditing
@@ -299,6 +346,62 @@ export function ProductFormSheet({
                   description="Upload a clear product photo. POSard optimizes it before saving."
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <SectionHeader
+              icon={<SlidersHorizontal className="size-4 text-sky-600" />}
+              title="Product configuration"
+              description="Optional variants, modifiers, add-ons, and notes for restaurant or hybrid items."
+            />
+
+            <div className="space-y-3 rounded-xl border border-border/70 bg-background px-3 py-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="product-configurable"
+                  checked={isConfigurable}
+                  onCheckedChange={(checked) => setValue("isConfigurable", checked === true)}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="product-configurable" className="cursor-pointer">
+                    Configurable item
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Opens a compact POS configuration dialog before adding this product.
+                  </p>
+                </div>
+              </div>
+
+              {isConfigurable ? (
+                <div className="grid gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="configuration-mode">Applies to</Label>
+                    <select
+                      id="configuration-mode"
+                      {...register("configurationMode")}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring"
+                    >
+                      <option value="">Both / inherited</option>
+                      <option value="RETAIL">Retail only</option>
+                      <option value="RESTAURANT">Restaurant only</option>
+                      <option value="HYBRID">Hybrid</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="modifier-groups-json">Modifier Groups JSON</Label>
+                    <textarea
+                      id="modifier-groups-json"
+                      {...register("modifierGroupsJson")}
+                      className="min-h-44 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus:border-ring"
+                      placeholder='[{"name":"Size","type":"VARIANT","required":true,"minSelect":1,"maxSelect":1,"options":[{"name":"Large","priceDelta":20}]}]'
+                    />
+                    {errors.modifierGroupsJson ? (
+                      <p className="text-xs text-destructive">{errors.modifierGroupsJson.message}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 

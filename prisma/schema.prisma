@@ -106,6 +106,36 @@ enum DiscountCapType {
   @@schema("public")
 }
 
+enum BusinessMode {
+  RETAIL
+  RESTAURANT
+  HYBRID
+
+  @@map("business_mode")
+  @@schema("public")
+}
+
+enum FulfillmentType {
+  WALK_IN
+  DINE_IN
+  TAKE_OUT
+  DELIVERY
+  PICKUP
+
+  @@map("fulfillment_type")
+  @@schema("public")
+}
+
+enum ModifierGroupType {
+  VARIANT
+  MODIFIER
+  ADDON
+  INSTRUCTION
+
+  @@map("modifier_group_type")
+  @@schema("public")
+}
+
 /////////////////////////////////////////////////
 // PROFILE (Single User Source)
 /////////////////////////////////////////////////
@@ -136,18 +166,18 @@ model Profile {
   timestampsAsManagerOut  Timestamp[] @relation("ManagerOutTimestamp")
   timestampsAsForceClosed Timestamp[] @relation("ForceClosedByTimestamp")
 
-  invoicesAsCashier  Invoice[] @relation("CashierInvoice")
-  invoicesAsVoidedBy Invoice[] @relation("VoidedByInvoice")
-  debtsCreated       CustomerDebt[] @relation("DebtCreatedBy")
-  debtsApproved      CustomerDebt[] @relation("DebtApprovedBy")
+  invoicesAsCashier    Invoice[]             @relation("CashierInvoice")
+  invoicesAsVoidedBy   Invoice[]             @relation("VoidedByInvoice")
+  debtsCreated         CustomerDebt[]        @relation("DebtCreatedBy")
+  debtsApproved        CustomerDebt[]        @relation("DebtApprovedBy")
   debtPaymentsReceived CustomerDebtPayment[] @relation("DebtPaymentReceivedBy")
 
-  posSessions  PosSession[]
-  approvalLogs ApprovalLog[]
-  auditLogs    AuditLog[] @relation("ActorAuditLog")
-  requestedTerminalRequests TerminalRequest[] @relation("RequestedTerminalRequest")
-  reviewedTerminalRequests  TerminalRequest[] @relation("ReviewedTerminalRequest")
-  reviewedRegistrationRequests RegistrationRequest[] @relation("ReviewedRegistrationRequests")
+  posSessions                       PosSession[]
+  approvalLogs                      ApprovalLog[]
+  auditLogs                         AuditLog[]            @relation("ActorAuditLog")
+  requestedTerminalRequests         TerminalRequest[]     @relation("RequestedTerminalRequest")
+  reviewedTerminalRequests          TerminalRequest[]     @relation("ReviewedTerminalRequest")
+  reviewedRegistrationRequests      RegistrationRequest[] @relation("ReviewedRegistrationRequests")
   retryUnlockedRegistrationRequests RegistrationRequest[] @relation("RetryUnlockedRegistrationRequests")
 
   //////////////////////////////////////////////////
@@ -170,15 +200,15 @@ model RegistrationRequest {
   phone       String?
   companyName String? @map("company_name")
 
-  requestedRole UserRole @default(manager) @map("requested_role")
+  requestedRole UserRole                  @default(manager) @map("requested_role")
   status        RegistrationRequestStatus @default(pending)
 
-  reviewedById   String?   @map("reviewed_by") @db.Uuid
-  reviewedBy     Profile?  @relation("ReviewedRegistrationRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz
-  rejectionReason String?  @map("rejection_reason")
-  retryUnlockedById String? @map("retry_unlocked_by") @db.Uuid
-  retryUnlockedBy   Profile? @relation("RetryUnlockedRegistrationRequests", fields: [retryUnlockedById], references: [id], onDelete: SetNull)
+  reviewedById      String?   @map("reviewed_by") @db.Uuid
+  reviewedBy        Profile?  @relation("ReviewedRegistrationRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime? @map("reviewed_at") @db.Timestamptz
+  rejectionReason   String?   @map("rejection_reason")
+  retryUnlockedById String?   @map("retry_unlocked_by") @db.Uuid
+  retryUnlockedBy   Profile?  @relation("RetryUnlockedRegistrationRequests", fields: [retryUnlockedById], references: [id], onDelete: SetNull)
   retryUnlockedAt   DateTime? @map("retry_unlocked_at") @db.Timestamptz
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -199,35 +229,43 @@ model RegistrationRequest {
 model Company {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_company") @db.Uuid
 
-  name  String
-  code  String?
-  email String?
-  phone String?
+  name    String
+  code    String?
+  email   String?
+  phone   String?
   address String?
 
-  logoImageUrl String? @map("logo_img_url") @db.VarChar(500)
+  logoImageUrl           String?         @map("logo_img_url") @db.VarChar(500)
+  businessMode           BusinessMode    @default(RETAIL) @map("business_mode")
+  defaultFulfillmentType FulfillmentType @default(WALK_IN) @map("default_fulfillment_type")
+  enableFulfillmentTypes Boolean         @default(false) @map("enable_fulfillment_types")
+  enableTableService     Boolean         @default(false) @map("enable_table_service")
+  enableDeliveryDetails  Boolean         @default(false) @map("enable_delivery_details")
+  enableProductModifiers Boolean         @default(false) @map("enable_product_modifiers")
+  enableKitchenTickets   Boolean         @default(false) @map("enable_kitchen_tickets")
 
   //////////////////////////////////////////////////
   // RELATIONS
   //////////////////////////////////////////////////
 
-  users        Profile[]
-  images       CompanyImage[]
-  posTerminals PosTerminalInfo[]
+  users            Profile[]
+  images           CompanyImage[]
+  posTerminals     PosTerminalInfo[]
   terminalRequests TerminalRequest[]
-  customers      Customer[]
-  customerDebts  CustomerDebt[]
-  debtPayments   CustomerDebtPayment[]
+  customers        Customer[]
+  customerDebts    CustomerDebt[]
+  debtPayments     CustomerDebtPayment[]
 
   //////////////////////////////////////////////////
   // AUDIT
   //////////////////////////////////////////////////
 
-  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz
-  categories Category[]
-  products   Product[]
-  auditLogs  AuditLog[]
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  categories     Category[]
+  products       Product[]
+  modifierGroups ModifierGroup[]
+  auditLogs      AuditLog[]
 
   @@map("company")
   @@schema("public")
@@ -264,42 +302,49 @@ model PosTerminalInfo {
   validUntil          DateTime @map("valid_until") @db.Date
 
   // Business
-  posName        String?  @map("pos_name")
-  registeredName String?  @map("registered_name")
-  operatedBy     String?  @map("operated_by")
-  address        String?
-  vatTinNumber   String?  @map("vat_tin_number")
-  vat            Int?
-  discountCapType DiscountCapType @default(percent) @map("discount_cap_type")
-  discountMax    Decimal? @map("discount_max") @db.Decimal(10, 2)
-  allowCashierDebtCreate Boolean @default(false) @map("allow_cashier_debt_create")
-  allowCashierDebtCollect Boolean @default(false) @map("allow_cashier_debt_collect")
-  requireManagerApprovalForDebt Boolean @default(false) @map("require_manager_approval_for_debt")
-  defaultDebtDueDays Int? @map("default_debt_due_days")
+  posName                       String?         @map("pos_name")
+  registeredName                String?         @map("registered_name")
+  operatedBy                    String?         @map("operated_by")
+  address                       String?
+  vatTinNumber                  String?         @map("vat_tin_number")
+  vat                           Int?
+  discountCapType               DiscountCapType @default(percent) @map("discount_cap_type")
+  discountMax                   Decimal?        @map("discount_max") @db.Decimal(10, 2)
+  allowCashierDebtCreate        Boolean         @default(false) @map("allow_cashier_debt_create")
+  allowCashierDebtCollect       Boolean         @default(false) @map("allow_cashier_debt_collect")
+  requireManagerApprovalForDebt Boolean         @default(false) @map("require_manager_approval_for_debt")
+  defaultDebtDueDays            Int?            @map("default_debt_due_days")
+  businessModeOverride          BusinessMode?   @map("business_mode_override")
+  enableFulfillmentTypes        Boolean         @default(false) @map("enable_fulfillment_types")
+  enableRestaurantFeatures      Boolean         @default(false) @map("enable_restaurant_features")
+  enableTableService            Boolean         @default(false) @map("enable_table_service")
+  enableDeliveryDetails         Boolean         @default(false) @map("enable_delivery_details")
+  enableProductModifiers        Boolean         @default(false) @map("enable_product_modifiers")
+  enableKitchenTickets          Boolean         @default(false) @map("enable_kitchen_tickets")
 
   // System
-  printerName  String? @map("printer_name")
-  printerDisplayName      String?               @map("printer_display_name")
-  printerConnectionType   PrinterConnectionType? @map("printer_connection_type")
-  printerTransport        PrinterTransport?      @map("printer_transport")
-  printerDriver           PrinterDriver?         @map("printer_driver")
-  printerVendorId         Int?                  @map("printer_vendor_id")
-  printerProductId        Int?                  @map("printer_product_id")
-  printerDeviceId         String?               @map("printer_device_id")
-  printerServiceUuid      String?               @map("printer_service_uuid")
-  printerCharacteristicUuid String?             @map("printer_characteristic_uuid")
-  autoPrintEnabled        Boolean               @default(true) @map("auto_print_enabled")
+  printerName               String?                @map("printer_name")
+  printerDisplayName        String?                @map("printer_display_name")
+  printerConnectionType     PrinterConnectionType? @map("printer_connection_type")
+  printerTransport          PrinterTransport?      @map("printer_transport")
+  printerDriver             PrinterDriver?         @map("printer_driver")
+  printerVendorId           Int?                   @map("printer_vendor_id")
+  printerProductId          Int?                   @map("printer_product_id")
+  printerDeviceId           String?                @map("printer_device_id")
+  printerServiceUuid        String?                @map("printer_service_uuid")
+  printerCharacteristicUuid String?                @map("printer_characteristic_uuid")
+  autoPrintEnabled          Boolean                @default(true) @map("auto_print_enabled")
 
   // Counters
   resetCounterNo      Int @default(0) @map("reset_counter_no")
   resetCounterTrainNo Int @default(0) @map("reset_counter_train_no")
   zCounterNo          Int @default(0) @map("z_counter_no")
-    zCounterTrainNo     Int @default(0) @map("z_counter_train_no")
-  
-    // Modes
-    isDefaultTerminal Boolean @default(false) @map("is_default_terminal")
-    isTrainMode  Boolean @default(false) @map("is_train_mode")
-    isActive     Boolean @default(false) @map("is_active")
+  zCounterTrainNo     Int @default(0) @map("z_counter_train_no")
+
+  // Modes
+  isDefaultTerminal Boolean @default(false) @map("is_default_terminal")
+  isTrainMode       Boolean @default(false) @map("is_train_mode")
+  isActive          Boolean @default(false) @map("is_active")
 
   //////////////////////////////////////////////////
   // RELATIONS
@@ -308,48 +353,48 @@ model PosTerminalInfo {
   companyId String  @map("company_id") @db.Uuid
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  timestamps Timestamp[]
+  timestamps   Timestamp[]
   subscription TerminalSubscription?
 
   //////////////////////////////////////////////////
   // AUDIT
   //////////////////////////////////////////////////
 
-  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz
-  invoices  Invoice[]
-    sessions  PosSession[]
-    auditLogs AuditLog[]
-    customerDebts CustomerDebt[]
-    debtPayments CustomerDebtPayment[]
-    customerDisplayState CustomerDisplayState?
-  
-    @@index([companyId])
-    @@map("pos_terminal_info")
-    @@schema("public")
-  }
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+  invoices             Invoice[]
+  sessions             PosSession[]
+  auditLogs            AuditLog[]
+  customerDebts        CustomerDebt[]
+  debtPayments         CustomerDebtPayment[]
+  customerDisplayState CustomerDisplayState?
 
-  model CustomerDisplayState {
-    id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_customer_display_state") @db.Uuid
+  @@index([companyId])
+  @@map("pos_terminal_info")
+  @@schema("public")
+}
 
-    terminalId String          @unique @map("terminal_id") @db.Uuid
-    terminal   PosTerminalInfo @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+model CustomerDisplayState {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_customer_display_state") @db.Uuid
 
-    companyId String @map("company_id") @db.Uuid
-    payload Json
+  terminalId String          @unique @map("terminal_id") @db.Uuid
+  terminal   PosTerminalInfo @relation(fields: [terminalId], references: [id], onDelete: Cascade)
 
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  companyId String @map("company_id") @db.Uuid
+  payload   Json
 
-    @@index([companyId])
-    @@index([terminalId, updatedAt])
-    @@map("customer_display_state")
-    @@schema("public")
-  }
-  
-  /////////////////////////////////////////////////
-  // TERMINAL SUBSCRIPTION
-  /////////////////////////////////////////////////
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId])
+  @@index([terminalId, updatedAt])
+  @@map("customer_display_state")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// TERMINAL SUBSCRIPTION
+/////////////////////////////////////////////////
 
 model TerminalSubscription {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_terminal_subscription") @db.Uuid
@@ -391,7 +436,7 @@ model TerminalRequest {
   reviewedById String?  @map("reviewed_by_id") @db.Uuid
   reviewedBy   Profile? @relation("ReviewedTerminalRequest", fields: [reviewedById], references: [id])
 
-  requestedTerminals Int                  @default(1) @map("requested_terminals")
+  requestedTerminals Int                   @default(1) @map("requested_terminals")
   status             TerminalRequestStatus @default(pending)
   notes              String?
 
@@ -470,11 +515,11 @@ model AuditLog {
   actorProfileId String  @map("actor_profile_id") @db.Uuid
   actorProfile   Profile @relation("ActorAuditLog", fields: [actorProfileId], references: [id])
 
-  posTerminalId String?         @map("pos_terminal_id") @db.Uuid
+  posTerminalId String?          @map("pos_terminal_id") @db.Uuid
   posTerminal   PosTerminalInfo? @relation(fields: [posTerminalId], references: [id], onDelete: SetNull)
 
-  actionType  String  @map("action_type")
-  referenceId String? @map("reference_id") @db.Uuid
+  actionType  String   @map("action_type")
+  referenceId String?  @map("reference_id") @db.Uuid
   changes     String?
   amount      Decimal? @db.Decimal(15, 2)
 
@@ -522,11 +567,11 @@ model Timestamp {
   forceClosedById String?  @map("force_closed_by_id") @db.Uuid
   forceClosedBy   Profile? @relation("ForceClosedByTimestamp", fields: [forceClosedById], references: [id])
 
-  deviceId String? @map("device_id")
-  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz
-  forceClosedAt DateTime? @map("force_closed_at") @db.Timestamptz
-  forceCloseReason String? @map("force_close_reason")
-  debtPayments CustomerDebtPayment[]
+  deviceId         String?               @map("device_id")
+  lastSeenAt       DateTime?             @map("last_seen_at") @db.Timestamptz
+  forceClosedAt    DateTime?             @map("force_closed_at") @db.Timestamptz
+  forceCloseReason String?               @map("force_close_reason")
+  debtPayments     CustomerDebtPayment[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -610,17 +655,19 @@ model Category {
 model Product {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_product") @db.Uuid
 
-  name            String
-  productImageUrl String?  @map("product_image_url") @db.VarChar(500)
-  barcode         String?  @db.VarChar(100)
-  baseUnit        String   @default("") @map("base_unit") @db.VarChar(50)
-  quantity        Decimal? @db.Decimal(19, 4)
-  cost            Decimal  @default(0) @db.Decimal(19, 4)
-  price           Decimal  @db.Decimal(19, 4)
-  isAvailable     Boolean  @default(true) @map("is_available")
-  trackInventory  Boolean  @default(false) @map("track_inventory")
-  itemType        ItemType @default(RESALE) @map("item_type")
-  vatType         VatType  @default(VATABLE) @map("vat_type")
+  name              String
+  productImageUrl   String?       @map("product_image_url") @db.VarChar(500)
+  barcode           String?       @db.VarChar(100)
+  baseUnit          String        @default("") @map("base_unit") @db.VarChar(50)
+  quantity          Decimal?      @db.Decimal(19, 4)
+  cost              Decimal       @default(0) @db.Decimal(19, 4)
+  price             Decimal       @db.Decimal(19, 4)
+  isAvailable       Boolean       @default(true) @map("is_available")
+  trackInventory    Boolean       @default(false) @map("track_inventory")
+  itemType          ItemType      @default(RESALE) @map("item_type")
+  vatType           VatType       @default(VATABLE) @map("vat_type")
+  isConfigurable    Boolean       @default(false) @map("is_configurable")
+  configurationMode BusinessMode? @map("configuration_mode")
 
   //////////////////////////////////////////////////
   // RELATIONS
@@ -632,8 +679,9 @@ model Product {
   companyId String?  @map("uuid_company") @db.Uuid
   company   Company? @relation(fields: [companyId], references: [id])
 
-  images    ProductImage[]
-  inventory Inventory[]
+  images         ProductImage[]
+  inventory      Inventory[]
+  modifierGroups ProductModifierGroup[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -649,6 +697,69 @@ model Product {
   @@index([categoryId])
   @@index([companyId])
   @@map("product")
+  @@schema("public")
+}
+
+model ModifierGroup {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_modifier_group") @db.Uuid
+
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name         String
+  type         ModifierGroupType
+  required     Boolean           @default(false)
+  minSelect    Int               @default(0) @map("min_select")
+  maxSelect    Int               @default(1) @map("max_select")
+  displayOrder Int               @default(0) @map("display_order")
+  isActive     Boolean           @default(true) @map("is_active")
+
+  options  ModifierOption[]
+  products ProductModifierGroup[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, isActive])
+  @@map("modifier_group")
+  @@schema("public")
+}
+
+model ModifierOption {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_modifier_option") @db.Uuid
+
+  modifierGroupId String        @map("modifier_group_id") @db.Uuid
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  name         String
+  priceDelta   Decimal @default(0) @map("price_delta") @db.Decimal(15, 2)
+  displayOrder Int     @default(0) @map("display_order")
+  isDefault    Boolean @default(false) @map("is_default")
+  isActive     Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([modifierGroupId, isActive])
+  @@map("modifier_option")
+  @@schema("public")
+}
+
+model ProductModifierGroup {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_product_modifier_group") @db.Uuid
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  modifierGroupId String        @map("modifier_group_id") @db.Uuid
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  displayOrder Int @default(0) @map("display_order")
+
+  @@unique([productId, modifierGroupId], name: "uk_product_modifier_group")
+  @@index([productId])
+  @@index([modifierGroupId])
+  @@map("product_modifier_group")
   @@schema("public")
 }
 
@@ -780,11 +891,11 @@ model Invoice {
    * -------------------------
    */
 
-  invoiceNumber Int @map("invoice_number")
-  idempotencyKey String? @unique @map("idempotency_key")
-  sourceDeviceId String? @map("source_device_id")
+  invoiceNumber     Int     @map("invoice_number")
+  idempotencyKey    String? @unique @map("idempotency_key")
+  sourceDeviceId    String? @map("source_device_id")
   sourceTimestampId String? @map("source_timestamp_id") @db.Uuid
-  localInvoiceNo String? @map("local_invoice_no")
+  localInvoiceNo    String? @map("local_invoice_no")
 
   /**
    * -------------------------
@@ -832,9 +943,16 @@ model Invoice {
    * -------------------------
    */
 
-  status      InvoiceStatusType
-  isRead      Boolean           @default(false) @map("is_read")
-  isTrainMode Boolean           @default(false) @map("is_train_mode")
+  status               InvoiceStatusType
+  isRead               Boolean           @default(false) @map("is_read")
+  isTrainMode          Boolean           @default(false) @map("is_train_mode")
+  fulfillmentType      FulfillmentType   @default(WALK_IN) @map("fulfillment_type")
+  tableNumber          String?           @map("table_number")
+  guestCount           Int?              @map("guest_count")
+  deliveryCustomerName String?           @map("delivery_customer_name")
+  deliveryAddress      String?           @map("delivery_address")
+  deliveryReference    String?           @map("delivery_reference")
+  deliveryFee          Decimal?          @map("delivery_fee") @db.Decimal(15, 2)
 
   //////////////////////////////////////////////////
   // RELATIONS
@@ -849,9 +967,9 @@ model Invoice {
   voidedById String?  @map("voided_by") @db.Uuid
   voidedBy   Profile? @relation("VoidedByInvoice", fields: [voidedById], references: [id])
 
-  items     Item[]
-  ePayments EPayment[]
-  documents InvoiceDocument[]
+  items        Item[]
+  ePayments    EPayment[]
+  documents    InvoiceDocument[]
   customerDebt CustomerDebt?
 
   //////////////////////////////////////////////////
@@ -861,11 +979,11 @@ model Invoice {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@unique([posTerminalId, invoiceNumber], name: "uk_invoice_terminal_invoice_number")
   @@index([posTerminalId])
   @@index([cashierId])
   @@index([voidedById])
   @@index([posTerminalId, isTrainMode, invoiceNumber])
-  @@unique([posTerminalId, invoiceNumber], name: "uk_invoice_terminal_invoice_number")
   @@map("invoice")
   @@schema("public")
 }
@@ -883,13 +1001,13 @@ enum DebtStatus {
 model Customer {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  companyId String @map("company_id") @db.Uuid
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  name String
-  phone String?
-  address String?
-  notes String?
+  name     String
+  phone    String?
+  address  String?
+  notes    String?
   isActive Boolean @default(true) @map("is_active")
 
   debts CustomerDebt[]
@@ -906,30 +1024,30 @@ model Customer {
 model CustomerDebt {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  companyId String @map("company_id") @db.Uuid
+  companyId  String  @map("company_id") @db.Uuid
   terminalId String? @map("terminal_id") @db.Uuid
-  customerId String @map("customer_id") @db.Uuid
-  invoiceId String @unique @map("invoice_id") @db.Uuid
+  customerId String  @map("customer_id") @db.Uuid
+  invoiceId  String  @unique @map("invoice_id") @db.Uuid
 
-  originalAmount Decimal @map("original_amount") @db.Decimal(15, 2)
-  paidAmount Decimal @default(0) @map("paid_amount") @db.Decimal(15, 2)
-  remainingAmount Decimal @map("remaining_amount") @db.Decimal(15, 2)
-  status DebtStatus @default(UNPAID)
-  dueDate DateTime @map("due_date") @db.Timestamptz
-  paidAt DateTime? @map("paid_at") @db.Timestamptz
-  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz
-  notes String?
+  originalAmount  Decimal    @map("original_amount") @db.Decimal(15, 2)
+  paidAmount      Decimal    @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  remainingAmount Decimal    @map("remaining_amount") @db.Decimal(15, 2)
+  status          DebtStatus @default(UNPAID)
+  dueDate         DateTime   @map("due_date") @db.Timestamptz
+  paidAt          DateTime?  @map("paid_at") @db.Timestamptz
+  cancelledAt     DateTime?  @map("cancelled_at") @db.Timestamptz
+  notes           String?
 
-  createdById String @map("created_by_id") @db.Uuid
+  createdById  String  @map("created_by_id") @db.Uuid
   approvedById String? @map("approved_by_id") @db.Uuid
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  terminal PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  createdBy Profile @relation("DebtCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  approvedBy Profile? @relation("DebtApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
-  payments CustomerDebtPayment[]
+  company    Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminal   PosTerminalInfo?      @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  customer   Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoice    Invoice               @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  createdBy  Profile               @relation("DebtCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy Profile?              @relation("DebtApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  payments   CustomerDebtPayment[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -947,21 +1065,21 @@ model CustomerDebt {
 model CustomerDebtPayment {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  debtId String @map("debt_id") @db.Uuid
-  companyId String @map("company_id") @db.Uuid
-  terminalId String? @map("terminal_id") @db.Uuid
-  timestampId String? @map("timestamp_id") @db.Uuid
-  amount Decimal @db.Decimal(15, 2)
-  method String
-  referenceNo String? @map("reference_no")
-  notes String?
-  receivedById String @map("received_by_id") @db.Uuid
+  debtId       String  @map("debt_id") @db.Uuid
+  companyId    String  @map("company_id") @db.Uuid
+  terminalId   String? @map("terminal_id") @db.Uuid
+  timestampId  String? @map("timestamp_id") @db.Uuid
+  amount       Decimal @db.Decimal(15, 2)
+  method       String
+  referenceNo  String? @map("reference_no")
+  notes        String?
+  receivedById String  @map("received_by_id") @db.Uuid
 
-  debt CustomerDebt @relation(fields: [debtId], references: [id], onDelete: Cascade)
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  terminal PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
-  timestamp Timestamp? @relation(fields: [timestampId], references: [id], onDelete: SetNull)
-  receivedBy Profile @relation("DebtPaymentReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
+  debt       CustomerDebt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminal   PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  timestamp  Timestamp?       @relation(fields: [timestampId], references: [id], onDelete: SetNull)
+  receivedBy Profile          @relation("DebtPaymentReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -1002,18 +1120,22 @@ model InvoiceDocument {
 model Item {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_item") @db.Uuid
 
-  qty      Decimal           @db.Decimal(19, 4)
-  price    Decimal           @db.Decimal(19, 4)
-  subTotal Decimal           @map("subtotal") @db.Decimal(19, 4)
-  status   InvoiceStatusType
+  qty                   Decimal           @db.Decimal(19, 4)
+  price                 Decimal           @db.Decimal(19, 4)
+  subTotal              Decimal           @map("subtotal") @db.Decimal(19, 4)
+  status                InvoiceStatusType
+  basePrice             Decimal?          @map("base_price") @db.Decimal(19, 4)
+  specialInstructions   String?           @map("special_instructions")
+  configurationSnapshot Json?             @map("configuration_snapshot")
 
   isTrainingMode Boolean @default(false) @map("is_training_mode")
 
   productId String  @map("uuid_product") @db.Uuid
   product   Product @relation(fields: [productId], references: [id])
 
-  invoiceId String  @map("uuid_invoice") @db.Uuid
-  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId  String               @map("uuid_invoice") @db.Uuid
+  invoice    Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  selections OrderItemSelection[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -1021,6 +1143,24 @@ model Item {
   @@index([productId])
   @@index([invoiceId])
   @@map("item")
+  @@schema("public")
+}
+
+model OrderItemSelection {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_order_item_selection") @db.Uuid
+
+  orderItemId String @map("order_item_id") @db.Uuid
+  orderItem   Item   @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  modifierGroupName String            @map("modifier_group_name")
+  modifierGroupType ModifierGroupType @map("modifier_group_type")
+  optionName        String?           @map("option_name")
+  priceDelta        Decimal           @default(0) @map("price_delta") @db.Decimal(15, 2)
+  quantity          Int               @default(1)
+  sortOrder         Int               @default(0) @map("sort_order")
+
+  @@index([orderItemId])
+  @@map("order_item_selection")
   @@schema("public")
 }
 
