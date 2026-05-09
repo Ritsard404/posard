@@ -119,6 +119,19 @@ function scheduleCheckoutBackgroundSync(delayMs = 2000) {
   }, delayMs);
 }
 
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> {
+  return await Promise.race([
+    operation,
+    new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    }),
+  ]);
+}
+
 function getPaymentMethodLabel(name: string | null) {
   return name?.trim() || "Unlabeled payment method";
 }
@@ -483,40 +496,43 @@ export function usePOSCheckoutFlow(
     processingRef.current = true;
     setIsProcessing(true);
 
-    let debtCustomerId = selectedDebtCustomerId;
-    if (
-      settlementMode === "debt" &&
-      !debtCustomerId &&
-      newDebtCustomerName.trim()
-    ) {
-      const created = await createDebtCustomerAction({
-        name: newDebtCustomerName.trim(),
-        phone: null,
-        address: null,
-        notes: null,
-      });
+    try {
+      let debtCustomerId = selectedDebtCustomerId;
+      if (
+        settlementMode === "debt" &&
+        !debtCustomerId &&
+        newDebtCustomerName.trim()
+      ) {
+        const created = await withTimeout(
+          createDebtCustomerAction({
+            name: newDebtCustomerName.trim(),
+            phone: null,
+            address: null,
+            notes: null,
+          }),
+          15000,
+          "Customer creation timed out. Please retry.",
+        );
 
-      if (!created.success) {
-        processingRef.current = false;
-        setIsProcessing(false);
-        toast.error(created.error);
-        return;
+        if (!created.success) {
+          toast.error(created.error);
+          return;
+        }
+
+        debtCustomerId = created.customer.id;
+        setSelectedDebtCustomerId(created.customer.id);
+        setDebtCustomers((state) => [
+          ...state,
+          { id: created.customer.id, name: created.customer.name },
+        ]);
       }
 
-      debtCustomerId = created.customer.id;
-      setSelectedDebtCustomerId(created.customer.id);
-      setDebtCustomers((state) => [
-        ...state,
-        { id: created.customer.id, name: created.customer.name },
-      ]);
-    }
+      const idempotencyKey =
+        checkoutIdempotencyKeyRef.current ??
+        `${activeTerminal?.id ?? "terminal"}-${activeDeviceId ?? "device"}-${crypto.randomUUID()}`;
+      checkoutIdempotencyKeyRef.current = idempotencyKey;
 
-    const idempotencyKey =
-      checkoutIdempotencyKeyRef.current ??
-      `${activeTerminal?.id ?? "terminal"}-${activeDeviceId ?? "device"}-${crypto.randomUUID()}`;
-    checkoutIdempotencyKeyRef.current = idempotencyKey;
-
-    const orderDto: OrderDto = {
+      const orderDto: OrderDto = {
       timestampId: activeTimestampId ?? "",
       deviceId: activeDeviceId ?? undefined,
       idempotencyKey,
@@ -565,48 +581,42 @@ export function usePOSCheckoutFlow(
           : undefined,
     };
 
-    if (settlementMode === "debt") {
-      if (!isOnline) {
-        processingRef.current = false;
-        setIsProcessing(false);
-        toast.error("Debt issuance is online-only in v1.");
-        return;
-      }
-
-      const res = await payOrderAction(orderDto);
-      processingRef.current = false;
-      setIsProcessing(false);
-
-      if (res.success) {
-        checkoutIdempotencyKeyRef.current = null;
-        applyStockUpdates(res.receipt.stockUpdates);
-
-        if (fastCheckout) {
-          await printFastCheckoutReceipt(res.receipt);
-          resetAfterFastCheckout();
-          // toast.success("Sale complete.", {
-          //   description: "Ready for the next transaction.",
-          // });
+      if (settlementMode === "debt") {
+        if (!isOnline) {
+          toast.error("Debt issuance is online-only in v1.");
           return;
         }
 
-        setCustomerDisplayMode("completed");
-        setReceipt(res.receipt);
-        setStep("RECEIPT");
+        const res = await withTimeout(
+          payOrderAction(orderDto),
+          20000,
+          "Checkout request timed out. Check connectivity and try again.",
+        );
+
+        if (res.success) {
+          checkoutIdempotencyKeyRef.current = null;
+          applyStockUpdates(res.receipt.stockUpdates);
+
+          if (fastCheckout) {
+            await printFastCheckoutReceipt(res.receipt);
+            resetAfterFastCheckout();
+            return;
+          }
+
+          setCustomerDisplayMode("completed");
+          setReceipt(res.receipt);
+          setStep("RECEIPT");
+          return;
+        }
+
+        toast.error("Hindi natuloy ang checkout.", {
+          description: res.error,
+          duration: 5000,
+        });
         return;
       }
 
-      toast.error("Hindi natuloy ang checkout.", {
-        description: res.error,
-        duration: 5000,
-      });
-      return;
-    }
-
-    {
       if (isBillingLocked) {
-        processingRef.current = false;
-        setIsProcessing(false);
         toast.error("Transactions are disabled.", {
           description:
             activeTerminal?.billingMessage ??
@@ -622,8 +632,6 @@ export function usePOSCheckoutFlow(
         !activeCompanyId ||
         !activeProfileId
       ) {
-        processingRef.current = false;
-        setIsProcessing(false);
         toast.error(
           "Offline checkout needs an active synced session on this device.",
         );
@@ -632,9 +640,21 @@ export function usePOSCheckoutFlow(
 
       try {
         const clickStartedAt = performance.now();
-        const queueState = await getOfflineQueueSnapshot();
-        const stockSnapshotVersion = await getStockSnapshotVersion();
-        const invoiceNumber = await reserveNextLocalInvoiceNumber();
+        const queueState = await withTimeout(
+          getOfflineQueueSnapshot(),
+          5000,
+          "Local queue read timed out. Please retry checkout.",
+        );
+        const stockSnapshotVersion = await withTimeout(
+          getStockSnapshotVersion(),
+          5000,
+          "Local stock snapshot read timed out. Please retry checkout.",
+        );
+        const invoiceNumber = await withTimeout(
+          reserveNextLocalInvoiceNumber(),
+          5000,
+          "Invoice number reservation timed out. Please retry checkout.",
+        );
         const queuedCounter =
           queueState.actions.filter((action) => action.type === "PAY_ORDER")
             .length + 1;
@@ -685,10 +705,14 @@ export function usePOSCheckoutFlow(
         assertQueuedSaleReadyForLocalCommit(queuedAction);
 
         const commitStartedAt = performance.now();
-        await commitLocalSale({
-          action: queuedAction,
-          localSequenceNumber: queuedCounter,
-        });
+        await withTimeout(
+          commitLocalSale({
+            action: queuedAction,
+            localSequenceNumber: queuedCounter,
+          }),
+          6000,
+          "Local checkout save timed out. Please retry.",
+        );
         if (process.env.NODE_ENV !== "production") {
           const totalMs = Math.round(performance.now() - clickStartedAt);
           console.info("POS checkout local-first timing", {
@@ -737,8 +761,6 @@ export function usePOSCheckoutFlow(
         }
         return;
       } catch (error) {
-        processingRef.current = false;
-        setIsProcessing(false);
         const message =
           error instanceof Error ? error.message : "Please try again.";
         console.error("POS local sale save failed", {
@@ -755,6 +777,9 @@ export function usePOSCheckoutFlow(
         });
         return;
       }
+    } finally {
+      processingRef.current = false;
+      setIsProcessing(false);
     }
   };
 
