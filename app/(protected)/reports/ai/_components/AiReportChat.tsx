@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Send } from "lucide-react";
+import { Bot, CheckCircle2, Loader2, Send, TrendingUp } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,18 @@ const starters = [
   "Compare this week vs last week",
   "Which payment method is most used today?",
 ];
+
+function toneClass(tone?: "neutral" | "good" | "warning") {
+  if (tone === "good") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100";
+  }
+
+  if (tone === "warning") {
+    return "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100";
+  }
+
+  return "border-border bg-muted/30 text-foreground";
+}
 
 export function AiReportChat({
   isLiveReady,
@@ -51,6 +63,18 @@ export function AiReportChat({
 
     setError(null);
     setQuestion("");
+    setAnswers((current) => [
+      {
+        question: trimmed,
+        answer: {
+          answer: "",
+          mode: "mock",
+          factsUsed: [],
+          warnings: ["loading"],
+        },
+      },
+      ...current,
+    ]);
     startTransition(() => {
       void askAiReportAction({
         question: trimmed,
@@ -58,11 +82,26 @@ export function AiReportChat({
         companyId: isAdmin ? companyId : undefined,
       }).then((result) => {
         if (!result.success) {
+          setAnswers((current) =>
+            current.filter(
+              (entry) =>
+                !(
+                  entry.question === trimmed &&
+                  entry.answer.warnings?.includes("loading")
+                ),
+            ),
+          );
           setError(result.error);
           return;
         }
 
-        setAnswers((current) => [{ question: trimmed, answer: result.data }, ...current]);
+        setAnswers((current) =>
+          current.map((entry) =>
+            entry.question === trimmed && entry.answer.warnings?.includes("loading")
+              ? { question: trimmed, answer: result.data }
+              : entry,
+          ),
+        );
       });
     });
   };
@@ -94,9 +133,10 @@ export function AiReportChat({
                 Company Scope
               </label>
               <select
-                id="ai-report-company"
-                value={companyId}
-                onChange={(event) => {
+              id="ai-report-company"
+              value={companyId}
+              disabled={isPending}
+              onChange={(event) => {
                   setCompanyId(event.target.value);
                   setError(null);
                 }}
@@ -145,10 +185,16 @@ export function AiReportChat({
               onChange={(event) => setQuestion(event.target.value)}
               placeholder="Ask about sales, products, payments, discounts..."
               maxLength={500}
+              disabled={isPending}
+              aria-disabled={isPending}
             />
             <Button type="submit" disabled={isPending} className="gap-2">
-              <Send className="size-4" />
-              Ask
+              {isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Send className="size-4" />
+              )}
+              {isPending ? "Analyzing..." : "Ask"}
             </Button>
           </form>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -169,20 +215,91 @@ export function AiReportChat({
               <CardTitle className="text-sm">{entry.question}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 p-4 pt-0">
-              <p className="text-sm leading-6">{entry.answer.answer}</p>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{entry.answer.mode === "live" ? "Live AI" : "Mock Mode"}</Badge>
-                {entry.answer.factsUsed.map((fact) => (
-                  <Badge key={fact} variant="outline">
-                    {fact}
-                  </Badge>
-                ))}
-              </div>
-              {entry.answer.warnings?.map((warning) => (
-                <p key={warning} className="text-xs text-muted-foreground">
-                  {warning}
-                </p>
-              ))}
+              {entry.answer.warnings?.includes("loading") ? (
+                <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Reading trusted report metrics...
+                </div>
+              ) : (
+                <>
+                  {entry.answer.presentation ? (
+                    <div className="space-y-4">
+                      <div className="rounded-lg border bg-primary/5 p-3">
+                        <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
+                          <TrendingUp className="size-4" />
+                          Quick Summary
+                        </div>
+                        <p className="text-sm leading-6">
+                          {entry.answer.presentation.quickSummary}
+                        </p>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        {entry.answer.presentation.keyNumbers.map((item) => (
+                          <div
+                            key={`${item.label}-${item.value}`}
+                            className={`rounded-lg border p-3 ${toneClass(item.tone)}`}
+                          >
+                            <div className="text-[11px] font-bold uppercase tracking-wider opacity-70">
+                              {item.label}
+                            </div>
+                            <div className="mt-1 text-lg font-bold leading-tight">
+                              {item.value}
+                            </div>
+                            {item.helper ? (
+                              <div className="mt-1 text-xs opacity-75">
+                                {item.helper}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-lg border p-3">
+                          <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            What It Means
+                          </div>
+                          <div className="space-y-2">
+                            {entry.answer.presentation.meaning.map((item) => (
+                              <div key={item} className="flex gap-2 text-sm leading-5">
+                                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                                <span>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border p-3">
+                          <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            Suggested Action
+                          </div>
+                          <div className="space-y-2">
+                            {entry.answer.presentation.suggestedActions.map((item) => (
+                              <div key={item} className="flex gap-2 text-sm leading-5">
+                                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
+                                <span>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm leading-6">{entry.answer.answer}</p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary">
+                      {entry.answer.mode === "live" ? "Live AI" : "Mock Mode"}
+                    </Badge>
+                  </div>
+                  {entry.answer.warnings?.map((warning) => (
+                    <p key={warning} className="text-xs text-muted-foreground">
+                      {warning}
+                    </p>
+                  ))}
+                </>
+              )}
             </CardContent>
           </Card>
         ))

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, ShieldCheck } from "lucide-react";
+import { Check, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,8 +78,18 @@ export function SystemSettingsClient({
             </div>
           </div>
 
-          <Button type="button" onClick={save} disabled={isPending} className="gap-2">
-            <Check className="size-4" />
+          <Button
+            type="button"
+            onClick={save}
+            disabled={isPending}
+            aria-busy={isPending}
+            className="gap-2"
+          >
+            {isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Check className="size-4" />
+            )}
             {isPending ? "Saving..." : "Save settings"}
           </Button>
         </CardContent>

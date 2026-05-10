@@ -35,6 +35,17 @@ export interface AiReportAnswerDto {
   answer: string;
   mode: "mock" | "live";
   factsUsed: string[];
+  presentation?: {
+    quickSummary: string;
+    keyNumbers: Array<{
+      label: string;
+      value: string;
+      helper?: string;
+      tone?: "neutral" | "good" | "warning";
+    }>;
+    meaning: string[];
+    suggestedActions: string[];
+  };
   warnings?: string[];
   tokensUsed?: number;
 }
