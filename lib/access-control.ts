@@ -27,6 +27,7 @@ import {
   RotateCcw,
   ScanSearch,
   ShieldAlert,
+  Sparkles,
   StoreIcon,
   Terminal,
   UserRound,
@@ -71,6 +72,8 @@ export const routes: RouteConfig[] = appRoutes.map((route) => ({
           ? Package
           : route.href === "/reports"
             ? BarChart3
+            : route.href === "/reports/ai"
+              ? Sparkles
             : route.href === "/accounts"
               ? Users
               : route.href === "/companies" ||
@@ -84,6 +87,8 @@ export const routes: RouteConfig[] = appRoutes.map((route) => ({
                     ? CreditCard
                     : route.href === "/approvals"
                       ? FileClock
+                      : route.href === "/admin/settings"
+                        ? Settings
                       : route.href === "/accounts/[profileId]"
                         ? UserRound
                         : route.href === "/admin"
@@ -194,6 +199,14 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         href: "/reports",
         permission: "view.reports",
         roles: ["manager", "cashier"],
+      },
+      {
+        id: "reports-ai",
+        label: "AI Assistant",
+        icon: Sparkles,
+        href: "/reports/ai",
+        permission: "view.ai.reports",
+        roles: ["admin", "manager"],
       },
       {
         id: "reports-daily-transactions",
@@ -455,6 +468,14 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: FileClock,
         href: "/approvals",
         permission: "view.admin.approvals",
+        roles: ["admin"],
+      },
+      {
+        id: "system-settings",
+        label: "System Settings",
+        icon: Settings,
+        href: "/admin/settings",
+        permission: "view.admin.settings",
         roles: ["admin"],
       },
       {

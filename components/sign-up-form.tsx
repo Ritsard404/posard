@@ -69,11 +69,16 @@ function FormField({
 }
 
 export function SignUpForm({
+  directRegistrationEnabled = false,
   className,
   ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+}: React.ComponentPropsWithoutRef<"div"> & {
+  directRegistrationEnabled?: boolean;
+}) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -102,9 +107,19 @@ export function SignUpForm({
       return;
     }
 
+    if (directRegistrationEnabled && password !== confirmPassword) {
+      setFeedback({
+        kind: "error",
+        message: "Passwords do not match.",
+      });
+      return;
+    }
+
     setFeedback({
       kind: "pending",
-      message: "Submitting your registration request...",
+      message: directRegistrationEnabled
+        ? "Creating your account..."
+        : "Submitting your registration request...",
     });
 
     startTransition(async () => {
@@ -115,9 +130,26 @@ export function SignUpForm({
           phone,
           companyName,
           requestedRole: "manager",
+          password: directRegistrationEnabled ? password : undefined,
         });
 
         if (!result.success) throw new Error(result.error);
+
+        if (result.data.mode === "direct") {
+          const supabase = createClient();
+          const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+          if (error) {
+            router.push("/auth/login");
+            return;
+          }
+
+          router.push("/auth/post-login");
+          return;
+        }
 
         router.push("/auth/sign-up-success");
       } catch (error: unknown) {
@@ -174,10 +206,12 @@ export function SignUpForm({
             Merchant onboarding
           </div>
           <CardTitle className="text-3xl font-heading font-extrabold tracking-tight md:text-4xl">
-            Request Access
+            {directRegistrationEnabled ? "Create Account" : "Request Access"}
           </CardTitle>
           <CardDescription className="font-medium text-muted-foreground">
-            Submit your merchant onboarding request for admin approval
+            {directRegistrationEnabled
+              ? "Create your active merchant account"
+              : "Submit your merchant onboarding request for admin approval"}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-1">
@@ -202,6 +236,30 @@ export function SignUpForm({
                 disabled={isPending}
                 onChange={field(setEmail)}
               />
+              {directRegistrationEnabled ? (
+                <>
+                  <FormField
+                    id="password"
+                    label="Password"
+                    placeholder="At least 8 characters"
+                    required
+                    type="password"
+                    value={password}
+                    disabled={isPending}
+                    onChange={field(setPassword)}
+                  />
+                  <FormField
+                    id="confirm-password"
+                    label="Confirm Password"
+                    placeholder="Repeat password"
+                    required
+                    type="password"
+                    value={confirmPassword}
+                    disabled={isPending}
+                    onChange={field(setConfirmPassword)}
+                  />
+                </>
+              ) : null}
               <FormField
                 id="phone"
                 label="Phone Number"
@@ -258,8 +316,16 @@ export function SignUpForm({
               <AuthSubmitButton
                 className="h-12 w-full rounded-xl font-bold shadow-lg shadow-primary/20"
                 isPending={isPending}
-                idleLabel="Submit Registration Request"
-                pendingLabel="Submitting your request..."
+                idleLabel={
+                  directRegistrationEnabled
+                    ? "Create Account"
+                    : "Submit Registration Request"
+                }
+                pendingLabel={
+                  directRegistrationEnabled
+                    ? "Creating account..."
+                    : "Submitting your request..."
+                }
               />
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">

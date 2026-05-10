@@ -9,6 +9,8 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 import { getCompanyBillingAccess } from "@/lib/billing-access";
+import { NotificationBell } from "./notifications/_components/NotificationBell";
+import { notificationService } from "./notifications/_services/notification.service";
 import {
   isBillingRestrictedRole,
   isBillingRestrictedRoute,
@@ -71,7 +73,7 @@ export default async function DashboardLayout({
     redirect(routeRedirect);
   }
 
-  const [activePosSession, billingAccess] = await Promise.all([
+  const [activePosSession, billingAccess, notifications] = await Promise.all([
     prisma.timestamp.findFirst({
         where: {
           cashierId: profile.id,
@@ -82,6 +84,7 @@ export default async function DashboardLayout({
     profile.companyId && (profile.role === "manager" || profile.role === "cashier")
       ? getCompanyBillingAccess(profile.companyId)
       : Promise.resolve(null),
+    notificationService.listForCurrentUser(8),
   ]);
 
   if (
@@ -147,6 +150,7 @@ export default async function DashboardLayout({
               />
             ) : null}
             <ThemeSwitcher />
+            <NotificationBell initialData={notifications} />
           </div>
         </header>
 

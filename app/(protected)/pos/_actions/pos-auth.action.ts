@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { auditLogService } from "@/lib/services/audit-log.service";
+import { notificationService } from "@/app/(protected)/notifications/_services/notification.service";
 
 export async function unlockTerminalAction(pin: string) {
   try {
@@ -104,6 +105,17 @@ export async function authorizeManagerAction(pin: string, actionType: string, re
             actorProfileId: manager.id,
             actionType,
             referenceId,
+        });
+        await notificationService.create({
+            profileId: currentProfile.id,
+            companyId: currentProfile.companyId,
+            category: "APPROVAL",
+            type: "sensitive_action_approved",
+            title: "Sensitive action approved",
+            body: `${manager.fullName || "Manager"} approved ${actionType}.`,
+            href: "/pos",
+            relatedEntityType: "approval",
+            relatedEntityId: referenceId,
         });
 
         return { 

@@ -6,7 +6,12 @@ import {
   SubmitRegistrationRequestSchema,
 } from "../_services/_validators/registration-request.validator";
 
-type VoidResult = { success: true } | { success: false; error: string };
+type SubmitRegistrationResult =
+  | {
+      success: true;
+      data: { mode: "pending_approval" } | { mode: "direct"; email: string };
+    }
+  | { success: false; error: string };
 
 type RegistrationLookupResult =
   | {
@@ -25,11 +30,11 @@ function toErrorMessage(error: unknown, fallback: string) {
 
 export async function submitRegistrationRequestAction(
   input: unknown,
-): Promise<VoidResult> {
+): Promise<SubmitRegistrationResult> {
   try {
     const validated = SubmitRegistrationRequestSchema.parse(input);
-    await registrationRequestService.submitRequest(validated);
-    return { success: true };
+    const data = await registrationRequestService.submitRequest(validated);
+    return { success: true, data };
   } catch (error) {
     console.error(error);
     return {

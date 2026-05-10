@@ -1,9 +1,15 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppConfig } from "@/lib/app-config";
+import { messagingService } from "@/lib/messaging/email.service";
+import { emailTemplates } from "@/lib/messaging/email-templates";
+import { notificationService } from "@/app/(protected)/notifications/_services/notification.service";
 import type {
   RegistrationRequestLoginStatusDto,
   SubmitRegistrationRequestInputDto,
+  SubmitRegistrationResultDto,
 } from "./_dto/registration-request.dto";
 
 const REGISTRATION_RETRY_WAIT_DAYS = 7;
@@ -36,8 +42,11 @@ function formatRetryBlockedMessage(canRegisterAgainAt: Date) {
 }
 
 export const registrationRequestService = {
-  async submitRequest(input: SubmitRegistrationRequestInputDto): Promise<void> {
+  async submitRequest(
+    input: SubmitRegistrationRequestInputDto,
+  ): Promise<SubmitRegistrationResultDto> {
     const email = normalizeEmail(input.email);
+    const config = await getRegistrationConfiguration();
 
     const [existingProfile, existingPendingRequest, latestRejectedRequest] =
       await Promise.all([
@@ -76,7 +85,64 @@ export const registrationRequestService = {
       }
     }
 
-    await prisma.registrationRequest.create({
+    if (config.directRegistrationEnabled) {
+      if (!input.password) {
+        throw new Error("Password is required for direct registration.");
+      }
+
+      const adminClient = createAdminClient();
+      const createUserResult = await adminClient.auth.admin.createUser({
+        email,
+        password: input.password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: input.fullName.trim(),
+        },
+      });
+      const user = createUserResult.data.user;
+
+      if (createUserResult.error || !user?.id || !user.email) {
+        throw new Error(
+          createUserResult.error?.message ?? "Failed to create account.",
+        );
+      }
+
+      let profileId: string | null = null;
+
+      try {
+        const profile = await prisma.profile.create({
+          data: {
+            userId: user.id,
+            email: normalizeEmail(user.email),
+            fullName: input.fullName.trim(),
+            role: "manager",
+            status: "active",
+            approvedAt: new Date(),
+          },
+          select: { id: true },
+        });
+        profileId = profile.id;
+      } catch (error) {
+        await adminClient.auth.admin.deleteUser(user.id);
+        throw error;
+      }
+
+      await notificationService.create({
+        profileId,
+        category: "REGISTRATION",
+        type: "direct_registration_created",
+        title: "Account created",
+        body: "Your POSard account is active. Continue to company setup.",
+        href: "/setup-company",
+        relatedEntityType: "profile",
+        relatedEntityId: profileId,
+      });
+      await sendWelcomeEmail(email, input.fullName.trim(), "direct_registration");
+
+      return { mode: "direct", email };
+    }
+
+    const request = await prisma.registrationRequest.create({
       data: {
         fullName: input.fullName.trim(),
         email,
@@ -86,14 +152,20 @@ export const registrationRequestService = {
         status: "pending",
       },
     });
+    await notifyAdminsOfRegistrationRequest(request.id, input.fullName.trim());
+    await sendPendingReviewEmail(email, request.id);
+
+    return { mode: "pending_approval" };
   },
 
   async submitGoogleOAuthRequest(input: {
+    userId: string;
     fullName: string;
     email: string;
-  }): Promise<void> {
+  }): Promise<SubmitRegistrationResultDto> {
     const email = normalizeEmail(input.email);
     const fullName = input.fullName.trim();
+    const config = await getRegistrationConfiguration();
 
     const [existingProfile, existingPendingRequest, latestRejectedRequest] =
       await Promise.all([
@@ -125,7 +197,7 @@ export const registrationRequestService = {
     }
 
     if (existingPendingRequest) {
-      return;
+      return { mode: "pending_approval" };
     }
 
     if (latestRejectedRequest) {
@@ -136,7 +208,35 @@ export const registrationRequestService = {
       }
     }
 
-    await prisma.registrationRequest.create({
+    if (config.directRegistrationEnabled) {
+      const profile = await prisma.profile.create({
+        data: {
+          userId: input.userId,
+          email,
+          fullName,
+          role: "manager",
+          status: "active",
+          approvedAt: new Date(),
+        },
+        select: { id: true },
+      });
+
+      await notificationService.create({
+        profileId: profile.id,
+        category: "REGISTRATION",
+        type: "direct_registration_created",
+        title: "Account created",
+        body: "Your POSard account is active. Continue to company setup.",
+        href: "/setup-company",
+        relatedEntityType: "profile",
+        relatedEntityId: profile.id,
+      });
+      await sendWelcomeEmail(email, fullName, "direct_google_registration");
+
+      return { mode: "direct", email };
+    }
+
+    const request = await prisma.registrationRequest.create({
       data: {
         fullName,
         email,
@@ -146,6 +246,10 @@ export const registrationRequestService = {
         status: "pending",
       },
     });
+    await notifyAdminsOfRegistrationRequest(request.id, fullName);
+    await sendPendingReviewEmail(email, request.id);
+
+    return { mode: "pending_approval" };
   },
 
   async getLoginStatusByEmail(
@@ -185,3 +289,58 @@ export const registrationRequestService = {
     };
   },
 };
+
+async function getRegistrationConfiguration() {
+  return prisma.systemConfiguration.upsert({
+    where: { id: "default" },
+    update: {},
+    create: { id: "default" },
+    select: { directRegistrationEnabled: true },
+  });
+}
+
+async function sendWelcomeEmail(email: string, fullName: string, flow: string) {
+  const appConfig = getAppConfig();
+  const template = emailTemplates.accountApproved({
+    name: fullName,
+    appUrl: appConfig.appUrl ? `${appConfig.appUrl}/auth/login` : undefined,
+  });
+
+  await messagingService.sendEmail({
+    to: email,
+    category: "auth",
+    metadata: { flow },
+    ...template,
+  });
+}
+
+async function sendPendingReviewEmail(email: string, requestId: string) {
+  await messagingService.sendEmail({
+    to: email,
+    subject: "Your POSard registration is pending review",
+    html: "<p>Your POSard registration request was received and is waiting for admin review.</p>",
+    text: "Your POSard registration request was received and is waiting for admin review.",
+    category: "registration",
+    metadata: { requestId, flow: "approval_required" },
+  });
+}
+
+async function notifyAdminsOfRegistrationRequest(requestId: string, fullName: string) {
+  const admins = await prisma.profile.findMany({
+    where: { role: "admin", status: "active" },
+    select: { id: true },
+  });
+
+  await notificationService.createMany(
+    admins.map((admin) => ({
+      profileId: admin.id,
+      category: "REGISTRATION" as const,
+      type: "manager_registration_pending",
+      title: "Registration pending approval",
+      body: `${fullName} submitted a manager registration request.`,
+      href: "/approvals",
+      relatedEntityType: "registration_request",
+      relatedEntityId: requestId,
+    })),
+  );
+}

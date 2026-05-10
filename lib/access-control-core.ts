@@ -52,6 +52,7 @@ export type Permission =
   | "view.transactions"
   | "view.accounts"
   | "view.reports"
+  | "view.ai.reports"
   | "view.profile"
   | "view.company"
   | "view.company.settings"
@@ -59,6 +60,7 @@ export type Permission =
   | "view.company.subscription"
   | "view.product"
   | "view.admin"
+  | "view.admin.settings"
   | "view.admin.terminals"
   | "view.admin.subscriptions"
   | "view.admin.approvals";
@@ -68,8 +70,10 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "view.dashboard",
     "view.accounts",
     "view.reports",
+    "view.ai.reports",
     "view.profile",
     "view.admin",
+    "view.admin.settings",
     "view.company",
     "view.company.settings",
     "view.company.terminals",
@@ -85,6 +89,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "view.inventory",
     "view.product",
     "view.reports",
+    "view.ai.reports",
     "view.profile",
     "view.company",
     "view.company.settings",
@@ -145,6 +150,12 @@ export const appRoutes: AppRouteConfig[] = [
     href: "/reports",
     permission: "view.reports",
     label: "Reports",
+    showInNav: true,
+  },
+  {
+    href: "/reports/ai",
+    permission: "view.ai.reports",
+    label: "AI Report Assistant",
     showInNav: true,
   },
   {
@@ -229,6 +240,12 @@ export const appRoutes: AppRouteConfig[] = [
     href: "/admin",
     permission: "view.admin",
     label: "Administration",
+    showInNav: false,
+  },
+  {
+    href: "/admin/settings",
+    permission: "view.admin.settings",
+    label: "System Settings",
     showInNav: false,
   },
 ];

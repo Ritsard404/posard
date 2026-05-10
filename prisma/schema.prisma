@@ -69,6 +69,35 @@ enum RegistrationRequestStatus {
   @@schema("public")
 }
 
+enum NotificationCategory {
+  REGISTRATION
+  TERMINAL_REQUEST
+  APPROVAL
+  SYSTEM
+  REPORT
+
+  @@map("notification_category")
+  @@schema("public")
+}
+
+enum NotificationDeliveryChannel {
+  IN_APP
+  EMAIL
+
+  @@map("notification_delivery_channel")
+  @@schema("public")
+}
+
+enum NotificationDeliveryStatus {
+  pending
+  sent
+  skipped
+  failed
+
+  @@map("notification_delivery_status")
+  @@schema("public")
+}
+
 enum PrinterConnectionType {
   usb
   bluetooth
@@ -181,6 +210,8 @@ model Profile {
   reviewedTerminalRequests          TerminalRequest[]     @relation("ReviewedTerminalRequest")
   reviewedRegistrationRequests      RegistrationRequest[] @relation("ReviewedRegistrationRequests")
   retryUnlockedRegistrationRequests RegistrationRequest[] @relation("RetryUnlockedRegistrationRequests")
+  notifications                     UserNotification[]
+  aiReportConversations             AiReportConversation[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -221,6 +252,49 @@ model RegistrationRequest {
   @@index([reviewedById])
   @@index([retryUnlockedById])
   @@map("registration_requests")
+  @@schema("public")
+}
+
+model SystemConfiguration {
+  id String @id @default("default")
+
+  directRegistrationEnabled Boolean @default(false) @map("direct_registration_enabled")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("system_configuration")
+  @@schema("public")
+}
+
+model UserNotification {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_user_notification") @db.Uuid
+
+  profileId String  @map("profile_id") @db.Uuid
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  companyId String? @map("company_id") @db.Uuid
+
+  category       NotificationCategory
+  type           String
+  title          String
+  body           String
+  href           String?
+  relatedEntityType String? @map("related_entity_type")
+  relatedEntityId   String? @map("related_entity_id")
+  metadata       Json?
+
+  deliveryChannel NotificationDeliveryChannel @default(IN_APP) @map("delivery_channel")
+  deliveryStatus  NotificationDeliveryStatus  @default(sent) @map("delivery_status")
+  readAt          DateTime?                   @map("read_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([profileId, readAt, createdAt])
+  @@index([companyId, createdAt])
+  @@index([category, createdAt])
+  @@map("user_notification")
   @@schema("public")
 }
 
@@ -1116,6 +1190,46 @@ model InvoiceDocument {
   @@index([invoiceId])
   @@index([type, createdAt])
   @@map("invoice_document")
+  @@schema("public")
+}
+
+model AiReportConversation {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_ai_report_conversation") @db.Uuid
+
+  profileId String  @map("profile_id") @db.Uuid
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  companyId  String? @map("company_id") @db.Uuid
+  terminalId String? @map("terminal_id") @db.Uuid
+  title      String?
+
+  messages AiReportMessage[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([profileId, createdAt])
+  @@index([companyId, createdAt])
+  @@map("ai_report_conversation")
+  @@schema("public")
+}
+
+model AiReportMessage {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_ai_report_message") @db.Uuid
+
+  conversationId String               @map("conversation_id") @db.Uuid
+  conversation   AiReportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role      String
+  content   String
+  mode      String?
+  factsUsed Json?   @map("facts_used")
+  warnings  Json?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([conversationId, createdAt])
+  @@map("ai_report_message")
   @@schema("public")
 }
 

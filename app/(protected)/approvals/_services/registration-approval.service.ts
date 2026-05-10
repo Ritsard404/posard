@@ -2,6 +2,10 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppConfig } from "@/lib/app-config";
+import { messagingService } from "@/lib/messaging/email.service";
+import { emailTemplates } from "@/lib/messaging/email-templates";
+import { notificationService } from "@/app/(protected)/notifications/_services/notification.service";
 import type { AccountsViewerDto } from "@/app/(protected)/accounts/_services/_dto/accounts.dto";
 import {
   mapRegistrationRequestToListItem,
@@ -144,9 +148,11 @@ export const registrationApprovalService = {
 
     const invitedEmail = normalizeEmail(invitedUser.email);
 
+    let createdProfileId: string | null = null;
+
     try {
       await prisma.$transaction(async (tx) => {
-        await tx.profile.create({
+        const profile = await tx.profile.create({
           data: {
             userId: invitedUser.id,
             email: invitedEmail,
@@ -156,6 +162,7 @@ export const registrationApprovalService = {
             approvedAt: new Date(),
           },
         });
+        createdProfileId = profile.id;
 
         await tx.registrationRequest.update({
           where: { id: request.id },
@@ -171,6 +178,31 @@ export const registrationApprovalService = {
       await adminClient.auth.admin.deleteUser(invitedUser.id);
       throw error;
     }
+
+    if (createdProfileId) {
+      await notificationService.create({
+        profileId: createdProfileId,
+        category: "REGISTRATION",
+        type: "manager_registration_approved",
+        title: "Registration approved",
+        body: "Your POSard account is active.",
+        href: "/dashboard",
+        relatedEntityType: "registration_request",
+        relatedEntityId: request.id,
+      });
+    }
+
+    const config = getAppConfig();
+    const template = emailTemplates.accountApproved({
+      name: request.fullName,
+      appUrl: config.appUrl ? `${config.appUrl}/auth/login` : undefined,
+    });
+    await messagingService.sendEmail({
+      to: invitedEmail,
+      category: "registration",
+      metadata: { requestId: request.id },
+      ...template,
+    });
   },
 
   async rejectRequest(
@@ -182,7 +214,7 @@ export const registrationApprovalService = {
 
     const request = await prisma.registrationRequest.findUnique({
       where: { id: requestId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, email: true },
     });
 
     if (!request) {
@@ -204,6 +236,17 @@ export const registrationApprovalService = {
           retryUnlockedAt: null,
         },
       });
+
+    const template = emailTemplates.managerApprovalResult({
+      approved: false,
+      reason: input.rejectionReason,
+    });
+    await messagingService.sendEmail({
+      to: request.email,
+      category: "registration",
+      metadata: { requestId: request.id },
+      ...template,
+    });
   },
 
   async unlockRejectedRequest(

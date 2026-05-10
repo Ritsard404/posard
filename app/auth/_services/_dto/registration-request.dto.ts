@@ -6,6 +6,7 @@ export interface SubmitRegistrationRequestInputDto {
   phone: string | null;
   companyName: string | null;
   requestedRole: Extract<UserRole, "manager">;
+  password?: string;
 }
 
 export interface RegistrationRequestLoginStatusDto {
@@ -13,3 +14,7 @@ export interface RegistrationRequestLoginStatusDto {
   rejectionReason: string | null;
   canRegisterAgainAt: string | null;
 }
+
+export type SubmitRegistrationResultDto =
+  | { mode: "pending_approval" }
+  | { mode: "direct"; email: string };

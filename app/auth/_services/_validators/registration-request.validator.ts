@@ -15,6 +15,7 @@ export const SubmitRegistrationRequestSchema = z.object({
   phone: nullableTextInput,
   companyName: nullableTextInput,
   requestedRole: z.enum(["manager"]).default("manager"),
+  password: z.string().min(8).max(72).optional(),
 });
 
 export const RegistrationRequestEmailSchema = z.object({

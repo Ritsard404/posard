@@ -88,6 +88,16 @@ DATABASE_URL=
 DIRECT_URL=
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+APP_URL=http://localhost:3000
+EMAIL_ENABLED=false
+EMAIL_PROVIDER=noop
+EMAIL_FROM=
+EMAIL_REPLY_TO=
+RESEND_API_KEY=
+AI_REPORT_ENABLED=true
+AI_PROVIDER=mock
+OPENAI_API_KEY=
+AI_REPORT_USE_MOCK_WHEN_MISSING_KEY=true
 ```
 
 Variable usage:
@@ -101,8 +111,18 @@ Variable usage:
 | `DIRECT_URL` | Direct database connection string used by Prisma migrations |
 | `NEXT_PUBLIC_SITE_URL` | Public canonical URL for SEO metadata |
 | `NEXT_PUBLIC_APP_URL` | Base URL used for account invite redirects |
+| `APP_URL` | Server-side base URL for email links |
+| `EMAIL_ENABLED` | Enables outbound provider email when all required values are set |
+| `EMAIL_PROVIDER` | Email provider selector: `noop` or `resend` |
+| `EMAIL_FROM` | Verified transactional sender address |
+| `EMAIL_REPLY_TO` | Optional reply-to address |
+| `RESEND_API_KEY` | Server-only Resend API key |
+| `AI_REPORT_ENABLED` | Enables AI report assistant behavior |
+| `AI_PROVIDER` | AI provider selector: `mock` or `openai` |
+| `OPENAI_API_KEY` | Server-only OpenAI API key |
+| `AI_REPORT_USE_MOCK_WHEN_MISSING_KEY` | Allows mock report answers while live AI is not configured |
 
-Keep `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, and `DIRECT_URL` server-only. Do not expose them in client components.
+Keep `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `DIRECT_URL`, `RESEND_API_KEY`, and `OPENAI_API_KEY` server-only. Do not expose them in client components.
 
 ## 4. Install Dependencies
 

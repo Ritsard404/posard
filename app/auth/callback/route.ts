@@ -53,13 +53,18 @@ async function submitPendingGoogleRegistration(input: {
   email: string;
   fullName: string | null;
 }) {
-  await input.supabase.auth.signOut();
-
   try {
-    await registrationRequestService.submitGoogleOAuthRequest({
+    const result = await registrationRequestService.submitGoogleOAuthRequest({
+      userId: input.userId,
       fullName: input.fullName ?? input.email,
       email: input.email,
     });
+
+    if (result.mode === "direct") {
+      return NextResponse.redirect(new URL("/auth/post-login", input.request.url));
+    }
+
+    await input.supabase.auth.signOut();
     await removeTemporaryOAuthUser(input.userId);
 
     return NextResponse.redirect(
