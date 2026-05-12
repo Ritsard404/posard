@@ -220,10 +220,22 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
   cashier: [
     "view.dashboard",
     "view.pos",
+    "view.inventory",
     "view.transactions",
     "view.profile",
     "view.help",
     "view.notifications",
+    "manage.inventory",
+    "manage.suppliers",
+    "manage.purchase-orders",
+    "manage.receiving",
+    "manage.transfers",
+    "manage.expenses",
+    "manage.customers",
+    "manage.loyalty",
+    "manage.promotions",
+    "manage.kitchen",
+    "view.sync-center",
   ],
 };
 

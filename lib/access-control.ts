@@ -199,7 +199,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: Boxes,
         href: "/inventory-ledger",
         permission: "manage.inventory",
-        roles: ["manager"],
+        roles: ["manager", "cashier"],
       },
       {
         id: "expenses",
@@ -207,7 +207,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: Receipt,
         href: "/expenses",
         permission: "manage.expenses",
-        roles: ["manager"],
+        roles: ["manager", "cashier"],
       },
       {
         id: "suppliers",
@@ -215,7 +215,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: StoreIcon,
         href: "/suppliers",
         permission: "manage.suppliers",
-        roles: ["manager"],
+        roles: ["manager", "cashier"],
       },
       {
         id: "purchase-orders",
@@ -223,7 +223,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: ClipboardList,
         href: "/purchase-orders",
         permission: "manage.purchase-orders",
-        roles: ["manager"],
+        roles: ["manager", "cashier"],
       },
       {
         id: "branch-transfers",
@@ -231,7 +231,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: RotateCcw,
         href: "/transfers",
         permission: "manage.transfers",
-        roles: ["manager"],
+        roles: ["manager", "cashier"],
       },
       {
         id: "promotions",
@@ -239,7 +239,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: BaggageClaimIcon,
         href: "/promotions",
         permission: "manage.promotions",
-        roles: ["manager"],
+        roles: ["manager", "cashier"],
       },
       {
         id: "kitchen",
@@ -247,7 +247,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: MonitorCog,
         href: "/kitchen",
         permission: "manage.kitchen",
-        roles: ["manager"],
+        roles: ["manager", "cashier"],
       },
       {
         id: "sync-center",
@@ -255,7 +255,7 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: FileClock,
         href: "/sync",
         permission: "view.sync-center",
-        roles: ["manager"],
+        roles: ["manager", "cashier"],
       },
     ],
   },
