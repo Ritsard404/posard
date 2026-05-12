@@ -1,0 +1,28 @@
+# How to Log In and Access POSard
+
+## What this feature does
+This lets you open your POSard account and see the pages allowed for your role.
+
+## When to use it
+Use this at the start of your work day or whenever POSard asks you to sign in again.
+
+## Before you begin
+- You need an approved POSard account.
+- Use the email and password given by your business or administrator.
+
+## Steps
+1. Open the POSard login page.
+2. Enter your email and password.
+3. Select **Log in**.
+4. Wait for POSard to open your dashboard or POS screen.
+
+## What happens next
+You will see the pages you can use. Cashiers usually see POS and their profile. Managers see more business tools.
+
+## Tips or reminders
+- If your account is still waiting for approval, you cannot use the system yet.
+- If your business billing is paused, POS access may be limited until it is fixed.
+
+## Common questions or issues
+- **I cannot log in**  
+  Check your email and password, then ask your manager or administrator if your account is active.

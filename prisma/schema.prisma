@@ -29,6 +29,63 @@ enum UserStatus {
   @@schema("public")
 }
 
+enum PermissionKey {
+  VIEW_DASHBOARD
+  VIEW_POS
+  VIEW_INVENTORY
+  VIEW_TRANSACTIONS
+  VIEW_ACCOUNTS
+  VIEW_REPORTS
+  VIEW_AI_REPORTS
+  VIEW_PROFILE
+  VIEW_HELP
+  VIEW_COMPANY
+  VIEW_COMPANY_SETTINGS
+  VIEW_COMPANY_TERMINALS
+  VIEW_COMPANY_SUBSCRIPTION
+  VIEW_PRODUCT
+  VIEW_ADMIN
+  VIEW_ADMIN_SETTINGS
+  VIEW_ADMIN_TERMINALS
+  VIEW_ADMIN_SUBSCRIPTIONS
+  VIEW_ADMIN_APPROVALS
+  VIEW_NOTIFICATIONS
+  MANAGE_PRODUCTS
+  MANAGE_INVENTORY
+  MANAGE_SUPPLIERS
+  MANAGE_PURCHASE_ORDERS
+  MANAGE_RECEIVING
+  MANAGE_TRANSFERS
+  MANAGE_EXPENSES
+  MANAGE_CUSTOMERS
+  MANAGE_LOYALTY
+  MANAGE_PROMOTIONS
+  MANAGE_KITCHEN
+  APPROVE_REQUESTS
+  APPROVE_DISCOUNTS
+  APPROVE_REFUNDS
+  APPROVE_STOCK_ADJUSTMENTS
+  APPROVE_EXPENSES
+  APPROVE_TRANSFERS
+  MANAGE_USERS
+  MANAGE_TERMINALS
+  VIEW_AUDIT_TRAIL
+  MANAGE_NOTIFICATIONS
+  VIEW_SYNC_CENTER
+  RESOLVE_SYNC_CONFLICTS
+
+  @@map("permission_key")
+  @@schema("public")
+}
+
+enum PermissionEffect {
+  allow
+  deny
+
+  @@map("permission_effect")
+  @@schema("public")
+}
+
 enum TerminalRequestStatus {
   pending
   approved
@@ -95,6 +152,27 @@ enum NotificationDeliveryStatus {
   failed
 
   @@map("notification_delivery_status")
+  @@schema("public")
+}
+
+enum ApprovalRequestStatus {
+  pending
+  approved
+  rejected
+  expired
+  cancelled
+  executed
+
+  @@map("approval_request_status")
+  @@schema("public")
+}
+
+enum ApprovalDecisionStatus {
+  approved
+  rejected
+  cancelled
+
+  @@map("approval_decision_status")
   @@schema("public")
 }
 
@@ -205,6 +283,22 @@ model Profile {
 
   posSessions                       PosSession[]
   approvalLogs                      ApprovalLog[]
+  approvalRequests                  ApprovalRequest[]    @relation("RequestedApprovalRequests")
+  approvalDecisions                 ApprovalDecision[]   @relation("DecidedApprovalRequests")
+  rolePermissions                   RolePermission[]     @relation("CreatedRolePermissions")
+  userPermissionOverrides           UserPermissionOverride[] @relation("UserPermissionOverrideTarget")
+  permissionOverridesCreated        UserPermissionOverride[] @relation("CreatedUserPermissionOverrides")
+  expensesCreated                   Expense[]            @relation("ExpenseCreatedBy")
+  expensesApproved                  Expense[]            @relation("ExpenseApprovedBy")
+  stockMovementsCreated             StockMovement[]      @relation("StockMovementCreatedBy")
+  purchaseOrdersCreated             PurchaseOrder[]      @relation("PurchaseOrderCreatedBy")
+  purchaseOrdersApproved            PurchaseOrder[]      @relation("PurchaseOrderApprovedBy")
+  receivingRecordsPosted            ReceivingRecord[]    @relation("ReceivingPostedBy")
+  branchTransfersRequested          BranchTransfer[]     @relation("BranchTransferRequestedBy")
+  branchTransfersApproved           BranchTransfer[]     @relation("BranchTransferApprovedBy")
+  branchTransfersReceived           BranchTransfer[]     @relation("BranchTransferReceivedBy")
+  loyaltyTransactionsCreated        LoyaltyTransaction[] @relation("LoyaltyTransactionCreatedBy")
+  kitchenTicketsUpdated             KitchenTicket[]      @relation("KitchenTicketUpdatedBy")
   auditLogs                         AuditLog[]            @relation("ActorAuditLog")
   requestedTerminalRequests         TerminalRequest[]     @relation("RequestedTerminalRequest")
   reviewedTerminalRequests          TerminalRequest[]     @relation("ReviewedTerminalRequest")
@@ -328,6 +422,20 @@ model Company {
   images           CompanyImage[]
   posTerminals     PosTerminalInfo[]
   terminalRequests TerminalRequest[]
+  rolePermissions   RolePermission[]
+  permissionOverrides UserPermissionOverride[]
+  approvalRequests  ApprovalRequest[]
+  syncIssues        OfflineSyncIssue[]
+  expenseCategories ExpenseCategory[]
+  expenses          Expense[]
+  stockMovements    StockMovement[]
+  suppliers         Supplier[]
+  purchaseOrders    PurchaseOrder[]
+  receivingRecords  ReceivingRecord[]
+  branchTransfers   BranchTransfer[]
+  loyaltyTransactions LoyaltyTransaction[]
+  promotions        Promotion[]
+  kitchenTickets    KitchenTicket[]
   customers        Customer[]
   customerDebts    CustomerDebt[]
   debtPayments     CustomerDebtPayment[]
@@ -443,6 +551,13 @@ model PosTerminalInfo {
   invoiceReturns       InvoiceReturn[]
   sessions             PosSession[]
   auditLogs            AuditLog[]
+  approvalRequests     ApprovalRequest[]
+  syncIssues           OfflineSyncIssue[]
+  expenses             Expense[]
+  stockMovements       StockMovement[]
+  branchTransfersFrom  BranchTransfer[] @relation("SourceTerminalTransfers")
+  branchTransfersTo    BranchTransfer[] @relation("DestinationTerminalTransfers")
+  kitchenTickets       KitchenTicket[]
   customerDebts        CustomerDebt[]
   debtPayments         CustomerDebtPayment[]
   customerDisplayState CustomerDisplayState?
@@ -612,6 +727,143 @@ model AuditLog {
 }
 
 /////////////////////////////////////////////////
+// PERMISSIONS
+/////////////////////////////////////////////////
+
+model Permission {
+  key         PermissionKey @id
+  group      String
+  label      String
+  description String?
+  isSensitive Boolean @default(false) @map("is_sensitive")
+
+  rolePermissions RolePermission[]
+  userOverrides   UserPermissionOverride[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("permission")
+  @@schema("public")
+}
+
+model RolePermission {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  role UserRole
+  permissionKey PermissionKey @map("permission_key")
+  permission    Permission    @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  effect PermissionEffect @default(allow)
+
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdBy   Profile? @relation("CreatedRolePermissions", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([companyId, role, permissionKey])
+  @@index([role, permissionKey])
+  @@index([companyId])
+  @@map("role_permission")
+  @@schema("public")
+}
+
+model UserPermissionOverride {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  profileId String  @map("profile_id") @db.Uuid
+  profile   Profile @relation("UserPermissionOverrideTarget", fields: [profileId], references: [id], onDelete: Cascade)
+
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  permissionKey PermissionKey @map("permission_key")
+  permission    Permission    @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  effect PermissionEffect
+  reason String?
+
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdBy   Profile? @relation("CreatedUserPermissionOverrides", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([profileId, companyId, permissionKey])
+  @@index([profileId])
+  @@index([companyId])
+  @@map("user_permission_override")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// OPERATIONAL APPROVALS
+/////////////////////////////////////////////////
+
+model ApprovalRequest {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  referenceNumber String @unique @map("reference_number")
+  companyId       String @map("company_id") @db.Uuid
+  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  terminalId String?          @map("terminal_id") @db.Uuid
+  terminal   PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+
+  requestedById String  @map("requested_by_id") @db.Uuid
+  requestedBy   Profile @relation("RequestedApprovalRequests", fields: [requestedById], references: [id])
+
+  actionType String @map("action_type")
+  targetType String @map("target_type")
+  targetId   String? @map("target_id")
+  title      String
+  summary    String
+  beforeSnapshot Json? @map("before_snapshot")
+  afterSnapshot  Json? @map("after_snapshot")
+  idempotencyKey String? @unique @map("idempotency_key")
+
+  status     ApprovalRequestStatus @default(pending)
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz
+  executedAt DateTime? @map("executed_at") @db.Timestamptz
+
+  decisions ApprovalDecision[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, status, createdAt])
+  @@index([terminalId])
+  @@index([requestedById])
+  @@index([targetType, targetId])
+  @@map("approval_request")
+  @@schema("public")
+}
+
+model ApprovalDecision {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  approvalRequestId String          @map("approval_request_id") @db.Uuid
+  approvalRequest   ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+
+  decidedById String  @map("decided_by_id") @db.Uuid
+  decidedBy   Profile @relation("DecidedApprovalRequests", fields: [decidedById], references: [id])
+
+  decision ApprovalDecisionStatus
+  note     String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([approvalRequestId])
+  @@index([decidedById])
+  @@map("approval_decision")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
 // TIMESTAMP (POS ACTIVITY LOG)
 /////////////////////////////////////////////////
 
@@ -771,6 +1023,11 @@ model Product {
   isDeleted Boolean   @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz
   items     Item[]
+  stockMovements StockMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
+  receivingItems ReceivingItem[]
+  branchTransferItems BranchTransferItem[]
+  promotionRedemptions PromotionRedemptionLog[]
 
   @@unique([name, categoryId], name: "uk_product_name_category")
   @@index([categoryId])
@@ -1051,6 +1308,9 @@ model Invoice {
   documents    InvoiceDocument[]
   returns      InvoiceReturn[]
   customerDebt CustomerDebt?
+  loyaltyTransactions LoyaltyTransaction[]
+  promotionRedemptions PromotionRedemptionLog[]
+  kitchenTickets KitchenTicket[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -1091,6 +1351,7 @@ model Customer {
   isActive Boolean @default(true) @map("is_active")
 
   debts CustomerDebt[]
+  loyaltyTransactions LoyaltyTransaction[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -1257,6 +1518,7 @@ model Item {
   invoice    Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   selections OrderItemSelection[]
   returnItems InvoiceReturnItem[]
+  kitchenTickets KitchenTicket[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -1380,5 +1642,463 @@ model EPayment {
   @@index([invoiceId])
   @@index([saleTypeId])
   @@map("e_payment")
+  @@schema("public")
+}
+
+/////////////////////////////////////////////////
+// REMAINING OPERATIONS MODULES
+/////////////////////////////////////////////////
+
+enum OfflineSyncIssueStatus {
+  pending
+  syncing
+  failed
+  needs_review
+  resolved
+  dismissed
+
+  @@map("offline_sync_issue_status")
+  @@schema("public")
+}
+
+enum ExpenseStatus {
+  draft
+  pending_approval
+  approved
+  rejected
+  posted
+  cancelled
+
+  @@map("expense_status")
+  @@schema("public")
+}
+
+enum StockMovementType {
+  opening_balance
+  stock_in
+  stock_out
+  sale_deduction
+  return_in
+  return_out
+  adjustment
+  transfer_out
+  transfer_in
+  waste
+  receiving_variance
+
+  @@map("stock_movement_type")
+  @@schema("public")
+}
+
+enum SupplierStatus {
+  active
+  inactive
+
+  @@map("supplier_status")
+  @@schema("public")
+}
+
+enum PurchaseOrderStatus {
+  draft
+  submitted
+  approved
+  ordered
+  partially_received
+  fully_received
+  cancelled
+
+  @@map("purchase_order_status")
+  @@schema("public")
+}
+
+enum ReceivingStatus {
+  draft
+  posted
+  cancelled
+
+  @@map("receiving_status")
+  @@schema("public")
+}
+
+enum BranchTransferStatus {
+  draft
+  pending_approval
+  approved
+  dispatched
+  in_transit
+  partially_received
+  received
+  cancelled
+  disputed
+
+  @@map("branch_transfer_status")
+  @@schema("public")
+}
+
+enum LoyaltyTransactionType {
+  earn
+  redeem
+  adjust
+  expire
+
+  @@map("loyalty_transaction_type")
+  @@schema("public")
+}
+
+enum PromotionType {
+  fixed_amount
+  percentage
+  item_level
+  order_level
+  buy_x_get_y
+  bundle_price
+  quantity_threshold
+
+  @@map("promotion_type")
+  @@schema("public")
+}
+
+enum KitchenTicketStatus {
+  queued
+  preparing
+  ready
+  served
+  cancelled
+
+  @@map("kitchen_ticket_status")
+  @@schema("public")
+}
+
+model OfflineSyncIssue {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  companyId  String @map("company_id") @db.Uuid
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId String? @map("terminal_id") @db.Uuid
+  terminal   PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+
+  localId String @map("local_id")
+  actionType String @map("action_type")
+  syncStatus OfflineSyncIssueStatus @default(failed) @map("sync_status")
+  conflictCategory String @map("conflict_category")
+  message String
+  idempotencyKey String? @map("idempotency_key")
+  retryCount Int @default(0) @map("retry_count")
+  nextRetryAt DateTime? @map("next_retry_at") @db.Timestamptz
+  payload Json?
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([companyId, localId])
+  @@index([companyId, syncStatus, createdAt])
+  @@index([terminalId])
+  @@map("offline_sync_issue")
+  @@schema("public")
+}
+
+model ExpenseCategory {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name String
+  isActive Boolean @default(true) @map("is_active")
+
+  expenses Expense[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([companyId, name])
+  @@map("expense_category")
+  @@schema("public")
+}
+
+model Expense {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  referenceNumber String @unique @map("reference_number")
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId String? @map("terminal_id") @db.Uuid
+  terminal PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  categoryId String @map("category_id") @db.Uuid
+  category ExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdById String @map("created_by_id") @db.Uuid
+  createdBy Profile @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  approvedById String? @map("approved_by_id") @db.Uuid
+  approvedBy Profile? @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  expenseDate DateTime @map("expense_date") @db.Date
+  amount Decimal @db.Decimal(15, 2)
+  notes String?
+  status ExpenseStatus @default(posted)
+  approvalRequestId String? @map("approval_request_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, expenseDate])
+  @@index([terminalId])
+  @@index([categoryId])
+  @@map("expense")
+  @@schema("public")
+}
+
+model StockMovement {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId String? @map("terminal_id") @db.Uuid
+  terminal PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  productId String @map("product_id") @db.Uuid
+  product Product @relation(fields: [productId], references: [id])
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy Profile? @relation("StockMovementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  movementType StockMovementType @map("movement_type")
+  quantityDelta Decimal @map("quantity_delta") @db.Decimal(19, 4)
+  quantityBefore Decimal? @map("quantity_before") @db.Decimal(19, 4)
+  quantityAfter Decimal? @map("quantity_after") @db.Decimal(19, 4)
+  unitCost Decimal? @map("unit_cost") @db.Decimal(19, 4)
+  sourceType String? @map("source_type")
+  sourceId String? @map("source_id")
+  referenceNumber String? @map("reference_number")
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([companyId, createdAt])
+  @@index([productId, createdAt])
+  @@index([terminalId])
+  @@map("stock_movement")
+  @@schema("public")
+}
+
+model Supplier {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name String
+  contactName String? @map("contact_name")
+  phone String?
+  email String?
+  address String?
+  notes String?
+  status SupplierStatus @default(active)
+  purchaseOrders PurchaseOrder[]
+  receivingRecords ReceivingRecord[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  @@index([companyId, status])
+  @@map("supplier")
+  @@schema("public")
+}
+
+model PurchaseOrder {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poNumber String @unique @map("po_number")
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId String @map("supplier_id") @db.Uuid
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  createdById String @map("created_by_id") @db.Uuid
+  createdBy Profile @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id])
+  approvedById String? @map("approved_by_id") @db.Uuid
+  approvedBy Profile? @relation("PurchaseOrderApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  status PurchaseOrderStatus @default(draft)
+  expectedAt DateTime? @map("expected_at") @db.Date
+  notes String?
+  items PurchaseOrderItem[]
+  receivingRecords ReceivingRecord[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  @@index([companyId, status, createdAt])
+  @@index([supplierId])
+  @@map("purchase_order")
+  @@schema("public")
+}
+
+model PurchaseOrderItem {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchaseOrderId String @map("purchase_order_id") @db.Uuid
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId String @map("product_id") @db.Uuid
+  product Product @relation(fields: [productId], references: [id])
+  quantity Decimal @db.Decimal(19, 4)
+  unitCost Decimal @map("unit_cost") @db.Decimal(19, 4)
+  receivedQuantity Decimal @default(0) @map("received_quantity") @db.Decimal(19, 4)
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@map("purchase_order_item")
+  @@schema("public")
+}
+
+model ReceivingRecord {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receivingNumber String @unique @map("receiving_number")
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId String @map("supplier_id") @db.Uuid
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  purchaseOrderId String? @map("purchase_order_id") @db.Uuid
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  postedById String? @map("posted_by_id") @db.Uuid
+  postedBy Profile? @relation("ReceivingPostedBy", fields: [postedById], references: [id], onDelete: SetNull)
+  status ReceivingStatus @default(draft)
+  postedAt DateTime? @map("posted_at") @db.Timestamptz
+  notes String?
+  items ReceivingItem[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  @@index([companyId, status, createdAt])
+  @@index([supplierId])
+  @@map("receiving_record")
+  @@schema("public")
+}
+
+model ReceivingItem {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receivingRecordId String @map("receiving_record_id") @db.Uuid
+  receivingRecord ReceivingRecord @relation(fields: [receivingRecordId], references: [id], onDelete: Cascade)
+  productId String @map("product_id") @db.Uuid
+  product Product @relation(fields: [productId], references: [id])
+  quantityReceived Decimal @map("quantity_received") @db.Decimal(19, 4)
+  unitCost Decimal @map("unit_cost") @db.Decimal(19, 4)
+  varianceQuantity Decimal @default(0) @map("variance_quantity") @db.Decimal(19, 4)
+  @@index([receivingRecordId])
+  @@index([productId])
+  @@map("receiving_item")
+  @@schema("public")
+}
+
+model BranchTransfer {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transferNumber String @unique @map("transfer_number")
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceTerminalId String @map("source_terminal_id") @db.Uuid
+  sourceTerminal PosTerminalInfo @relation("SourceTerminalTransfers", fields: [sourceTerminalId], references: [id])
+  destinationTerminalId String @map("destination_terminal_id") @db.Uuid
+  destinationTerminal PosTerminalInfo @relation("DestinationTerminalTransfers", fields: [destinationTerminalId], references: [id])
+  requestedById String @map("requested_by_id") @db.Uuid
+  requestedBy Profile @relation("BranchTransferRequestedBy", fields: [requestedById], references: [id])
+  approvedById String? @map("approved_by_id") @db.Uuid
+  approvedBy Profile? @relation("BranchTransferApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  receivedById String? @map("received_by_id") @db.Uuid
+  receivedBy Profile? @relation("BranchTransferReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
+  status BranchTransferStatus @default(draft)
+  notes String?
+  items BranchTransferItem[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  @@index([companyId, status, createdAt])
+  @@index([sourceTerminalId])
+  @@index([destinationTerminalId])
+  @@map("branch_transfer")
+  @@schema("public")
+}
+
+model BranchTransferItem {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branchTransferId String @map("branch_transfer_id") @db.Uuid
+  branchTransfer BranchTransfer @relation(fields: [branchTransferId], references: [id], onDelete: Cascade)
+  productId String @map("product_id") @db.Uuid
+  product Product @relation(fields: [productId], references: [id])
+  requestedQuantity Decimal @map("requested_quantity") @db.Decimal(19, 4)
+  dispatchedQuantity Decimal? @map("dispatched_quantity") @db.Decimal(19, 4)
+  receivedQuantity Decimal? @map("received_quantity") @db.Decimal(19, 4)
+  varianceQuantity Decimal? @map("variance_quantity") @db.Decimal(19, 4)
+  @@index([branchTransferId])
+  @@index([productId])
+  @@map("branch_transfer_item")
+  @@schema("public")
+}
+
+model LoyaltyTransaction {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerId String @map("customer_id") @db.Uuid
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoiceId String? @map("invoice_id") @db.Uuid
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy Profile? @relation("LoyaltyTransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  transactionType LoyaltyTransactionType @map("transaction_type")
+  pointsDelta Int @map("points_delta")
+  reason String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@index([companyId, createdAt])
+  @@index([customerId, createdAt])
+  @@map("loyalty_transaction")
+  @@schema("public")
+}
+
+model Promotion {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name String
+  promotionType PromotionType @map("promotion_type")
+  value Decimal @db.Decimal(15, 2)
+  startsAt DateTime? @map("starts_at") @db.Timestamptz
+  endsAt DateTime? @map("ends_at") @db.Timestamptz
+  isActive Boolean @default(true) @map("is_active")
+  stackable Boolean @default(false)
+  exclusive Boolean @default(false)
+  ruleJson Json? @map("rule_json")
+  redemptions PromotionRedemptionLog[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  @@index([companyId, isActive])
+  @@map("promotion")
+  @@schema("public")
+}
+
+model PromotionRedemptionLog {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promotionId String @map("promotion_id") @db.Uuid
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  invoiceId String? @map("invoice_id") @db.Uuid
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  productId String? @map("product_id") @db.Uuid
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  discountAmount Decimal @map("discount_amount") @db.Decimal(15, 2)
+  reason String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@index([promotionId, createdAt])
+  @@index([invoiceId])
+  @@map("promotion_redemption_log")
+  @@schema("public")
+}
+
+model KitchenTicket {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticketNumber String @unique @map("ticket_number")
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId String @map("terminal_id") @db.Uuid
+  terminal PosTerminalInfo @relation(fields: [terminalId], references: [id])
+  invoiceId String @map("invoice_id") @db.Uuid
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  itemId String? @map("item_id") @db.Uuid
+  item Item? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  status KitchenTicketStatus @default(queued)
+  station String?
+  notes String?
+  updatedById String? @map("updated_by_id") @db.Uuid
+  updatedBy Profile? @relation("KitchenTicketUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  readyAt DateTime? @map("ready_at") @db.Timestamptz
+  servedAt DateTime? @map("served_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  @@index([companyId, status, createdAt])
+  @@index([terminalId])
+  @@index([invoiceId])
+  @@map("kitchen_ticket")
   @@schema("public")
 }

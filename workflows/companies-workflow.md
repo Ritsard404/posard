@@ -168,3 +168,6 @@ Implement back navigation properly.
 Prefer predictable route navigation over fragile history-only navigation.
 
 ---
+
+use this skills .agents\skills\documentation-writer\SKILL.md.
+use context7.
