@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { orderService } from "@/app/(protected)/pos/_services/order.service";
 import { sessionMutationService } from "@/app/(protected)/pos/_services/session-mutation.service";
 import { auditLogService } from "@/lib/services/audit-log.service";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
+import { readJsonWithLimit } from "@/lib/security/payload";
+import { securityConfig } from "@/lib/security/security-config";
 import type {
   QueuedCloseSessionAction,
   QueuedPosAction,
@@ -231,7 +234,18 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     }
-    const parsed = syncActionsRequestSchema.safeParse(await request.json());
+    await enforceRateLimit({
+      bucket: "sync",
+      route: "/api/sync/actions",
+      action: "OFFLINE_SYNC_ACTIONS",
+      profileId: profile.id,
+      userId: profile.id,
+      role: profile.role,
+      companyId: profile.companyId,
+    });
+    const parsed = syncActionsRequestSchema.safeParse(
+      await readJsonWithLimit(request, securityConfig.payload.syncBytes),
+    );
     if (!parsed.success) {
       return NextResponse.json(
         { success: false, error: "Malformed sync payload." },
@@ -239,6 +253,12 @@ export async function POST(request: Request) {
       );
     }
     const actions = parsed.data.actions as QueuedPosAction[];
+    if (actions.length > 100) {
+      return NextResponse.json(
+        { success: false, error: "Sync batch is too large." },
+        { status: 400 },
+      );
+    }
 
     const sortedActions = [...actions].sort((a, b) =>
       a.createdAtLocal.localeCompare(b.createdAtLocal),
@@ -350,9 +370,12 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unable to sync offline actions.",
+        error:
+          error instanceof Error && error.message.startsWith("Too many requests")
+            ? error.message
+            : "Unable to sync offline actions.",
       },
-      { status: 500 },
+      { status: error instanceof Error && error.message.startsWith("Too many requests") ? 429 : 500 },
     );
   }
 }

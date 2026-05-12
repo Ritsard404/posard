@@ -10,6 +10,7 @@ import { terminalPrinterConfigService } from "../_services/terminal-printer-conf
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
 
 const PrinterConfigSchema = z.object({
   displayName: z.string().trim().min(1).nullable(),
@@ -84,6 +85,15 @@ export async function saveSessionPrinterConfigAction(
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
+    await enforceRateLimit({
+      bucket: "sensitivePosAction",
+      route: "/pos",
+      action: "SAVE_SESSION_PRINTER_CONFIG",
+      profileId: profile.id,
+      userId: profile.id,
+      role: profile.role,
+      companyId: profile.companyId,
+    });
     const validated = printerConfig === null ? null : PrinterConfigSchema.parse(printerConfig);
 
     const timestamp = await prisma.timestamp.findFirst({

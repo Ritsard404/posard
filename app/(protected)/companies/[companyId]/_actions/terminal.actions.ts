@@ -14,6 +14,31 @@ import {
 } from "../_services/terminal.dto";
 import { companyAccessService } from "../_services/company-access.service";
 import { revalidatePath } from "next/cache";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
+
+async function enforceTerminalMutationLimit(input: {
+  action: string;
+  companyId: string;
+  terminalId?: string | null;
+  adminOnly?: boolean;
+}) {
+  const viewer = input.adminOnly
+    ? await companyAccessService.assertAdminAccess(input.companyId)
+    : await companyAccessService.assertCompanyAccess(input.companyId);
+
+  await enforceRateLimit({
+    bucket: input.adminOnly ? "adminMutation" : "terminalMutation",
+    route: "/companies/[companyId]/terminals",
+    action: input.action,
+    profileId: viewer.profileId,
+    userId: viewer.profileId,
+    role: viewer.role,
+    companyId: input.companyId,
+    terminalId: input.terminalId,
+  });
+
+  return viewer;
+}
 
 export async function getTerminalsAction(companyId: string): Promise<{ success: true; data: TerminalDTO[] } | { success: false; error: string }> {
   try {
@@ -40,7 +65,7 @@ export async function getTerminalAction(id: string, companyId: string): Promise<
 
 export async function createTerminalAction(companyId: string, payload: CreateTerminalPayload): Promise<{ success: true; data: TerminalDTO } | { success: false; error: string }> {
   try {
-    await companyAccessService.assertAdminAccess(companyId);
+    await enforceTerminalMutationLimit({ action: "CREATE_TERMINAL", companyId, adminOnly: true });
     const validated = CreateTerminalSchema.parse(payload);
     const data = await terminalService.createTerminal(companyId, validated);
     
@@ -58,7 +83,7 @@ export async function createTerminalAction(companyId: string, payload: CreateTer
 
 export async function updateTerminalAction(id: string, companyId: string, payload: UpdateTerminalPayload): Promise<{ success: true; data: TerminalDTO } | { success: false; error: string }> {
   try {
-    await companyAccessService.assertAdminAccess(companyId);
+    await enforceTerminalMutationLimit({ action: "UPDATE_TERMINAL", companyId, terminalId: id, adminOnly: true });
     const validated = UpdateTerminalSchema.parse(payload);
     const data = await terminalService.updateTerminal(id, companyId, validated);
     
@@ -80,7 +105,7 @@ export async function updateTerminalConfigurationAction(
   payload: TerminalConfigurationPayload,
 ): Promise<{ success: true; data: TerminalDTO } | { success: false; error: string }> {
   try {
-    await companyAccessService.assertCompanyAccess(companyId);
+    await enforceTerminalMutationLimit({ action: "UPDATE_TERMINAL_CONFIGURATION", companyId, terminalId: id });
     const validated = TerminalConfigurationSchema.parse(payload);
     const data = await terminalService.updateTerminalConfiguration(id, companyId, validated);
 
@@ -105,7 +130,7 @@ export async function updateTerminalTrainingModeAction(
   isTrainMode: boolean,
 ): Promise<{ success: true; data: TerminalDTO } | { success: false; error: string }> {
   try {
-    await companyAccessService.assertCompanyAccess(companyId);
+    await enforceTerminalMutationLimit({ action: "UPDATE_TERMINAL_TRAINING_MODE", companyId, terminalId: id });
     const data = await terminalService.setTrainingMode(id, companyId, isTrainMode);
 
     revalidatePath("/companies");
@@ -125,7 +150,7 @@ export async function updateTerminalTrainingModeAction(
 
 export async function deleteTerminalAction(id: string, companyId: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await companyAccessService.assertAdminAccess(companyId);
+    await enforceTerminalMutationLimit({ action: "DELETE_TERMINAL", companyId, terminalId: id, adminOnly: true });
     await terminalService.deleteTerminal(id, companyId);
     
     revalidatePath("/companies");
@@ -146,7 +171,7 @@ export async function setTerminalActiveAction(
   payload: SetTerminalActiveInput,
 ): Promise<{ success: true; data: TerminalDTO } | { success: false; error: string }> {
   try {
-    await companyAccessService.assertAdminAccess(companyId);
+    await enforceTerminalMutationLimit({ action: "SET_TERMINAL_ACTIVE", companyId, terminalId: id, adminOnly: true });
     const validated = SetTerminalActiveSchema.parse(payload);
     const data = await terminalService.setTerminalActive(id, companyId, validated);
 

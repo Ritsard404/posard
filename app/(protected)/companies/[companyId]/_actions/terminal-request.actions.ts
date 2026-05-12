@@ -10,6 +10,7 @@ import {
   type UpdateTerminalRequestStatusInput,
 } from "../_services/terminal-request.dto";
 import { terminalRequestService } from "../_services/terminal-request.service";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
 
 export async function getTerminalRequestsAction(companyId: string): Promise<
   { success: true; data: TerminalRequestDTO[] } | { success: false; error: string }
@@ -32,6 +33,15 @@ export async function createTerminalRequestAction(
 ): Promise<{ success: true; data: TerminalRequestDTO } | { success: false; error: string }> {
   try {
     const viewer = await companyAccessService.assertCompanyAccess(companyId);
+    await enforceRateLimit({
+      bucket: "terminalMutation",
+      route: "/companies/[companyId]/terminals",
+      action: "CREATE_TERMINAL_REQUEST",
+      profileId: viewer.profileId,
+      userId: viewer.profileId,
+      role: viewer.role,
+      companyId,
+    });
     const validated = CreateTerminalRequestSchema.parse(payload);
     const data = await terminalRequestService.createTerminalRequest(
       companyId,
@@ -59,6 +69,15 @@ export async function updateTerminalRequestStatusAction(
 ): Promise<{ success: true; data: TerminalRequestDTO } | { success: false; error: string }> {
   try {
     const viewer = await companyAccessService.assertAdminAccess(companyId);
+    await enforceRateLimit({
+      bucket: "adminMutation",
+      route: "/companies/[companyId]/terminals",
+      action: "UPDATE_TERMINAL_REQUEST_STATUS",
+      profileId: viewer.profileId,
+      userId: viewer.profileId,
+      role: viewer.role,
+      companyId,
+    });
     const validated = UpdateTerminalRequestStatusSchema.parse(payload);
     const data = await terminalRequestService.updateTerminalRequestStatus(
       id,

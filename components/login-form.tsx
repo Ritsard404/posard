@@ -7,6 +7,7 @@ import { Chrome } from "lucide-react";
 import { toast } from "sonner";
 
 import { getRegistrationRequestLoginStatusAction } from "@/app/auth/_actions/registration-request.action";
+import { checkLoginRateLimitAction } from "@/app/auth/_actions/auth-security.action";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -87,6 +88,11 @@ export function LoginForm({
       const supabase = createClient();
 
       try {
+        const rateLimit = await checkLoginRateLimitAction();
+        if (!rateLimit.success) {
+          throw new Error(rateLimit.error);
+        }
+
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,

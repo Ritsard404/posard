@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { AuthFeedback, type AuthFeedbackState } from "@/components/auth-feedback";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
+import { checkPasswordResetRateLimitAction } from "@/app/auth/_actions/auth-security.action";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,6 +46,11 @@ export function ForgotPasswordForm({
       const supabase = createClient();
 
       try {
+        const rateLimit = await checkPasswordResetRateLimitAction();
+        if (!rateLimit.success) {
+          throw new Error(rateLimit.error);
+        }
+
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/update-password`,
         });

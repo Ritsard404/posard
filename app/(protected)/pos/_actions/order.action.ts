@@ -5,6 +5,8 @@ import { after } from "next/server";
 import { CancelOrderDto, OrderDto, ReturnInvoiceDto } from "../_services/_dto/order.dto";
 import type { ReceiptDto } from "../_services/_dto/receipt.dto";
 import { orderService } from "../_services/order.service";
+import { getCurrentProfile } from "@/lib/auth/current-user";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
 
 export async function payOrderAction(
   dto: OrderDto,
@@ -32,6 +34,16 @@ export async function payOrderAction(
 
 export async function cancelOrderAction(dto: CancelOrderDto) {
   try {
+    const profile = await getCurrentProfile();
+    await enforceRateLimit({
+      bucket: "sensitivePosAction",
+      route: "/pos",
+      action: "VOID_ORDER",
+      profileId: profile?.id,
+      userId: profile?.id,
+      role: profile?.role,
+      companyId: profile?.companyId,
+    });
     await orderService.cancelOrder(dto);
     revalidatePath("/pos");
     return { success: true };
@@ -45,6 +57,16 @@ export async function cancelOrderAction(dto: CancelOrderDto) {
 
 export async function returnInvoiceAction(dto: ReturnInvoiceDto) {
   try {
+    const profile = await getCurrentProfile();
+    await enforceRateLimit({
+      bucket: "sensitivePosAction",
+      route: "/pos",
+      action: "RETURN_INVOICE",
+      profileId: profile?.id,
+      userId: profile?.id,
+      role: profile?.role,
+      companyId: profile?.companyId,
+    });
     const data = await orderService.returnInvoice(dto);
     revalidatePath("/report");
     revalidatePath("/reports");

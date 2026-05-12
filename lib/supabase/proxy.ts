@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { randomUUID } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
@@ -11,7 +12,12 @@ export async function updateSession(request: NextRequest) {
   const startedAt = performance.now();
   const pathname = request.nextUrl.pathname;
   const requestHeaders = new Headers(request.headers);
+  const correlationId =
+    requestHeaders.get("x-posard-correlation-id") ||
+    requestHeaders.get("x-request-id") ||
+    randomUUID();
   requestHeaders.set("x-posard-pathname", pathname);
+  requestHeaders.set("x-posard-correlation-id", correlationId);
 
   let supabaseResponse = NextResponse.next({
     request: {
@@ -19,6 +25,7 @@ export async function updateSession(request: NextRequest) {
     },
   });
   if (!hasEnvVars) return supabaseResponse;
+  supabaseResponse.headers.set("x-posard-correlation-id", correlationId);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,6 +60,7 @@ export async function updateSession(request: NextRequest) {
     if (process.env.NODE_ENV !== "production") {
       console.info("POSard proxy auth timing", {
         pathname,
+        correlationId,
         reason,
         ms: Math.round(performance.now() - startedAt),
       });

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { accountsAccessService } from "@/app/(protected)/accounts/_services/accounts-access.service";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
 import { registrationApprovalService } from "../_services/registration-approval.service";
 import {
   ApproveRegistrationRequestSchema,
@@ -45,6 +46,15 @@ export async function approveRegistrationRequestAction(
 ): Promise<VoidResult> {
   try {
     const viewer = await accountsAccessService.getProfileViewer();
+    await enforceRateLimit({
+      bucket: "adminMutation",
+      route: "/approvals",
+      action: "APPROVE_REGISTRATION_REQUEST",
+      profileId: viewer.profileId,
+      userId: viewer.profileId,
+      role: viewer.role,
+      companyId: viewer.companyId,
+    });
     const validatedId = RegistrationRequestIdSchema.parse(requestId);
     const validated = ApproveRegistrationRequestSchema.parse(input);
     await registrationApprovalService.approveRequest(viewer, validatedId, validated);
@@ -65,6 +75,15 @@ export async function rejectRegistrationRequestAction(
 ): Promise<VoidResult> {
   try {
     const viewer = await accountsAccessService.getProfileViewer();
+    await enforceRateLimit({
+      bucket: "adminMutation",
+      route: "/approvals",
+      action: "REJECT_REGISTRATION_REQUEST",
+      profileId: viewer.profileId,
+      userId: viewer.profileId,
+      role: viewer.role,
+      companyId: viewer.companyId,
+    });
     const validatedId = RegistrationRequestIdSchema.parse(requestId);
     const validated = RejectRegistrationRequestSchema.parse(input);
     await registrationApprovalService.rejectRequest(viewer, validatedId, validated);
@@ -84,6 +103,15 @@ export async function unlockRejectedRegistrationRequestAction(
 ): Promise<VoidResult> {
   try {
     const viewer = await accountsAccessService.getProfileViewer();
+    await enforceRateLimit({
+      bucket: "adminMutation",
+      route: "/approvals",
+      action: "UNLOCK_REGISTRATION_REQUEST",
+      profileId: viewer.profileId,
+      userId: viewer.profileId,
+      role: viewer.role,
+      companyId: viewer.companyId,
+    });
     const validatedId = RegistrationRequestIdSchema.parse(requestId);
     await registrationApprovalService.unlockRejectedRequest(viewer, validatedId);
     revalidateApprovalPaths();

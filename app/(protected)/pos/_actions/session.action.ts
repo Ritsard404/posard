@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { printConfigService } from "../_services/print-config.service";
 import { reportService as posReportService } from "../_services/report.service";
 import { sessionMutationService } from "../_services/session-mutation.service";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
 
 function getTerminalBillingSummary(subscription: {
   status: "pending" | "active" | "expired" | "suspended" | "cancelled";
@@ -364,6 +365,15 @@ export async function withdrawCashAction(
     if (!profile.companyId) {
       return { success: false, error: "No company associated with user." };
     }
+    await enforceRateLimit({
+      bucket: "sensitivePosAction",
+      route: "/pos",
+      action: "WITHDRAW_CASH",
+      profileId: profile.id,
+      userId: profile.id,
+      role: profile.role,
+      companyId: profile.companyId,
+    });
 
     if (amount <= 0) {
       return { success: false, error: "Amount must be greater than 0" };
@@ -414,6 +424,15 @@ export async function closeSessionAction(
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
+    await enforceRateLimit({
+      bucket: "sensitivePosAction",
+      route: "/pos",
+      action: "CLOSE_SESSION",
+      profileId: profile.id,
+      userId: profile.id,
+      role: profile.role,
+      companyId: profile.companyId,
+    });
 
     const approver = await prisma.profile.findFirst({
       where: {

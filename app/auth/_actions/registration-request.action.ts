@@ -1,6 +1,7 @@
 "use server";
 
 import { registrationRequestService } from "../_services/registration-request.service";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
 import {
   RegistrationRequestEmailSchema,
   SubmitRegistrationRequestSchema,
@@ -33,6 +34,11 @@ export async function submitRegistrationRequestAction(
 ): Promise<SubmitRegistrationResult> {
   try {
     const validated = SubmitRegistrationRequestSchema.parse(input);
+    await enforceRateLimit({
+      bucket: "signup",
+      route: "/auth/sign-up",
+      action: "REGISTRATION_REQUEST_SUBMIT",
+    });
     const data = await registrationRequestService.submitRequest(validated);
     return { success: true, data };
   } catch (error) {
@@ -52,6 +58,11 @@ export async function getRegistrationRequestLoginStatusAction(
 ): Promise<RegistrationLookupResult> {
   try {
     const validated = RegistrationRequestEmailSchema.parse(input);
+    await enforceRateLimit({
+      bucket: "login",
+      route: "/auth/login/status",
+      action: "REGISTRATION_STATUS_LOOKUP",
+    });
     const data = await registrationRequestService.getLoginStatusByEmail(
       validated.email,
     );
