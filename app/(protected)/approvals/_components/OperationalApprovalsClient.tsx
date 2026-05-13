@@ -55,16 +55,16 @@ export function OperationalApprovalsClient({
   }
 
   return (
-    <Card className="overflow-hidden">
-      <div className="border-b px-5 py-4">
-        <h2 className="text-lg font-semibold">Operational Approvals</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <Card className="overflow-hidden border-border/80 shadow-sm">
+      <div className="border-b px-3 py-3 sm:px-4">
+        <h2 className="text-base font-semibold tracking-tight">Operational Approvals</h2>
+        <p className="mt-0.5 text-xs leading-5 text-muted-foreground sm:text-sm">
           Shared approval inbox for sensitive POS, inventory, expense, and transfer actions.
         </p>
       </div>
 
       {approvals.length === 0 ? (
-        <div className="p-10 text-center text-sm text-muted-foreground">
+        <div className="p-8 text-center text-sm text-muted-foreground">
           No pending operational approvals.
         </div>
       ) : (
@@ -72,21 +72,21 @@ export function OperationalApprovalsClient({
           {approvals.map((approval) => (
             <div
               key={approval.id}
-              className="grid gap-3 p-4 lg:grid-cols-[1fr_260px]"
+              className="grid gap-2 p-3 transition-colors hover:bg-muted/20 lg:grid-cols-[minmax(0,1fr)_240px]"
             >
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">{approval.referenceNumber}</Badge>
-                  <Badge>{approval.status}</Badge>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant="secondary" className="h-5 rounded-full px-2 text-[11px]">{approval.referenceNumber}</Badge>
+                  <Badge className="h-5 rounded-full px-2 text-[11px]">{approval.status}</Badge>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(approval.createdAt)}
                   </span>
                 </div>
-                <div className="mt-2 font-semibold">{approval.title}</div>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <div className="mt-1.5 font-semibold leading-5">{approval.title}</div>
+                <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
                   {approval.summary}
                 </p>
-                <div className="mt-2 text-xs text-muted-foreground">
+                <div className="mt-1 text-xs text-muted-foreground">
                   Requested by {approval.requestedByName} for{" "}
                   {approval.targetType}
                   {approval.targetId ? ` ${approval.targetId}` : ""}
@@ -103,10 +103,12 @@ export function OperationalApprovalsClient({
                   }
                   placeholder="Decision note"
                   disabled={isPending}
+                  className="h-8"
                 />
                 <div className="flex gap-2">
                   <Button
                     size="sm"
+                    className="h-8"
                     disabled={isPending}
                     onClick={() =>
                       runDecision(
@@ -121,6 +123,7 @@ export function OperationalApprovalsClient({
                   <Button
                     size="sm"
                     variant="destructive"
+                    className="h-8"
                     disabled={isPending}
                     onClick={() =>
                       runDecision(

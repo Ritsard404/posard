@@ -4,7 +4,7 @@ type Option = { id: string; name?: string | null; posName?: string | null; quant
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+    <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
       <span>{label}</span>
       {children}
     </label>
@@ -12,7 +12,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function inputClass() {
-  return "h-9 rounded-md border bg-background px-3 text-sm text-foreground";
+  return "h-8 min-w-0 rounded-md border bg-background px-2 text-sm normal-case tracking-normal text-foreground";
+}
+
+function formClass(columns = "md:grid-cols-6") {
+  return `grid gap-2 rounded-md border bg-background/80 p-2 ${columns}`;
 }
 
 export function StockAdjustmentForm({
@@ -25,7 +29,7 @@ export function StockAdjustmentForm({
   action: (formData: FormData) => void | Promise<void>;
 }) {
   return (
-    <form action={action} className="grid gap-2 rounded-md border bg-background p-3 md:grid-cols-6">
+    <form action={action} className={formClass()}>
       <Field label="Product">
         <select name="productId" required className={inputClass()}>
           {products.map((product) => (
@@ -54,7 +58,7 @@ export function StockAdjustmentForm({
         <input name="reason" required placeholder="Count correction" className={inputClass()} />
       </Field>
       <div className="flex items-end">
-        <Button type="submit" className="w-full">Adjust Stock</Button>
+        <Button type="submit" size="sm" className="h-8 w-full">Adjust Stock</Button>
       </div>
       <input name="notes" placeholder="Notes" className={`${inputClass()} md:col-span-6`} />
     </form>
@@ -71,7 +75,7 @@ export function ExpenseForm({
   action: (formData: FormData) => void | Promise<void>;
 }) {
   return (
-    <form action={action} className="grid gap-2 rounded-md border bg-background p-3 md:grid-cols-6">
+    <form action={action} className={formClass()}>
       <Field label="Category">
         <select name="categoryId" required className={inputClass()}>
           {categories.map((category) => (
@@ -97,7 +101,7 @@ export function ExpenseForm({
         <input name="notes" placeholder="Receipt or purpose" className={inputClass()} />
       </Field>
       <div className="flex items-end">
-        <Button type="submit" className="w-full">Record Expense</Button>
+        <Button type="submit" size="sm" className="h-8 w-full">Record Expense</Button>
       </div>
     </form>
   );
@@ -105,7 +109,7 @@ export function ExpenseForm({
 
 export function SupplierForm({ action }: { action: (formData: FormData) => void | Promise<void> }) {
   return (
-    <form action={action} className="grid gap-2 rounded-md border bg-background p-3 md:grid-cols-6">
+    <form action={action} className={formClass()}>
       <Field label="Supplier">
         <input name="name" required placeholder="Supplier name" className={inputClass()} />
       </Field>
@@ -122,7 +126,7 @@ export function SupplierForm({ action }: { action: (formData: FormData) => void 
         <input name="notes" placeholder="Terms or remarks" className={inputClass()} />
       </Field>
       <div className="flex items-end">
-        <Button type="submit" className="w-full">Save Supplier</Button>
+        <Button type="submit" size="sm" className="h-8 w-full">Save Supplier</Button>
       </div>
     </form>
   );
@@ -138,7 +142,7 @@ export function PurchaseOrderForm({
   action: (formData: FormData) => void | Promise<void>;
 }) {
   return (
-    <form action={action} className="grid gap-2 rounded-md border bg-background p-3 md:grid-cols-6">
+    <form action={action} className={formClass()}>
       <Field label="Supplier">
         <select name="supplierId" required className={inputClass()}>
           {suppliers.map((supplier) => (
@@ -163,7 +167,7 @@ export function PurchaseOrderForm({
         <input name="expectedAt" type="date" className={inputClass()} />
       </Field>
       <div className="flex items-end">
-        <Button type="submit" className="w-full">Create PO</Button>
+        <Button type="submit" size="sm" className="h-8 w-full">Create PO</Button>
       </div>
       <input name="notes" placeholder="Notes" className={`${inputClass()} md:col-span-6`} />
     </form>
@@ -180,7 +184,7 @@ export function TransferForm({
   action: (formData: FormData) => void | Promise<void>;
 }) {
   return (
-    <form action={action} className="grid gap-2 rounded-md border bg-background p-3 md:grid-cols-6">
+    <form action={action} className={formClass()}>
       <Field label="From">
         <select name="sourceTerminalId" required className={inputClass()}>
           {terminals.map((terminal) => (
@@ -209,7 +213,7 @@ export function TransferForm({
         <input name="notes" placeholder="Transfer reason" className={inputClass()} />
       </Field>
       <div className="flex items-end">
-        <Button type="submit" className="w-full">Request Transfer</Button>
+        <Button type="submit" size="sm" className="h-8 w-full">Request Transfer</Button>
       </div>
     </form>
   );
@@ -217,7 +221,7 @@ export function TransferForm({
 
 export function PromotionForm({ action }: { action: (formData: FormData) => void | Promise<void> }) {
   return (
-    <form action={action} className="grid gap-2 rounded-md border bg-background p-3 md:grid-cols-6">
+    <form action={action} className={formClass()}>
       <Field label="Name">
         <input name="name" required placeholder="Happy hour" className={inputClass()} />
       </Field>
@@ -242,7 +246,7 @@ export function PromotionForm({ action }: { action: (formData: FormData) => void
         <input name="endsAt" type="datetime-local" className={inputClass()} />
       </Field>
       <div className="flex items-end">
-        <Button type="submit" className="w-full">Create Promo</Button>
+        <Button type="submit" size="sm" className="h-8 w-full">Create Promo</Button>
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input name="stackable" type="checkbox" value="true" />

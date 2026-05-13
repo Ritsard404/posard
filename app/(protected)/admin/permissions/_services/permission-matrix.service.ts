@@ -31,6 +31,22 @@ function toPrismaPermissionKey(permission: Permission): PermissionKey {
   return key as PermissionKey;
 }
 
+function buildFallbackMatrix(): PermissionMatrixDto {
+  return {
+    permissions: permissionCatalog.map((permission) => ({
+      key: permission.prismaKey,
+      group: permission.group,
+      label: permission.label,
+      description: permission.description ?? null,
+      isSensitive: permission.isSensitive ?? false,
+    })),
+    roles: roles.map((role) => ({
+      role,
+      permissions: rolePermissions[role].map(toPrismaPermissionKey),
+    })),
+  };
+}
+
 export const permissionMatrixService = {
   async syncDefaults(viewer: AccountsViewerDto): Promise<void> {
     assertAdmin(viewer);
@@ -87,38 +103,48 @@ export const permissionMatrixService = {
   async getMatrix(viewer: AccountsViewerDto): Promise<PermissionMatrixDto> {
     assertAdmin(viewer);
 
-    await this.syncDefaults(viewer);
-
-    const [permissions, grants] = await Promise.all([
-      prisma.permission.findMany({
-        orderBy: [{ group: "asc" }, { label: "asc" }],
-      }),
-      prisma.rolePermission.findMany({
-        where: { companyId: null, effect: "allow" },
-        select: { role: true, permissionKey: true },
-      }),
-    ]);
-
-    const permissionsByRole = new Map(
-      roles.map((role) => [role, new Set<string>()]),
-    );
-
-    for (const grant of grants) {
-      permissionsByRole.get(grant.role)?.add(grant.permissionKey);
+    try {
+      await this.syncDefaults(viewer);
+    } catch (error) {
+      console.error("Permission matrix default sync failed", error);
+      return buildFallbackMatrix();
     }
 
-    return {
-      permissions: permissions.map((permission) => ({
-        key: permission.key,
-        group: permission.group,
-        label: permission.label,
-        description: permission.description,
-        isSensitive: permission.isSensitive,
-      })),
-      roles: roles.map((role) => ({
-        role,
-        permissions: Array.from(permissionsByRole.get(role) ?? []),
-      })),
-    };
+    try {
+      const [permissions, grants] = await Promise.all([
+        prisma.permission.findMany({
+          orderBy: [{ group: "asc" }, { label: "asc" }],
+        }),
+        prisma.rolePermission.findMany({
+          where: { companyId: null, effect: "allow" },
+          select: { role: true, permissionKey: true },
+        }),
+      ]);
+
+      const permissionsByRole = new Map(
+        roles.map((role) => [role, new Set<string>()]),
+      );
+
+      for (const grant of grants) {
+        permissionsByRole.get(grant.role)?.add(grant.permissionKey);
+      }
+
+      return {
+        permissions: permissions.map((permission) => ({
+          key: permission.key,
+          group: permission.group,
+          label: permission.label,
+          description: permission.description,
+          isSensitive: permission.isSensitive,
+        })),
+        roles: roles.map((role) => ({
+          role,
+          permissions: Array.from(permissionsByRole.get(role) ?? []),
+        })),
+      };
+    } catch (error) {
+      console.error("Permission matrix read failed", error);
+      return buildFallbackMatrix();
+    }
   },
 };

@@ -30,7 +30,7 @@ export default async function ApprovalsPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <OperationalApprovalsClient approvals={operationalApprovals} />
       <PendingManagerApprovalsClient
         pendingAccounts={pendingManagers}

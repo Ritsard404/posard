@@ -77,7 +77,7 @@ export function NotificationBell({ initialData }: { initialData: NotificationLis
           ) : null}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 rounded-xl">
+      <DropdownMenuContent align="end" className="w-[min(22rem,calc(100vw-1rem))] rounded-lg p-1">
         <div className="flex items-center justify-between px-2 py-1.5">
           <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
           <Button
@@ -94,7 +94,7 @@ export function NotificationBell({ initialData }: { initialData: NotificationLis
         </div>
         <DropdownMenuSeparator />
         {data.items.length === 0 ? (
-          <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+          <div className="px-3 py-5 text-center text-sm text-muted-foreground">
             No notifications yet.
           </div>
         ) : (
@@ -107,10 +107,10 @@ export function NotificationBell({ initialData }: { initialData: NotificationLis
                     <span className="size-2 rounded-full bg-primary" />
                   ) : null}
                 </div>
-                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
                   {item.body}
                 </p>
-                <div className="mt-1 text-[11px] text-muted-foreground">
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
                   {formatWhen(item.createdAt)}
                 </div>
               </div>
@@ -120,7 +120,7 @@ export function NotificationBell({ initialData }: { initialData: NotificationLis
               <DropdownMenuItem
                 key={item.id}
                 asChild={Boolean(item.href)}
-                className={cn("items-start gap-2 rounded-lg p-3", !item.isRead && "bg-primary/5")}
+                className={cn("cursor-pointer items-start gap-2 rounded-md p-2", !item.isRead && "bg-primary/5")}
               >
                 {item.href ? (
                   <Link href={item.href}>{content}</Link>

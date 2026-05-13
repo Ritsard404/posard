@@ -1,7 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BookOpen, CheckCircle2, Mail, Search, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowUp,
+  BookOpen,
+  ListTree,
+  Mail,
+  Search,
+  X,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -46,6 +53,25 @@ function canViewGuide(role: CurrentRole, guide: HelpGuide) {
 
 function roleLabel(role: CurrentRole) {
   return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function guideId(groupTitle: string, guideTitle: string) {
+  return `${slugify(groupTitle)}-${slugify(guideTitle)}`;
+}
+
+function scrollToSection(id: string) {
+  const element = document.getElementById(id);
+  element?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (element) {
+    window.history.replaceState(null, "", `#${id}`);
+  }
 }
 
 const guideGroups: HelpGroup[] = [
@@ -454,6 +480,302 @@ const guideGroups: HelpGroup[] = [
   },
 ];
 
+function ReadingProgress({ progress }: { progress: number }) {
+  return (
+    <div className="sticky top-0 z-20 -mx-4 h-1 bg-muted md:-mx-6">
+      <div
+        className="h-full bg-primary transition-[width] duration-150"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+}
+
+function HelpHeader({
+  currentRole,
+  search,
+  setSearch,
+  visibleGuides,
+  totalGuides,
+}: {
+  currentRole: CurrentRole;
+  search: string;
+  setSearch: (value: string) => void;
+  visibleGuides: number;
+  totalGuides: number;
+}) {
+  return (
+    <Card className="border-border/80 p-4 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="rounded-md bg-primary/10 p-2 text-primary">
+            <BookOpen className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight">
+              POSard Help Center
+            </h1>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Search, scan, and jump through short guides for the work your role
+              can access.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">
+                Showing guides for {roleLabel(currentRole)}
+              </Badge>
+              {currentRole === "manager" ? (
+                <Badge variant="outline">Includes cashier guides</Badge>
+              ) : null}
+              {currentRole === "admin" ? (
+                <Badge variant="outline">Includes all guides</Badge>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full lg:max-w-md">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search receipt, printer, debt, discount"
+              className="h-10 pl-9 pr-10"
+              aria-label="Search help guides"
+            />
+            {search ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 size-8 -translate-y-1/2"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+              >
+                <X className="size-4" />
+              </Button>
+            ) : null}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Showing {visibleGuides} of {totalGuides} guides.
+          </p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function SupportCard({ supportEmail }: { supportEmail: string }) {
+  if (!supportEmail) return null;
+
+  return (
+    <Card className="flex flex-col gap-3 border-border/80 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="rounded-md bg-emerald-500/10 p-2 text-emerald-700">
+          <Mail className="size-4" />
+        </div>
+        <div>
+          <h2 className="font-semibold">Need more help?</h2>
+          <p className="text-sm text-muted-foreground">
+            Contact support if you cannot find the guide you need.
+          </p>
+        </div>
+      </div>
+      <Button asChild className="shrink-0">
+        <a href={`mailto:${supportEmail}`}>Contact Support</a>
+      </Button>
+    </Card>
+  );
+}
+
+function MobileSectionNavigator({
+  groups,
+  activeId,
+}: {
+  groups: HelpGroup[];
+  activeId: string;
+}) {
+  return (
+    <Card className="sticky top-2 z-10 border-border/80 p-3 shadow-sm lg:hidden">
+      <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="flex items-center gap-2">
+          <ListTree className="size-3.5" />
+          Jump to section
+        </span>
+        <select
+          value={activeId}
+          onChange={(event) => scrollToSection(event.target.value)}
+          className="h-9 rounded-md border bg-background px-3 text-sm normal-case tracking-normal text-foreground"
+        >
+          {groups.flatMap((group) => [
+            <option key={slugify(group.title)} value={slugify(group.title)}>
+              {group.title}
+            </option>,
+            ...group.guides.map((guide) => (
+              <option
+                key={guideId(group.title, guide.title)}
+                value={guideId(group.title, guide.title)}
+              >
+                {group.title}: {guide.title}
+              </option>
+            )),
+          ])}
+        </select>
+      </label>
+    </Card>
+  );
+}
+
+function DesktopToc({
+  groups,
+  activeId,
+}: {
+  groups: HelpGroup[];
+  activeId: string;
+}) {
+  return (
+    <aside className="hidden lg:block">
+      <Card className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto border-border/80 p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <ListTree className="size-4 text-primary" />
+          On this page
+        </div>
+        <nav className="space-y-4 text-sm" aria-label="Help page sections">
+          {groups.map((group) => {
+            const groupId = slugify(group.title);
+            return (
+              <div key={group.title}>
+                <a
+                  href={`#${groupId}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    scrollToSection(groupId);
+                  }}
+                  aria-current={activeId === groupId ? "true" : undefined}
+                  className={`block rounded-md px-2 py-1 font-semibold transition-colors hover:bg-muted ${
+                    activeId === groupId ? "bg-primary/10 text-primary" : ""
+                  }`}
+                >
+                  {group.title}
+                </a>
+                <div className="mt-1 space-y-0.5 border-l pl-3">
+                  {group.guides.map((guide) => {
+                    const id = guideId(group.title, guide.title);
+                    return (
+                      <a
+                        key={guide.title}
+                        href={`#${id}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          scrollToSection(id);
+                        }}
+                        aria-current={activeId === id ? "true" : undefined}
+                        className={`block rounded-md px-2 py-1 text-xs leading-5 transition-colors hover:bg-muted ${
+                          activeId === id
+                            ? "bg-primary/10 font-semibold text-primary"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {guide.title}
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+      </Card>
+    </aside>
+  );
+}
+
+function GuideArticle({
+  groupTitle,
+  guide,
+}: {
+  groupTitle: string;
+  guide: HelpGuide;
+}) {
+  const id = guideId(groupTitle, guide.title);
+
+  return (
+    <article
+      id={id}
+      data-help-section
+      className="scroll-mt-24 border-t border-border/70 px-4 py-5 first:border-t-0 md:px-5"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-lg font-semibold tracking-tight">{guide.title}</h3>
+        <Badge variant="secondary">{guide.role}</Badge>
+      </div>
+      <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+        {guide.summary}
+      </p>
+      <ol className="mt-4 grid gap-2 text-sm leading-6">
+        {guide.steps.map((step, index) => (
+          <li key={step} className="flex gap-3">
+            <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              {index + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
+        {guide.reminder}
+      </p>
+    </article>
+  );
+}
+
+function GuideSection({ group }: { group: HelpGroup }) {
+  const id = slugify(group.title);
+
+  return (
+    <section id={id} data-help-section className="scroll-mt-24">
+      <Card className="overflow-hidden border-border/80 shadow-sm">
+        <div className="border-b bg-muted/30 px-4 py-4 md:px-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+            Guide category
+          </p>
+          <h2 className="mt-1 text-xl font-bold tracking-tight">
+            {group.title}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {group.guides.length} guide{group.guides.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <div>
+          {group.guides.map((guide) => (
+            <GuideArticle
+              key={guide.title}
+              groupTitle={group.title}
+              guide={guide}
+            />
+          ))}
+        </div>
+      </Card>
+    </section>
+  );
+}
+
+function BackToTopButton({ visible }: { visible: boolean }) {
+  return (
+    <Button
+      type="button"
+      size="icon"
+      className={`fixed bottom-5 right-5 z-30 rounded-full shadow-lg transition-opacity ${
+        visible ? "opacity-100" : "pointer-events-none opacity-0"
+      }`}
+      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      aria-label="Back to top"
+    >
+      <ArrowUp className="size-4" />
+    </Button>
+  );
+}
+
 export function HelpCenterClient({
   currentRole,
   supportEmail,
@@ -462,6 +784,9 @@ export function HelpCenterClient({
   supportEmail: string;
 }) {
   const [search, setSearch] = useState("");
+  const [activeId, setActiveId] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const normalizedSearch = search.trim().toLowerCase();
   const roleGroups = useMemo(
     () =>
@@ -510,85 +835,95 @@ export function HelpCenterClient({
     (count, group) => count + group.guides.length,
     0,
   );
+  const firstSectionId = filteredGroups[0]?.title
+    ? slugify(filteredGroups[0].title)
+    : "";
+  const visibleSectionIds = useMemo(
+    () =>
+      new Set(
+        filteredGroups.flatMap((group) => [
+          slugify(group.title),
+          ...group.guides.map((guide) => guideId(group.title, guide.title)),
+        ]),
+      ),
+    [filteredGroups],
+  );
+  const selectedSectionId = visibleSectionIds.has(activeId)
+    ? activeId
+    : firstSectionId;
+
+  useEffect(() => {
+    setActiveId(firstSectionId);
+  }, [firstSectionId]);
+
+  useEffect(() => {
+    const updateProgress = () => {
+      const scrollTop = window.scrollY;
+      const scrollable =
+        document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(scrollable > 0 ? Math.min(100, (scrollTop / scrollable) * 100) : 0);
+      setShowBackToTop(scrollTop > 420);
+    };
+
+    updateProgress();
+    window.addEventListener("scroll", updateProgress, { passive: true });
+    window.addEventListener("resize", updateProgress);
+
+    return () => {
+      window.removeEventListener("scroll", updateProgress);
+      window.removeEventListener("resize", updateProgress);
+    };
+  }, []);
+
+  useEffect(() => {
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-help-section]"),
+    );
+
+    if (sections.length === 0) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        const nextId = visible[0]?.target.id;
+        if (nextId) {
+          setActiveId(nextId);
+        }
+      },
+      {
+        rootMargin: "-16% 0px -72% 0px",
+        threshold: [0, 1],
+      },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [filteredGroups]);
 
   return (
     <div className="space-y-4">
-      <Card className="p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-          <div className="rounded-lg bg-primary/10 p-2 text-primary">
-            <BookOpen className="size-5" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold">POSard Help Center</h1>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Short, simple guides for cashiers, managers, and store owners. Use
-              this page when you need to remember what to do next.
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">
-                Showing guides for {roleLabel(currentRole)}
-              </Badge>
-              {currentRole === "manager" ? (
-                <Badge variant="outline">Includes cashier guides</Badge>
-              ) : null}
-              {currentRole === "admin" ? (
-                <Badge variant="outline">Includes all guides</Badge>
-              ) : null}
-            </div>
-          </div>
-          </div>
-          <div className="w-full lg:max-w-md">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search help: receipt, printer, debt, discount"
-                className="h-10 pr-10 pl-9"
-                aria-label="Search help guides"
-              />
-              {search ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 size-8 -translate-y-1/2"
-                  onClick={() => setSearch("")}
-                  aria-label="Clear search"
-                >
-                  <X className="size-4" />
-                </Button>
-              ) : null}
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Showing {visibleGuides} of {totalGuides} guides.
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {supportEmail ? (
-        <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-700">
-              <Mail className="size-4" />
-            </div>
-            <div>
-              <h2 className="font-semibold">Need more help?</h2>
-              <p className="text-sm text-muted-foreground">
-                Contact support if you cannot find the guide you need.
-              </p>
-            </div>
-          </div>
-          <Button asChild className="shrink-0">
-            <a href={`mailto:${supportEmail}`}>Contact Support</a>
-          </Button>
-        </Card>
-      ) : null}
+      <ReadingProgress progress={progress} />
+      <a
+        href="#help-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow"
+      >
+        Skip to help content
+      </a>
+      <HelpHeader
+        currentRole={currentRole}
+        search={search}
+        setSearch={setSearch}
+        visibleGuides={visibleGuides}
+        totalGuides={totalGuides}
+      />
+      <SupportCard supportEmail={supportEmail} />
 
       {filteredGroups.length === 0 ? (
-        <Card className="p-8 text-center">
+        <Card className="border-border/80 p-8 text-center shadow-sm">
           <h2 className="text-lg font-semibold">No guides found</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Try a simpler word, such as sale, receipt, printer, report, or
@@ -604,40 +939,25 @@ export function HelpCenterClient({
           </Button>
         </Card>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
-        {filteredGroups.map((group) => (
-          <Card key={group.title} className="overflow-hidden">
-            <div className="border-b bg-muted/30 px-4 py-3">
-              <h2 className="font-semibold">{group.title}</h2>
-            </div>
-            <div className="divide-y">
-              {group.guides.map((guide) => (
-                <article key={guide.title} className="p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold">{guide.title}</h3>
-                    <Badge variant="secondary">{guide.role}</Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {guide.summary}
-                  </p>
-                  <ol className="mt-3 space-y-1 text-sm">
-                    {guide.steps.map((step) => (
-                      <li key={step} className="flex gap-2">
-                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                        <span>{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                  <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                    {guide.reminder}
-                  </p>
-                </article>
+        <>
+          <MobileSectionNavigator
+            groups={filteredGroups}
+            activeId={selectedSectionId}
+          />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <main id="help-content" className="space-y-4">
+              {filteredGroups.map((group) => (
+                <GuideSection key={group.title} group={group} />
               ))}
-            </div>
-          </Card>
-        ))}
-        </div>
+            </main>
+            <DesktopToc
+              groups={filteredGroups}
+              activeId={selectedSectionId}
+            />
+          </div>
+        </>
       )}
+      <BackToTopButton visible={showBackToTop} />
     </div>
   );
 }

@@ -96,24 +96,24 @@ export function PendingManagerApprovalsClient({
 
   return (
     <>
-      <div className="space-y-6">
-        <Card className="p-5">
-          <h1 className="text-2xl font-bold">Pending Registration Requests</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+      <div className="space-y-3">
+        <Card className="border-border/80 p-3 shadow-sm sm:p-4">
+          <h1 className="text-lg font-bold tracking-tight sm:text-xl">Pending Registration Requests</h1>
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground sm:text-sm">
             Review merchant onboarding requests before creating Supabase Auth users.
           </p>
         </Card>
 
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden border-border/80 shadow-sm">
           {pendingAccounts.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground">
+            <div className="p-8 text-center text-sm text-muted-foreground">
               No pending registration requests.
             </div>
           ) : (
             <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40">
+              <div className="hidden max-h-[calc(100vh-14rem)] overflow-auto md:block">
+                <table className="w-full min-w-[820px] text-sm">
+                  <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur">
                     <tr className="border-b">
                       {[
                         "Requester",
@@ -125,7 +125,7 @@ export function PendingManagerApprovalsClient({
                       ].map((label) => (
                         <th
                           key={label}
-                          className={`px-4 py-3 text-left font-medium text-muted-foreground ${label === "Actions" ? "text-right" : ""}`}
+                          className={`px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground ${label === "Actions" ? "text-right" : ""}`}
                         >
                           {label}
                         </th>
@@ -134,29 +134,30 @@ export function PendingManagerApprovalsClient({
                   </thead>
                   <tbody>
                     {pendingAccounts.map((account) => (
-                      <tr key={account.id} className="border-b">
-                        <td className="px-4 py-3">
+                      <tr key={account.id} className="border-b transition-colors hover:bg-muted/30">
+                        <td className="px-3 py-2">
                           <div className="font-semibold">{account.fullName}</div>
                           <div className="text-xs text-muted-foreground">
                             {account.email}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           {account.companyName ?? "Not provided"}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           {account.phone ?? "Not provided"}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           {formatRequestedRole(account.requestedRole)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           {formatDate(account.createdAt)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           <div className="flex justify-end gap-2">
                             <Button
                               size="sm"
+                              className="h-8"
                               disabled={isPending}
                               onClick={() => {
                                 setApproveTargetId(account.id);
@@ -168,6 +169,7 @@ export function PendingManagerApprovalsClient({
                             <Button
                               size="sm"
                               variant="destructive"
+                              className="h-8"
                               disabled={isPending}
                               onClick={() => {
                                 setRejectTargetId(account.id);
@@ -184,10 +186,10 @@ export function PendingManagerApprovalsClient({
                 </table>
               </div>
 
-              <div className="space-y-3 p-4 md:hidden">
+              <div className="space-y-2 p-2 md:hidden">
                 {pendingAccounts.map((account) => (
-                  <Card key={account.id} className="p-4">
-                    <div className="space-y-3">
+                  <Card key={account.id} className="border-border/80 p-2.5 shadow-sm">
+                    <div className="space-y-2">
                       <div>
                         <div className="font-semibold">{account.fullName}</div>
                         <div className="text-xs text-muted-foreground">
@@ -209,6 +211,7 @@ export function PendingManagerApprovalsClient({
                       <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
+                          className="h-8"
                           disabled={isPending}
                           onClick={() => {
                             setApproveTargetId(account.id);
@@ -220,6 +223,7 @@ export function PendingManagerApprovalsClient({
                         <Button
                           size="sm"
                           variant="destructive"
+                          className="h-8"
                           disabled={isPending}
                           onClick={() => {
                             setRejectTargetId(account.id);
@@ -237,23 +241,23 @@ export function PendingManagerApprovalsClient({
           )}
         </Card>
 
-        <Card className="overflow-hidden">
-          <div className="border-b px-5 py-4">
-            <h2 className="text-lg font-semibold">Rejected Requests</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+        <Card className="overflow-hidden border-border/80 shadow-sm">
+          <div className="border-b px-3 py-3 sm:px-4">
+            <h2 className="text-base font-semibold tracking-tight">Rejected Requests</h2>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground sm:text-sm">
               Rejected emails are blocked from re-registering for 7 days unless an admin allows it sooner.
             </p>
           </div>
 
           {rejectedAccounts.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground">
+            <div className="p-8 text-center text-sm text-muted-foreground">
               No rejected registration requests.
             </div>
           ) : (
             <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40">
+              <div className="hidden max-h-[calc(100vh-14rem)] overflow-auto md:block">
+                <table className="w-full min-w-[920px] text-sm">
+                  <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur">
                     <tr className="border-b">
                       {[
                         "Requester",
@@ -265,7 +269,7 @@ export function PendingManagerApprovalsClient({
                       ].map((label) => (
                         <th
                           key={label}
-                          className={`px-4 py-3 text-left font-medium text-muted-foreground ${label === "Actions" ? "text-right" : ""}`}
+                          className={`px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground ${label === "Actions" ? "text-right" : ""}`}
                         >
                           {label}
                         </th>
@@ -274,30 +278,31 @@ export function PendingManagerApprovalsClient({
                   </thead>
                   <tbody>
                     {rejectedAccounts.map((account) => (
-                      <tr key={account.id} className="border-b">
-                        <td className="px-4 py-3">
+                      <tr key={account.id} className="border-b transition-colors hover:bg-muted/30">
+                        <td className="px-3 py-2">
                           <div className="font-semibold">{account.fullName}</div>
                           <div className="text-xs text-muted-foreground">
                             {account.email}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           {account.companyName ?? "Not provided"}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           {account.reviewedAt ? formatDate(account.reviewedAt) : "Not recorded"}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           {formatRetryStatus(account)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           {account.rejectionReason ?? "No reason provided"}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           <div className="flex justify-end gap-2">
                             <Button
                               size="sm"
                               variant="outline"
+                              className="h-8"
                               disabled={isPending || account.retryUnlockedAt !== null}
                               onClick={() =>
                                 runMutation(
@@ -319,10 +324,10 @@ export function PendingManagerApprovalsClient({
                 </table>
               </div>
 
-              <div className="space-y-3 p-4 md:hidden">
+              <div className="space-y-2 p-2 md:hidden">
                 {rejectedAccounts.map((account) => (
-                  <Card key={account.id} className="p-4">
-                    <div className="space-y-3">
+                  <Card key={account.id} className="border-border/80 p-2.5 shadow-sm">
+                    <div className="space-y-2">
                       <div>
                         <div className="font-semibold">{account.fullName}</div>
                         <div className="text-xs text-muted-foreground">
@@ -345,6 +350,7 @@ export function PendingManagerApprovalsClient({
                         <Button
                           size="sm"
                           variant="outline"
+                          className="h-8"
                           disabled={isPending || account.retryUnlockedAt !== null}
                           onClick={() =>
                             runMutation(

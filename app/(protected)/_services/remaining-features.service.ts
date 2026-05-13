@@ -11,7 +11,11 @@ export interface ManagementListFilters {
 async function requireCompany() {
   const profile = await getCurrentProfile();
 
-  if (!profile?.companyId) {
+  if (!profile) {
+    throw new Error("Authenticated profile is required.");
+  }
+
+  if (!profile.companyId && profile.role !== "admin") {
     throw new Error("Company context is required.");
   }
 
@@ -30,6 +34,10 @@ function cleanFilter(value?: string) {
   return value?.trim() || undefined;
 }
 
+function companyWhere(companyId: string | null) {
+  return companyId ? { companyId } : {};
+}
+
 export const remainingFeaturesService = {
   async getSyncIssues(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
@@ -37,7 +45,7 @@ export const remainingFeaturesService = {
     const status = cleanFilter(filters.status);
     const issues = await prisma.offlineSyncIssue.findMany({
       where: {
-        companyId: viewer.companyId,
+        ...companyWhere(viewer.companyId),
         ...(status ? { syncStatus: status as never } : {}),
         ...(search
           ? {
@@ -80,7 +88,7 @@ export const remainingFeaturesService = {
 
     return prisma.expense.findMany({
       where: {
-        companyId: viewer.companyId,
+        ...companyWhere(viewer.companyId),
         ...(status ? { status: status as never } : {}),
         ...(search
           ? {
@@ -117,7 +125,7 @@ export const remainingFeaturesService = {
     const [movements, lowStock, negativeStock, noMovement] = await Promise.all([
       prisma.stockMovement.findMany({
         where: {
-          companyId: viewer.companyId,
+          ...companyWhere(viewer.companyId),
           ...(status ? { movementType: status as never } : {}),
           ...(search
             ? {
@@ -150,7 +158,7 @@ export const remainingFeaturesService = {
       }),
       prisma.product.count({
         where: {
-          companyId: viewer.companyId,
+          ...companyWhere(viewer.companyId),
           trackInventory: true,
           quantity: { lte: 10, gt: 0 },
           isDeleted: false,
@@ -158,7 +166,7 @@ export const remainingFeaturesService = {
       }),
       prisma.product.count({
         where: {
-          companyId: viewer.companyId,
+          ...companyWhere(viewer.companyId),
           trackInventory: true,
           quantity: { lt: 0 },
           isDeleted: false,
@@ -166,7 +174,7 @@ export const remainingFeaturesService = {
       }),
       prisma.product.count({
         where: {
-          companyId: viewer.companyId,
+          ...companyWhere(viewer.companyId),
           trackInventory: true,
           isDeleted: false,
           stockMovements: { none: {} },
@@ -192,7 +200,7 @@ export const remainingFeaturesService = {
 
     return prisma.supplier.findMany({
       where: {
-        companyId: viewer.companyId,
+        ...companyWhere(viewer.companyId),
         ...(status ? { status: status as never } : {}),
         ...(search
           ? {
@@ -229,7 +237,7 @@ export const remainingFeaturesService = {
 
     return prisma.purchaseOrder.findMany({
       where: {
-        companyId: viewer.companyId,
+        ...companyWhere(viewer.companyId),
         ...(status ? { status: status as never } : {}),
         ...(search
           ? {
@@ -272,7 +280,7 @@ export const remainingFeaturesService = {
 
     return prisma.branchTransfer.findMany({
       where: {
-        companyId: viewer.companyId,
+        ...companyWhere(viewer.companyId),
         ...(status ? { status: status as never } : {}),
         ...(search
           ? {
@@ -314,7 +322,7 @@ export const remainingFeaturesService = {
   async getCustomers() {
     const viewer = await requireCompany();
     const customers = await prisma.customer.findMany({
-      where: { companyId: viewer.companyId },
+      where: companyWhere(viewer.companyId),
       orderBy: { name: "asc" },
       take: 100,
       select: {
@@ -345,7 +353,7 @@ export const remainingFeaturesService = {
     const status = cleanFilter(filters.status);
     return prisma.promotion.findMany({
       where: {
-        companyId: viewer.companyId,
+        ...companyWhere(viewer.companyId),
         ...(status === "active" ? { isActive: true } : {}),
         ...(status === "paused" || status === "archived" || status === "draft" ? { isActive: false } : {}),
         ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
@@ -376,7 +384,7 @@ export const remainingFeaturesService = {
     const status = cleanFilter(filters.status);
     return prisma.kitchenTicket.findMany({
       where: {
-        companyId: viewer.companyId,
+        ...companyWhere(viewer.companyId),
         ...(status ? { status: status as never } : {}),
         ...(search
           ? {

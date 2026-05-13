@@ -25,45 +25,47 @@ export function RemainingFeatureWorkspace<T extends { id: string }>({
   toolbar?: React.ReactNode;
 }) {
   return (
-    <div className="space-y-4">
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-xl font-bold">{title}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    <div className="space-y-3">
+      <Card className="border-border/80 p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold tracking-tight sm:text-xl">{title}</h1>
+            <p className="mt-0.5 max-w-4xl text-xs leading-5 text-muted-foreground sm:text-sm">
+              {description}
+            </p>
           </div>
-          {toolbar ? <div className="shrink-0">{toolbar}</div> : null}
+          {toolbar ? <div className="w-full shrink-0 xl:max-w-5xl">{toolbar}</div> : null}
         </div>
       </Card>
 
       {stats?.length ? (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
-            <Card key={stat.label} className="p-3">
-              <div className="text-xs font-medium uppercase text-muted-foreground">
+            <Card key={stat.label} className="border-border/80 p-2.5 shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {stat.label}
               </div>
-              <div className="mt-1 text-2xl font-bold">{stat.value}</div>
+              <div className="mt-0.5 text-xl font-bold tabular-nums">{stat.value}</div>
             </Card>
           ))}
         </div>
       ) : null}
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden border-border/80 shadow-sm">
         {items.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">
+          <div className="p-8 text-center text-sm text-muted-foreground">
             {emptyText}
           </div>
         ) : (
           <>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40">
+            <div className="hidden max-h-[calc(100vh-14rem)] overflow-auto md:block">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur">
                   <tr className="border-b">
                     {columns.map((column) => (
                       <th
                         key={column.label}
-                        className="px-4 py-3 text-left font-medium text-muted-foreground"
+                        className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                       >
                         {column.label}
                       </th>
@@ -72,9 +74,15 @@ export function RemainingFeatureWorkspace<T extends { id: string }>({
                 </thead>
                 <tbody>
                   {items.map((item) => (
-                    <tr key={item.id} className="border-b">
+                    <tr
+                      key={item.id}
+                      className="border-b transition-colors hover:bg-muted/30"
+                    >
                       {columns.map((column) => (
-                        <td key={column.label} className="px-4 py-3">
+                        <td
+                          key={column.label}
+                          className="max-w-[24rem] px-3 py-2 align-top leading-5"
+                        >
                           {column.value(item)}
                         </td>
                       ))}
@@ -84,16 +92,18 @@ export function RemainingFeatureWorkspace<T extends { id: string }>({
               </table>
             </div>
 
-            <div className="space-y-3 p-3 md:hidden">
+            <div className="space-y-2 p-2 md:hidden">
               {items.map((item) => (
-                <Card key={item.id} className="p-3">
-                  <div className="space-y-2">
+                <Card key={item.id} className="border-border/80 p-2.5 shadow-sm">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                     {columns.map((column) => (
                       <div key={column.label}>
-                        <div className="text-[11px] font-medium uppercase text-muted-foreground">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                           {column.label}
                         </div>
-                        <div className="mt-0.5 text-sm">{column.value(item)}</div>
+                        <div className="mt-0.5 break-words text-sm leading-5">
+                          {column.value(item)}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -108,7 +118,11 @@ export function RemainingFeatureWorkspace<T extends { id: string }>({
 }
 
 export function StatusBadge({ children }: { children: React.ReactNode }) {
-  return <Badge variant="secondary">{children}</Badge>;
+  return (
+    <Badge variant="secondary" className="h-5 rounded-full px-2 text-[11px]">
+      {children}
+    </Badge>
+  );
 }
 
 export function ManagementFilters({
@@ -121,23 +135,23 @@ export function ManagementFilters({
   statuses?: string[];
 }) {
   return (
-    <form className="flex flex-col gap-2 rounded-md border bg-background p-3 sm:flex-row sm:items-end">
-      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+    <form className="flex flex-col gap-2 rounded-md border bg-background/80 p-2 sm:flex-row sm:items-end sm:justify-end">
+      <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         <span>Search</span>
         <input
           name="search"
           defaultValue={search}
           placeholder="Reference, product, supplier, notes"
-          className="h-9 min-w-64 rounded-md border bg-background px-3 text-sm text-foreground"
+          className="h-8 min-w-0 rounded-md border bg-background px-2 text-sm normal-case tracking-normal text-foreground sm:w-64"
         />
       </label>
       {statuses?.length ? (
-        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+        <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           <span>Status</span>
           <select
             name="status"
             defaultValue={status ?? ""}
-            className="h-9 rounded-md border bg-background px-3 text-sm text-foreground"
+            className="h-8 rounded-md border bg-background px-2 text-sm normal-case tracking-normal text-foreground"
           >
             <option value="">All statuses</option>
             {statuses.map((item) => (
@@ -148,7 +162,7 @@ export function ManagementFilters({
           </select>
         </label>
       ) : null}
-      <Button type="submit" className="h-9">
+      <Button type="submit" size="sm" className="h-8">
         Search
       </Button>
     </form>
