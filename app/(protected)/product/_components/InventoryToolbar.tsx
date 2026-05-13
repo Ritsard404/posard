@@ -1,6 +1,8 @@
 "use client";
 
-import { ChevronDown, FolderOpen, Plus, Search, Upload } from "lucide-react";
+import { useState } from "react";
+import { Barcode, Camera, ChevronDown, FolderOpen, Loader2, Plus, ScanLine, Search, Upload } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,16 +13,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import type { CategoryDto } from "@/app/(protected)/product/_services/_dto/category.dto";
+import { cameraScanService } from "@/lib/scanning/camera-scan.client";
+import type { ProductBarcodeStatusFilter } from "@/app/(protected)/product/_services/product-query";
 
 interface InventoryToolbarProps {
   keyword: string;
   onKeywordChange: (value: string) => void;
   categories: CategoryDto[];
   selectedCategoryId: string | null;
+  barcodeStatus: ProductBarcodeStatusFilter;
+  hardwareScannerEnabled: boolean;
   onCategoryChange: (categoryId: string | null) => void;
+  onBarcodeStatusChange: (status: ProductBarcodeStatusFilter) => void;
+  onToggleHardwareScanner: () => void;
   onAddProduct: () => void;
   onBulkUpload: () => void;
   onManageCategories: () => void;
+  onGenerateFilteredBarcodes: () => void;
+  onPrintFilteredBarcodes: () => void;
   isPending?: boolean;
 }
 
@@ -29,14 +39,44 @@ export function InventoryToolbar({
   onKeywordChange,
   categories,
   selectedCategoryId,
+  barcodeStatus,
+  hardwareScannerEnabled,
   onCategoryChange,
+  onBarcodeStatusChange,
+  onToggleHardwareScanner,
   onAddProduct,
   onBulkUpload,
   onManageCategories,
+  onGenerateFilteredBarcodes,
+  onPrintFilteredBarcodes,
   isPending = false,
 }: InventoryToolbarProps) {
+  const [isCameraScanning, setIsCameraScanning] = useState(false);
   const selectedCategoryName =
     categories.find((category) => category.id === selectedCategoryId)?.categoryName ?? "All Categories";
+
+  async function handleCameraScan() {
+    try {
+      setIsCameraScanning(true);
+      const result = await cameraScanService.scanBarcode();
+      const value = result.value.trim();
+
+      if (!value) {
+        return;
+      }
+
+      onKeywordChange(value);
+      toast.success("Barcode scanned.", {
+        description: "Inventory search was updated.",
+      });
+    } catch {
+      toast.error("Camera scan unavailable.", {
+        description: "Use a hardware scanner or type the barcode manually.",
+      });
+    } finally {
+      setIsCameraScanning(false);
+    }
+  }
 
   return (
     <div className="mb-2 flex flex-col gap-3">
@@ -82,11 +122,88 @@ export function InventoryToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              className="h-11 w-full justify-between gap-2 rounded-xl border-white/10 bg-background/50 px-4 font-bold sm:w-auto"
+            >
+              <span className="flex items-center gap-2">
+                <Barcode className="size-4 text-accent" />
+                <span>
+                  {barcodeStatus === "with"
+                    ? "With Barcode"
+                    : barcodeStatus === "without"
+                      ? "Missing Barcode"
+                      : "All Barcodes"}
+                </span>
+              </span>
+              <ChevronDown className="size-3 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52 glass-card border-white/5 p-1">
+            <DropdownMenuItem onClick={() => onBarcodeStatusChange("all")} className="rounded-lg font-medium">
+              All Barcodes
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onBarcodeStatusChange("with")} className="rounded-lg font-medium">
+              With Barcode
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onBarcodeStatusChange("without")} className="rounded-lg font-medium">
+              Missing Barcode
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {isPending ? (
           <p className="text-xs font-medium text-muted-foreground">
             Updating products...
           </p>
         ) : null}
+
+        <Button
+          id="btn-scan-product"
+          variant="outline"
+          className="h-11 w-full gap-2 rounded-xl border-white/5 bg-background/50 font-bold hover:bg-white/5 sm:w-auto"
+          disabled={isCameraScanning}
+          onClick={() => void handleCameraScan()}
+        >
+          {isCameraScanning ? (
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          ) : (
+            <Camera className="size-4 text-muted-foreground" />
+          )}
+          <span>Scan</span>
+        </Button>
+
+        <Button
+          id="btn-toggle-hardware-scanner"
+          variant={hardwareScannerEnabled ? "secondary" : "outline"}
+          className="h-11 w-full gap-2 rounded-xl border-white/5 bg-background/50 font-bold hover:bg-white/5 sm:w-auto"
+          onClick={onToggleHardwareScanner}
+        >
+          <ScanLine className="size-4 text-muted-foreground" />
+          <span>{hardwareScannerEnabled ? "Scanner On" : "Scanner Off"}</span>
+        </Button>
+
+        <Button
+          id="btn-generate-filtered-barcodes"
+          variant="outline"
+          className="h-11 w-full gap-2 rounded-xl border-white/5 bg-background/50 font-bold hover:bg-white/5 sm:w-auto"
+          onClick={onGenerateFilteredBarcodes}
+        >
+          <Barcode className="size-4 text-muted-foreground" />
+          <span>Generate</span>
+        </Button>
+
+        <Button
+          id="btn-print-filtered-barcodes"
+          variant="outline"
+          className="h-11 w-full gap-2 rounded-xl border-white/5 bg-background/50 font-bold hover:bg-white/5 sm:w-auto"
+          onClick={onPrintFilteredBarcodes}
+        >
+          <Barcode className="size-4 text-muted-foreground" />
+          <span>Labels</span>
+        </Button>
 
         <Button
           id="btn-manage-categories"

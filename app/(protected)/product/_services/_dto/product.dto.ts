@@ -109,6 +109,23 @@ export interface ProductBatchPreviewDto {
   invalidRowCount: number;
 }
 
+export type BarcodeGenerationMode = "missing_only" | "replace_existing";
+
+export interface BarcodeGenerationResultDto {
+  updatedCount: number;
+  skippedCount: number;
+}
+
+export interface BarcodeLabelProductDto {
+  id: string;
+  name: string;
+  barcode: string;
+  price: number;
+  categoryName: string | null;
+  baseUnit: string;
+  quantity: number;
+}
+
 // ─────────────────────────────────────────────
 // Paginated response (mirrors Java PageHelper.toPageResponse)
 // ─────────────────────────────────────────────

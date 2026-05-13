@@ -2,15 +2,18 @@
 
 import {
   ArrowUpDown,
+  Barcode,
   ImageIcon,
   MoreHorizontal,
   Pencil,
+  Printer,
   Trash2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -28,6 +31,10 @@ interface ProductDataTableProps {
   onEdit: (product: ProductDto) => void;
   onAdjustStock: (product: ProductDto) => void;
   onDelete: (product: ProductDto) => void;
+  selectedIds?: string[];
+  onSelectionChange?: (productId: string, selected: boolean) => void;
+  onGenerateBarcode?: (product: ProductDto, replaceExisting: boolean) => void;
+  onPrintBarcode?: (product: ProductDto) => void;
 }
 
 function AvailabilityBadge({ available }: { available: boolean }) {
@@ -94,17 +101,34 @@ function MobileCard({
   onEdit,
   onAdjustStock,
   onDelete,
+  selectedIds = [],
+  onSelectionChange,
+  onGenerateBarcode,
+  onPrintBarcode,
 }: {
   product: ProductDto;
   onEdit: (product: ProductDto) => void;
   onAdjustStock: (product: ProductDto) => void;
   onDelete: (product: ProductDto) => void;
+  selectedIds?: string[];
+  onSelectionChange?: (productId: string, selected: boolean) => void;
+  onGenerateBarcode?: (product: ProductDto, replaceExisting: boolean) => void;
+  onPrintBarcode?: (product: ProductDto) => void;
 }) {
+  const selected = selectedIds.includes(product.id);
+
   return (
     <Card className="rounded-2xl border-border/70 bg-background/90 shadow-sm md:hidden">
       <CardContent className="space-y-4 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
+            {onSelectionChange ? (
+              <Checkbox
+                checked={selected}
+                onCheckedChange={(checked) => onSelectionChange(product.id, checked === true)}
+                aria-label={`Select ${product.name}`}
+              />
+            ) : null}
             <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-muted/20">
               <StorageImage
                 src={product.productImageUrl}
@@ -152,7 +176,7 @@ function MobileCard({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" size="sm" onClick={() => onEdit(product)} className="h-10 rounded-xl">
             <Pencil className="size-4" />
             Edit
@@ -160,6 +184,14 @@ function MobileCard({
           <Button variant="outline" size="sm" onClick={() => onAdjustStock(product)} className="h-10 rounded-xl">
             <ArrowUpDown className="size-4" />
             Stock
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onGenerateBarcode?.(product, Boolean(product.barcode))} className="h-10 rounded-xl">
+            <Barcode className="size-4" />
+            {product.barcode ? "Regen" : "Code"}
+          </Button>
+          <Button variant="outline" size="sm" disabled={!product.barcode} onClick={() => onPrintBarcode?.(product)} className="h-10 rounded-xl">
+            <Printer className="size-4" />
+            Print
           </Button>
           <Button variant="outline" size="sm" onClick={() => onDelete(product)} className="h-10 rounded-xl text-destructive">
             <Trash2 className="size-4" />
@@ -234,6 +266,10 @@ export function ProductDataTable({
   onEdit,
   onAdjustStock,
   onDelete,
+  selectedIds = [],
+  onSelectionChange,
+  onGenerateBarcode,
+  onPrintBarcode,
 }: ProductDataTableProps) {
   if (isLoading) {
     return (
@@ -285,6 +321,10 @@ export function ProductDataTable({
             onEdit={onEdit}
             onAdjustStock={onAdjustStock}
             onDelete={onDelete}
+            selectedIds={selectedIds}
+            onSelectionChange={onSelectionChange}
+            onGenerateBarcode={onGenerateBarcode}
+            onPrintBarcode={onPrintBarcode}
           />
         ))}
       </div>
@@ -294,6 +334,9 @@ export function ProductDataTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
+                <th className="w-10 px-3 py-4 text-left">
+                  <span className="sr-only">Select</span>
+                </th>
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Product
                 </th>
@@ -309,6 +352,9 @@ export function ProductDataTable({
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Status
                 </th>
+                <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Barcode
+                </th>
                 <th className="px-5 py-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Inventory
                 </th>
@@ -320,6 +366,15 @@ export function ProductDataTable({
             <tbody>
               {products.map((product) => (
                 <tr key={product.id} className="border-b border-border/70 transition-colors hover:bg-muted/20">
+                  <td className="px-3 py-4">
+                    {onSelectionChange ? (
+                      <Checkbox
+                        checked={selectedIds.includes(product.id)}
+                        onCheckedChange={(checked) => onSelectionChange(product.id, checked === true)}
+                        aria-label={`Select ${product.name}`}
+                      />
+                    ) : null}
+                  </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-muted/20">
@@ -354,6 +409,17 @@ export function ProductDataTable({
                   <td className="px-5 py-4">
                     <AvailabilityBadge available={product.isAvailable} />
                   </td>
+                  <td className="px-5 py-4">
+                    {product.barcode ? (
+                      <Badge variant="secondary" className="font-mono text-[11px]">
+                        {product.barcode}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[11px] text-muted-foreground">
+                        Missing
+                      </Badge>
+                    )}
+                  </td>
                   <td className="px-5 py-4 text-right">
                     <QuantityDisplay
                       quantity={product.quantity}
@@ -377,6 +443,14 @@ export function ProductDataTable({
                         <DropdownMenuItem onClick={() => onAdjustStock(product)}>
                           <ArrowUpDown className="mr-2 size-4" />
                           Adjust Stock
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onGenerateBarcode?.(product, Boolean(product.barcode))}>
+                          <Barcode className="mr-2 size-4" />
+                          {product.barcode ? "Regenerate Barcode" : "Generate Barcode"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled={!product.barcode} onClick={() => onPrintBarcode?.(product)}>
+                          <Printer className="mr-2 size-4" />
+                          Print Barcode
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => onDelete(product)} className="text-destructive focus:text-destructive">

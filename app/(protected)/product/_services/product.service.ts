@@ -15,6 +15,7 @@ import type {
   ProductSaveDto,
   PageResponse,
 } from "@/app/(protected)/product/_services/_dto/product.dto";
+import type { ProductBarcodeStatusFilter } from "@/app/(protected)/product/_services/product-query";
 
 type ProductWithCategory = Prisma.ProductGetPayload<{
   include: {
@@ -469,6 +470,29 @@ async function ensureUniqueProduct(
   }
 }
 
+async function ensureUniqueBarcode(
+  client: DbClient,
+  productId: string | null,
+  companyId: string,
+  barcode: string | null,
+): Promise<void> {
+  if (!barcode) return;
+
+  const duplicate = await client.product.findFirst({
+    where: {
+      barcode,
+      companyId,
+      isDeleted: false,
+      ...(productId ? { NOT: { id: productId } } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (duplicate) {
+    throw new Error("Barcode is already assigned to another product.");
+  }
+}
+
 async function syncProductModifierGroups(
   tx: Prisma.TransactionClient,
   productId: string,
@@ -547,6 +571,7 @@ export const productService = {
     keyword?: string;
     barcode?: string;
     categoryId?: string;
+    barcodeStatus?: ProductBarcodeStatusFilter;
     page?: number;
     size?: number;
     sortBy?: string;
@@ -562,6 +587,7 @@ export const productService = {
       keyword?: string;
       barcode?: string;
       categoryId?: string;
+      barcodeStatus?: ProductBarcodeStatusFilter;
       page?: number;
       size?: number;
       sortBy?: string;
@@ -588,6 +614,14 @@ export const productService = {
       andConditions.push({
         OR: [{ companyId }, { companyId: null }],
       });
+    }
+
+    if (params?.barcodeStatus === "with") {
+      andConditions.push({ barcode: { not: null } });
+    }
+
+    if (params?.barcodeStatus === "without") {
+      andConditions.push({ barcode: null });
     }
 
     const where: Prisma.ProductWhereInput = {
@@ -684,6 +718,7 @@ export const productService = {
       });
 
       await ensureUniqueProduct(tx, null, normalized.name, category.id);
+      await ensureUniqueBarcode(tx, null, context.companyId, normalized.barcode);
 
       const created = await tx.product.create({
         data: {
@@ -767,14 +802,26 @@ export const productService = {
       const existingProducts = await tx.product.findMany({
         where: {
           isDeleted: false,
-          categoryId: { in: Array.from(categoryMap.values()) },
+          OR: [
+            { categoryId: { in: Array.from(categoryMap.values()) } },
+            {
+              companyId: context.companyId,
+              barcode: { in: rows.map((row) => row.barcode).filter(Boolean) as string[] },
+            },
+          ],
         },
-        select: { name: true, categoryId: true },
+        select: { name: true, categoryId: true, barcode: true },
       });
 
       const existingProductKeys = new Set(
         existingProducts.map((product) => `${product.name.trim().toUpperCase()}::${product.categoryId}`),
       );
+      const existingBarcodes = new Set(
+        existingProducts
+          .map((product) => product.barcode?.trim())
+          .filter((barcode): barcode is string => Boolean(barcode)),
+      );
+      const importBarcodes = new Set<string>();
 
       const data: Prisma.ProductCreateManyInput[] = rows.map((row) => {
         const categoryId = categoryMap.get(normalizeCategoryName(row.categoryName));
@@ -785,6 +832,13 @@ export const productService = {
         const productKey = `${row.name.trim().toUpperCase()}::${categoryId}`;
         if (existingProductKeys.has(productKey)) {
           throw new Error(`Product '${row.name}' already exists in category '${row.categoryName}'.`);
+        }
+
+        if (row.barcode) {
+          if (existingBarcodes.has(row.barcode) || importBarcodes.has(row.barcode)) {
+            throw new Error(`Barcode '${row.barcode}' is already assigned to another product.`);
+          }
+          importBarcodes.add(row.barcode);
         }
 
         return {
@@ -843,6 +897,7 @@ export const productService = {
       });
 
       await ensureUniqueProduct(tx, id, normalized.name, category.id);
+      await ensureUniqueBarcode(tx, id, context.companyId, normalized.barcode);
 
       await tx.product.update({
         where: { id },

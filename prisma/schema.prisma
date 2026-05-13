@@ -1030,6 +1030,7 @@ model Product {
   promotionRedemptions PromotionRedemptionLog[]
 
   @@unique([name, categoryId], name: "uk_product_name_category")
+  @@unique([companyId, barcode], name: "uk_product_company_barcode")
   @@index([categoryId])
   @@index([companyId])
   @@map("product")

@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePOSStore } from '../_store/pos-store';
 import { ProductCard } from './ProductCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, ChevronDown, Search, LayoutGrid, List, Package, Tags, X } from 'lucide-react';
+import { Check, ChevronDown, Search, LayoutGrid, List, Package, ScanLine, Tags, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { BarcodeScannerPanel } from './BarcodeScannerPanel';
+import { useHardwareBarcodeScanner } from '@/lib/scanning/use-hardware-barcode-scanner';
+import { findProductByScanValue, normalizeScanValue } from '../_services/scan-product.service';
+import { toast } from 'sonner';
 import {
   Sheet,
   SheetContent,
@@ -19,14 +22,57 @@ export function ProductDisplay() {
   const isMobile = useIsMobile();
   const [categorySearch, setCategorySearch] = useState('');
   const [categoryBrowserOpen, setCategoryBrowserOpen] = useState(false);
+  const [hardwareScannerEnabled, setHardwareScannerEnabled] = useState(false);
   const { 
     searchQuery, setSearchQuery, 
     selectedCategoryId, setSelectedCategoryId,
     viewMode, setViewMode,
     mobileProductView, setMobileProductView,
     currentPage, setPage, itemsPerPage,
-    products, categories
+    products, categories,
+    addToCart,
   } = usePOSStore();
+
+  useHardwareBarcodeScanner({
+    enabled: hardwareScannerEnabled,
+    onScan: (result) => {
+      const scanValue = normalizeScanValue(result.value);
+      const product = findProductByScanValue(products, scanValue);
+
+      if (!product) {
+        setSearchQuery(scanValue);
+        setPage(1);
+        toast.error('Barcode not found.', {
+          description: `No product matches ${scanValue}.`,
+        });
+        return;
+      }
+
+      const addResult = addToCart(product);
+
+      if (!addResult.success) {
+        setSearchQuery(scanValue);
+        setPage(1);
+        toast.error(
+          addResult.reason === 'OUT_OF_STOCK'
+            ? 'Product is out of stock.'
+            : 'Open the product to configure it first.',
+          { description: product.name },
+        );
+        return;
+      }
+
+      toast.success('Scanned item added.', {
+        description: product.name,
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (categoryBrowserOpen) {
+      setHardwareScannerEnabled(false);
+    }
+  }, [categoryBrowserOpen]);
 
   const activeViewMode = isMobile ? mobileProductView : viewMode;
   const setActiveViewMode = isMobile ? setMobileProductView : setViewMode;
@@ -79,6 +125,15 @@ export function ProductDisplay() {
             />
           </div>
           <BarcodeScannerPanel className="h-9 min-w-0 flex-[1_1_8.75rem] rounded-lg px-2.5 text-sm sm:h-10 sm:flex-none sm:px-3" />
+          <Button
+            type="button"
+            variant={hardwareScannerEnabled ? 'secondary' : 'outline'}
+            className="h-9 min-w-0 flex-[1_1_9rem] rounded-lg px-2.5 text-sm font-bold sm:h-10 sm:flex-none sm:px-3"
+            onClick={() => setHardwareScannerEnabled((enabled) => !enabled)}
+          >
+            <ScanLine className="size-4" />
+            {hardwareScannerEnabled ? 'Scanner On' : 'Scanner Off'}
+          </Button>
           <div className="grid h-9 shrink-0 grid-cols-2 rounded-lg border bg-card p-0.5 sm:h-10">
             <Button 
               variant={activeViewMode === 'grid' ? "default" : "ghost"} 

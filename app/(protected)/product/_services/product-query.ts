@@ -10,13 +10,17 @@ export const PRODUCT_QUERY_DEFAULTS = {
   size: 10,
   keyword: "",
   categoryId: null as string | null,
+  barcodeStatus: "all" as ProductBarcodeStatusFilter,
 };
+
+export type ProductBarcodeStatusFilter = "all" | "with" | "without";
 
 export interface ProductListQuery {
   page: number;
   size: number;
   keyword: string;
   categoryId: string | null;
+  barcodeStatus: ProductBarcodeStatusFilter;
 }
 
 export function parseProductListQuery(
@@ -24,6 +28,11 @@ export function parseProductListQuery(
 ): ProductListQuery {
   const categoryId = parseStringParam(searchParams.categoryId);
   const keyword = parseStringParam(searchParams.keyword);
+  const rawBarcodeStatus = parseStringParam(searchParams.barcodeStatus);
+  const barcodeStatus: ProductBarcodeStatusFilter =
+    rawBarcodeStatus === "with" || rawBarcodeStatus === "without"
+      ? rawBarcodeStatus
+      : PRODUCT_QUERY_DEFAULTS.barcodeStatus;
 
   return {
     page: parseIntegerParam(searchParams.page, PRODUCT_QUERY_DEFAULTS.page, {
@@ -35,5 +44,6 @@ export function parseProductListQuery(
     }),
     keyword,
     categoryId: categoryId || null,
+    barcodeStatus,
   };
 }

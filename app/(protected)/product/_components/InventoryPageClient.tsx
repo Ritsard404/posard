@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 import { InventoryStatsBar } from "./InventoryStatsBar";
 import { InventoryToolbar } from "./InventoryToolbar";
@@ -13,6 +14,7 @@ import { CsvUploadDialog } from "./CsvUploadDialog";
 import { StockAdjustmentDialog } from "./StockAdjustmentDialog";
 
 import { deleteProduct } from "@/app/(protected)/product/_actions/product.actions";
+import { generateProductBarcodesAction } from "@/app/(protected)/product/_actions/product.actions";
 import type {
   ProductDto,
   PageResponse,
@@ -22,6 +24,7 @@ import {
   PRODUCT_QUERY_DEFAULTS,
   type ProductListQuery,
 } from "@/app/(protected)/product/_services/product-query";
+import { useHardwareBarcodeScanner } from "@/lib/scanning/use-hardware-barcode-scanner";
 
 import {
   AlertDialog,
@@ -33,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 interface InventoryPageClientProps {
   initialProducts: PageResponse<ProductDto>;
@@ -57,6 +61,9 @@ export function InventoryPageClient({
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [stockDialogOpen, setStockDialogOpen] = useState(false);
   const [stockProduct, setStockProduct] = useState<ProductDto | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [isGeneratingBarcodes, setIsGeneratingBarcodes] = useState(false);
+  const [hardwareScannerEnabled, setHardwareScannerEnabled] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<ProductDto | null>(
     null,
   );
@@ -76,6 +83,35 @@ export function InventoryPageClient({
     };
   }, []);
 
+  useEffect(() => {
+    if (productSheetOpen || categorySheetOpen || csvDialogOpen || stockDialogOpen) {
+      setHardwareScannerEnabled(false);
+    }
+  }, [categorySheetOpen, csvDialogOpen, productSheetOpen, stockDialogOpen]);
+
+  useHardwareBarcodeScanner({
+    enabled: hardwareScannerEnabled,
+    onScan: (result) => {
+      const value = result.value.trim();
+
+      if (!value) {
+        return;
+      }
+
+      setDraftKeyword(value);
+      updateQuery(
+        {
+          keyword: value,
+          page: PRODUCT_QUERY_DEFAULTS.page,
+        },
+        "replace",
+      );
+      toast.success("Barcode scanned.", {
+        description: "Inventory search was updated.",
+      });
+    },
+  });
+
   function updateQuery(
     next: Partial<ProductListQuery>,
     navigationMode: "push" | "replace" = "push",
@@ -87,6 +123,7 @@ export function InventoryPageClient({
       keyword: next.keyword ?? query.keyword,
       categoryId:
         next.categoryId === undefined ? query.categoryId : next.categoryId,
+      barcodeStatus: next.barcodeStatus ?? query.barcodeStatus,
     };
 
     if (nextQuery.keyword) {
@@ -99,6 +136,12 @@ export function InventoryPageClient({
       params.set("categoryId", nextQuery.categoryId);
     } else {
       params.delete("categoryId");
+    }
+
+    if (nextQuery.barcodeStatus !== PRODUCT_QUERY_DEFAULTS.barcodeStatus) {
+      params.set("barcodeStatus", nextQuery.barcodeStatus);
+    } else {
+      params.delete("barcodeStatus");
     }
 
     if (nextQuery.page !== PRODUCT_QUERY_DEFAULTS.page) {
@@ -158,6 +201,13 @@ export function InventoryPageClient({
     });
   }
 
+  function handleBarcodeStatusChange(barcodeStatus: ProductListQuery["barcodeStatus"]) {
+    updateQuery({
+      barcodeStatus,
+      page: PRODUCT_QUERY_DEFAULTS.page,
+    });
+  }
+
   function handlePageChange(page: number) {
     updateQuery({ page });
   }
@@ -187,6 +237,68 @@ export function InventoryPageClient({
   function handleDeleteProduct(product: ProductDto) {
     setDeletingProduct(product);
     setDeleteError(null);
+  }
+
+  function handleSelectionChange(productId: string, selected: boolean) {
+    setSelectedProductIds((current) =>
+      selected
+        ? Array.from(new Set([...current, productId]))
+        : current.filter((id) => id !== productId),
+    );
+  }
+
+  async function handleGenerateBarcodes(options: {
+    productIds?: string[];
+    replaceExisting?: boolean;
+    filtered?: boolean;
+  }) {
+    if (isGeneratingBarcodes) return;
+
+    const replacing = options.replaceExisting === true;
+    if (
+      replacing &&
+      !window.confirm("Regenerate existing barcodes? Existing printed labels for those products may stop matching.")
+    ) {
+      return;
+    }
+
+    try {
+      setIsGeneratingBarcodes(true);
+      const result = await generateProductBarcodesAction({
+        productIds: options.productIds,
+        keyword: options.filtered ? query.keyword : undefined,
+        categoryId: options.filtered ? query.categoryId : undefined,
+        barcodeStatus: options.filtered ? query.barcodeStatus : undefined,
+        mode: replacing ? "replace_existing" : "missing_only",
+      });
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success("Barcode generation complete.", {
+        description: `${result.data.updatedCount} updated, ${result.data.skippedCount} skipped.`,
+      });
+      setSelectedProductIds([]);
+      refreshRoute();
+    } finally {
+      setIsGeneratingBarcodes(false);
+    }
+  }
+
+  function openBarcodeLabels(productIds?: string[]) {
+    const params = new URLSearchParams();
+
+    if (productIds?.length) {
+      params.set("ids", productIds.join(","));
+    } else {
+      if (query.keyword) params.set("keyword", query.keyword);
+      if (query.categoryId) params.set("categoryId", query.categoryId);
+      params.set("barcodeStatus", "with");
+    }
+
+    window.open(`/product/barcodes?${params.toString()}`, "_blank", "noopener,noreferrer");
   }
 
   async function handleConfirmDelete() {
@@ -221,12 +333,58 @@ export function InventoryPageClient({
           onKeywordChange={handleKeywordChange}
           categories={categories}
           selectedCategoryId={query.categoryId}
+          barcodeStatus={query.barcodeStatus}
+          hardwareScannerEnabled={hardwareScannerEnabled}
           onCategoryChange={handleCategoryChange}
+          onBarcodeStatusChange={handleBarcodeStatusChange}
+          onToggleHardwareScanner={() =>
+            setHardwareScannerEnabled((enabled) => !enabled)
+          }
           onAddProduct={handleAddProduct}
           onBulkUpload={() => setCsvDialogOpen(true)}
           onManageCategories={() => setCategorySheetOpen(true)}
+          onGenerateFilteredBarcodes={() =>
+            void handleGenerateBarcodes({ filtered: true })
+          }
+          onPrintFilteredBarcodes={() => openBarcodeLabels()}
           isPending={isPending}
         />
+
+        {selectedProductIds.length > 0 ? (
+          <div className="flex flex-col gap-2 rounded-2xl border bg-card p-3 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-semibold">{selectedProductIds.length} selected</span>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isGeneratingBarcodes}
+                onClick={() =>
+                  void handleGenerateBarcodes({ productIds: selectedProductIds })
+                }
+              >
+                Generate Missing
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isGeneratingBarcodes}
+                onClick={() => openBarcodeLabels(selectedProductIds)}
+              >
+                Print Labels
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedProductIds([])}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         <ProductDataTable
           products={pageData.content}
@@ -234,6 +392,15 @@ export function InventoryPageClient({
           onEdit={handleEditProduct}
           onAdjustStock={handleAdjustStock}
           onDelete={handleDeleteProduct}
+          selectedIds={selectedProductIds}
+          onSelectionChange={handleSelectionChange}
+          onGenerateBarcode={(product, replaceExisting) =>
+            void handleGenerateBarcodes({
+              productIds: [product.id],
+              replaceExisting,
+            })
+          }
+          onPrintBarcode={(product) => openBarcodeLabels([product.id])}
         />
 
         <InventoryPagination

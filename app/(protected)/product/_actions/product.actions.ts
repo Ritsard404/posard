@@ -2,6 +2,8 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import type {
+  BarcodeGenerationMode,
+  BarcodeGenerationResultDto,
   ProductBatchPreviewDto,
   ProductBatchRowDto,
   ProductDto,
@@ -14,7 +16,9 @@ import {
   getProductListTag,
 } from "@/app/(protected)/product/_services/product-cache";
 import { productService } from "../_services/product.service";
+import { barcodeService } from "../_services/barcode.service";
 import { deletePosardImageAction } from "@/lib/storage/image-storage.actions";
+import type { ProductBarcodeStatusFilter } from "../_services/product-query";
 
 async function revalidateProductData() {
   const companyId = (await getCurrentProfile())?.companyId ?? null;
@@ -28,12 +32,36 @@ export async function findAllProducts(params?: {
   keyword?: string;
   barcode?: string;
   categoryId?: string;
+  barcodeStatus?: ProductBarcodeStatusFilter;
   page?: number;
   size?: number;
   sortBy?: string;
   direction?: "asc" | "desc";
 }): Promise<PageResponse<ProductDto>> {
   return productService.findAll(params);
+}
+
+export async function generateProductBarcodesAction(input: {
+  productIds?: string[];
+  keyword?: string;
+  categoryId?: string | null;
+  barcodeStatus?: ProductBarcodeStatusFilter;
+  mode: BarcodeGenerationMode;
+}): Promise<
+  | { success: true; data: BarcodeGenerationResultDto }
+  | { success: false; error: string }
+> {
+  try {
+    const data = await barcodeService.generateForProducts(input);
+    await revalidateProductData();
+    return { success: true, data };
+  } catch (error) {
+    console.error(error);
+    return {
+      success: false,
+      error: "Unable to generate barcodes. Check for duplicate barcode values and try again.",
+    };
+  }
 }
 
 export async function findProductById(id: string): Promise<ProductDto | null> {

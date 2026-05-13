@@ -34,6 +34,7 @@ function getCachedProducts(
     getCompanyCacheScope(companyId),
     query.keyword || "__all__",
     query.categoryId || "__all__",
+    query.barcodeStatus,
     String(query.page),
     String(query.size),
   ];
@@ -43,6 +44,7 @@ function getCachedProducts(
       productService.findAllForCompany(companyId, {
         keyword: query.keyword || undefined,
         categoryId: query.categoryId ?? undefined,
+        barcodeStatus: query.barcodeStatus,
         page: query.page,
         size: query.size,
       }),

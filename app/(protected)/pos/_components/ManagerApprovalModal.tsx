@@ -11,9 +11,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { authorizeManagerAction } from "../_actions/pos-auth.action";
-import { Loader2 } from "lucide-react";
+import { Loader2, ScanLine, ShieldCheck, SmartphoneNfc } from "lucide-react";
 import { usePOSStore } from "../_store/pos-store";
 import { verifyManagerPinOffline } from "../_services/offline-pin-verifier.client";
+import { deviceCapabilityService } from "@/lib/scanning/device-capability.service";
+import type { DeviceCapabilityDto } from "@/lib/scanning/scan.dto";
+import { getApprovalInputStrategies } from "../_services/approval-input.service";
 
 interface ManagerApprovalModalProps {
   open: boolean;
@@ -41,14 +44,22 @@ export function ManagerApprovalModal({
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [capabilities, setCapabilities] = useState<DeviceCapabilityDto | null>(null);
 
   useEffect(() => {
     if (!open) {
       setPin("");
       setError(null);
       setIsLoading(false);
+      return;
     }
+
+    void deviceCapabilityService.getCapabilities().then(setCapabilities);
   }, [open]);
+
+  const approvalStrategies = getApprovalInputStrategies({
+    nfcSupported: capabilities?.nfc.supported,
+  });
 
   const handleApprove = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -122,6 +133,39 @@ export function ManagerApprovalModal({
             Enter manager PIN to authorize this action.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="grid grid-cols-3 gap-2">
+          {approvalStrategies.map((strategy) => {
+            const Icon =
+              strategy.method === "pin"
+                ? ShieldCheck
+                : strategy.method === "barcode_badge"
+                  ? ScanLine
+                  : SmartphoneNfc;
+
+            return (
+              <button
+                key={strategy.method}
+                type="button"
+                disabled={!strategy.enabled}
+                className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border px-2 text-center text-xs font-semibold ${
+                  strategy.enabled
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted/30 text-muted-foreground"
+                }`}
+                title={strategy.description}
+              >
+                <Icon className="size-4" />
+                <span>{strategy.label}</span>
+                {!strategy.enabled ? (
+                  <span className="text-[9px] uppercase tracking-wide">
+                    {strategy.status === "unsupported" ? "Later" : "Prepared"}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
 
         <form
           onSubmit={handleApprove}
