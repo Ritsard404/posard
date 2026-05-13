@@ -142,11 +142,31 @@ create policy "customer_display_company_read" on customer_display_state
     )
   );
 
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
+-- Explicit Data API privileges.
+-- Supabase Auth maps unauthenticated requests to anon, signed-in users to authenticated,
+-- and server-side service keys to service_role. RLS policies above still decide which
+-- rows each role can access.
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+-- Profile lookup is only needed by authenticated app users and server-side admin code.
 GRANT SELECT ON public.profiles TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO service_role;
+
+-- Public onboarding may insert pending requests; only admins may read/update through RLS.
 GRANT INSERT ON public.registration_requests TO anon, authenticated;
 GRANT SELECT, UPDATE ON public.registration_requests TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.registration_requests TO service_role;
+
+-- Customer display subscribers read state through Supabase Realtime/Postgres changes.
 GRANT SELECT ON public.customer_display_state TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.customer_display_state TO service_role;
+
+-- Keep helper function execution explicit for Supabase Data API roles.
+GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO authenticated, service_role;
+
+-- Do not grant anon/authenticated access to the rest of POSard's Prisma tables here.
+-- Checkout, reports, inventory, accounts, and admin workflows should continue through
+-- server routes/actions backed by Prisma, not direct browser table access.
 
 DO $$
 BEGIN

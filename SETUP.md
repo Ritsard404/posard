@@ -188,9 +188,12 @@ The SQL file does these Supabase-specific tasks:
 - Allows authenticated users to read their own profile.
 - Allows public users to insert pending registration requests without exposing read access.
 - Allows active admins to read and update registration requests.
-- Grants public schema usage and authenticated profile read access.
+- Grants explicit Supabase Data API privileges for only the tables POSard exposes through Supabase roles: `profiles`, `registration_requests`, and `customer_display_state`.
+- Grants `service_role` access to those Supabase-facing tables for server-side admin operations.
 
 Important: `supabase-rbac.sql` is for Supabase security setup. Prisma migrations remain the source of truth for the full application schema.
+
+Supabase Data API note: new Supabase projects after May 30, 2026, and existing projects after October 30, 2026, require explicit grants before tables in `public` are available through supabase-js, PostgREST, GraphQL, or Realtime table access. POSard intentionally keeps checkout, reports, inventory, accounts, and most business tables behind Prisma/server routes, so do not grant all Prisma tables to `anon` or `authenticated` by default. If a future feature must be accessed through Supabase Data API, add the table-specific `GRANT`, enable RLS, and add least-privilege policies in `supabase-rbac.sql`.
 
 ## 7. Create Supabase Storage Bucket
 
@@ -310,11 +313,12 @@ Use this checklist when preparing a fresh Supabase database:
 3. `npx prisma generate` completes.
 4. `npx prisma migrate deploy` completes.
 5. `supabase-rbac.sql` has been run in Supabase SQL Editor.
-6. `public.profiles` has RLS enabled.
-7. `is_admin(uuid)` exists under `public`.
-8. The first admin Auth user exists.
-9. The first admin `public.profiles` row has `role = 'admin'` and `status = 'active'`.
-10. A login test reaches `/dashboard`.
+6. `public.profiles`, `public.registration_requests`, and `public.customer_display_state` have RLS enabled.
+7. Explicit Data API grants exist for `profiles`, `registration_requests`, and `customer_display_state`.
+8. `is_admin(uuid)` exists under `public`.
+9. The first admin Auth user exists.
+10. The first admin `public.profiles` row has `role = 'admin'` and `status = 'active'`.
+11. A login test reaches `/dashboard`.
 
 ## Verification Commands
 
@@ -412,5 +416,6 @@ For Vercel:
 3. Add production auth redirect URLs in Supabase.
 4. Run Prisma migrations against the production Supabase database.
 5. Run `supabase-rbac.sql` in the production Supabase SQL Editor.
-6. Confirm the first admin profile exists and is active.
-7. Deploy and verify login, dashboard, POS checkout, reports, and public SEO pages.
+6. Check Supabase Security Advisor for missing Data API grants or RLS issues.
+7. Confirm the first admin profile exists and is active.
+8. Deploy and verify login, dashboard, POS checkout, reports, customer display, and public SEO pages.
