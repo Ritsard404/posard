@@ -8,14 +8,14 @@ import { absoluteUrl, siteConfig } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Sign Up for POSard POS System Philippines",
   description:
-    "Create a POSard merchant account for restaurant, retail, cafe, or service POS checkout, inventory management, receipts, terminal subscriptions, and sales reports.",
+    "Create a POSard merchant account for restaurant, retail, cafe, or service POS checkout, inventory, purchasing, expenses, receipts, terminal subscriptions, permissions, and reports.",
   alternates: {
     canonical: "/auth/sign-up",
   },
   openGraph: {
     title: "Sign Up for POSard POS System Philippines",
     description:
-      "Create a POSard merchant account for restaurant, retail, cafe, or service POS checkout, inventory, receipts, terminals, and reports.",
+      "Create a POSard merchant account for restaurant, retail, cafe, or service POS checkout, inventory, purchasing, expenses, terminals, permissions, and reports.",
     url: absoluteUrl("/auth/sign-up"),
     siteName: siteConfig.name,
     images: [
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Sign Up for POSard POS System Philippines",
     description:
-      "Create a POSard merchant account for restaurant, retail, cafe, or service POS checkout, inventory, receipts, terminals, and reports.",
+      "Create a POSard merchant account for restaurant, retail, cafe, or service POS checkout, inventory, purchasing, expenses, terminals, permissions, and reports.",
     images: ["/opengraph-image"],
   },
 };
@@ -48,7 +48,7 @@ export default async function Page() {
       description={
         config.directRegistrationEnabled
           ? "Create an active POSard manager account and continue to company setup."
-          : "Start with a branded POS workflow for orders, checkout, receipts, inventory, and sales reporting, then wait for admin approval to activate access."
+          : "Start with a branded POS workflow for orders, checkout, receipts, inventory, purchasing, expenses, permissions, and sales reporting, then wait for admin approval to activate access."
       }
     >
       <div className="w-full max-w-md">

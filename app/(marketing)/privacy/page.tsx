@@ -14,7 +14,7 @@ const privacyPoints = [
   {
     title: "Necessary data only",
     description:
-      "POSard collects the business, user, terminal, product, inventory, and transaction data needed to operate the POS system.",
+      "POSard collects the business, user, terminal, product, inventory, purchasing, expense, customer, promotion, kitchen, and transaction data needed to operate the POS system.",
   },
   {
     title: "Secure storage",
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
     <PageShell
       eyebrow="Privacy policy"
       title="Privacy policy for POSard users and businesses"
-      description="POSard respects your privacy and is committed to protecting the data used to run sales, inventory, terminals, receipts, reports, and user accounts."
+      description="POSard respects your privacy and is committed to protecting the data used to run sales, inventory, purchasing, expenses, terminals, receipts, reports, permissions, and user accounts."
     >
       <JsonLdScript data={jsonLd} />
       <ContentSection
@@ -58,8 +58,10 @@ export default function PrivacyPage() {
           <p>
             POSard collects information that supports account access, business
             setup, terminal configuration, product records, transactions,
-            receipts, inventory movement, and reports. This data is used to
-            deliver the POS service and support authorized business workflows.
+            receipts, inventory movement, suppliers, purchase orders, transfers,
+            expenses, customers, promotions, kitchen tickets, permissions, and
+            reports. This data is used to deliver the POS service and support
+            authorized business workflows.
           </p>
           <p>
             POSard does not sell or share business data with third parties for

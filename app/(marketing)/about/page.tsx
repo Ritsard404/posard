@@ -20,7 +20,7 @@ const principles = [
   {
     title: "Built for Philippine operations",
     description:
-      "POSard supports day-to-day sales, inventory, receipts, and reporting workflows used by small businesses in Cebu and across the Philippines.",
+      "POSard supports day-to-day sales, inventory, suppliers, purchasing, expenses, receipts, permissions, and reporting workflows used by small businesses in Cebu and across the Philippines.",
   },
   {
     title: "Mobile-first by design",
@@ -49,12 +49,12 @@ export default function AboutPage() {
     <PageShell
       eyebrow="About POSard"
       title="A mobile-first POS system for modern Philippine businesses"
-      description="POSard is a cloud POS platform for small to medium businesses that need fast checkout, clear inventory records, reliable reports, and secure staff access without operational complexity."
+      description="POSard is a cloud POS platform for small to medium businesses that need fast checkout, clear inventory and purchasing records, expense visibility, reliable reports, and secure staff access without operational complexity."
     >
       <JsonLdScript data={jsonLd} />
       <ContentSection
         title="Focused on practical business work"
-        description="POSard brings checkout, product management, terminal setup, receipt handling, and sales reporting into one streamlined system. It is built for retail shops, restaurants, cafes, service providers, and startups that need a small business POS system that is easy to operate."
+        description="POSard brings checkout, product management, stock movement, supplier records, purchase orders, branch transfers, expenses, customer activity, terminal setup, receipt handling, kitchen workflow, and sales reporting into one streamlined system. It is built for retail shops, restaurants, cafes, service providers, and startups that need a small business POS system that is easy to operate."
       >
         <BulletGrid items={principles} />
       </ContentSection>
@@ -65,7 +65,9 @@ export default function AboutPage() {
             Many small businesses still manage sales, inventory, discounts, and
             receipts through separate manual processes. POSard reduces that
             work by giving owners and managers a single place to track daily
-            sales, cash activity, product movement, and terminal performance.
+            sales, cash activity, product movement, purchasing, transfers,
+            expenses, customers, promotions, staff access, and terminal
+            performance.
           </p>
           <p>
             The goal is an affordable and scalable POS system Philippines

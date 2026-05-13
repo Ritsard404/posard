@@ -1203,7 +1203,24 @@ export const reportService = {
       }),
     ]);
 
-    const [activeSessionCount, unreadInvoiceCount, pendingTerminalRequests] =
+    const [
+      activeSessionCount,
+      unreadInvoiceCount,
+      pendingTerminalRequests,
+      pendingExpenses,
+      postedExpenseAggregate,
+      activeSuppliers,
+      pendingPurchaseOrders,
+      partiallyReceivedPurchaseOrders,
+      pendingTransfers,
+      inTransitTransfers,
+      stockAdjustments,
+      activePromotions,
+      promotionRedemptions,
+      openKitchenTickets,
+      failedSyncIssues,
+      needsReviewSyncIssues,
+    ] =
       await Promise.all([
         prisma.timestamp.count({
           where: {
@@ -1227,6 +1244,102 @@ export const reportService = {
           where: {
             companyId,
             status: "pending",
+          },
+        }),
+        prisma.expense.count({
+          where: {
+            companyId,
+            status: "pending_approval",
+            expenseDate: { gte: input.from, lte: input.to },
+            ...(terminalId ? { terminalId } : {}),
+          },
+        }),
+        prisma.expense.aggregate({
+          where: {
+            companyId,
+            status: "posted",
+            expenseDate: { gte: input.from, lte: input.to },
+            ...(terminalId ? { terminalId } : {}),
+          },
+          _sum: { amount: true },
+        }),
+        prisma.supplier.count({
+          where: { companyId, status: "active" },
+        }),
+        prisma.purchaseOrder.count({
+          where: {
+            companyId,
+            status: { in: ["submitted", "approved", "ordered"] },
+            createdAt: { gte: input.from, lte: input.to },
+          },
+        }),
+        prisma.purchaseOrder.count({
+          where: {
+            companyId,
+            status: "partially_received",
+            createdAt: { gte: input.from, lte: input.to },
+          },
+        }),
+        prisma.branchTransfer.count({
+          where: {
+            companyId,
+            status: { in: ["pending_approval", "approved"] },
+            createdAt: { gte: input.from, lte: input.to },
+            ...(terminalId
+              ? { OR: [{ sourceTerminalId: terminalId }, { destinationTerminalId: terminalId }] }
+              : {}),
+          },
+        }),
+        prisma.branchTransfer.count({
+          where: {
+            companyId,
+            status: "in_transit",
+            createdAt: { gte: input.from, lte: input.to },
+            ...(terminalId
+              ? { OR: [{ sourceTerminalId: terminalId }, { destinationTerminalId: terminalId }] }
+              : {}),
+          },
+        }),
+        prisma.stockMovement.count({
+          where: {
+            companyId,
+            movementType: "adjustment",
+            createdAt: { gte: input.from, lte: input.to },
+            ...(terminalId ? { terminalId } : {}),
+          },
+        }),
+        prisma.promotion.count({
+          where: {
+            companyId,
+            isActive: true,
+            OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }],
+          },
+        }),
+        prisma.promotionRedemptionLog.count({
+          where: {
+            promotion: { companyId },
+            createdAt: { gte: input.from, lte: input.to },
+          },
+        }),
+        prisma.kitchenTicket.count({
+          where: {
+            companyId,
+            status: { in: ["queued", "preparing", "ready"] },
+            ...(terminalId ? { terminalId } : {}),
+          },
+        }),
+        prisma.offlineSyncIssue.count({
+          where: {
+            companyId,
+            syncStatus: "failed",
+            ...(terminalId ? { terminalId } : {}),
+          },
+        }),
+        prisma.offlineSyncIssue.count({
+          where: {
+            companyId,
+            syncStatus: "needs_review",
+            ...(terminalId ? { terminalId } : {}),
           },
         }),
       ]);
@@ -1414,6 +1527,21 @@ export const reportService = {
         cash: totalCashSales,
       },
       inventoryHealth,
+      operationalManagement: {
+        pendingExpenses,
+        postedExpenseTotal: toNumber(postedExpenseAggregate._sum.amount),
+        activeSuppliers,
+        pendingPurchaseOrders,
+        partiallyReceivedPurchaseOrders,
+        pendingTransfers,
+        inTransitTransfers,
+        stockAdjustments,
+        activePromotions,
+        promotionRedemptions,
+        openKitchenTickets,
+        failedSyncIssues,
+        needsReviewSyncIssues,
+      },
       topProducts: [...topProductMap.values()]
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5),

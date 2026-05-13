@@ -72,9 +72,9 @@ export function PageShell({
             />
             <div className="mt-6 space-y-3">
               {[
-                "Fast checkout and order flow",
-                "Inventory and receipt control",
-                "Daily X and Z sales reports",
+                "Fast checkout and offline sync",
+                "Inventory, suppliers, and expenses",
+                "Reports, permissions, and help guides",
               ].map((item) => (
                 <div
                   key={item}

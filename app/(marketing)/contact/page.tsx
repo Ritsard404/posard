@@ -33,6 +33,11 @@ const contactOptions = [
     title: "Response target",
     description: "We aim to respond within 24 hours.",
   },
+  {
+    title: "Setup questions",
+    description:
+      "Ask about terminals, cashier access, inventory setup, suppliers, purchase orders, transfers, expenses, promotions, kitchen workflow, or reports.",
+  },
 ];
 
 const jsonLd = {
@@ -45,7 +50,7 @@ export default function ContactPage() {
     <PageShell
       eyebrow="Contact POSard"
       title="Contact POSard support in Cebu, Philippines"
-      description="Reach POSard for POS system inquiries, product support, setup questions, or partnership opportunities for Philippine small businesses."
+      description="Reach POSard for POS system inquiries, setup questions, operational feature support, or partnership opportunities for Philippine small businesses."
     >
       <JsonLdScript data={jsonLd} />
       <ContentSection

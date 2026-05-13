@@ -7,14 +7,14 @@ import { absoluteUrl, siteConfig } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Login to Your POSard POS Terminal",
   description:
-    "Sign in to POSard to access your POS terminal, dashboard, checkout tools, inventory, sales reports, and account workspace.",
+    "Sign in to POSard to access your POS terminal, dashboard, checkout tools, inventory, purchasing, expenses, reports, help guides, and account workspace.",
   alternates: {
     canonical: "/auth/login",
   },
   openGraph: {
     title: "Login to POSard",
     description:
-      "Access your POSard POS terminal, dashboard, checkout, inventory, and reports.",
+      "Access your POSard POS terminal, dashboard, checkout, inventory, purchasing, expenses, permissions, and reports.",
     url: absoluteUrl("/auth/login"),
     siteName: siteConfig.name,
     images: [
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Login to POSard",
     description:
-      "Access your POSard POS terminal, dashboard, checkout, inventory, and reports.",
+      "Access your POSard POS terminal, dashboard, checkout, inventory, purchasing, expenses, permissions, and reports.",
     images: ["/opengraph-image"],
   },
 };
@@ -42,7 +42,7 @@ export default function Page() {
     <AuthShell
       eyebrow="Secure sign in"
       title="Access your POSard workspace."
-      description="Sign in to continue to your terminal dashboard, inventory controls, cashier tools, and daily sales reporting."
+      description="Sign in to continue to your terminal dashboard, inventory controls, purchasing and expense tools, cashier tools, help guides, and daily sales reporting."
     >
       <div className="w-full max-w-md">
         <LoginForm />

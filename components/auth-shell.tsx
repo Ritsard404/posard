@@ -26,13 +26,13 @@ const featureCards: Array<{
   {
     title: "Clear daily visibility",
     description:
-      "Track inventory, receipts, and reports in one connected workspace.",
+      "Track inventory, purchases, expenses, receipts, and reports in one connected workspace.",
     icon: BarChart3,
   },
   {
     title: "Role-based access",
     description:
-      "Keep cashier, manager, and owner actions under the right controls.",
+      "Keep cashier, manager, and admin actions under the right permissions and approval controls.",
     icon: ShieldCheck,
   },
 ];

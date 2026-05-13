@@ -98,6 +98,22 @@ export interface ReportInventoryHealthDto {
   outOfStockCount: number;
 }
 
+export interface ReportOperationalManagementDto {
+  pendingExpenses: number;
+  postedExpenseTotal: number;
+  activeSuppliers: number;
+  pendingPurchaseOrders: number;
+  partiallyReceivedPurchaseOrders: number;
+  pendingTransfers: number;
+  inTransitTransfers: number;
+  stockAdjustments: number;
+  activePromotions: number;
+  promotionRedemptions: number;
+  openKitchenTickets: number;
+  failedSyncIssues: number;
+  needsReviewSyncIssues: number;
+}
+
 export interface ReportTopProductDto {
   id: string;
   name: string;
@@ -154,6 +170,7 @@ export interface ReportOverviewDto {
     cash: number;
   };
   inventoryHealth: ReportInventoryHealthDto;
+  operationalManagement: ReportOperationalManagementDto;
   topProducts: ReportTopProductDto[];
   topConfiguredProducts: ReportTopProductDto[];
   topAddOns: ReportAddOnStatDto[];

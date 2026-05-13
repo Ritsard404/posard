@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "POSard POS system for retail checkout, inventory, and reports";
+export const alt = "POSard POS system for checkout, inventory, purchasing, expenses, permissions, and reports";
 export const size = {
   width: 1200,
   height: 630,
@@ -72,7 +72,7 @@ export default function Image() {
               maxWidth: 680,
             }}
           >
-            Checkout, inventory, discounts, receipts, and sales reports for
+            Checkout, inventory, purchasing, expenses, permissions, and reports for
             Philippine stores, cafes, and service businesses.
           </div>
         </div>

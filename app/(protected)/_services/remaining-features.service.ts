@@ -3,6 +3,11 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 
+export interface ManagementListFilters {
+  search?: string;
+  status?: string;
+}
+
 async function requireCompany() {
   const profile = await getCurrentProfile();
 
@@ -21,11 +26,31 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+function cleanFilter(value?: string) {
+  return value?.trim() || undefined;
+}
+
 export const remainingFeaturesService = {
-  async getSyncIssues() {
+  async getSyncIssues(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
+    const search = cleanFilter(filters.search);
+    const status = cleanFilter(filters.status);
     const issues = await prisma.offlineSyncIssue.findMany({
-      where: { companyId: viewer.companyId },
+      where: {
+        companyId: viewer.companyId,
+        ...(status ? { syncStatus: status as never } : {}),
+        ...(search
+          ? {
+              OR: [
+                { localId: { contains: search, mode: "insensitive" } },
+                { actionType: { contains: search, mode: "insensitive" } },
+                { conflictCategory: { contains: search, mode: "insensitive" } },
+                { message: { contains: search, mode: "insensitive" } },
+                { terminal: { posName: { contains: search, mode: "insensitive" } } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: 100,
       select: {
@@ -48,10 +73,26 @@ export const remainingFeaturesService = {
     }));
   },
 
-  async getExpenses() {
+  async getExpenses(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
+    const search = cleanFilter(filters.search);
+    const status = cleanFilter(filters.status);
+
     return prisma.expense.findMany({
-      where: { companyId: viewer.companyId },
+      where: {
+        companyId: viewer.companyId,
+        ...(status ? { status: status as never } : {}),
+        ...(search
+          ? {
+              OR: [
+                { referenceNumber: { contains: search, mode: "insensitive" } },
+                { notes: { contains: search, mode: "insensitive" } },
+                { category: { name: { contains: search, mode: "insensitive" } } },
+                { terminal: { posName: { contains: search, mode: "insensitive" } } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { expenseDate: "desc" },
       take: 100,
       select: {
@@ -64,15 +105,32 @@ export const remainingFeaturesService = {
         category: { select: { name: true } },
         terminal: { select: { posName: true } },
         createdBy: { select: { fullName: true, email: true } },
+        approvedBy: { select: { fullName: true, email: true } },
       },
     });
   },
 
-  async getInventoryHealth() {
+  async getInventoryHealth(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
+    const search = cleanFilter(filters.search);
+    const status = cleanFilter(filters.status);
     const [movements, lowStock, negativeStock, noMovement] = await Promise.all([
       prisma.stockMovement.findMany({
-        where: { companyId: viewer.companyId },
+        where: {
+          companyId: viewer.companyId,
+          ...(status ? { movementType: status as never } : {}),
+          ...(search
+            ? {
+                OR: [
+                  { referenceNumber: { contains: search, mode: "insensitive" } },
+                  { sourceType: { contains: search, mode: "insensitive" } },
+                  { notes: { contains: search, mode: "insensitive" } },
+                  { product: { name: { contains: search, mode: "insensitive" } } },
+                  { terminal: { posName: { contains: search, mode: "insensitive" } } },
+                ],
+              }
+            : {}),
+        },
         orderBy: { createdAt: "desc" },
         take: 100,
         select: {
@@ -86,6 +144,7 @@ export const remainingFeaturesService = {
           notes: true,
           product: { select: { name: true } },
           terminal: { select: { posName: true } },
+          createdBy: { select: { fullName: true, email: true } },
           createdAt: true,
         },
       }),
@@ -126,10 +185,28 @@ export const remainingFeaturesService = {
     };
   },
 
-  async getSuppliers() {
+  async getSuppliers(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
+    const search = cleanFilter(filters.search);
+    const status = cleanFilter(filters.status);
+
     return prisma.supplier.findMany({
-      where: { companyId: viewer.companyId },
+      where: {
+        companyId: viewer.companyId,
+        ...(status ? { status: status as never } : {}),
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { contactName: { contains: search, mode: "insensitive" } },
+                { phone: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
+                { address: { contains: search, mode: "insensitive" } },
+                { notes: { contains: search, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { name: "asc" },
       select: {
         id: true,
@@ -137,16 +214,34 @@ export const remainingFeaturesService = {
         contactName: true,
         phone: true,
         email: true,
+        address: true,
+        notes: true,
         status: true,
         _count: { select: { purchaseOrders: true, receivingRecords: true } },
       },
     });
   },
 
-  async getPurchaseOrders() {
+  async getPurchaseOrders(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
+    const search = cleanFilter(filters.search);
+    const status = cleanFilter(filters.status);
+
     return prisma.purchaseOrder.findMany({
-      where: { companyId: viewer.companyId },
+      where: {
+        companyId: viewer.companyId,
+        ...(status ? { status: status as never } : {}),
+        ...(search
+          ? {
+              OR: [
+                { poNumber: { contains: search, mode: "insensitive" } },
+                { notes: { contains: search, mode: "insensitive" } },
+                { supplier: { name: { contains: search, mode: "insensitive" } } },
+                { items: { some: { product: { name: { contains: search, mode: "insensitive" } } } } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: 100,
       select: {
@@ -155,16 +250,42 @@ export const remainingFeaturesService = {
         status: true,
         expectedAt: true,
         supplier: { select: { name: true } },
-        items: { select: { quantity: true, unitCost: true } },
+        createdBy: { select: { fullName: true, email: true } },
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            unitCost: true,
+            receivedQuantity: true,
+            product: { select: { name: true } },
+          },
+        },
         createdAt: true,
       },
     });
   },
 
-  async getTransfers() {
+  async getTransfers(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
+    const search = cleanFilter(filters.search);
+    const status = cleanFilter(filters.status);
+
     return prisma.branchTransfer.findMany({
-      where: { companyId: viewer.companyId },
+      where: {
+        companyId: viewer.companyId,
+        ...(status ? { status: status as never } : {}),
+        ...(search
+          ? {
+              OR: [
+                { transferNumber: { contains: search, mode: "insensitive" } },
+                { notes: { contains: search, mode: "insensitive" } },
+                { sourceTerminal: { posName: { contains: search, mode: "insensitive" } } },
+                { destinationTerminal: { posName: { contains: search, mode: "insensitive" } } },
+                { items: { some: { product: { name: { contains: search, mode: "insensitive" } } } } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: 100,
       select: {
@@ -174,7 +295,17 @@ export const remainingFeaturesService = {
         sourceTerminal: { select: { posName: true } },
         destinationTerminal: { select: { posName: true } },
         requestedBy: { select: { fullName: true, email: true } },
-        items: { select: { requestedQuantity: true } },
+        approvedBy: { select: { fullName: true, email: true } },
+        receivedBy: { select: { fullName: true, email: true } },
+        items: {
+          select: {
+            requestedQuantity: true,
+            dispatchedQuantity: true,
+            receivedQuantity: true,
+            varianceQuantity: true,
+            product: { select: { name: true } },
+          },
+        },
         createdAt: true,
       },
     });
@@ -208,10 +339,17 @@ export const remainingFeaturesService = {
     }));
   },
 
-  async getPromotions() {
+  async getPromotions(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
+    const search = cleanFilter(filters.search);
+    const status = cleanFilter(filters.status);
     return prisma.promotion.findMany({
-      where: { companyId: viewer.companyId },
+      where: {
+        companyId: viewer.companyId,
+        ...(status === "active" ? { isActive: true } : {}),
+        ...(status === "paused" || status === "archived" || status === "draft" ? { isActive: false } : {}),
+        ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+      },
       orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
       take: 100,
       select: {
@@ -224,15 +362,33 @@ export const remainingFeaturesService = {
         isActive: true,
         stackable: true,
         exclusive: true,
+        ruleJson: true,
+        createdAt: true,
+        updatedAt: true,
         _count: { select: { redemptions: true } },
       },
     });
   },
 
-  async getKitchenTickets() {
+  async getKitchenTickets(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
+    const search = cleanFilter(filters.search);
+    const status = cleanFilter(filters.status);
     return prisma.kitchenTicket.findMany({
-      where: { companyId: viewer.companyId },
+      where: {
+        companyId: viewer.companyId,
+        ...(status ? { status: status as never } : {}),
+        ...(search
+          ? {
+              OR: [
+                { ticketNumber: { contains: search, mode: "insensitive" } },
+                { station: { contains: search, mode: "insensitive" } },
+                { notes: { contains: search, mode: "insensitive" } },
+                { terminal: { posName: { contains: search, mode: "insensitive" } } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: 100,
       select: {
@@ -243,6 +399,9 @@ export const remainingFeaturesService = {
         notes: true,
         terminal: { select: { posName: true } },
         invoice: { select: { invoiceNumber: true, fulfillmentType: true } },
+        updatedBy: { select: { fullName: true, email: true } },
+        readyAt: true,
+        servedAt: true,
         createdAt: true,
       },
     });

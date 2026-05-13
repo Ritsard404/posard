@@ -9,7 +9,7 @@ export const siteConfig = {
   url: siteUrl,
   title: "POS System for Restaurants, Retail, Services, and Sales Reports",
   description:
-    "POSard is a mobile-first POS system for Philippine restaurants, cafes, retail stores, and service businesses that need checkout, inventory, receipts, discounts, and sales reports in one platform.",
+    "POSard is a mobile-first POS system for Philippine restaurants, cafes, retail stores, and service businesses that need checkout, offline sync, inventory, purchasing, expenses, promotions, kitchen workflow, permissions, and sales reports in one platform.",
   creator: "Ritsard",
   email: "support@posard.com",
   phone: "+63 XXX XXX XXXX",
@@ -33,6 +33,10 @@ export const siteConfig = {
     "small business POS software",
     "point of sale system",
     "inventory management POS",
+    "purchase order POS",
+    "expense tracking POS",
+    "kitchen POS workflow",
+    "offline POS sync",
     "sales reporting software",
   ],
 };
@@ -42,25 +46,25 @@ export const publicPages = {
     path: "/about",
     title: "About POSard POS System for Philippine Businesses",
     description:
-      "Learn how POSard helps Philippine retail, restaurant, cafe, and service businesses manage checkout, inventory, reports, and multi-terminal cashier operations.",
+      "Learn how POSard helps Philippine retail, restaurant, cafe, and service businesses manage checkout, inventory, purchasing, expenses, reports, permissions, and multi-terminal operations.",
   },
   features: {
     path: "/features",
-    title: "POSard Features for Checkout, Inventory, and Sales Reports",
+    title: "POSard Features for Checkout, Inventory, Purchasing, and Reports",
     description:
-      "Explore POSard features for checkout, inventory tracking, PWD and Senior discounts, receipts, X and Z reports, terminals, and role-based cashier access.",
+      "Explore POSard features for checkout, offline sync, inventory health, suppliers, purchase orders, transfers, expenses, customers, promotions, kitchen tickets, reports, terminals, and role-based access.",
   },
   solutions: {
     path: "/solutions",
     title: "POSard Solutions for Retail, Cafes, Restaurants, and Services",
     description:
-      "POSard supports Philippine retail stores, cafes, restaurants, startups, and service businesses with one cloud POS platform built for daily operations.",
+      "POSard supports Philippine retail stores, cafes, restaurants, startups, and service businesses with one cloud POS platform for sales, inventory, purchasing, expenses, reports, and staff control.",
   },
   pricing: {
     path: "/pricing",
     title: "POSard Pricing for Small Business POS Terminals",
     description:
-      "POSard pricing is PHP 250 per terminal per month for businesses that need branded POS checkout, inventory tracking, and sales reporting without hidden fees.",
+      "POSard pricing is PHP 250 per terminal per month for businesses that need POS checkout, inventory tracking, purchasing, expenses, reports, permissions, and terminal management without hidden platform fees.",
   },
   contact: {
     path: "/contact",
@@ -72,13 +76,13 @@ export const publicPages = {
     path: "/privacy",
     title: "POSard Privacy Policy",
     description:
-      "Read how POSard protects business, user, terminal, sales, and inventory data for POS users in the Philippines.",
+      "Read how POSard protects business, user, terminal, sales, inventory, purchasing, expense, customer, report, and permission data for POS users in the Philippines.",
   },
   terms: {
     path: "/terms",
     title: "POSard Terms and Conditions",
     description:
-      "Review POSard terms covering lawful use, account security, per-terminal subscription billing, service updates, and limitations.",
+      "Review POSard terms covering lawful use, account security, per-terminal subscription billing, operational data accuracy, service updates, and limitations.",
   },
 } as const;
 
@@ -183,10 +187,16 @@ export function softwareJsonLd() {
     featureList: [
       "Checkout and order workflows for restaurants, retail counters, cafes, and service desks",
       "Inventory and stock tracking",
+      "Offline checkout sync review",
+      "Suppliers, purchase orders, and receiving records",
+      "Expenses and branch transfer tracking",
+      "Customer, loyalty, and debt visibility",
+      "Promotions and kitchen ticket workflow",
       "PWD, Senior Citizen, and custom discount handling",
       "X-Reading and Z-Reading sales reports",
       "Receipt archive and receipt reprinting",
-      "Role-based access for admins, managers, and cashiers",
+      "Permissions, approvals, and role-based access for admins, managers, and cashiers",
+      "Searchable role-aware help guides",
       "Per-terminal subscriptions and cashier assignment",
     ],
     offers: {

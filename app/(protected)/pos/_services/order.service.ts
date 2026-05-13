@@ -82,6 +82,7 @@ async function getActiveTimestampForOrder(
           allowCashierDebtCreate: true,
           allowCashierDebtCollect: true,
           requireManagerApprovalForDebt: true,
+          enableKitchenTickets: true,
           defaultDebtDueDays: true,
           isTrainMode: true,
           resetCounterNo: true,
@@ -280,6 +281,102 @@ async function reserveNextTerminalInvoiceNumber(
   });
 
   return isTrainMode ? trainOffset + nextCounter : nextCounter;
+}
+
+async function resolveAutoPromotion(input: {
+  db: Prisma.TransactionClient;
+  companyId: string;
+  grossAmount: number;
+  existingDiscount?: DiscountDto;
+}): Promise<{ promotionId: string; name: string; discount: DiscountDto } | null> {
+  if (
+    input.existingDiscount?.discountType ||
+    input.existingDiscount?.discountAmount ||
+    input.existingDiscount?.discountPercent
+  ) {
+    return null;
+  }
+
+  const now = new Date();
+  const promotions = await input.db.promotion.findMany({
+    where: {
+      companyId: input.companyId,
+      isActive: true,
+      OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+      AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
+      promotionType: { in: ["fixed_amount", "percentage", "order_level"] },
+    },
+    orderBy: [{ exclusive: "desc" }, { updatedAt: "desc" }],
+    take: 10,
+    select: {
+      id: true,
+      name: true,
+      promotionType: true,
+      value: true,
+    },
+  });
+
+  let best: { promotionId: string; name: string; amount: number; discount: DiscountDto } | null = null;
+
+  for (const promotion of promotions) {
+    const value = Number(promotion.value);
+    const discount: DiscountDto =
+      promotion.promotionType === "percentage"
+        ? { discountType: "OTHERS", discountPercent: value, eligibleDiscName: promotion.name }
+        : { discountType: "OTHERS", discountAmount: value, eligibleDiscName: promotion.name };
+    const amount =
+      promotion.promotionType === "percentage"
+        ? round2((input.grossAmount * value) / 100)
+        : Math.min(value, input.grossAmount);
+
+    if (!best || amount > best.amount) {
+      best = { promotionId: promotion.id, name: promotion.name, amount, discount };
+    }
+  }
+
+  return best ? { promotionId: best.promotionId, name: best.name, discount: best.discount } : null;
+}
+
+async function createKitchenTicketForInvoice(input: {
+  db: Prisma.TransactionClient;
+  companyId: string;
+  terminalId: string;
+  invoiceId: string;
+  invoiceNumber: number;
+  items: ItemRequestDto[];
+}) {
+  const existing = await input.db.kitchenTicket.findFirst({
+    where: { invoiceId: input.invoiceId },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return;
+  }
+
+  const count = await input.db.kitchenTicket.count({
+    where: { companyId: input.companyId },
+  });
+  const ticketNumber = `KT-${new Date().getFullYear()}-${String(count + 1).padStart(6, "0")}`;
+  const notes = input.items
+    .map((item) => {
+      const modifiers = item.selections?.map((selection) => selection.optionName).filter(Boolean).join(", ");
+      return [item.specialInstructions, modifiers].filter(Boolean).join(" | ");
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  await input.db.kitchenTicket.create({
+    data: {
+      ticketNumber,
+      companyId: input.companyId,
+      terminalId: input.terminalId,
+      invoiceId: input.invoiceId,
+      status: "queued",
+      station: "Kitchen",
+      notes: notes || `Invoice #${input.invoiceNumber}`,
+    },
+  });
 }
 
 function validateOrderRequest(dto: OrderDto) {
@@ -807,7 +904,7 @@ export const orderService = {
     let stageStartedAt = startedAt;
     validateOrderRequest(dto);
     stageStartedAt = mark("validationMs", stageStartedAt);
-    const discount = normalizeDiscount(dto.discount);
+    let discount = normalizeDiscount(dto.discount);
     const settlementMode = dto.settlementMode ?? "pay_now";
 
     const profile = await getCurrentProfile();
@@ -861,8 +958,18 @@ export const orderService = {
           false,
         );
 
+        const calculationItems = buildCalculationItems(dto.items, transactionProductMap);
+        const grossAmount = calculationItems.reduce((sum, item) => sum + item.subTotal, 0);
+        const appliedPromotion = await resolveAutoPromotion({
+          db: tx,
+          companyId,
+          grossAmount,
+          existingDiscount: discount,
+        });
+        discount = appliedPromotion?.discount ?? discount;
+
         const calc = calculatePayment({
-          items: buildCalculationItems(dto.items, transactionProductMap),
+          items: calculationItems,
           discount,
           vatRate: terminal.vat ?? 0,
           discountCapType: terminal.discountCapType,
@@ -1027,6 +1134,16 @@ export const orderService = {
             dto.items,
             terminal.isTrainMode,
           );
+          if (terminal.enableKitchenTickets && !terminal.isTrainMode) {
+            await createKitchenTicketForInvoice({
+              db: tx,
+              companyId,
+              terminalId: terminal.id,
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoiceNumber,
+              items: dto.items,
+            });
+          }
 
           const debt = await tx.customerDebt.create({
             data: {
@@ -1116,6 +1233,29 @@ export const orderService = {
                 discountType: discount?.discountType,
                 discountAmount: calc.discountAmount,
                 cashierId: activeTimestamp.cashierId,
+              }),
+              amount: calc.discountAmount,
+            });
+          }
+          if (appliedPromotion && calc.discountAmount > 0) {
+            await tx.promotionRedemptionLog.create({
+              data: {
+                promotionId: appliedPromotion.promotionId,
+                invoiceId: invoice.id,
+                discountAmount: new Prisma.Decimal(calc.discountAmount),
+                reason: `Auto-applied at POS checkout: ${appliedPromotion.name}`,
+              },
+            });
+            await auditLogService.create(tx, {
+              companyId,
+              actorProfileId: profile.id,
+              posTerminalId: terminal.id,
+              actionType: "PROMOTION_APPLIED",
+              referenceId: invoice.id,
+              changes: JSON.stringify({
+                promotionId: appliedPromotion.promotionId,
+                promotionName: appliedPromotion.name,
+                discountAmount: calc.discountAmount,
               }),
               amount: calc.discountAmount,
             });
@@ -1241,6 +1381,16 @@ export const orderService = {
           dto.items,
           terminal.isTrainMode,
         );
+        if (terminal.enableKitchenTickets && !terminal.isTrainMode) {
+          await createKitchenTicketForInvoice({
+            db: tx,
+            companyId,
+            terminalId: terminal.id,
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            items: dto.items,
+          });
+        }
         await createInvoiceEPayments(tx, invoice.id, ePaymentData);
 
         const inventoryStartedAt = performance.now();
@@ -1290,6 +1440,29 @@ export const orderService = {
               discountType: discount?.discountType,
               discountAmount: calc.discountAmount,
               cashierId: activeTimestamp.cashierId,
+            }),
+            amount: calc.discountAmount,
+          });
+        }
+        if (appliedPromotion && calc.discountAmount > 0) {
+          await tx.promotionRedemptionLog.create({
+            data: {
+              promotionId: appliedPromotion.promotionId,
+              invoiceId: invoice.id,
+              discountAmount: new Prisma.Decimal(calc.discountAmount),
+              reason: `Auto-applied at POS checkout: ${appliedPromotion.name}`,
+            },
+          });
+          await auditLogService.create(tx, {
+            companyId,
+            actorProfileId: profile.id,
+            posTerminalId: terminal.id,
+            actionType: "PROMOTION_APPLIED",
+            referenceId: invoice.id,
+            changes: JSON.stringify({
+              promotionId: appliedPromotion.promotionId,
+              promotionName: appliedPromotion.name,
+              discountAmount: calc.discountAmount,
             }),
             amount: calc.discountAmount,
           });
@@ -1422,7 +1595,6 @@ export const orderService = {
         if (!item || item.status === "VOID" || item.status === "CANCELLED") {
           throw new Error("One or more selected items cannot be returned.");
         }
-
         const soldQty = Number(item.qty);
         const alreadyReturned = item.returnItems.reduce(
           (sum, returnItem) => sum + Number(returnItem.returnedQty),

@@ -202,6 +202,33 @@ export function ReportsOverviewPage({ data }: { data: OverviewData }) {
             ))}
           </CardContent>
         </Card>
+
+        <Card className="rounded-xl border-border/70 shadow-sm">
+          <CardHeader className="px-4 py-3">
+            <CardTitle className="text-sm font-bold tracking-tight">
+              Management Queue
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2 px-4 pb-4 pt-0 sm:grid-cols-2">
+            {[
+              ["Pending Expenses", formatCount(data.overview.operationalManagement.pendingExpenses), `${formatCurrency(data.overview.operationalManagement.postedExpenseTotal)} posted`],
+              ["Active Suppliers", formatCount(data.overview.operationalManagement.activeSuppliers), "Available for purchase orders"],
+              ["Purchase Orders", formatCount(data.overview.operationalManagement.pendingPurchaseOrders), `${formatCount(data.overview.operationalManagement.partiallyReceivedPurchaseOrders)} partially received`],
+              ["Transfers", formatCount(data.overview.operationalManagement.pendingTransfers), `${formatCount(data.overview.operationalManagement.inTransitTransfers)} in transit`],
+              ["Promotions", formatCount(data.overview.operationalManagement.activePromotions), `${formatCount(data.overview.operationalManagement.promotionRedemptions)} redemptions`],
+              ["Kitchen Queue", formatCount(data.overview.operationalManagement.openKitchenTickets), "Open tickets"],
+              ["Sync Issues", formatCount(data.overview.operationalManagement.failedSyncIssues), `${formatCount(data.overview.operationalManagement.needsReviewSyncIssues)} need review`],
+            ].map(([label, value, hint]) => (
+              <div key={label} className="rounded-lg bg-muted/35 px-3 py-2">
+                <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  {label}
+                </div>
+                <div className="mt-1 text-lg font-black tracking-tight">{value}</div>
+                <div className="text-xs text-muted-foreground">{hint}</div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="rounded-xl border-border/70 shadow-sm">

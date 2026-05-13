@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ShoppingCart, Package, BarChart3, ShieldCheck, Zap, Globe } from "lucide-react";
+import { ShoppingCart, Package, BarChart3, ShieldCheck, Utensils, Truck } from "lucide-react";
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { Button } from "@/components/ui/button";
@@ -26,14 +26,14 @@ import {
 export const metadata: Metadata = {
   title: "POSard POS System for Restaurants, Retail, and Services",
   description:
-    "POSard is a mobile-first POS system for Philippine restaurants, retail stores, cafes, and service businesses with checkout, inventory, receipts, discounts, and sales reports.",
+    "POSard is a mobile-first POS system for Philippine restaurants, retail stores, cafes, and service businesses with checkout, offline sync, inventory, suppliers, expenses, promotions, kitchen workflow, permissions, and reports.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
     title: "POSard POS System for Restaurants, Retail, and Services",
     description:
-      "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, receipts, discounts, and daily sales reports.",
+      "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, suppliers, expenses, promotions, kitchen workflow, permissions, and daily reports.",
     url: absoluteUrl("/"),
     siteName: siteConfig.name,
     images: [
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "POSard POS System for Restaurants, Retail, and Services",
     description:
-      "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, receipts, discounts, and daily sales reports.",
+      "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, suppliers, expenses, promotions, kitchen workflow, permissions, and daily reports.",
     images: ["/opengraph-image"],
   },
   robots: {
@@ -77,32 +77,32 @@ const features = [
   {
     title: "Inventory tracking",
     description:
-      "Track products, stock levels, barcodes, and availability from one connected business workspace.",
+      "Review inventory health, product stock, barcode details, stock movement, adjustments, and low-stock signals from one connected workspace.",
     icon: Package,
   },
   {
-    title: "Sales reports",
+    title: "Reports and cash visibility",
     description:
-      "Review daily sales, cashier activity, and product performance with reports built for operational decisions.",
+      "Review sales, cashier activity, inventory health, debt collections, X-Reading, Z-Reading, and business performance from manager reports.",
     icon: BarChart3,
   },
   {
     title: "Role-based control",
     description:
-      "Separate owner, manager, and cashier access so sensitive POS actions stay under the right level of control.",
+      "Separate admin, manager, and cashier access with permissions, approvals, and searchable help that matches each user's role.",
     icon: ShieldCheck,
   },
   {
-    title: "Discount-ready workflow",
+    title: "Kitchen and promotion tools",
     description:
-      "Handle PWD, Senior Citizen, and custom discount flows without breaking the speed of checkout.",
-    icon: Zap,
+      "Support restaurant counters with kitchen ticket tracking, promotion records, PWD, Senior Citizen, and custom discount workflows.",
+    icon: Utensils,
   },
   {
-    title: "Multi-terminal setup",
+    title: "Suppliers and branch movement",
     description:
-      "Run one store or multiple terminals with shared records for receipts, reports, subscriptions, and team activity.",
-    icon: Globe,
+      "Track suppliers, purchase orders, receiving records, expenses, and branch transfers alongside daily POS activity.",
+    icon: Truck,
   },
 ];
 
@@ -167,7 +167,7 @@ export default function Home() {
               </h1>
               
               <p className="max-w-xl mx-auto lg:mx-0 text-lg md:text-xl text-muted-foreground leading-relaxed">
-                POSard helps Philippine restaurants, cafes, retail stores, and service businesses run checkout, receipts, inventory, discounts, cashier roles, and sales reports from one mobile-first POS platform.
+                POSard helps Philippine restaurants, cafes, retail stores, and service businesses run checkout, offline sync, receipts, inventory, suppliers, expenses, promotions, kitchen workflow, permissions, and reports from one mobile-first POS platform.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
@@ -231,7 +231,7 @@ export default function Home() {
               Built for <span className="text-accent">daily store operations.</span>
             </h2>
             <p className="max-w-2xl mx-auto text-muted-foreground text-lg">
-              Everything POSard needs to do well at the counter: sales, orders, stock tracking, receipts, discounts, cashier control, and X-Reading or Z-Reading reports.
+              Everything POSard needs to do well at the counter and after closing: sales, orders, stock tracking, purchase records, transfers, expenses, customers, promotions, kitchen tickets, cashier control, and X-Reading or Z-Reading reports.
             </p>
           </div>
 
@@ -268,7 +268,7 @@ export default function Home() {
                 <BrandLogo showSubtitle subtitle="Checkout, inventory, and reports" subtitleClassName="text-[11px] tracking-[0.16em]" />
               </div>
               <p className="max-w-xs text-muted-foreground text-sm uppercase tracking-widest font-bold">
-                POS checkout, inventory, and reports for restaurants, retail, cafes, and service teams.
+                POS checkout, inventory, purchasing, expenses, transfers, kitchen workflow, and reports for restaurants, retail, cafes, and service teams.
               </p>
             </div>
             
@@ -282,7 +282,7 @@ export default function Home() {
             <div className="flex flex-col items-center md:items-end gap-4">
               <ThemeSwitcher />
               <p className="text-xs text-muted-foreground">
-                © 2026 POSard. Built with ❤️ by Ritsard.
+                (c) 2026 POSard. Built by Ritsard.
               </p>
             </div>
           </div>

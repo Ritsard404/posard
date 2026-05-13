@@ -31,6 +31,11 @@ const terms = [
     description:
       "POSard may update or improve features, workflows, security controls, and service behavior over time.",
   },
+  {
+    title: "Data accuracy",
+    description:
+      "Each business is responsible for reviewing entries such as sales, expenses, inventory movement, supplier records, purchase orders, transfers, promotions, and customer balances.",
+  },
 ];
 
 const limitations = [
@@ -66,7 +71,7 @@ export default function TermsPage() {
       <JsonLdScript data={jsonLd} />
       <ContentSection
         title="Usage terms"
-        description="These terms summarize the expected use of POSard for POS checkout, inventory, reports, receipts, terminal subscriptions, and staff access."
+        description="These terms summarize the expected use of POSard for POS checkout, inventory, purchasing, transfers, expenses, customers, promotions, kitchen workflow, reports, receipts, terminal subscriptions, and staff access."
       >
         <BulletGrid items={terms} />
       </ContentSection>

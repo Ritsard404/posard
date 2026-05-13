@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 interface Column<T> {
@@ -13,6 +14,7 @@ export function RemainingFeatureWorkspace<T extends { id: string }>({
   items,
   columns,
   emptyText,
+  toolbar,
 }: {
   title: string;
   description: string;
@@ -20,12 +22,18 @@ export function RemainingFeatureWorkspace<T extends { id: string }>({
   items: T[];
   columns: Array<Column<T>>;
   emptyText: string;
+  toolbar?: React.ReactNode;
 }) {
   return (
     <div className="space-y-4">
       <Card className="p-4">
-        <h1 className="text-xl font-bold">{title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-xl font-bold">{title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          </div>
+          {toolbar ? <div className="shrink-0">{toolbar}</div> : null}
+        </div>
       </Card>
 
       {stats?.length ? (
@@ -101,4 +109,48 @@ export function RemainingFeatureWorkspace<T extends { id: string }>({
 
 export function StatusBadge({ children }: { children: React.ReactNode }) {
   return <Badge variant="secondary">{children}</Badge>;
+}
+
+export function ManagementFilters({
+  search,
+  status,
+  statuses,
+}: {
+  search?: string;
+  status?: string;
+  statuses?: string[];
+}) {
+  return (
+    <form className="flex flex-col gap-2 rounded-md border bg-background p-3 sm:flex-row sm:items-end">
+      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+        <span>Search</span>
+        <input
+          name="search"
+          defaultValue={search}
+          placeholder="Reference, product, supplier, notes"
+          className="h-9 min-w-64 rounded-md border bg-background px-3 text-sm text-foreground"
+        />
+      </label>
+      {statuses?.length ? (
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          <span>Status</span>
+          <select
+            name="status"
+            defaultValue={status ?? ""}
+            className="h-9 rounded-md border bg-background px-3 text-sm text-foreground"
+          >
+            <option value="">All statuses</option>
+            {statuses.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <Button type="submit" className="h-9">
+        Search
+      </Button>
+    </form>
+  );
 }
