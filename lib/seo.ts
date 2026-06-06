@@ -7,10 +7,10 @@ export const siteUrl = (
 export const siteConfig = {
   name: "POSard",
   url: siteUrl,
-  title: "POS System for Restaurants, Retail, Services, and Sales Reports",
+  title: "POSard - Modern POS System",
   description:
-    "POSard is a mobile-first POS system for Philippine restaurants, cafes, retail stores, and service businesses that need checkout, offline sync, inventory, purchasing, expenses, promotions, kitchen workflow, permissions, and sales reports in one platform.",
-  creator: "Ritsard",
+    "POSard is a modern point-of-sale system for small businesses, restaurants, and retail stores.",
+  creator: "POSard",
   email: "support@posard.com",
   phone: "+63 XXX XXX XXXX",
   location: "Cebu, Philippines",
@@ -88,6 +88,35 @@ export const publicPages = {
 
 export type PublicPageKey = keyof typeof publicPages;
 
+export const protectedPageMetadata = {
+  pos: {
+    path: "/pos",
+    title: "POS Terminal",
+    description:
+      "Run POSard checkout, cashier sessions, carts, payments, receipts, and offline-ready sales from the POS terminal.",
+  },
+  inventory: {
+    path: "/product",
+    title: "Inventory",
+    description:
+      "Manage POSard products, categories, pricing, barcode details, stock tracking, and inventory availability.",
+  },
+  reports: {
+    path: "/reports",
+    title: "Reports",
+    description:
+      "Review POSard sales, cashier activity, inventory health, debt collections, X-reading, Z-reading, and business performance reports.",
+  },
+  settings: {
+    path: "/settings",
+    title: "Settings",
+    description:
+      "Manage POSard workspace settings, terminal configuration, business controls, and operational preferences.",
+  },
+} as const;
+
+export type ProtectedPageKey = keyof typeof protectedPageMetadata;
+
 export function absoluteUrl(path = "/") {
   return `${siteConfig.url}${path.startsWith("/") ? path : `/${path}`}`;
 }
@@ -138,6 +167,22 @@ export function createPublicPageMetadata(pageKey: PublicPageKey): Metadata {
         "max-snippet": -1,
         "max-video-preview": -1,
       },
+    },
+  };
+}
+
+export function createProtectedPageMetadata(pageKey: ProtectedPageKey): Metadata {
+  const page = protectedPageMetadata[pageKey];
+
+  return {
+    title: page.title,
+    description: page.description,
+    alternates: {
+      canonical: page.path,
+    },
+    robots: {
+      index: false,
+      follow: false,
     },
   };
 }

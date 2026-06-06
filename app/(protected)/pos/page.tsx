@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
+
+import { createProtectedPageMetadata } from "@/lib/seo";
 import { POSTerminalManager } from "./_components/POSTerminalManager";
+
+export const metadata: Metadata = createProtectedPageMetadata("pos");
 
 export default async function POSPage() {
   return (

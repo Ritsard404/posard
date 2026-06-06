@@ -2,7 +2,7 @@
   "id": "/",
   "name": "POSard",
   "short_name": "POSard",
-  "description": "POSard is a mobile-first POS system for checkout, inventory, receipts, discounts, and sales reports.",
+  "description": "POSard is a modern point-of-sale system for small businesses, restaurants, and retail stores.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

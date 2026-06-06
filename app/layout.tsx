@@ -14,7 +14,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: siteConfig.name,
+    default: siteConfig.title,
     template: "%s | POSard",
   },
   description: siteConfig.description,
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: `${siteConfig.name} | ${siteConfig.title}`,
+    title: siteConfig.title,
     description: siteConfig.description,
     url: absoluteUrl("/"),
     siteName: siteConfig.name,
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: `${siteConfig.name} | ${siteConfig.title}`,
+    title: siteConfig.title,
     description: siteConfig.description,
     images: ["/opengraph-image"],
   },
@@ -63,7 +63,8 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
       { url: "/pwa-icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/pwa-icon-512.png", sizes: "512x512", type: "image/png" },
       { url: "/pwa-maskable-512.png", sizes: "512x512", type: "image/png" },

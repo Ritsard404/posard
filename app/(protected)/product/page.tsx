@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
+
 import type { SearchParamsInput } from "@/app/(protected)/_lib/list-query";
+import { createProtectedPageMetadata } from "@/lib/seo";
 import { InventoryPageClient } from "./_components/InventoryPageClient";
 import { getCachedInventoryPageData } from "@/app/(protected)/product/_services/product-cache";
 import {
@@ -9,6 +12,8 @@ import {
 interface InventoryPageProps {
   searchParams: Promise<SearchParamsInput>;
 }
+
+export const metadata: Metadata = createProtectedPageMetadata("inventory");
 
 export default async function InventoryPage({
   searchParams,

@@ -24,16 +24,16 @@ import {
 } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "POSard POS System for Restaurants, Retail, and Services",
-  description:
-    "POSard is a mobile-first POS system for Philippine restaurants, retail stores, cafes, and service businesses with checkout, offline sync, inventory, suppliers, expenses, promotions, kitchen workflow, permissions, and reports.",
+  title: {
+    absolute: siteConfig.title,
+  },
+  description: siteConfig.description,
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "POSard POS System for Restaurants, Retail, and Services",
-    description:
-      "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, suppliers, expenses, promotions, kitchen workflow, permissions, and daily reports.",
+    title: siteConfig.title,
+    description: siteConfig.description,
     url: absoluteUrl("/"),
     siteName: siteConfig.name,
     images: [
@@ -49,9 +49,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "POSard POS System for Restaurants, Retail, and Services",
-    description:
-      "POSard helps Philippine stores, cafes, and service businesses manage checkout, inventory, suppliers, expenses, promotions, kitchen workflow, permissions, and daily reports.",
+    title: siteConfig.title,
+    description: siteConfig.description,
     images: ["/opengraph-image"],
   },
   robots: {

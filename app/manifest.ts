@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "POSard",
     short_name: "POSard",
     description:
-      "POSard is a mobile-first POS system for checkout, offline sync, inventory, purchasing, expenses, promotions, kitchen workflow, permissions, and reports.",
+      "POSard is a modern point-of-sale system for small businesses, restaurants, and retail stores.",
     start_url: "/",
     scope: "/",
     display: "standalone",

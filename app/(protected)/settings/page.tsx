@@ -1,3 +1,9 @@
+import type { Metadata } from "next";
+
+import { createProtectedPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = createProtectedPageMetadata("settings");
+
 export default function SettingPage() {
   return (
     <div>
@@ -9,5 +15,3 @@ export default function SettingPage() {
     </div>
   );
 }
-
-    
