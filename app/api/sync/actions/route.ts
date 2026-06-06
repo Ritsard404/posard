@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { orderService } from "@/app/(protected)/pos/_services/order.service";
@@ -54,6 +55,101 @@ function buildFailedResult(localId: string, message: string): SyncActionResultDt
     receipt: null,
     payload: null,
   };
+}
+
+function syncIssueCategory(action: QueuedPosAction, message: string) {
+  const text = `${action.type} ${message}`.toLowerCase();
+
+  if (text.includes("manager") || text.includes("approval")) return "manager_approval";
+  if (text.includes("session") || text.includes("terminal") || text.includes("device")) return "session_recovery";
+  if (text.includes("stock") || text.includes("inventory")) return "inventory";
+  if (text.includes("payment") || text.includes("invoice") || text.includes("idempotency")) return "payment_recovery";
+  if (text.includes("cash") || text.includes("withdraw")) return "cash_control";
+
+  return "sync_replay";
+}
+
+async function upsertSyncIssue(
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
+  action: QueuedPosAction,
+  result: SyncActionResultDto,
+) {
+  if (!profile.companyId || !["failed", "needs_review"].includes(result.syncStatus)) {
+    return;
+  }
+
+  const message = result.error ?? "Queued action needs review before it can be recovered.";
+  const syncStatus = result.syncStatus === "failed" ? "failed" : "needs_review";
+
+  await prisma.offlineSyncIssue.upsert({
+    where: {
+      companyId_localId: {
+        companyId: profile.companyId,
+        localId: action.localId,
+      },
+    },
+    create: {
+      companyId: profile.companyId,
+      terminalId: action.terminalId,
+      localId: action.localId,
+      actionType: action.type,
+      syncStatus,
+      conflictCategory: syncIssueCategory(action, message),
+      message,
+      idempotencyKey: action.idempotencyKey,
+      retryCount: action.retryCount ?? 0,
+      nextRetryAt: action.nextRetryAt ? new Date(action.nextRetryAt) : null,
+      payload: action as unknown as Prisma.InputJsonValue,
+    },
+    update: {
+      terminalId: action.terminalId,
+      actionType: action.type,
+      syncStatus,
+      conflictCategory: syncIssueCategory(action, message),
+      message,
+      idempotencyKey: action.idempotencyKey,
+      retryCount: action.retryCount ?? 0,
+      nextRetryAt: action.nextRetryAt ? new Date(action.nextRetryAt) : null,
+      payload: action as unknown as Prisma.InputJsonValue,
+      resolvedAt: null,
+    },
+  });
+}
+
+async function resolveSyncIssue(
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
+  action: QueuedPosAction,
+) {
+  if (!profile.companyId) return;
+
+  await prisma.offlineSyncIssue.updateMany({
+    where: {
+      companyId: profile.companyId,
+      localId: action.localId,
+      syncStatus: { in: ["pending", "syncing", "failed", "needs_review"] },
+    },
+    data: {
+      syncStatus: "resolved",
+      message: "Queued action synced successfully.",
+      resolvedAt: new Date(),
+    },
+  });
+}
+
+async function pushSyncResult(
+  results: SyncActionResultDto[],
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
+  action: QueuedPosAction,
+  result: SyncActionResultDto,
+) {
+  results.push(result);
+
+  if (result.syncStatus === "synced") {
+    await resolveSyncIssue(profile, action);
+    return;
+  }
+
+  await upsertSyncIssue(profile, action, result);
 }
 
 async function validateQueuedActionAccess(
@@ -240,7 +336,10 @@ export async function POST(request: Request) {
 
     for (const action of sortedActions) {
       if (action.companyId !== profile.companyId || action.cashierId !== profile.id) {
-        results.push(
+        await pushSyncResult(
+          results,
+          profile,
+          action,
           buildReviewResult(action.localId, "Queued action no longer belongs to the signed-in cashier."),
         );
         continue;
@@ -248,7 +347,7 @@ export async function POST(request: Request) {
 
       const access = await validateQueuedActionAccess(profile.id, action);
       if (!access.ok) {
-        results.push(buildReviewResult(action.localId, access.reason));
+        await pushSyncResult(results, profile, action, buildReviewResult(action.localId, access.reason));
         continue;
       }
 
@@ -259,11 +358,11 @@ export async function POST(request: Request) {
 
         switch (action.type) {
           case "PAY_ORDER":
-            results.push(await processSale(profile, action));
+            await pushSyncResult(results, profile, action, await processSale(profile, action));
             break;
           case "VOID_ORDER":
             if (await hasProcessedNonSaleAction(action.idempotencyKey)) {
-              results.push({
+              await pushSyncResult(results, profile, action, {
                 localId: action.localId,
                 syncStatus: "synced",
                 error: null,
@@ -272,7 +371,7 @@ export async function POST(request: Request) {
               });
               break;
             }
-            results.push(await processVoid(profile, action));
+            await pushSyncResult(results, profile, action, await processVoid(profile, action));
             await markNonSaleActionProcessed({
               companyId: profile.companyId,
               actorProfileId: profile.id,
@@ -283,7 +382,7 @@ export async function POST(request: Request) {
             break;
           case "WITHDRAW_CASH":
             if (await hasProcessedNonSaleAction(action.idempotencyKey)) {
-              results.push({
+              await pushSyncResult(results, profile, action, {
                 localId: action.localId,
                 syncStatus: "synced",
                 error: null,
@@ -292,18 +391,11 @@ export async function POST(request: Request) {
               });
               break;
             }
-            results.push(await processWithdrawal(profile, action));
-            await markNonSaleActionProcessed({
-              companyId: profile.companyId,
-              actorProfileId: profile.id,
-              posTerminalId: action.terminalId,
-              referenceId: action.timestampId,
-              idempotencyKey: action.idempotencyKey,
-            });
+            await pushSyncResult(results, profile, action, await processWithdrawal(profile, action));
             break;
           case "CLOSE_SESSION":
             if (await hasProcessedNonSaleAction(action.idempotencyKey)) {
-              results.push({
+              await pushSyncResult(results, profile, action, {
                 localId: action.localId,
                 syncStatus: "synced",
                 error: null,
@@ -312,20 +404,16 @@ export async function POST(request: Request) {
               });
               break;
             }
-            results.push(await processClose(profile, action));
-            await markNonSaleActionProcessed({
-              companyId: profile.companyId,
-              actorProfileId: profile.id,
-              posTerminalId: action.terminalId,
-              referenceId: action.timestampId,
-              idempotencyKey: action.idempotencyKey,
-            });
+            await pushSyncResult(results, profile, action, await processClose(profile, action));
             break;
         }
       } catch (error) {
         const message = toSafeActionError(error, "Unable to sync queued action.");
 
-        results.push(
+        await pushSyncResult(
+          results,
+          profile,
+          action,
           /force-closed|different device|needs review/i.test(message)
             ? buildReviewResult(action.localId, message)
             : buildFailedResult(action.localId, message),

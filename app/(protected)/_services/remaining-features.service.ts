@@ -68,10 +68,12 @@ export const remainingFeaturesService = {
         syncStatus: true,
         conflictCategory: true,
         message: true,
+        idempotencyKey: true,
         retryCount: true,
         nextRetryAt: true,
         terminal: { select: { posName: true } },
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -122,7 +124,7 @@ export const remainingFeaturesService = {
     const viewer = await requireCompany();
     const search = cleanFilter(filters.search);
     const status = cleanFilter(filters.status);
-    const [movements, lowStock, negativeStock, noMovement] = await Promise.all([
+    const [movements, lowStock, negativeStock, noMovement, outOfStock, totalTracked, watchlist] = await Promise.all([
       prisma.stockMovement.findMany({
         where: {
           ...companyWhere(viewer.companyId),
@@ -180,10 +182,76 @@ export const remainingFeaturesService = {
           stockMovements: { none: {} },
         },
       }),
+      prisma.product.count({
+        where: {
+          ...companyWhere(viewer.companyId),
+          trackInventory: true,
+          quantity: { lte: 0 },
+          isDeleted: false,
+        },
+      }),
+      prisma.product.count({
+        where: {
+          ...companyWhere(viewer.companyId),
+          trackInventory: true,
+          isDeleted: false,
+        },
+      }),
+      prisma.product.findMany({
+        where: {
+          ...companyWhere(viewer.companyId),
+          trackInventory: true,
+          isDeleted: false,
+          OR: [
+            { quantity: { lte: 10 } },
+            { stockMovements: { none: {} } },
+          ],
+        },
+        orderBy: [{ quantity: "asc" }, { name: "asc" }],
+        take: 20,
+        select: {
+          id: true,
+          name: true,
+          quantity: true,
+          cost: true,
+          price: true,
+          baseUnit: true,
+          category: { select: { categoryName: true } },
+          stockMovements: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { createdAt: true, movementType: true, referenceNumber: true },
+          },
+        },
+      }),
     ]);
 
     return {
-      stats: { lowStock, negativeStock, noMovement },
+      stats: { lowStock, negativeStock, noMovement, outOfStock, totalTracked },
+      watchlist: watchlist.map((product) => {
+        const quantity = toNumber(product.quantity);
+        const lastMovement = product.stockMovements[0] ?? null;
+        return {
+          id: product.id,
+          name: product.name,
+          categoryName: product.category.categoryName ?? "Uncategorized",
+          quantity,
+          baseUnit: product.baseUnit,
+          stockValue: quantity * toNumber(product.cost),
+          retailValue: quantity * toNumber(product.price),
+          health:
+            quantity < 0
+              ? "negative"
+              : quantity === 0
+                ? "out_of_stock"
+                : quantity <= 10
+                  ? "low_stock"
+                  : "no_movement",
+          lastMovementAt: lastMovement?.createdAt ?? null,
+          lastMovementType: lastMovement?.movementType ?? null,
+          lastReference: lastMovement?.referenceNumber ?? null,
+        };
+      }),
       movements: movements.map((movement) => ({
         ...movement,
         quantityDelta: toNumber(movement.quantityDelta),
@@ -331,20 +399,79 @@ export const remainingFeaturesService = {
         phone: true,
         isActive: true,
         debts: { select: { remainingAmount: true, status: true } },
-        loyaltyTransactions: { select: { pointsDelta: true } },
+        loyaltyTransactions: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            pointsDelta: true,
+            transactionType: true,
+            reason: true,
+            createdAt: true,
+            invoice: { select: { invoiceNumber: true, totalAmount: true, createdAt: true } },
+          },
+        },
       },
     });
 
-    return customers.map((customer) => ({
-      ...customer,
-      outstandingDebt: customer.debts
-        .filter((debt) => debt.status === "UNPAID" || debt.status === "PARTIAL")
-        .reduce((sum, debt) => sum + toNumber(debt.remainingAmount), 0),
-      loyaltyPoints: customer.loyaltyTransactions.reduce(
-        (sum, transaction) => sum + transaction.pointsDelta,
-        0,
-      ),
-    }));
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        posTerminal: companyWhere(viewer.companyId),
+        status: { in: ["PAID", "RETURNED"] },
+        customerName: { in: customers.map((customer) => customer.name) },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+      select: {
+        id: true,
+        invoiceNumber: true,
+        customerName: true,
+        totalAmount: true,
+        returnedAmount: true,
+        status: true,
+        createdAt: true,
+        posTerminal: { select: { posName: true } },
+      },
+    });
+
+    const invoicesByCustomer = new Map<string, typeof invoices>();
+    invoices.forEach((invoice) => {
+      const list = invoicesByCustomer.get(invoice.customerName) ?? [];
+      list.push(invoice);
+      invoicesByCustomer.set(invoice.customerName, list);
+    });
+
+    return customers.map((customer) => {
+      const customerInvoices = invoicesByCustomer.get(customer.name) ?? [];
+      return {
+        ...customer,
+        outstandingDebt: customer.debts
+          .filter((debt) => debt.status === "UNPAID" || debt.status === "PARTIAL")
+          .reduce((sum, debt) => sum + toNumber(debt.remainingAmount), 0),
+        loyaltyPoints: customer.loyaltyTransactions.reduce(
+          (sum, transaction) => sum + transaction.pointsDelta,
+          0,
+        ),
+        loyaltyEvents: customer.loyaltyTransactions.slice(0, 3).map((transaction) => ({
+          pointsDelta: transaction.pointsDelta,
+          transactionType: transaction.transactionType,
+          reason: transaction.reason,
+          createdAt: transaction.createdAt,
+          invoiceNumber: transaction.invoice?.invoiceNumber ?? null,
+        })),
+        purchaseCount: customerInvoices.length,
+        totalSpent: customerInvoices.reduce((sum, invoice) => sum + toNumber(invoice.totalAmount), 0),
+        returnedAmount: customerInvoices.reduce((sum, invoice) => sum + toNumber(invoice.returnedAmount), 0),
+        lastPurchaseAt: customerInvoices[0]?.createdAt ?? null,
+        recentPurchases: customerInvoices.slice(0, 3).map((invoice) => ({
+          id: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          totalAmount: toNumber(invoice.totalAmount),
+          returnedAmount: toNumber(invoice.returnedAmount),
+          status: invoice.status,
+          createdAt: invoice.createdAt,
+          terminalName: invoice.posTerminal.posName ?? "Unnamed terminal",
+        })),
+      };
+    });
   },
 
   async getPromotions(filters: ManagementListFilters = {}) {
@@ -407,6 +534,13 @@ export const remainingFeaturesService = {
         notes: true,
         terminal: { select: { posName: true } },
         invoice: { select: { invoiceNumber: true, fulfillmentType: true } },
+        item: {
+          select: {
+            qty: true,
+            specialInstructions: true,
+            product: { select: { name: true } },
+          },
+        },
         updatedBy: { select: { fullName: true, email: true } },
         readyAt: true,
         servedAt: true,

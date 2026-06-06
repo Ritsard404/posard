@@ -59,8 +59,52 @@ function getAuditIcon(action: string) {
   return UserRound;
 }
 
-function formatActionCode(action: string) {
-  return action.toLowerCase();
+const actionLabels: Record<string, string> = {
+  SALE_COMPLETED: "Sale completed",
+  LOG_IN: "Session opened",
+  LOG_OUT: "Session closed",
+  SET_CASH_IN_DRAWER: "Opening cash recorded",
+  SET_CASH_OUT_DRAWER: "Closing cash recorded",
+  CASH_WITHDRAWAL: "Cash withdrawal",
+  OFFLINE_SYNC_APPLIED: "Offline action replayed",
+  PRODUCT_STOCK_IN: "Stock added",
+  PRODUCT_STOCK_OUT: "Stock removed",
+  PRODUCT_STOCK_ADJUSTMENT: "Stock adjusted",
+  INVOICE_RETURNED_FULL: "Full return completed",
+  INVOICE_RETURNED_PARTIAL: "Partial return completed",
+  DEBT_CREATED: "Customer debt created",
+  DEBT_PAYMENT_RECORDED: "Debt payment recorded",
+  sync_issue_retry: "Sync issue marked for retry",
+  sync_issue_review: "Sync issue sent for review",
+  sync_issue_resolve: "Sync issue resolved",
+  sync_issue_dismiss: "Sync issue dismissed",
+  stock_adjustment_created: "Stock adjustment recorded",
+  purchase_order_created: "Purchase order created",
+  purchase_order_received: "Purchase order received",
+  transfer_requested: "Transfer requested",
+  transfer_submit: "Transfer submitted",
+  transfer_approve: "Transfer approved",
+  transfer_dispatch: "Transfer dispatched",
+  transfer_receive: "Transfer received",
+  transfer_cancel: "Transfer cancelled",
+  expense_created: "Expense created",
+  expense_submitted: "Expense submitted",
+  expense_approve: "Expense approved",
+  expense_reject: "Expense rejected",
+  expense_cancel: "Expense cancelled",
+  expense_post: "Expense posted",
+  supplier_created: "Supplier created",
+  supplier_updated: "Supplier updated",
+  supplier_archived: "Supplier archived",
+  promotion_created: "Promotion created",
+  promotion_activate: "Promotion activated",
+  promotion_pause: "Promotion paused",
+  promotion_archive: "Promotion archived",
+  promotion_duplicated: "Promotion duplicated",
+};
+
+function formatActionLabel(action: string) {
+  return actionLabels[action] ?? action.replaceAll("_", " ").toLowerCase();
 }
 
 function groupAuditItemsByDay(audit: AuditTrailDto) {
@@ -207,7 +251,7 @@ function AuditEventDialog({ item }: { item: AuditTrailItemDto }) {
             <EventDetailField
               icon={Tag}
               label="Action"
-              value={formatActionCode(item.action)}
+              value={formatActionLabel(item.action)}
             />
             <EventDetailField
               icon={Hash}

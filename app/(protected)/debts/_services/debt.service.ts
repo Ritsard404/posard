@@ -141,6 +141,11 @@ export const debtService = {
             invoice: { select: { id: true, invoiceNumber: true } },
             terminal: { select: { posName: true } },
             createdBy: { select: { fullName: true } },
+            payments: {
+              orderBy: { createdAt: "desc" },
+              take: 3,
+              include: { receivedBy: { select: { fullName: true } } },
+            },
           },
           orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
         }),
@@ -193,23 +198,50 @@ export const debtService = {
         activeCustomers: activeCustomers.length,
       },
       customers,
-      items: items.map((item): DebtListItemDto => ({
-        id: item.id,
-        invoiceId: item.invoiceId,
-        invoiceNumber: item.invoice.invoiceNumber,
-        customerId: item.customer.id,
-        customerName: item.customer.name,
-        terminalName: item.terminal?.posName ?? "Unnamed terminal",
-        createdByName: item.createdBy.fullName ?? "Unknown",
-        originalAmount: toNumber(item.originalAmount),
-        paidAmount: toNumber(item.paidAmount),
-        remainingAmount: toNumber(item.remainingAmount),
-        status: item.status,
-        dueDate: item.dueDate.toISOString(),
-        createdAt: item.createdAt.toISOString(),
-        paidAt: item.paidAt?.toISOString() ?? null,
-        notes: item.notes ?? null,
-      })),
+      items: items.map((item): DebtListItemDto => {
+        const dueDate = new Date(item.dueDate);
+        const isOpen = item.status === DebtStatus.UNPAID || item.status === DebtStatus.PARTIAL;
+        const daysOverdue = isOpen
+          ? Math.max(0, Math.floor((start.getTime() - dueDate.getTime()) / 86400000))
+          : 0;
+        const dueStatus =
+          !isOpen
+            ? "closed"
+            : dueDate < start
+              ? "overdue"
+              : dueDate <= end
+                ? "due_today"
+                : "upcoming";
+
+        return {
+          id: item.id,
+          invoiceId: item.invoiceId,
+          invoiceNumber: item.invoice.invoiceNumber,
+          customerId: item.customer.id,
+          customerName: item.customer.name,
+          terminalName: item.terminal?.posName ?? "Unnamed terminal",
+          createdByName: item.createdBy.fullName ?? "Unknown",
+          originalAmount: toNumber(item.originalAmount),
+          paidAmount: toNumber(item.paidAmount),
+          remainingAmount: toNumber(item.remainingAmount),
+          status: item.status,
+          dueDate: item.dueDate.toISOString(),
+          createdAt: item.createdAt.toISOString(),
+          paidAt: item.paidAt?.toISOString() ?? null,
+          notes: item.notes ?? null,
+          dueStatus,
+          daysOverdue,
+          paymentHistory: item.payments.map((payment) => ({
+            id: payment.id,
+            amount: toNumber(payment.amount),
+            method: payment.method,
+            referenceNo: payment.referenceNo ?? null,
+            notes: payment.notes ?? null,
+            receivedByName: payment.receivedBy.fullName ?? "Unknown",
+            createdAt: payment.createdAt.toISOString(),
+          })),
+        };
+      }),
     };
   },
 

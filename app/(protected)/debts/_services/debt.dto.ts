@@ -52,6 +52,9 @@ export type DebtListItemDto = {
   createdAt: string;
   paidAt: string | null;
   notes: string | null;
+  dueStatus: "due_today" | "overdue" | "upcoming" | "closed";
+  daysOverdue: number;
+  paymentHistory: DebtPaymentHistoryItemDto[];
 };
 
 export type DebtPaymentHistoryItemDto = {

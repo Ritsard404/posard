@@ -24,7 +24,7 @@ export function DebtsPageClient({
   const [query, setQuery] = useState(initialFilters.query ?? "");
   const [selectedStatus, setSelectedStatus] = useState(initialFilters.status);
   const [customerName, setCustomerName] = useState("");
-  const [paymentState, setPaymentState] = useState<Record<string, { amount: string; method: string; referenceNo: string }>>({});
+  const [paymentState, setPaymentState] = useState<Record<string, { amount: string; method: string; referenceNo: string; notes: string }>>({});
 
   const currency = useMemo(
     () =>
@@ -62,6 +62,7 @@ export function DebtsPageClient({
       amount: Number(state?.amount ?? 0),
       method: state?.method || "CASH",
       referenceNo: state?.referenceNo || null,
+      notes: state?.notes || null,
     });
 
     if (!result.success) {
@@ -126,6 +127,7 @@ export function DebtsPageClient({
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Due</th>
               <th className="px-3 py-2">Balance</th>
+              <th className="px-3 py-2">History</th>
               <th className="px-3 py-2">Collect</th>
             </tr>
           </thead>
@@ -137,8 +139,17 @@ export function DebtsPageClient({
                   <div className="text-xs text-muted-foreground">{item.terminalName}</div>
                 </td>
                 <td className="px-3 py-3">#{String(item.invoiceNumber).padStart(6, "0")}</td>
-                <td className="px-3 py-3">{item.status}</td>
-                <td className="px-3 py-3">{new Date(item.dueDate).toLocaleDateString()}</td>
+                <td className="px-3 py-3">
+                  <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold">{item.status}</span>
+                </td>
+                <td className="px-3 py-3">
+                  <div>{new Date(item.dueDate).toLocaleDateString()}</div>
+                  <div className={item.dueStatus === "overdue" ? "text-xs font-semibold text-destructive" : "text-xs text-muted-foreground"}>
+                    {item.dueStatus === "overdue"
+                      ? `${item.daysOverdue} day${item.daysOverdue === 1 ? "" : "s"} overdue`
+                      : item.dueStatus.replaceAll("_", " ")}
+                  </div>
+                </td>
                 <td className="px-3 py-3">
                   <div>{currency.format(item.remainingAmount)}</div>
                   <div className="text-xs text-muted-foreground">
@@ -146,10 +157,27 @@ export function DebtsPageClient({
                   </div>
                 </td>
                 <td className="px-3 py-3">
+                  <div className="max-w-[220px] space-y-1 text-xs">
+                    {item.paymentHistory.map((payment) => (
+                      <div key={payment.id} className="rounded-md border bg-background px-2 py-1">
+                        <div className="font-semibold">
+                          {currency.format(payment.amount)} / {payment.method}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {new Date(payment.createdAt).toLocaleDateString()} by {payment.receivedByName}
+                        </div>
+                      </div>
+                    ))}
+                    {item.paymentHistory.length === 0 ? (
+                      <span className="text-muted-foreground">No collections yet</span>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="px-3 py-3">
                   {item.status === "CANCELLED" || item.status === "PAID" ? (
                     <span className="text-xs text-muted-foreground">No action</span>
                   ) : (
-                    <div className="flex flex-col gap-2 sm:min-w-[220px]">
+                    <div className="flex flex-col gap-2 sm:min-w-[240px]">
                       <Input
                         type="number"
                         min="0"
@@ -163,10 +191,35 @@ export function DebtsPageClient({
                               amount: event.target.value,
                               method: state[item.id]?.method ?? "CASH",
                               referenceNo: state[item.id]?.referenceNo ?? "",
+                              notes: state[item.id]?.notes ?? "",
                             },
                           }))
                         }
                       />
+                      <div className="grid grid-cols-3 gap-1">
+                        {[item.remainingAmount, Math.ceil(item.remainingAmount / 2), 100].map((amount) => (
+                          <Button
+                            key={amount}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            onClick={() =>
+                              setPaymentState((state) => ({
+                                ...state,
+                                [item.id]: {
+                                  amount: String(Math.min(item.remainingAmount, amount)),
+                                  method: state[item.id]?.method ?? "CASH",
+                                  referenceNo: state[item.id]?.referenceNo ?? "",
+                                  notes: state[item.id]?.notes ?? "",
+                                },
+                              }))
+                            }
+                          >
+                            {amount === item.remainingAmount ? "Full" : currency.format(Math.min(item.remainingAmount, amount))}
+                          </Button>
+                        ))}
+                      </div>
                       <div className="flex gap-2">
                         <select
                           className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm"
@@ -178,6 +231,7 @@ export function DebtsPageClient({
                                 amount: state[item.id]?.amount ?? "",
                                 method: event.target.value,
                                 referenceNo: state[item.id]?.referenceNo ?? "",
+                                notes: state[item.id]?.notes ?? "",
                               },
                             }))
                           }
@@ -190,6 +244,36 @@ export function DebtsPageClient({
                         </select>
                         <Button onClick={() => void handleRecordPayment(item.id)}>Record</Button>
                       </div>
+                      <Input
+                        placeholder="Reference number"
+                        value={paymentState[item.id]?.referenceNo ?? ""}
+                        onChange={(event) =>
+                          setPaymentState((state) => ({
+                            ...state,
+                            [item.id]: {
+                              amount: state[item.id]?.amount ?? "",
+                              method: state[item.id]?.method ?? "CASH",
+                              referenceNo: event.target.value,
+                              notes: state[item.id]?.notes ?? "",
+                            },
+                          }))
+                        }
+                      />
+                      <Input
+                        placeholder="Collection notes"
+                        value={paymentState[item.id]?.notes ?? ""}
+                        onChange={(event) =>
+                          setPaymentState((state) => ({
+                            ...state,
+                            [item.id]: {
+                              amount: state[item.id]?.amount ?? "",
+                              method: state[item.id]?.method ?? "CASH",
+                              referenceNo: state[item.id]?.referenceNo ?? "",
+                              notes: event.target.value,
+                            },
+                          }))
+                        }
+                      />
                     </div>
                   )}
                 </td>
@@ -197,7 +281,7 @@ export function DebtsPageClient({
             ))}
             {initialData.items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
                   No debts found for the current filters.
                 </td>
               </tr>

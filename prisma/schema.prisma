@@ -719,8 +719,11 @@ model AuditLog {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([companyId])
+  @@index([companyId, createdAt])
   @@index([actorProfileId])
   @@index([posTerminalId])
+  @@index([posTerminalId, createdAt])
+  @@index([actionType, createdAt])
   @@index([createdAt])
   @@map("audit_log")
   @@schema("public")
@@ -910,7 +913,10 @@ model Timestamp {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([posTerminalId])
+  @@index([posTerminalId, timestampIn])
   @@index([cashierId])
+  @@index([cashierId, timestampIn])
+  @@index([timestampOut])
   @@index([deviceId])
   @@map("timestamp")
   @@schema("public")
@@ -1142,6 +1148,7 @@ model Inventory {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([productId])
+  @@index([productId, createdAt])
   @@map("inventory")
   @@schema("public")
 }
@@ -1322,8 +1329,12 @@ model Invoice {
 
   @@unique([posTerminalId, invoiceNumber], name: "uk_invoice_terminal_invoice_number")
   @@index([posTerminalId])
+  @@index([posTerminalId, status, createdAt])
   @@index([cashierId])
+  @@index([cashierId, createdAt])
   @@index([voidedById])
+  @@index([createdAt])
+  @@index([localInvoiceNo])
   @@index([posTerminalId, isTrainMode, invoiceNumber])
   @@map("invoice")
   @@schema("public")
@@ -1525,7 +1536,9 @@ model Item {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([productId])
+  @@index([productId, createdAt])
   @@index([invoiceId])
+  @@index([invoiceId, status])
   @@map("item")
   @@schema("public")
 }
@@ -1642,6 +1655,7 @@ model EPayment {
 
   @@index([invoiceId])
   @@index([saleTypeId])
+  @@index([saleTypeId, createdAt])
   @@map("e_payment")
   @@schema("public")
 }
@@ -1794,6 +1808,8 @@ model OfflineSyncIssue {
 
   @@unique([companyId, localId])
   @@index([companyId, syncStatus, createdAt])
+  @@index([companyId, createdAt])
+  @@index([idempotencyKey])
   @@index([terminalId])
   @@map("offline_sync_issue")
   @@schema("public")
@@ -1873,6 +1889,7 @@ model StockMovement {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([companyId, createdAt])
+  @@index([companyId, movementType, createdAt])
   @@index([productId, createdAt])
   @@index([terminalId])
   @@map("stock_movement")

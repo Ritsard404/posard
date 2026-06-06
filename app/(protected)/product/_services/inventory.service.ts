@@ -46,6 +46,12 @@ function actionTypeForInventory(transactionType: InventoryTransactionType) {
   }
 }
 
+function assertFiniteQuantity(quantity: number, label = "Quantity") {
+  if (!Number.isFinite(quantity)) {
+    throw new Error(`${label} must be a valid number.`);
+  }
+}
+
 export const inventoryService = {
   async findAll(): Promise<InventoryDto[]> {
     const records = await prisma.inventory.findMany({
@@ -68,7 +74,9 @@ export const inventoryService = {
   },
 
   async stockProduct(productId: string, qty: number): Promise<void> {
-    if (!qty || qty === 0) {
+    assertFiniteQuantity(qty);
+
+    if (qty === 0) {
       throw new Error("Quantity must not be zero.");
     }
 
@@ -131,7 +139,9 @@ export const inventoryService = {
       throw new Error("Inventory transaction type is required.");
     }
 
-    if (!dto.quantity || dto.quantity <= 0) {
+    assertFiniteQuantity(dto.quantity);
+
+    if (dto.quantity <= 0) {
       throw new Error("Quantity must be greater than zero.");
     }
 
@@ -169,6 +179,10 @@ export const inventoryService = {
           nextQuantity = dto.quantity;
           quantityDelta = dto.quantity - currentQty;
           break;
+      }
+
+      if (nextQuantity < 0) {
+        throw new Error("Inventory movement cannot make stock negative.");
       }
 
       await tx.product.update({

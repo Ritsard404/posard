@@ -122,6 +122,10 @@ async function createStockMovement(
     notes?: string | null;
   },
 ) {
+  if (!Number.isFinite(input.quantityDelta) || input.quantityDelta === 0) {
+    throw new Error("Inventory movement quantity must be a non-zero number.");
+  }
+
   const product = await tx.product.findFirst({
     where: { id: input.productId, companyId: input.companyId, isDeleted: false },
     select: { id: true, quantity: true, trackInventory: true },
@@ -133,6 +137,14 @@ async function createStockMovement(
 
   const before = Number(product.quantity ?? 0);
   const after = before + input.quantityDelta;
+
+  if (!Number.isFinite(before) || !Number.isFinite(after)) {
+    throw new Error("Inventory quantity is invalid.");
+  }
+
+  if (after < 0) {
+    throw new Error("Inventory movement cannot make stock negative.");
+  }
 
   await tx.product.update({
     where: { id: product.id },
