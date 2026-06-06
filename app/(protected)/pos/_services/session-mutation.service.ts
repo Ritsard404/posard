@@ -2,6 +2,7 @@ import "server-only";
 
 import { assertTerminalBillingAllowsPos } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
+import { findProfileByPin } from "@/lib/security/pin";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { printConfigService } from "./print-config.service";
 import { reportService as posReportService } from "./report.service";
@@ -74,16 +75,14 @@ export const sessionMutationService = {
   ) {
     await assertTerminalBillingAllowsPos(actor.companyId, terminalId);
 
-    const approver = await prisma.profile.findFirst({
-      where: {
-        companyId: actor.companyId,
-        pin: managerPin,
-        role: { in: ["manager", "admin"] },
-      },
-      select: { id: true },
+    const approver = await findProfileByPin({
+      companyId: actor.companyId,
+      pin: managerPin,
+      roles: ["manager", "admin"],
+      select: { id: true, status: true },
     });
 
-    if (!approver) {
+    if (!approver || approver.status !== "active") {
       throw new Error("Invalid Manager PIN");
     }
 
@@ -120,7 +119,7 @@ export const sessionMutationService = {
         data: {
           posTerminalId: terminal.id,
           cashierId: actor.profileId,
-          managerInId: approver.id,
+          managerInId: approver.id as string,
           timestampIn: new Date(),
           cashInDrawerAmount: openingCash,
           deviceId,
@@ -135,7 +134,7 @@ export const sessionMutationService = {
 
       await auditLogService.create(tx, {
         companyId: actor.companyId,
-        actorProfileId: approver.id,
+        actorProfileId: approver.id as string,
         posTerminalId: terminal.id,
         actionType: "OPEN_SESSION",
         referenceId: timestamp.id,

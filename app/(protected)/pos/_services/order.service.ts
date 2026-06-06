@@ -25,6 +25,7 @@ import { mapInvoiceToReceipt } from "./_mappers/receipt.mapper";
 import { receiptPrintService } from "./receipt-print.service";
 import { printArchiveService } from "./print-archive.service";
 import { printConfigService } from "./print-config.service";
+import { findProfileByPin } from "@/lib/security/pin";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -763,20 +764,19 @@ async function resolveDebtApproval(params: {
     throw new Error("Manager approval PIN is required for debt checkout.");
   }
 
-  const approver = await params.db.profile.findFirst({
-    where: {
-      companyId: params.companyId,
-      pin: params.managerPin.trim(),
-      role: { in: ["manager", "admin"] },
-      status: "active",
-    },
+  const approver = await findProfileByPin({
+    db: params.db,
+    companyId: params.companyId,
+    pin: params.managerPin.trim(),
+    roles: ["manager", "admin"],
     select: {
       id: true,
       fullName: true,
+      status: true,
     },
   });
 
-  if (!approver) {
+  if (!approver || approver.status !== "active") {
     throw new Error("Invalid manager PIN.");
   }
 
@@ -799,20 +799,19 @@ async function resolveDiscountApproval(params: {
     );
   }
 
-  const approver = await params.db.profile.findFirst({
-    where: {
-      companyId: params.companyId,
-      pin: params.managerPin.trim(),
-      role: { in: ["manager", "admin"] },
-      status: "active",
-    },
+  const approver = await findProfileByPin({
+    db: params.db,
+    companyId: params.companyId,
+    pin: params.managerPin.trim(),
+    roles: ["manager", "admin"],
     select: {
       id: true,
       fullName: true,
+      status: true,
     },
   });
 
-  if (!approver) {
+  if (!approver || approver.status !== "active") {
     throw new Error("Invalid manager PIN.");
   }
 
@@ -828,17 +827,15 @@ async function resolveReturnApproval(params: {
     throw new Error("Manager approval PIN is required for returns.");
   }
 
-  const approver = await params.db.profile.findFirst({
-    where: {
-      companyId: params.companyId,
-      pin: params.managerPin.trim(),
-      role: { in: ["manager", "admin"] },
-      status: "active",
-    },
-    select: { id: true, fullName: true },
+  const approver = await findProfileByPin({
+    db: params.db,
+    companyId: params.companyId,
+    pin: params.managerPin.trim(),
+    roles: ["manager", "admin"],
+    select: { id: true, fullName: true, status: true },
   });
 
-  if (!approver) {
+  if (!approver || approver.status !== "active") {
     throw new Error("Invalid manager PIN.");
   }
 

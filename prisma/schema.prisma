@@ -257,7 +257,7 @@ model Profile {
   role   UserRole   @default(manager)
   status UserStatus @default(pending)
 
-  pin String? @db.VarChar(6)
+  pin String? @db.VarChar(128)
 
   approvedAt DateTime? @map("approved_at") @db.Timestamptz
 

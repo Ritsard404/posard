@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { hashPin } from "@/lib/security/pin";
 import type { Prisma, UserStatus } from "@prisma/client";
 import {
   mapCompanyToOption,
@@ -513,7 +514,7 @@ export const accountsService = {
         fullName: input.fullName,
         ...((viewer.role === "manager" || viewer.role === "admin") &&
         input.pin !== undefined
-          ? { pin: input.pin }
+          ? { pin: input.pin ? hashPin(input.pin) : null }
           : {}),
       },
       include: { company: true },

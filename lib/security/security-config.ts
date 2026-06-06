@@ -51,6 +51,10 @@ export const securityConfig = {
       windowMs: 60_000,
       max: intEnv("SECURITY_RATE_LIMIT_SENSITIVE_POS_MAX", 30),
     },
+    managerPin: {
+      windowMs: 5 * 60_000,
+      max: intEnv("SECURITY_RATE_LIMIT_MANAGER_PIN_MAX", 5),
+    },
     sync: {
       windowMs: 60_000,
       max: intEnv("SECURITY_RATE_LIMIT_SYNC_MAX", 120),

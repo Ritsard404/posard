@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { hashPin } from "@/lib/security/pin";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -52,7 +53,7 @@ export async function createCompany(data: SetupCompanyInput) {
       where: { userId: currentUserId! },
       data: { 
         companyId: company.id,
-        pin: data.managerPin,
+        pin: hashPin(data.managerPin),
         role: "manager" // Explicitly mark as manager just in case
       },
     }),
