@@ -7,6 +7,7 @@ import {
   recordDebtPaymentSchema,
 } from "../_services/debt.dto";
 import { debtService } from "../_services/debt.service";
+import { toSafeActionError } from "@/lib/security/safe-action-error";
 
 export async function createDebtCustomerAction(payload: unknown) {
   try {
@@ -18,7 +19,7 @@ export async function createDebtCustomerAction(payload: unknown) {
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Unable to create customer.",
+      error: toSafeActionError(error, "Unable to create customer."),
     };
   }
 }
@@ -31,7 +32,7 @@ export async function getDebtWorkspaceAction(payload?: unknown) {
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Unable to load debts.",
+      error: toSafeActionError(error, "Unable to load debts."),
     };
   }
 }
@@ -43,7 +44,7 @@ export async function listDebtCustomersAction() {
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Unable to load customers.",
+      error: toSafeActionError(error, "Unable to load customers."),
     };
   }
 }
@@ -59,7 +60,7 @@ export async function recordDebtPaymentAction(payload: unknown) {
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Unable to record debt payment.",
+      error: toSafeActionError(error, "Unable to record debt payment."),
     };
   }
 }

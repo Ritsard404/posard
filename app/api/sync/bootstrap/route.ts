@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { categoryService } from "@/app/(protected)/pos/_services/category.service";
 import { productService } from "@/app/(protected)/pos/_services/product.service";
 import { epaymentService } from "@/app/(protected)/pos/_services/epayment.service";
-import { buildManagerPinVerifier } from "@/app/(protected)/pos/_services/offline-pin-verifier.service";
 import { printConfigService } from "@/app/(protected)/pos/_services/print-config.service";
 import {
   isTerminalPosAccessible,
@@ -59,20 +58,7 @@ export async function GET(request: Request) {
         categoryService.getCategories(companyId),
         productService.getProducts(companyId),
         epaymentService.getEPaymentMethods(),
-        prisma.profile.findMany({
-          where: {
-            companyId: profile.companyId,
-            role: { in: ["manager", "admin"] },
-            pin: { not: null },
-          },
-          select: {
-            id: true,
-            email: true,
-            fullName: true,
-            role: true,
-            pin: true,
-          },
-        }),
+        Promise.resolve([]),
         prisma.timestamp.findFirst({
           where: { cashierId: profile.id, timestampOut: null },
           select: {
@@ -170,27 +156,16 @@ export async function GET(request: Request) {
           products,
           epaymentMethods,
         },
-        managerVerifiers: managers.map((manager) => ({
-          profileId: manager.id,
-          email: manager.email ?? "",
-          name: manager.fullName ?? "Manager",
-          role: manager.role,
-          pinVerifier: buildManagerPinVerifier({
-            companyId,
-            profileId: manager.id,
-            deviceId,
-            pin: manager.pin ?? "",
-          }),
-        })),
+        managerVerifiers: managers,
         fetchedAt: new Date().toISOString(),
         stockSnapshotVersion: new Date().toISOString(),
       },
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unable to build offline bootstrap.",
+        error: "Unable to build offline bootstrap.",
       },
       { status: 500 },
     );

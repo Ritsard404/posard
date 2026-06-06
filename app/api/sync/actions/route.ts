@@ -7,6 +7,7 @@ import { auditLogService } from "@/lib/services/audit-log.service";
 import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
 import { readJsonWithLimit } from "@/lib/security/payload";
 import { securityConfig } from "@/lib/security/security-config";
+import { toSafeActionError } from "@/lib/security/safe-action-error";
 import type {
   QueuedCloseSessionAction,
   QueuedPosAction,
@@ -178,51 +179,22 @@ async function processWithdrawal(
   profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
   action: QueuedWithdrawAction,
 ): Promise<SyncActionResultDto> {
-  await sessionMutationService.withdrawCashAuthorized(
-    {
-      profileId: profile.id,
-      companyId: profile.companyId!,
-      role: profile.role,
-      fullName: profile.fullName ?? null,
-    },
-    action.timestampId,
-    action.payload.amount,
-    action.payload.managerProfileId,
+  void profile;
+  return buildReviewResult(
+    action.localId,
+    "Offline cash withdrawal requires online manager approval review.",
   );
-
-  return {
-    localId: action.localId,
-    syncStatus: "synced",
-    error: null,
-    receipt: null,
-    payload: { amount: action.payload.amount },
-  };
 }
 
 async function processClose(
   profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
   action: QueuedCloseSessionAction,
 ): Promise<SyncActionResultDto> {
-  const payload = await sessionMutationService.closeSessionAuthorized(
-    {
-      profileId: profile.id,
-      companyId: profile.companyId!,
-      role: profile.role,
-      fullName: profile.fullName ?? null,
-    },
-    action.payload.sessionId,
-    action.timestampId,
-    action.payload.countedCash,
-    action.payload.managerProfileId,
+  void profile;
+  return buildReviewResult(
+    action.localId,
+    "Offline session close requires online manager approval review.",
   );
-
-  return {
-    localId: action.localId,
-    syncStatus: "synced",
-    error: null,
-    receipt: null,
-    payload,
-  };
 }
 
 export async function POST(request: Request) {
@@ -351,8 +323,7 @@ export async function POST(request: Request) {
             break;
         }
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unable to sync queued action.";
+        const message = toSafeActionError(error, "Unable to sync queued action.");
 
         results.push(
           /force-closed|different device|needs review/i.test(message)

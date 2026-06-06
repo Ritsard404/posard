@@ -13,6 +13,8 @@ import { printConfigService } from "../_services/print-config.service";
 import { reportService as posReportService } from "../_services/report.service";
 import { sessionMutationService } from "../_services/session-mutation.service";
 import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
+import { findProfileByPin } from "@/lib/security/pin";
+import { toSafeActionError } from "@/lib/security/safe-action-error";
 
 function getTerminalBillingSummary(subscription: {
   status: "pending" | "active" | "expired" | "suspended" | "cancelled";
@@ -208,7 +210,7 @@ export async function getCurrentSessionAction() {
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Internal Error",
+      error: toSafeActionError(error, "Unable to load the current POS session."),
     };
   }
 }
@@ -313,7 +315,7 @@ export async function getTerminalsAction() {
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Failed to fetch terminals",
+      error: toSafeActionError(error, "Failed to fetch terminals."),
     };
   }
 }
@@ -334,6 +336,16 @@ export async function openSessionAction(
     if (!managerPin.trim()) {
       return { success: false as const, error: "Manager PIN is required." };
     }
+    await enforceRateLimit({
+      bucket: "managerPin",
+      route: "/pos",
+      action: "OPEN_SESSION_PIN",
+      profileId: profile.id,
+      userId: profile.id,
+      role: profile.role,
+      companyId: profile.companyId,
+      terminalId,
+    });
 
     return await sessionMutationService.openSession(
       {
@@ -350,7 +362,7 @@ export async function openSessionAction(
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Internal Error",
+      error: toSafeActionError(error, "Unable to open the POS session."),
     };
   }
 }
@@ -379,16 +391,25 @@ export async function withdrawCashAction(
       return { success: false, error: "Amount must be greater than 0" };
     }
 
-    const approver = await prisma.profile.findFirst({
-      where: {
-        companyId: profile.companyId,
-        pin: managerPin,
-        role: { in: ["manager", "admin"] },
-      },
-      select: { id: true },
+    await enforceRateLimit({
+      bucket: "managerPin",
+      route: "/pos",
+      action: "WITHDRAW_CASH_PIN",
+      profileId: profile.id,
+      userId: profile.id,
+      role: profile.role,
+      companyId: profile.companyId,
+      terminalId: timestampId,
     });
 
-    if (!approver) {
+    const approver = await findProfileByPin({
+      companyId: profile.companyId,
+      pin: managerPin,
+      roles: ["manager", "admin"],
+      select: { id: true, status: true },
+    });
+
+    if (!approver || approver.status !== "active") {
       return { success: false, error: "Invalid Manager PIN" };
     }
 
@@ -401,14 +422,14 @@ export async function withdrawCashAction(
       },
       timestampId,
       amount,
-      approver.id,
+      approver.id as string,
     );
 
     return { success: true };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Internal Error",
+      error: toSafeActionError(error, "Unable to record cash withdrawal."),
     };
   }
 }
@@ -434,16 +455,25 @@ export async function closeSessionAction(
       companyId: profile.companyId,
     });
 
-    const approver = await prisma.profile.findFirst({
-      where: {
-        companyId: profile.companyId,
-        pin: managerPin,
-        role: { in: ["manager", "admin"] },
-      },
-      select: { id: true },
+    await enforceRateLimit({
+      bucket: "managerPin",
+      route: "/pos",
+      action: "CLOSE_SESSION_PIN",
+      profileId: profile.id,
+      userId: profile.id,
+      role: profile.role,
+      companyId: profile.companyId,
+      terminalId: timestampId,
     });
 
-    if (!approver) {
+    const approver = await findProfileByPin({
+      companyId: profile.companyId,
+      pin: managerPin,
+      roles: ["manager", "admin"],
+      select: { id: true, status: true },
+    });
+
+    if (!approver || approver.status !== "active") {
       return { success: false as const, error: "Invalid Manager PIN" };
     }
 
@@ -457,14 +487,14 @@ export async function closeSessionAction(
       sessionId,
       timestampId,
       countedCash,
-      approver.id,
+      approver.id as string,
     );
 
     return { success: true as const, data };
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Internal Error",
+      error: toSafeActionError(error, "Unable to close the POS session."),
     };
   }
 }
@@ -476,7 +506,7 @@ export async function getSessionCashTrackAction(timestampId: string) {
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Internal Error",
+      error: toSafeActionError(error, "Unable to load session cash tracking."),
     };
   }
 }
@@ -501,7 +531,7 @@ export async function getSessionXReadingPrintPayloadAction(timestampId: string) 
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Internal Error",
+      error: toSafeActionError(error, "Unable to build X-reading print payload."),
     };
   }
 }
@@ -517,7 +547,7 @@ export async function getAvailableCashAction(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Internal Error",
+      error: toSafeActionError(error, "Unable to load available cash."),
     };
   }
 }

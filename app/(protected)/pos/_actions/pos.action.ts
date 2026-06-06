@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
+import { toSafeActionError } from "@/lib/security/safe-action-error";
 
 const PrinterConfigSchema = z.object({
   displayName: z.string().trim().min(1).nullable(),
@@ -71,7 +72,7 @@ export async function fetchPOSMetaDataAction(): Promise<{ success: true; data: P
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to load POS metadata",
+      error: toSafeActionError(error, "Failed to load POS metadata."),
     };
   }
 }
@@ -125,7 +126,7 @@ export async function saveSessionPrinterConfigAction(
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Failed to save printer configuration",
+      error: toSafeActionError(error, "Failed to save printer configuration."),
     };
   }
 }

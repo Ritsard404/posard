@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { notificationService } from "@/app/(protected)/notifications/_services/notification.service";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
+import { findProfileByPin } from "@/lib/security/pin";
+import { toSafeActionError } from "@/lib/security/safe-action-error";
 
 export async function unlockTerminalAction(pin: string) {
   try {
@@ -19,14 +22,23 @@ export async function unlockTerminalAction(pin: string) {
 
     const companyId = profile.companyId;
 
-    // Since we are verifying the manager/cashier's PIN
-    // In our simplified setup, we check if the provided pin matches a profile in the same company
-    // We can just find by PIN in the company
-    const unlocker = await prisma.profile.findFirst({
-        where: { companyId, pin: pin }
+    await enforceRateLimit({
+        bucket: "managerPin",
+        route: "/pos",
+        action: "UNLOCK_TERMINAL_PIN",
+        profileId: profile.id,
+        userId: profile.id,
+        role: profile.role,
+        companyId,
     });
 
-    if (!unlocker) {
+    const unlocker = await findProfileByPin({
+        companyId,
+        pin,
+        select: { id: true, fullName: true, role: true, status: true }
+    });
+
+    if (!unlocker || unlocker.status !== "active") {
         return { success: false, error: "Invalid PIN" };
     }
 
@@ -61,7 +73,7 @@ export async function unlockTerminalAction(pin: string) {
     await prisma.posSession.create({
         data: {
             posTerminalId: terminal.id,
-            profileId: unlocker.id,
+            profileId: unlocker.id as string,
             isActive: true
         }
     });
@@ -72,10 +84,10 @@ export async function unlockTerminalAction(pin: string) {
         data: { isActive: true }
     });
 
-    return { success: true, user: { name: unlocker.fullName, role: unlocker.role }, terminal: { id: terminal.id, name: terminal.posName } };
+    return { success: true, user: { name: unlocker.fullName as string | null, role: unlocker.role }, terminal: { id: terminal.id, name: terminal.posName } };
 
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "Internal Error" };
+    return { success: false, error: toSafeActionError(error, "Unable to unlock the terminal.") };
   }
 }
 
@@ -91,18 +103,31 @@ export async function authorizeManagerAction(pin: string, actionType: string, re
 
         if (!currentProfile) return { success: false, error: "Profile not found" };
 
-        const manager = await prisma.profile.findFirst({
-            where: { companyId: currentProfile.companyId, pin: pin, role: { in: ["manager", "admin"] } }
+        await enforceRateLimit({
+            bucket: "managerPin",
+            route: "/pos",
+            action: "MANAGER_APPROVAL_PIN",
+            profileId: currentProfile.id,
+            userId: currentProfile.id,
+            role: currentProfile.role,
+            companyId: currentProfile.companyId,
         });
 
-        if (!manager) {
+        const manager = await findProfileByPin({
+            companyId: currentProfile.companyId!,
+            pin,
+            roles: ["manager", "admin"],
+            select: { id: true, email: true, fullName: true, status: true }
+        });
+
+        if (!manager || manager.status !== "active") {
             return { success: false, error: "Invalid Manager PIN" };
         }
 
         // Log the approval
         await auditLogService.create(prisma, {
             companyId: currentProfile.companyId!,
-            actorProfileId: manager.id,
+            actorProfileId: manager.id as string,
             actionType,
             referenceId,
         });
@@ -112,7 +137,7 @@ export async function authorizeManagerAction(pin: string, actionType: string, re
             category: "APPROVAL",
             type: "sensitive_action_approved",
             title: "Sensitive action approved",
-            body: `${manager.fullName || "Manager"} approved ${actionType}.`,
+            body: `${(manager.fullName as string | null) || "Manager"} approved ${actionType}.`,
             href: "/pos",
             relatedEntityType: "approval",
             relatedEntityId: referenceId,
@@ -121,13 +146,13 @@ export async function authorizeManagerAction(pin: string, actionType: string, re
         return { 
             success: true, 
             manager: { 
-                id: manager.id, 
-                email: manager.email, 
-                name: manager.fullName || "Manager" 
+                id: manager.id as string, 
+                email: manager.email as string, 
+                name: (manager.fullName as string | null) || "Manager" 
             } 
         };
     } catch (error) {
         console.error("Authorization Error:", error);
-        return { success: false, error: error instanceof Error ? error.message : "Internal Error" };
+        return { success: false, error: toSafeActionError(error, "Unable to authorize this manager action.") };
     }
 }

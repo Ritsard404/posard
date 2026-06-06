@@ -95,7 +95,6 @@ export interface ManagerVerifierDto {
   email: string;
   name: string;
   role: string;
-  pinVerifier: string;
 }
 
 export interface SessionSnapshotDto {

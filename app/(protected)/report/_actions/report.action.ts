@@ -700,7 +700,6 @@ export async function saveReportTerminalPrinterConfigAction(input: {
       validated.printerConfig,
     );
 
-    revalidatePath("/report");
     revalidatePath("/reports");
     revalidatePath(`/companies/${validated.companyId}/report`);
     revalidatePath(`/companies/${validated.companyId}/terminals/${validated.terminalId}/report`);

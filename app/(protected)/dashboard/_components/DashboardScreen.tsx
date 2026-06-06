@@ -633,10 +633,10 @@ function OperationsDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
               <Link href="/pos"><ShoppingCart className="size-4" /> New Sale</Link>
             </Button>
             <Button asChild variant="outline" className="h-10 justify-start rounded-lg">
-              <Link href="/report?view=transactions"><Receipt className="size-4" /> History</Link>
+              <Link href="/reports/sales"><Receipt className="size-4" /> History</Link>
             </Button>
             <Button asChild variant="outline" className="h-10 justify-start rounded-lg">
-              <Link href="/report?view=invoice-documents"><Receipt className="size-4" /> Reprint</Link>
+              <Link href="/reports/documents"><Receipt className="size-4" /> Reprint</Link>
             </Button>
             <Button asChild variant="outline" className="h-10 justify-start rounded-lg">
               <Link href="/pos"><Wallet className="size-4" /> Cash In/Out</Link>
@@ -781,7 +781,7 @@ function OperationsDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
                   </div>
                   {dashboard.role !== "cashier" ? (
                     <Button asChild variant="ghost" size="sm" className="rounded-xl">
-                      <Link href="/report?view=transactions">
+                      <Link href="/reports/sales">
                         Open
                         <ArrowRight className="size-4" />
                       </Link>
@@ -819,7 +819,7 @@ export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) 
       ? null
       : dashboard.role === "admin"
         ? { href: "/subscriptions", label: "Review Subscriptions", icon: Clock3 }
-        : { href: "/report", label: "Open Reports", icon: Receipt };
+        : { href: "/reports", label: "Open Reports", icon: Receipt };
 
   return (
     <div className="space-y-6">
