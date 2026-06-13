@@ -21,6 +21,14 @@ export interface AccountCompanyOptionDto {
   cashierCount: number;
   cashierLimit: number;
   cashierSlotsAvailable: number;
+  branches: AccountBranchOptionDto[];
+}
+
+export interface AccountBranchOptionDto {
+  id: string;
+  companyId: string;
+  name: string;
+  isActive: boolean;
 }
 
 export interface AccountPermissionsDto {
@@ -38,6 +46,10 @@ export interface AccountListItemDto extends AccountPermissionsDto {
   role: UserRole;
   status: UserStatus;
   company: {
+    id: string | null;
+    name: string | null;
+  };
+  branch: {
     id: string | null;
     name: string | null;
   };
@@ -63,12 +75,14 @@ export interface CreateAccountInputDto {
   role: ManagedAccountRole;
   companyId: string;
   password?: string | null;
+  branchId?: string | null;
 }
 
 export interface UpdateAccountInputDto {
   fullName: string | null;
   companyId: string;
   password?: string | null;
+  branchId?: string | null;
 }
 
 export interface UpdateOwnProfileInputDto {

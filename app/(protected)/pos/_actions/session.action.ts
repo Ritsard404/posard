@@ -108,7 +108,7 @@ async function getCurrentProfile() {
 
   const profile = await prisma.profile.findFirst({
     where: { userId: data.user.id },
-    select: { id: true, companyId: true, role: true, fullName: true },
+    select: { id: true, companyId: true, branchId: true, role: true, fullName: true },
   });
 
   if (!profile) throw new Error("Profile not found");
@@ -223,7 +223,10 @@ export async function getTerminalsAction() {
     }
 
     const terminals = await prisma.posTerminalInfo.findMany({
-      where: { companyId: profile.companyId },
+      where: {
+        companyId: profile.companyId,
+        ...(profile.role === "cashier" ? { branchId: profile.branchId ?? "__missing_branch__" } : {}),
+      },
       select: {
         id: true,
         posName: true,
@@ -331,6 +334,9 @@ export async function openSessionAction(
     if (!profile.companyId) {
       return { success: false as const, error: "No company associated with user." };
     }
+    if (profile.role === "cashier" && !profile.branchId) {
+      return { success: false as const, error: "No branch assigned. Please contact your manager." };
+    }
     await assertTerminalBillingAllowsPos(profile.companyId, terminalId);
 
     if (!managerPin.trim()) {
@@ -353,6 +359,7 @@ export async function openSessionAction(
         companyId: profile.companyId,
         role: profile.role,
         fullName: profile.fullName ?? null,
+        branchId: profile.branchId ?? null,
       },
       terminalId,
       managerPin,
@@ -419,6 +426,7 @@ export async function withdrawCashAction(
         companyId: profile.companyId,
         role: profile.role,
         fullName: profile.fullName ?? null,
+        branchId: profile.branchId ?? null,
       },
       timestampId,
       amount,
@@ -483,6 +491,7 @@ export async function closeSessionAction(
         companyId: profile.companyId,
         role: profile.role,
         fullName: profile.fullName ?? null,
+        branchId: profile.branchId ?? null,
       },
       sessionId,
       timestampId,

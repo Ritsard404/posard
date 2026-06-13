@@ -65,6 +65,7 @@ async function getActiveTimestampForOrder(
     },
     select: {
       id: true,
+      branchId: true,
       cashierId: true,
       deviceId: true,
       forceClosedAt: true,
@@ -282,6 +283,34 @@ async function reserveNextTerminalInvoiceNumber(
   });
 
   return isTrainMode ? trainOffset + nextCounter : nextCounter;
+}
+
+async function reserveNextBranchInvoiceNumber(
+  db: Prisma.TransactionClient,
+  branchId: string | null,
+) {
+  if (!branchId) {
+    return null;
+  }
+
+  const branch = await db.branch.update({
+    where: { id: branchId },
+    data: { invoiceCounter: { increment: 1 } },
+    select: {
+      invoiceCounter: true,
+      invoicePrefix: true,
+      code: true,
+      name: true,
+    },
+  });
+
+  const prefix =
+    branch.invoicePrefix ||
+    branch.code ||
+    branch.name.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 6) ||
+    "BR";
+
+  return `${prefix}-${String(branch.invoiceCounter).padStart(6, "0")}`;
 }
 
 async function resolveAutoPromotion(input: {
@@ -995,6 +1024,9 @@ export const orderService = {
             terminal.id,
             terminal.isTrainMode,
           ));
+        const branchInvoiceNo =
+          dto.localInvoiceNo ??
+          (await reserveNextBranchInvoiceNumber(tx, activeTimestamp.branchId));
 
         let debtReceipt: ReceiptDto["debt"] = null;
         let customerNameOverride: string | undefined;
@@ -1066,8 +1098,9 @@ export const orderService = {
               idempotencyKey: dto.idempotencyKey ?? null,
               sourceDeviceId: dto.deviceId ?? activeTimestamp.deviceId ?? null,
               sourceTimestampId: activeTimestamp.id,
-              localInvoiceNo: dto.localInvoiceNo ?? null,
+              localInvoiceNo: branchInvoiceNo,
               posTerminalId: terminal.id,
+              branchId: activeTimestamp.branchId,
               cashierId: activeTimestamp.cashierId,
 
               grossAmount: calc.grossAmount,
@@ -1313,8 +1346,9 @@ export const orderService = {
             idempotencyKey: dto.idempotencyKey ?? null,
             sourceDeviceId: dto.deviceId ?? activeTimestamp.deviceId ?? null,
             sourceTimestampId: activeTimestamp.id,
-            localInvoiceNo: dto.localInvoiceNo ?? null,
+            localInvoiceNo: branchInvoiceNo,
             posTerminalId: terminal.id,
+            branchId: activeTimestamp.branchId,
             cashierId: activeTimestamp.cashierId,
 
             grossAmount: calc.grossAmount,
@@ -1797,11 +1831,17 @@ export const orderService = {
         terminal.id,
         terminal.isTrainMode,
       );
+      const branchInvoiceNo = await reserveNextBranchInvoiceNumber(
+        tx,
+        activeTimestamp.branchId,
+      );
 
       const voidInvoice = await tx.invoice.create({
         data: {
           invoiceNumber,
+          localInvoiceNo: branchInvoiceNo,
           posTerminalId: terminal.id,
+          branchId: activeTimestamp.branchId,
           cashierId: activeTimestamp.cashierId,
           voidedById: manager.id,
           reason: dto.reason,

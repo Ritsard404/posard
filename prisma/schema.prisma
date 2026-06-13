@@ -268,6 +268,9 @@ model Profile {
   companyId String?  @map("company_id") @db.Uuid
   company   Company? @relation(fields: [companyId], references: [id])
 
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   timestampsAsCashier     Timestamp[] @relation("CashierTimestamp")
   timestampsAsManagerIn   Timestamp[] @relation("ManagerInTimestamp")
   timestampsAsManagerOut  Timestamp[] @relation("ManagerOutTimestamp")
@@ -297,6 +300,7 @@ model Profile {
   branchTransfersRequested          BranchTransfer[]     @relation("BranchTransferRequestedBy")
   branchTransfersApproved           BranchTransfer[]     @relation("BranchTransferApprovedBy")
   branchTransfersReceived           BranchTransfer[]     @relation("BranchTransferReceivedBy")
+  managedBranches                   Branch[]             @relation("BranchManager")
   loyaltyTransactionsCreated        LoyaltyTransaction[] @relation("LoyaltyTransactionCreatedBy")
   kitchenTicketsUpdated             KitchenTicket[]      @relation("KitchenTicketUpdatedBy")
   auditLogs                         AuditLog[]            @relation("ActorAuditLog")
@@ -315,6 +319,7 @@ model Profile {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([companyId])
+  @@index([branchId])
   @@map("profiles")
   @@schema("public")
 }
@@ -419,6 +424,7 @@ model Company {
   //////////////////////////////////////////////////
 
   users            Profile[]
+  branches         Branch[]
   images           CompanyImage[]
   posTerminals     PosTerminalInfo[]
   terminalRequests TerminalRequest[]
@@ -459,6 +465,48 @@ model Company {
 /////////////////////////////////////////////////
 // COMPANY IMAGES
 /////////////////////////////////////////////////
+
+model Branch {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  name     String
+  code     String?
+  address  String?
+  phone    String?
+  email    String?
+  isActive Boolean @default(true) @map("is_active")
+  timezone String? @default("Asia/Manila")
+  currency String? @default("PHP")
+  taxMode  String? @default("inherit") @map("tax_mode")
+  taxRate  Decimal? @map("tax_rate") @db.Decimal(5, 2)
+  receiptFooter String? @map("receipt_footer")
+  logoImageUrl  String? @map("logo_image_url") @db.VarChar(500)
+  openingDate   DateTime? @map("opening_date") @db.Date
+  invoicePrefix String? @map("invoice_prefix") @db.VarChar(20)
+  invoiceCounter Int @default(0) @map("invoice_counter")
+  settings Json?
+
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  managerId String? @map("manager_id") @db.Uuid
+  manager   Profile? @relation("BranchManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  cashiers     Profile[]
+  posTerminals PosTerminalInfo[]
+  timestamps   Timestamp[]
+  invoices     Invoice[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId, isActive])
+  @@index([managerId])
+  @@map("branch")
+  @@schema("public")
+}
 
 model CompanyImage {
   id        Int    @id @default(autoincrement())
@@ -537,6 +585,9 @@ model PosTerminalInfo {
 
   companyId String  @map("company_id") @db.Uuid
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   timestamps   Timestamp[]
   subscription TerminalSubscription?
@@ -888,6 +939,9 @@ model Timestamp {
   posTerminalId String          @map("pos_terminal_id") @db.Uuid
   posTerminal   PosTerminalInfo @relation(fields: [posTerminalId], references: [id])
 
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   cashierId String  @map("cashier_id") @db.Uuid
   cashier   Profile @relation("CashierTimestamp", fields: [cashierId], references: [id])
 
@@ -913,6 +967,7 @@ model Timestamp {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([posTerminalId])
+  @@index([branchId])
   @@index([posTerminalId, timestampIn])
   @@index([cashierId])
   @@index([cashierId, timestampIn])
@@ -1305,6 +1360,9 @@ model Invoice {
   posTerminalId String          @map("uuid_pos_terminal") @db.Uuid
   posTerminal   PosTerminalInfo @relation(fields: [posTerminalId], references: [id])
 
+  branchId String? @map("branch_id") @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   cashierId String  @map("cashier_id") @db.Uuid
   cashier   Profile @relation("CashierInvoice", fields: [cashierId], references: [id])
 
@@ -1329,6 +1387,7 @@ model Invoice {
 
   @@unique([posTerminalId, invoiceNumber], name: "uk_invoice_terminal_invoice_number")
   @@index([posTerminalId])
+  @@index([branchId])
   @@index([posTerminalId, status, createdAt])
   @@index([cashierId])
   @@index([cashierId, createdAt])

@@ -13,6 +13,7 @@ import type { ReportPrintPayloadDto } from "@/app/(protected)/report/_services/_
 export interface SessionActorContext {
   profileId: string;
   companyId: string;
+  branchId: string | null;
   role: string;
   fullName: string | null;
 }
@@ -94,6 +95,16 @@ export const sessionMutationService = {
       throw new Error("Invalid terminal");
     }
 
+    if (actor.role === "cashier") {
+      if (!actor.branchId) {
+        throw new Error("No branch assigned. Please contact your manager.");
+      }
+
+      if (terminal.branchId !== actor.branchId) {
+        throw new Error("This terminal is not assigned to your branch.");
+      }
+    }
+
     const activeTerminalSession = await prisma.timestamp.findFirst({
       where: { posTerminalId: terminal.id, timestampOut: null },
       select: { id: true, deviceId: true },
@@ -118,6 +129,7 @@ export const sessionMutationService = {
       const timestamp = await tx.timestamp.create({
         data: {
           posTerminalId: terminal.id,
+          branchId: terminal.branchId,
           cashierId: actor.profileId,
           managerInId: approver.id as string,
           timestampIn: new Date(),

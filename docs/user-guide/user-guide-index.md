@@ -27,6 +27,7 @@ Simple guides for daily POSard work. Start with the section that matches what yo
 
 ## Management
 - [How to set up company information](how-to-set-up-company-information.md)
+- [How to manage branches](how-to-manage-branches.md)
 - [How to manage terminals](how-to-manage-terminals.md)
 - [How to set up printers](how-to-set-up-printers.md)
 - [How to manage sales accounts and payment labels](how-to-manage-sales-accounts-and-payment-labels.md)

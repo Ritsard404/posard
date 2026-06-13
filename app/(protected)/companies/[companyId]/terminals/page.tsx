@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import TerminalsPageClient from "./_components/TerminalsPageClient";
 import { companyAccessService } from "../_services/company-access.service";
 import { CompanyBackLink } from "../_components/CompanyBackLink";
+import { branchService } from "../_services/branch.service";
 
 interface TerminalsPageProps {
   params: Promise<{ companyId: string }>;
@@ -17,7 +18,10 @@ export default async function TerminalsPage({ params, searchParams }: TerminalsP
   try {
     const { companyId } = await params;
     const resolvedSearchParams = searchParams ? await searchParams : undefined;
-    const viewer = await companyAccessService.assertCompanyAccess(companyId);
+    const [viewer, branches] = await Promise.all([
+      companyAccessService.assertCompanyAccess(companyId),
+      branchService.getBranches(companyId),
+    ]);
     const requestedView = resolvedSearchParams?.view;
     const initialView =
       requestedView === "terminal" || requestedView === "printer" || requestedView === "list"
@@ -51,7 +55,15 @@ export default async function TerminalsPage({ params, searchParams }: TerminalsP
           </Button>
         </div>
 
-        <TerminalsPageClient companyId={companyId} role={viewer.role} initialView={initialView} />
+        <TerminalsPageClient
+          companyId={companyId}
+          role={viewer.role}
+          initialView={initialView}
+          branchOptions={branches.filter((branch) => branch.isActive).map((branch) => ({
+            id: branch.id,
+            name: branch.name,
+          }))}
+        />
       </div>
     );
   } catch {

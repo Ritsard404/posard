@@ -256,6 +256,15 @@ const guideGroups: HelpGroup[] = [
         keywords: ["company", "business info", "receipt details", "setup"],
       },
       {
+        title: "Manage branches",
+        role: "Manager / Admin",
+        audience: ["manager", "admin"],
+        summary: "Create operational branches with a default POS terminal, manager assignment, and branch invoice prefix.",
+        steps: ["Open Company.", "Select Branches.", "Add or edit the branch details.", "Review manager, tax, receipt, opening date, and invoice prefix.", "Save the branch.", "Open User Management to assign cashiers to the correct branch."],
+        reminder: "A new branch automatically gets Terminal 1, and the default cashier limit counts active cashiers across the whole company.",
+        keywords: ["branch", "branches", "location", "cashier assignment", "company branch", "default pos", "invoice prefix", "branch manager"],
+      },
+      {
         title: "Manage terminals",
         role: "Manager / Admin",
         audience: ["manager", "admin"],

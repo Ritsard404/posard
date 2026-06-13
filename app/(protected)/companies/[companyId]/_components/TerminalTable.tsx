@@ -87,7 +87,7 @@ export default function TerminalTable({
                   <th className="px-4 py-3">POS Name</th>
                   <th className="px-4 py-3">MIN Number</th>
                   <th className="px-4 py-3">PTU Number</th>
-                  <th className="px-4 py-3">Registered Name</th>
+                  <th className="px-4 py-3">Branch</th>
                   <th className="px-4 py-3">Valid Until</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Billing</th>
@@ -108,7 +108,7 @@ export default function TerminalTable({
                     <td className="px-4 py-3 font-medium text-gray-900">{t.posName ?? "Unnamed terminal"}</td>
                     <td className="px-4 py-3 text-gray-600">{t.minNumber ?? "Not set"}</td>
                     <td className="px-4 py-3 text-gray-600">{t.ptuNumber ?? "Not set"}</td>
-                    <td className="px-4 py-3 text-gray-600">{t.registeredName ?? "No registered name"}</td>
+                    <td className="px-4 py-3 text-gray-600">{t.branchName ?? "No branch"}</td>
                     <td className="px-4 py-3 text-gray-600">
                       {new Date(t.validUntil).toLocaleDateString()}
                     </td>
@@ -253,6 +253,7 @@ export default function TerminalTable({
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 space-y-1">
+                  <div>Branch: {t.branchName ?? "No branch"}</div>
                   <div>MIN: {t.minNumber ?? "Not set"}</div>
                   <div>PTU: {t.ptuNumber ?? "Not set"}</div>
                   <div>Valid until: {new Date(t.validUntil).toLocaleDateString()}</div>

@@ -18,6 +18,14 @@ const emptyStringToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
     return value;
   }, schema.optional());
 
+const optionalBranchIdInput = z.preprocess((value) => {
+  if (value === "" || value === undefined) {
+    return null;
+  }
+
+  return value;
+}, z.string().uuid("A valid branch is required").nullable().optional());
+
 export const GetAccountsSchema = z.object({
   keyword: z
     .string()
@@ -37,6 +45,7 @@ export const CreateAccountSchema = z.object({
   fullName: nullableTextInput,
   role: z.enum(["manager", "cashier"]),
   companyId: z.string().uuid("A valid company is required"),
+  branchId: optionalBranchIdInput,
   password: emptyStringToUndefined(
     z
       .string()
@@ -56,6 +65,7 @@ export const CreateAccountSchema = z.object({
 export const UpdateAccountSchema = z.object({
   fullName: nullableTextInput,
   companyId: z.string().uuid("A valid company is required"),
+  branchId: optionalBranchIdInput,
   password: emptyStringToUndefined(
     z
       .string()

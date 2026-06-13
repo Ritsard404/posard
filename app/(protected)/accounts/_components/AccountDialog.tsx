@@ -56,6 +56,7 @@ interface AccountDialogProps {
     fullName?: string | null;
     role?: ManagedAccountRole;
     companyId?: string | null;
+    branchId?: string | null;
   };
   onCreateSubmit?: (values: CreateAccountInputDto) => void;
   onEditSubmit?: (values: UpdateAccountInputDto) => void;
@@ -75,6 +76,7 @@ function CreateAccountDialog(props: AccountDialogProps) {
       role: props.initialValues?.role ?? props.allowedRoles?.[0] ?? "cashier",
       companyId:
         props.initialValues?.companyId ?? props.companyOptions[0]?.id ?? "",
+      branchId: props.initialValues?.branchId ?? "",
       password: "",
     },
   });
@@ -88,6 +90,7 @@ function CreateAccountDialog(props: AccountDialogProps) {
         ? props.companyOptions[0]?.id
         : selectedCompanyId),
   );
+  const branchOptions = selectedCompany?.branches ?? [];
   const cashierLimitReached =
     selectedRole === "cashier" &&
     selectedCompany !== undefined &&
@@ -100,6 +103,7 @@ function CreateAccountDialog(props: AccountDialogProps) {
       role: props.initialValues?.role ?? props.allowedRoles?.[0] ?? "cashier",
       companyId:
         props.initialValues?.companyId ?? props.companyOptions[0]?.id ?? "",
+      branchId: props.initialValues?.branchId ?? "",
       password: "",
     });
   }, [form, props.companyOptions, props.initialValues, props.allowedRoles, props.open]);
@@ -124,6 +128,7 @@ function CreateAccountDialog(props: AccountDialogProps) {
                   ? props.companyOptions[0]?.id ?? values.companyId
                   : values.companyId,
               password: values.password,
+              branchId: values.role === "cashier" ? values.branchId : null,
             }),
           )}
         >
@@ -200,6 +205,26 @@ function CreateAccountDialog(props: AccountDialogProps) {
 
           {selectedRole === "cashier" ? (
             <div className="space-y-2">
+              <Label htmlFor="branchId">Branch</Label>
+              <select
+                id="branchId"
+                className={SELECT_CLASS}
+                disabled={props.isPending}
+                {...form.register("branchId")}
+              >
+                <option value="">No branch assigned</option>
+                {branchOptions.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+              <FieldError message={form.formState.errors.branchId?.message} />
+            </div>
+          ) : null}
+
+          {selectedRole === "cashier" ? (
+            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
@@ -249,6 +274,7 @@ function EditAccountDialog(props: AccountDialogProps) {
       fullName: props.initialValues?.fullName ?? "",
       companyId:
         props.initialValues?.companyId ?? props.companyOptions[0]?.id ?? "",
+      branchId: props.initialValues?.branchId ?? "",
       password: "",
     },
   });
@@ -258,6 +284,7 @@ function EditAccountDialog(props: AccountDialogProps) {
       fullName: props.initialValues?.fullName ?? "",
       companyId:
         props.initialValues?.companyId ?? props.companyOptions[0]?.id ?? "",
+      branchId: props.initialValues?.branchId ?? "",
       password: "",
     });
   }, [form, props.companyOptions, props.initialValues, props.open]);
@@ -280,6 +307,7 @@ function EditAccountDialog(props: AccountDialogProps) {
                   ? props.companyOptions[0]?.id ?? values.companyId
                   : values.companyId,
               password: values.password,
+              branchId: values.branchId,
             }),
           )}
         >
@@ -310,6 +338,32 @@ function EditAccountDialog(props: AccountDialogProps) {
               ))}
             </select>
             <FieldError message={form.formState.errors.companyId?.message} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-branchId">Branch</Label>
+            <select
+              id="edit-branchId"
+              className={SELECT_CLASS}
+              disabled={props.isPending}
+              {...form.register("branchId")}
+            >
+              <option value="">No branch assigned</option>
+              {props.companyOptions
+                .find(
+                  (company) =>
+                    company.id ===
+                    (props.viewerRole === "manager"
+                      ? props.companyOptions[0]?.id
+                      : form.watch("companyId")),
+                )
+                ?.branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+            </select>
+            <FieldError message={form.formState.errors.branchId?.message} />
           </div>
 
           <div className="space-y-2">

@@ -43,12 +43,14 @@ interface TerminalsPageClientProps {
   companyId: string;
   role: "admin" | "manager";
   initialView?: "list" | "terminal" | "printer";
+  branchOptions: Array<{ id: string; name: string }>;
 }
 
 export default function TerminalsPageClient({
   companyId,
   role,
   initialView = "list",
+  branchOptions,
 }: TerminalsPageClientProps) {
   const [terminals, setTerminals] = useState<TerminalDTO[]>([]);
   const [requests, setRequests] = useState<TerminalRequestDTO[]>([]);
@@ -329,6 +331,7 @@ export default function TerminalsPageClient({
 
       <TerminalFormModal
         terminal={modalTerminal}
+        branchOptions={branchOptions}
         isOpen={isModalOpen}
         isSubmitting={isSubmitting}
         onClose={handleClose}

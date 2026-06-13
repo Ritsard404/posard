@@ -8,7 +8,7 @@ import type {
 } from "../_dto/accounts.dto";
 
 type ProfileWithCompany = Prisma.ProfileGetPayload<{
-  include: { company: true };
+  include: { company: true; branch: true };
 }>;
 
 function getPermissions(
@@ -64,6 +64,9 @@ export function mapProfileToAccountListItem(
     company: profile.company
       ? { id: profile.company.id, name: profile.company.name }
       : { id: null, name: null },
+    branch: profile.branch
+      ? { id: profile.branch.id, name: profile.branch.name }
+      : { id: null, name: null },
     isSelf: viewer.profileId === profile.id,
     ...getPermissions(viewer, profile),
   };
@@ -87,9 +90,11 @@ export function mapCompanyToOption(
     name: string;
     terminalCount: number;
     cashierCount: number;
+    cashierLimit?: number;
+    branches?: AccountCompanyOptionDto["branches"];
   },
 ): AccountCompanyOptionDto {
-  const cashierLimit = company.terminalCount * 2;
+  const cashierLimit = company.cashierLimit ?? 2;
 
   return {
     id: company.id,
@@ -98,5 +103,6 @@ export function mapCompanyToOption(
     cashierCount: company.cashierCount,
     cashierLimit,
     cashierSlotsAvailable: Math.max(cashierLimit - company.cashierCount, 0),
+    branches: company.branches ?? [],
   };
 }

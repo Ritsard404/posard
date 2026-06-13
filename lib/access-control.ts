@@ -481,14 +481,14 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         permission: "view.company",
         roles: ["manager"],
       },
-      // {
-      //   id: "branches-centers",
-      //   label: "Branches / Centers",
-      //   icon: ChevronRight,
-      //   roles: ["manager"],
-      //   disabled: true,
-      //   badge: "Soon",
-      // },
+      {
+        id: "branches",
+        label: "Branches",
+        icon: StoreIcon,
+        href: "/companies/[companyId]/branches",
+        permission: "view.company",
+        roles: ["manager"],
+      },
       // {
       //   id: "cost-center",
       //   label: "Cost Center",

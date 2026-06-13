@@ -88,12 +88,15 @@ Also inspect:
 - related feature folders
 - `schema.prisma`
 - nearby actions and report/service patterns
+- `docs/user-guide/user-guide-index.md` and existing `docs/user-guide/how-to-*.md` pages when the task creates or changes a user-facing feature
+- `app/(protected)/help/HelpCenterClient.tsx` when the feature should be discoverable in the in-app Help Center
 
 ## Step 2: Plan
 Provide a short plan before implementation:
 - files to reuse
 - files to modify
 - files to create, if any
+- user guide pages or Help Center entries to update for user-facing feature changes
 
 Do not write code yet.
 
@@ -102,6 +105,10 @@ Do not write code yet.
 - Do not regenerate full files unless necessary
 - Do not duplicate logic
 - Prefer targeted diffs over broad rewrites
+- For every user-facing feature created or materially changed, update the user guide in the same implementation:
+  - add or update the matching `docs/user-guide/how-to-*.md` page
+  - add or update the link in `docs/user-guide/user-guide-index.md`
+  - add or update the matching in-app Help Center guide entry when the feature belongs in searchable operator help
 
 ## Step 4: Validate
 Confirm:
@@ -110,6 +117,8 @@ Confirm:
 - no raw server error exposure
 - no duplicate logic or files
 - type safety
+- user guide coverage for every user-facing feature created or materially changed
+- Help Center discoverability when the feature is part of daily operator, manager, or admin workflows
 
 ---
 
@@ -148,6 +157,34 @@ Before creating a new file:
 3. If a new file is still necessary, justify it in 1 to 2 lines
 
 New files are allowed only when extending an existing file would clearly reduce clarity or violate layer boundaries.
+
+---
+
+# User Guide Rule (STRICT)
+
+Every user-facing feature implementation must include documentation updates before the task is considered complete.
+
+Required checks:
+- If a new workflow, page, action, setting, report, POS behavior, admin control, or manager/cashier operation is added, create or update a `docs/user-guide/how-to-*.md` page.
+- If the guide page is new, link it from `docs/user-guide/user-guide-index.md` under the most relevant section.
+- If the feature should be searchable from the app, update `app/(protected)/help/HelpCenterClient.tsx` with a concise guide entry, role audience, steps, reminder, and keywords.
+- Keep guide language operational and non-technical. Write for cashiers, managers, and admins doing real store work.
+- Do not expose implementation details such as DTOs, Prisma fields, server actions, stack traces, or internal service names in the user guide.
+- If the change is backend-only and has no operator-visible behavior, explicitly note that no user guide update was needed.
+
+Documentation should reuse the existing short how-to format:
+
+```md
+# How to ...
+
+## What this feature does
+## When to use it
+## Before you begin
+## Steps
+## What happens next
+## Tips or reminders
+## Common questions or issues
+```
 
 ---
 
@@ -331,6 +368,7 @@ At the end of every task, include:
 ## Notes
 - Why new files were created, if any
 - What redundancy was avoided
+- User guide updates made, or why no user guide update was needed
 
 ---
 

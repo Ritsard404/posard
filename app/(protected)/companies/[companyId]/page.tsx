@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings,
   Terminal,
+  GitBranch,
 } from "lucide-react";
 import { CompanyBackLink } from "./_components/CompanyBackLink";
 import { companyAccessService } from "./_services/company-access.service";
@@ -54,6 +55,13 @@ export default async function CompanyOverviewPage({ params }: CompanyOverviewPag
           ? "Review company-wide sales and terminal drill-down reports."
           : "Open your company-scoped reporting workspace.",
       color: "bg-amber-50 text-amber-600",
+    },
+    {
+      href: `/companies/${companyId}/branches`,
+      icon: GitBranch,
+      label: "Branches",
+      description: "Manage branch records, cashier assignment scope, and branch reporting.",
+      color: "bg-cyan-50 text-cyan-600",
     },
     {
       href: `/companies/${companyId}/terminals`,

@@ -22,10 +22,10 @@ import type {
 } from "./_dto/accounts.dto";
 
 type ProfileWithCompany = Prisma.ProfileGetPayload<{
-  include: { company: true };
+  include: { company: true; branch: true };
 }>;
 
-const CASHIER_LIMIT_PER_TERMINAL = 2;
+const DEFAULT_MAX_CASHIERS = 2;
 
 function assertViewerCanManageAccounts(viewer: AccountsViewerDto) {
   if (viewer.role === "cashier") {
@@ -71,17 +71,37 @@ async function ensureCompanyExists(companyId: string) {
   }
 }
 
+async function ensureBranchBelongsToCompany(
+  branchId: string | null | undefined,
+  companyId: string,
+) {
+  if (!branchId) {
+    return null;
+  }
+
+  const branch = await prisma.branch.findFirst({
+    where: { id: branchId, companyId, isActive: true },
+    select: { id: true },
+  });
+
+  if (!branch) {
+    throw new Error("Branch not found");
+  }
+
+  return branch.id;
+}
+
 async function getCompanyCashierCapacity(companyId: string) {
   const [terminalCount, cashierCount] = await Promise.all([
     prisma.posTerminalInfo.count({
       where: { companyId },
     }),
     prisma.profile.count({
-      where: { companyId, role: "cashier" },
+      where: { companyId, role: "cashier", status: { not: "disabled" } },
     }),
   ]);
 
-  const cashierLimit = terminalCount * CASHIER_LIMIT_PER_TERMINAL;
+  const cashierLimit = DEFAULT_MAX_CASHIERS;
 
   return {
     terminalCount,
@@ -91,12 +111,19 @@ async function getCompanyCashierCapacity(companyId: string) {
   };
 }
 
-async function assertCashierSlotAvailable(companyId: string) {
+async function assertCashierSlotAvailable(
+  companyId: string,
+  viewer: AccountsViewerDto,
+) {
+  if (viewer.role === "admin") {
+    return;
+  }
+
   const capacity = await getCompanyCashierCapacity(companyId);
 
   if (capacity.cashierCount >= capacity.cashierLimit) {
     throw new Error(
-      `Cashier account limit reached. This company has ${capacity.terminalCount} terminal(s), allowing up to ${capacity.cashierLimit} cashier account(s).`,
+      `Cashier account limit reached. The default company limit allows up to ${capacity.cashierLimit} active cashier account(s) across all branches.`,
     );
   }
 }
@@ -104,7 +131,7 @@ async function assertCashierSlotAvailable(companyId: string) {
 async function getTargetAccountOrThrow(id: string): Promise<ProfileWithCompany> {
   const profile = await prisma.profile.findUnique({
     where: { id },
-    include: { company: true },
+    include: { company: true, branch: true },
   });
 
   if (!profile) {
@@ -199,7 +226,7 @@ export const accountsService = {
 
     const profiles = await prisma.profile.findMany({
       where: buildAccountsWhere(viewer, filters),
-      include: { company: true },
+      include: { company: true, branch: true },
       orderBy: [{ fullName: "asc" }, { email: "asc" }],
     });
 
@@ -212,7 +239,7 @@ export const accountsService = {
   ): Promise<AccountDetailDto | null> {
     const profile = await prisma.profile.findUnique({
       where: { id },
-      include: { company: true },
+      include: { company: true, branch: true },
     });
 
     if (!profile) {
@@ -239,8 +266,13 @@ export const accountsService = {
           _count: {
             select: {
               posTerminals: true,
-              users: { where: { role: "cashier" } },
+              users: { where: { role: "cashier", status: { not: "disabled" } } },
             },
+          },
+          branches: {
+            where: { isActive: true },
+            select: { id: true, companyId: true, name: true, isActive: true },
+            orderBy: { name: "asc" },
           },
         },
         orderBy: { name: "asc" },
@@ -252,6 +284,8 @@ export const accountsService = {
           name: company.name,
           terminalCount: company._count.posTerminals,
           cashierCount: company._count.users,
+          cashierLimit: DEFAULT_MAX_CASHIERS,
+          branches: company.branches,
         }),
       );
     }
@@ -268,8 +302,13 @@ export const accountsService = {
         _count: {
           select: {
             posTerminals: true,
-            users: { where: { role: "cashier" } },
+            users: { where: { role: "cashier", status: { not: "disabled" } } },
           },
+        },
+        branches: {
+          where: { isActive: true },
+          select: { id: true, companyId: true, name: true, isActive: true },
+          orderBy: { name: "asc" },
         },
       },
     });
@@ -281,6 +320,8 @@ export const accountsService = {
             name: company.name,
             terminalCount: company._count.posTerminals,
             cashierCount: company._count.users,
+            cashierLimit: DEFAULT_MAX_CASHIERS,
+            branches: company.branches,
           }),
         ]
       : [];
@@ -310,8 +351,12 @@ export const accountsService = {
     await ensureCompanyExists(companyId);
 
     if (input.role === "cashier") {
-      await assertCashierSlotAvailable(companyId);
+      await assertCashierSlotAvailable(companyId, viewer);
     }
+    const branchId =
+      input.role === "cashier"
+        ? await ensureBranchBelongsToCompany(input.branchId, companyId)
+        : null;
 
     const existingProfile = await prisma.profile.findUnique({
       where: { email: input.email },
@@ -359,6 +404,7 @@ export const accountsService = {
         fullName: input.fullName,
         role: input.role,
         companyId,
+        branchId,
         status: "active",
         approvedAt: new Date(),
       },
@@ -368,10 +414,11 @@ export const accountsService = {
         fullName: input.fullName,
         role: input.role,
         companyId,
+        branchId,
         status: "active",
         approvedAt: new Date(),
       },
-      include: { company: true },
+      include: { company: true, branch: true },
     });
 
     return mapProfileToAccountDetail(profile, viewer);
@@ -397,6 +444,10 @@ export const accountsService = {
     }
 
     await ensureCompanyExists(nextCompanyId);
+    const branchId =
+      target.role === "cashier"
+        ? await ensureBranchBelongsToCompany(input.branchId, nextCompanyId)
+        : null;
 
     if (input.password) {
       const adminClient = createAdminClient();
@@ -414,8 +465,9 @@ export const accountsService = {
       data: {
         fullName: input.fullName,
         companyId: nextCompanyId,
+        branchId,
       },
-      include: { company: true },
+      include: { company: true, branch: true },
     });
 
     return mapProfileToAccountDetail(profile, viewer);
@@ -517,7 +569,7 @@ export const accountsService = {
           ? { pin: input.pin ? hashPin(input.pin) : null }
           : {}),
       },
-      include: { company: true },
+      include: { company: true, branch: true },
     });
 
     return mapProfileToAccountDetail(profile, viewer);

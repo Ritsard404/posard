@@ -124,6 +124,8 @@ export const TerminalSchema = z.object({
   isTrainMode: z.boolean(),
   isActive: z.boolean(),
   companyId: z.string().uuid(),
+  branchId: z.string().uuid().nullable(),
+  branchName: z.string().nullable().optional(),
   companyName: z.string().nullable().optional(),
   subscriptionStatus: z.enum(["pending", "active", "expired", "suspended", "cancelled"]).nullable().optional(),
   subscriptionExpiresAt: z.date().nullable().optional(),
@@ -177,6 +179,7 @@ const CreateTerminalBaseSchema = z.object({
   vatTinNumber: nullableStringInput.optional(),
   vat: terminalVatInput.optional(),
   printerName: nullableStringInput.optional(),
+  branchId: z.string().uuid("A valid branch is required").nullable().optional(),
 }).merge(TerminalDiscountCapFieldsBaseSchema.partial({
   discountMax: true,
 }));

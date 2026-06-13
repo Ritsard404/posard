@@ -206,6 +206,7 @@ export function AccountsPageClient({
           initialValues={{
             role: dialogState.role,
             companyId: viewer.role === "manager" ? viewer.companyId : companyOptions[0]?.id,
+            branchId: "",
           }}
           onCreateSubmit={(values) => {
             runMutation(async () => {
@@ -241,6 +242,7 @@ export function AccountsPageClient({
           initialValues={{
             fullName: dialogState.account.fullName,
             companyId: dialogState.account.company.id,
+            branchId: dialogState.account.branch.id,
           }}
           onEditSubmit={(values) => {
             runMutation(async () => {
@@ -516,7 +518,7 @@ export function AccountsPageClient({
               <table className="w-full text-sm">
                 <thead className="bg-white/[0.03]">
                   <tr className="border-b border-white/5">
-                    {["Account", "Company", "Role", "Status", "Actions"].map((label) => (
+                    {["Account", "Company", "Branch", "Role", "Status", "Actions"].map((label) => (
                       <th
                         key={label}
                         className={`px-5 py-4 text-left text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground ${
@@ -543,6 +545,9 @@ export function AccountsPageClient({
                       </td>
                       <td className="px-5 py-4 text-muted-foreground">
                         {account.company.name ?? "Unassigned"}
+                      </td>
+                      <td className="px-5 py-4 text-muted-foreground">
+                        {account.branch.name ?? "No branch"}
                       </td>
                       <td className="px-5 py-4">
                         <RoleBadge role={account.role} />
@@ -657,7 +662,7 @@ export function AccountsPageClient({
                       <StatusBadge status={account.status} />
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {account.company.name ?? "Unassigned"}
+                      {account.company.name ?? "Unassigned"} · {account.branch.name ?? "No branch"}
                     </p>
                     <div
                       className="flex flex-wrap gap-2"

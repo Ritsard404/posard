@@ -13,6 +13,7 @@ import { printConfigService } from "@/app/(protected)/pos/_services/print-config
 type TerminalRecord = Prisma.PosTerminalInfoGetPayload<{
   include: {
     company: { select: { name: true } };
+    branch: { select: { name: true } };
     subscription: { select: { status: true; expiresAt: true } };
     sessions: {
       where: { isActive: true };
@@ -138,6 +139,8 @@ function mapTerminal(terminal: TerminalRecord): TerminalDTO {
     enableProductModifiers: terminal.enableProductModifiers,
     enableKitchenTickets: terminal.enableKitchenTickets,
     companyName: terminal.company?.name ?? null,
+    branchId: terminal.branchId,
+    branchName: terminal.branch?.name ?? null,
     subscriptionStatus: terminal.subscription?.status ?? null,
     subscriptionExpiresAt: terminal.subscription?.expiresAt ?? null,
     billingStatusLabel: billingSnapshot.billingStatusLabel,
@@ -171,6 +174,11 @@ export const terminalService = {
       where: { companyId },
       include: {
         company: {
+          select: {
+            name: true,
+          },
+        },
+        branch: {
           select: {
             name: true,
           },
@@ -210,6 +218,11 @@ export const terminalService = {
       where: { id, companyId },
       include: {
         company: {
+          select: {
+            name: true,
+          },
+        },
+        branch: {
           select: {
             name: true,
           },
@@ -264,11 +277,24 @@ export const terminalService = {
     }
 
     const nextTerminalNumber = company._count.posTerminals + 1;
+    const branchId = payload.branchId ?? null;
+
+    if (branchId) {
+      const branch = await prisma.branch.findFirst({
+        where: { id: branchId, companyId, isActive: true },
+        select: { id: true },
+      });
+
+      if (!branch) {
+        throw new Error("Branch not found");
+      }
+    }
 
     const terminal = await prisma.posTerminalInfo.create({
       data: {
         ...normalizeVatRegistration(payload),
         companyId,
+        branchId,
         posName: `${company.name} POS ${nextTerminalNumber}`,
         registeredName: company.name,
         address: company.address,
@@ -290,10 +316,23 @@ export const terminalService = {
       where: { id, companyId }
     });
     if (!existing) throw new Error("Terminal not found");
+    if (payload.branchId) {
+      const branch = await prisma.branch.findFirst({
+        where: { id: payload.branchId, companyId, isActive: true },
+        select: { id: true },
+      });
+
+      if (!branch) {
+        throw new Error("Branch not found");
+      }
+    }
 
     const terminal = await prisma.posTerminalInfo.update({
       where: { id },
-      data: normalizeVatRegistration(payload),
+      data: {
+        ...normalizeVatRegistration(payload),
+        branchId: payload.branchId ?? null,
+      },
     });
 
     return this.getTerminalById(terminal.id, companyId).then((item) => {

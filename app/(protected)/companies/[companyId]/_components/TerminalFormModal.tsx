@@ -24,6 +24,7 @@ import {
 
 interface TerminalFormModalProps {
   terminal?: TerminalDTO;
+  branchOptions?: Array<{ id: string; name: string }>;
   isOpen: boolean;
   isSubmitting?: boolean;
   onClose: () => void;
@@ -32,6 +33,7 @@ interface TerminalFormModalProps {
 
 export default function TerminalFormModal({
   terminal,
+  branchOptions = [],
   isOpen,
   isSubmitting = false,
   onClose,
@@ -68,6 +70,7 @@ export default function TerminalFormModal({
         discountCapType: terminal.discountCapType,
         discountMax: terminal.discountMax ?? undefined,
         printerName: terminal.printerName,
+        branchId: terminal.branchId,
       });
       return;
     }
@@ -84,8 +87,9 @@ export default function TerminalFormModal({
       discountCapType: "amount",
       discountMax: undefined,
       printerName: "",
+      branchId: branchOptions[0]?.id ?? null,
     });
-  }, [isOpen, terminal, reset]);
+  }, [branchOptions, isOpen, terminal, reset]);
 
   const discountCapType = watch("discountCapType");
   const isVatRegistered = Number(watch("vat") ?? 0) > 0;
@@ -194,6 +198,20 @@ export default function TerminalFormModal({
               System Configuration
             </h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldGroup label="Branch" error={errors.branchId?.message}>
+                <select
+                  {...register("branchId")}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  disabled={isSubmitting}
+                >
+                  <option value="">No branch</option>
+                  {branchOptions.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+              </FieldGroup>
               <FieldGroup label="Printer Name" error={errors.printerName?.message}>
                 <Input {...register("printerName")} placeholder="Optional" />
               </FieldGroup>

@@ -73,6 +73,7 @@ export async function createTerminalAction(companyId: string, payload: CreateTer
     revalidatePath("/terminals");
     revalidatePath("/subscriptions");
     revalidatePath(`/companies/${companyId}`);
+    revalidatePath(`/companies/${companyId}/branches`);
     revalidatePath(`/companies/${companyId}/terminals`);
     revalidatePath(`/companies/${companyId}/subscription`);
     return { success: true, data };
@@ -91,6 +92,7 @@ export async function updateTerminalAction(id: string, companyId: string, payloa
     revalidatePath("/terminals");
     revalidatePath("/subscriptions");
     revalidatePath(`/companies/${companyId}`);
+    revalidatePath(`/companies/${companyId}/branches`);
     revalidatePath(`/companies/${companyId}/terminals`);
     revalidatePath(`/companies/${companyId}/subscription`);
     return { success: true, data };
