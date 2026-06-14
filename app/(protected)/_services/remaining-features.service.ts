@@ -22,6 +22,7 @@ async function requireCompany() {
   return {
     profileId: profile.id,
     companyId: profile.companyId,
+    branchId: profile.branchId,
     role: profile.role,
   };
 }
@@ -46,6 +47,14 @@ export const remainingFeaturesService = {
     const issues = await prisma.offlineSyncIssue.findMany({
       where: {
         ...companyWhere(viewer.companyId),
+        ...(viewer.role === "manager"
+          ? {
+              terminal: {
+                branchId:
+                  viewer.branchId ?? "00000000-0000-0000-0000-000000000000",
+              },
+            }
+          : {}),
         ...(status ? { syncStatus: status as never } : {}),
         ...(search
           ? {
@@ -54,7 +63,11 @@ export const remainingFeaturesService = {
                 { actionType: { contains: search, mode: "insensitive" } },
                 { conflictCategory: { contains: search, mode: "insensitive" } },
                 { message: { contains: search, mode: "insensitive" } },
-                { terminal: { posName: { contains: search, mode: "insensitive" } } },
+                {
+                  terminal: {
+                    posName: { contains: search, mode: "insensitive" },
+                  },
+                },
               ],
             }
           : {}),
@@ -71,7 +84,12 @@ export const remainingFeaturesService = {
         idempotencyKey: true,
         retryCount: true,
         nextRetryAt: true,
-        terminal: { select: { posName: true } },
+        terminal: {
+          select: {
+            posName: true,
+            branch: { select: { name: true, code: true } },
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -80,6 +98,8 @@ export const remainingFeaturesService = {
     return issues.map((issue) => ({
       ...issue,
       terminalName: issue.terminal?.posName ?? "Unassigned terminal",
+      branchName: issue.terminal?.branch?.name ?? "Unassigned branch",
+      branchCode: issue.terminal?.branch?.code ?? null,
     }));
   },
 
@@ -97,8 +117,14 @@ export const remainingFeaturesService = {
               OR: [
                 { referenceNumber: { contains: search, mode: "insensitive" } },
                 { notes: { contains: search, mode: "insensitive" } },
-                { category: { name: { contains: search, mode: "insensitive" } } },
-                { terminal: { posName: { contains: search, mode: "insensitive" } } },
+                {
+                  category: { name: { contains: search, mode: "insensitive" } },
+                },
+                {
+                  terminal: {
+                    posName: { contains: search, mode: "insensitive" },
+                  },
+                },
               ],
             }
           : {}),
@@ -124,7 +150,15 @@ export const remainingFeaturesService = {
     const viewer = await requireCompany();
     const search = cleanFilter(filters.search);
     const status = cleanFilter(filters.status);
-    const [movements, lowStock, negativeStock, noMovement, outOfStock, totalTracked, watchlist] = await Promise.all([
+    const [
+      movements,
+      lowStock,
+      negativeStock,
+      noMovement,
+      outOfStock,
+      totalTracked,
+      watchlist,
+    ] = await Promise.all([
       prisma.stockMovement.findMany({
         where: {
           ...companyWhere(viewer.companyId),
@@ -132,11 +166,21 @@ export const remainingFeaturesService = {
           ...(search
             ? {
                 OR: [
-                  { referenceNumber: { contains: search, mode: "insensitive" } },
+                  {
+                    referenceNumber: { contains: search, mode: "insensitive" },
+                  },
                   { sourceType: { contains: search, mode: "insensitive" } },
                   { notes: { contains: search, mode: "insensitive" } },
-                  { product: { name: { contains: search, mode: "insensitive" } } },
-                  { terminal: { posName: { contains: search, mode: "insensitive" } } },
+                  {
+                    product: {
+                      name: { contains: search, mode: "insensitive" },
+                    },
+                  },
+                  {
+                    terminal: {
+                      posName: { contains: search, mode: "insensitive" },
+                    },
+                  },
                 ],
               }
             : {}),
@@ -202,10 +246,7 @@ export const remainingFeaturesService = {
           ...companyWhere(viewer.companyId),
           trackInventory: true,
           isDeleted: false,
-          OR: [
-            { quantity: { lte: 10 } },
-            { stockMovements: { none: {} } },
-          ],
+          OR: [{ quantity: { lte: 10 } }, { stockMovements: { none: {} } }],
         },
         orderBy: [{ quantity: "asc" }, { name: "asc" }],
         take: 20,
@@ -220,7 +261,11 @@ export const remainingFeaturesService = {
           stockMovements: {
             orderBy: { createdAt: "desc" },
             take: 1,
-            select: { createdAt: true, movementType: true, referenceNumber: true },
+            select: {
+              createdAt: true,
+              movementType: true,
+              referenceNumber: true,
+            },
           },
         },
       }),
@@ -255,8 +300,12 @@ export const remainingFeaturesService = {
       movements: movements.map((movement) => ({
         ...movement,
         quantityDelta: toNumber(movement.quantityDelta),
-        quantityBefore: movement.quantityBefore ? toNumber(movement.quantityBefore) : null,
-        quantityAfter: movement.quantityAfter ? toNumber(movement.quantityAfter) : null,
+        quantityBefore: movement.quantityBefore
+          ? toNumber(movement.quantityBefore)
+          : null,
+        quantityAfter: movement.quantityAfter
+          ? toNumber(movement.quantityAfter)
+          : null,
       })),
     };
   },
@@ -312,8 +361,18 @@ export const remainingFeaturesService = {
               OR: [
                 { poNumber: { contains: search, mode: "insensitive" } },
                 { notes: { contains: search, mode: "insensitive" } },
-                { supplier: { name: { contains: search, mode: "insensitive" } } },
-                { items: { some: { product: { name: { contains: search, mode: "insensitive" } } } } },
+                {
+                  supplier: { name: { contains: search, mode: "insensitive" } },
+                },
+                {
+                  items: {
+                    some: {
+                      product: {
+                        name: { contains: search, mode: "insensitive" },
+                      },
+                    },
+                  },
+                },
               ],
             }
           : {}),
@@ -355,9 +414,25 @@ export const remainingFeaturesService = {
               OR: [
                 { transferNumber: { contains: search, mode: "insensitive" } },
                 { notes: { contains: search, mode: "insensitive" } },
-                { sourceTerminal: { posName: { contains: search, mode: "insensitive" } } },
-                { destinationTerminal: { posName: { contains: search, mode: "insensitive" } } },
-                { items: { some: { product: { name: { contains: search, mode: "insensitive" } } } } },
+                {
+                  sourceTerminal: {
+                    posName: { contains: search, mode: "insensitive" },
+                  },
+                },
+                {
+                  destinationTerminal: {
+                    posName: { contains: search, mode: "insensitive" },
+                  },
+                },
+                {
+                  items: {
+                    some: {
+                      product: {
+                        name: { contains: search, mode: "insensitive" },
+                      },
+                    },
+                  },
+                },
               ],
             }
           : {}),
@@ -406,7 +481,13 @@ export const remainingFeaturesService = {
             transactionType: true,
             reason: true,
             createdAt: true,
-            invoice: { select: { invoiceNumber: true, totalAmount: true, createdAt: true } },
+            invoice: {
+              select: {
+                invoiceNumber: true,
+                totalAmount: true,
+                createdAt: true,
+              },
+            },
           },
         },
       },
@@ -444,22 +525,32 @@ export const remainingFeaturesService = {
       return {
         ...customer,
         outstandingDebt: customer.debts
-          .filter((debt) => debt.status === "UNPAID" || debt.status === "PARTIAL")
+          .filter(
+            (debt) => debt.status === "UNPAID" || debt.status === "PARTIAL",
+          )
           .reduce((sum, debt) => sum + toNumber(debt.remainingAmount), 0),
         loyaltyPoints: customer.loyaltyTransactions.reduce(
           (sum, transaction) => sum + transaction.pointsDelta,
           0,
         ),
-        loyaltyEvents: customer.loyaltyTransactions.slice(0, 3).map((transaction) => ({
-          pointsDelta: transaction.pointsDelta,
-          transactionType: transaction.transactionType,
-          reason: transaction.reason,
-          createdAt: transaction.createdAt,
-          invoiceNumber: transaction.invoice?.invoiceNumber ?? null,
-        })),
+        loyaltyEvents: customer.loyaltyTransactions
+          .slice(0, 3)
+          .map((transaction) => ({
+            pointsDelta: transaction.pointsDelta,
+            transactionType: transaction.transactionType,
+            reason: transaction.reason,
+            createdAt: transaction.createdAt,
+            invoiceNumber: transaction.invoice?.invoiceNumber ?? null,
+          })),
         purchaseCount: customerInvoices.length,
-        totalSpent: customerInvoices.reduce((sum, invoice) => sum + toNumber(invoice.totalAmount), 0),
-        returnedAmount: customerInvoices.reduce((sum, invoice) => sum + toNumber(invoice.returnedAmount), 0),
+        totalSpent: customerInvoices.reduce(
+          (sum, invoice) => sum + toNumber(invoice.totalAmount),
+          0,
+        ),
+        returnedAmount: customerInvoices.reduce(
+          (sum, invoice) => sum + toNumber(invoice.returnedAmount),
+          0,
+        ),
         lastPurchaseAt: customerInvoices[0]?.createdAt ?? null,
         recentPurchases: customerInvoices.slice(0, 3).map((invoice) => ({
           id: invoice.id,
@@ -482,7 +573,9 @@ export const remainingFeaturesService = {
       where: {
         ...companyWhere(viewer.companyId),
         ...(status === "active" ? { isActive: true } : {}),
-        ...(status === "paused" || status === "archived" || status === "draft" ? { isActive: false } : {}),
+        ...(status === "paused" || status === "archived" || status === "draft"
+          ? { isActive: false }
+          : {}),
         ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
       },
       orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
@@ -519,7 +612,11 @@ export const remainingFeaturesService = {
                 { ticketNumber: { contains: search, mode: "insensitive" } },
                 { station: { contains: search, mode: "insensitive" } },
                 { notes: { contains: search, mode: "insensitive" } },
-                { terminal: { posName: { contains: search, mode: "insensitive" } } },
+                {
+                  terminal: {
+                    posName: { contains: search, mode: "insensitive" },
+                  },
+                },
               ],
             }
           : {}),

@@ -37,7 +37,10 @@ async function getCurrentProfile() {
   });
 }
 
-function buildReviewResult(localId: string, message: string): SyncActionResultDto {
+function buildReviewResult(
+  localId: string,
+  message: string,
+): SyncActionResultDto {
   return {
     localId,
     syncStatus: "needs_review",
@@ -47,7 +50,10 @@ function buildReviewResult(localId: string, message: string): SyncActionResultDt
   };
 }
 
-function buildFailedResult(localId: string, message: string): SyncActionResultDto {
+function buildFailedResult(
+  localId: string,
+  message: string,
+): SyncActionResultDto {
   return {
     localId,
     syncStatus: "failed",
@@ -60,10 +66,21 @@ function buildFailedResult(localId: string, message: string): SyncActionResultDt
 function syncIssueCategory(action: QueuedPosAction, message: string) {
   const text = `${action.type} ${message}`.toLowerCase();
 
-  if (text.includes("manager") || text.includes("approval")) return "manager_approval";
-  if (text.includes("session") || text.includes("terminal") || text.includes("device")) return "session_recovery";
+  if (text.includes("manager") || text.includes("approval"))
+    return "manager_approval";
+  if (
+    text.includes("session") ||
+    text.includes("terminal") ||
+    text.includes("device")
+  )
+    return "session_recovery";
   if (text.includes("stock") || text.includes("inventory")) return "inventory";
-  if (text.includes("payment") || text.includes("invoice") || text.includes("idempotency")) return "payment_recovery";
+  if (
+    text.includes("payment") ||
+    text.includes("invoice") ||
+    text.includes("idempotency")
+  )
+    return "payment_recovery";
   if (text.includes("cash") || text.includes("withdraw")) return "cash_control";
 
   return "sync_replay";
@@ -74,11 +91,15 @@ async function upsertSyncIssue(
   action: QueuedPosAction,
   result: SyncActionResultDto,
 ) {
-  if (!profile.companyId || !["failed", "needs_review"].includes(result.syncStatus)) {
+  if (
+    !profile.companyId ||
+    !["failed", "needs_review"].includes(result.syncStatus)
+  ) {
     return;
   }
 
-  const message = result.error ?? "Queued action needs review before it can be recovered.";
+  const message =
+    result.error ?? "Queued action needs review before it can be recovered.";
   const syncStatus = result.syncStatus === "failed" ? "failed" : "needs_review";
 
   await prisma.offlineSyncIssue.upsert({
@@ -144,6 +165,26 @@ async function pushSyncResult(
 ) {
   results.push(result);
 
+  if (profile.companyId) {
+    const actionType =
+      result.syncStatus === "synced"
+        ? "OFFLINE_SYNC_RETRY_SUCCEEDED"
+        : result.syncStatus === "failed"
+          ? "OFFLINE_SYNC_RETRY_FAILED"
+          : "OFFLINE_SYNC_NEEDS_REVIEW";
+
+    await auditLogService.create(prisma, {
+      companyId: profile.companyId,
+      actorProfileId: profile.id,
+      posTerminalId: action.terminalId,
+      actionType,
+      referenceId: action.localId,
+      changes:
+        result.error ??
+        `${action.type.replaceAll("_", " ").toLowerCase()} replay ${result.syncStatus}.`,
+    });
+  }
+
   if (result.syncStatus === "synced") {
     await resolveSyncIssue(profile, action);
     return;
@@ -179,7 +220,8 @@ async function validateQueuedActionAccess(
   if (timestamp.forceClosedAt) {
     return {
       ok: false as const,
-      reason: "Terminal session was force-closed while this device was offline.",
+      reason:
+        "Terminal session was force-closed while this device was offline.",
     };
   }
 
@@ -200,7 +242,10 @@ async function validateQueuedActionAccess(
   return { ok: true as const };
 }
 
-async function processSale(profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>, action: QueuedSaleAction): Promise<SyncActionResultDto> {
+async function processSale(
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
+  action: QueuedSaleAction,
+): Promise<SyncActionResultDto> {
   const order = {
     ...action.payload.order,
     invoiceNumber: undefined,
@@ -222,7 +267,10 @@ async function processSale(profile: NonNullable<Awaited<ReturnType<typeof getCur
   };
 }
 
-async function processVoid(profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>, action: QueuedVoidAction): Promise<SyncActionResultDto> {
+async function processVoid(
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
+  action: QueuedVoidAction,
+): Promise<SyncActionResultDto> {
   await orderService.cancelOrder({
     order: {
       ...action.payload.order,
@@ -335,30 +383,49 @@ export async function POST(request: Request) {
     const results: SyncActionResultDto[] = [];
 
     for (const action of sortedActions) {
-      if (action.companyId !== profile.companyId || action.cashierId !== profile.id) {
+      if (
+        action.companyId !== profile.companyId ||
+        action.cashierId !== profile.id
+      ) {
         await pushSyncResult(
           results,
           profile,
           action,
-          buildReviewResult(action.localId, "Queued action no longer belongs to the signed-in cashier."),
+          buildReviewResult(
+            action.localId,
+            "Queued action no longer belongs to the signed-in cashier.",
+          ),
         );
         continue;
       }
 
       const access = await validateQueuedActionAccess(profile.id, action);
       if (!access.ok) {
-        await pushSyncResult(results, profile, action, buildReviewResult(action.localId, access.reason));
+        await pushSyncResult(
+          results,
+          profile,
+          action,
+          buildReviewResult(action.localId, access.reason),
+        );
         continue;
       }
 
       try {
         if (action.type !== "CLOSE_SESSION") {
-          await sessionMutationService.touchTimestamp(action.timestampId, action.deviceId);
+          await sessionMutationService.touchTimestamp(
+            action.timestampId,
+            action.deviceId,
+          );
         }
 
         switch (action.type) {
           case "PAY_ORDER":
-            await pushSyncResult(results, profile, action, await processSale(profile, action));
+            await pushSyncResult(
+              results,
+              profile,
+              action,
+              await processSale(profile, action),
+            );
             break;
           case "VOID_ORDER":
             if (await hasProcessedNonSaleAction(action.idempotencyKey)) {
@@ -371,7 +438,12 @@ export async function POST(request: Request) {
               });
               break;
             }
-            await pushSyncResult(results, profile, action, await processVoid(profile, action));
+            await pushSyncResult(
+              results,
+              profile,
+              action,
+              await processVoid(profile, action),
+            );
             await markNonSaleActionProcessed({
               companyId: profile.companyId,
               actorProfileId: profile.id,
@@ -391,7 +463,12 @@ export async function POST(request: Request) {
               });
               break;
             }
-            await pushSyncResult(results, profile, action, await processWithdrawal(profile, action));
+            await pushSyncResult(
+              results,
+              profile,
+              action,
+              await processWithdrawal(profile, action),
+            );
             break;
           case "CLOSE_SESSION":
             if (await hasProcessedNonSaleAction(action.idempotencyKey)) {
@@ -404,11 +481,19 @@ export async function POST(request: Request) {
               });
               break;
             }
-            await pushSyncResult(results, profile, action, await processClose(profile, action));
+            await pushSyncResult(
+              results,
+              profile,
+              action,
+              await processClose(profile, action),
+            );
             break;
         }
       } catch (error) {
-        const message = toSafeActionError(error, "Unable to sync queued action.");
+        const message = toSafeActionError(
+          error,
+          "Unable to sync queued action.",
+        );
 
         await pushSyncResult(
           results,
@@ -430,11 +515,18 @@ export async function POST(request: Request) {
       {
         success: false,
         error:
-          error instanceof Error && error.message.startsWith("Too many requests")
+          error instanceof Error &&
+          error.message.startsWith("Too many requests")
             ? error.message
             : "Unable to sync offline actions.",
       },
-      { status: error instanceof Error && error.message.startsWith("Too many requests") ? 429 : 500 },
+      {
+        status:
+          error instanceof Error &&
+          error.message.startsWith("Too many requests")
+            ? 429
+            : 500,
+      },
     );
   }
 }

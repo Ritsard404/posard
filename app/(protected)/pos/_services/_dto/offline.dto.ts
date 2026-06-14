@@ -1,4 +1,9 @@
-import type { CategoryDto, EPaymentMethodDto, POSMetaDataDto, ProductDto } from "./pos.dto";
+import type {
+  CategoryDto,
+  EPaymentMethodDto,
+  POSMetaDataDto,
+  ProductDto,
+} from "./pos.dto";
 import type { OrderDto } from "./order.dto";
 import type { PrinterConfigDto } from "./print.dto";
 import type { ReceiptDto } from "./receipt.dto";
@@ -126,6 +131,8 @@ export interface OfflineBootstrapDto {
   managerVerifiers: ManagerVerifierDto[];
   fetchedAt: string;
   stockSnapshotVersion: string;
+  isStale?: boolean;
+  warning?: string | null;
 }
 
 export interface SyncActionResultDto {

@@ -29,6 +29,7 @@ export const getCurrentProfile = cache(async () => {
       role: true,
       status: true,
       companyId: true,
+      branchId: true,
       fullName: true,
       email: true,
     },

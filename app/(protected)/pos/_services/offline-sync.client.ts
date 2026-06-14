@@ -7,7 +7,15 @@ import type {
   QueuedSaleAction,
   SyncBatchResultDto,
 } from "./_dto/offline.dto";
-import { posOfflineDb, saveOfflineBootstrap } from "./offline-db.client";
+import {
+  fetchJsonWithRecovery,
+  toFetchRecoveryError,
+} from "@/lib/fetch-recovery";
+import {
+  getOfflineBootstrapFallback,
+  posOfflineDb,
+  saveOfflineBootstrap,
+} from "./offline-db.client";
 
 let syncInFlight: Promise<SyncBatchResultDto> | null = null;
 
@@ -27,9 +35,11 @@ async function notifyServiceWorkerToSync() {
 
   if ("sync" in registration) {
     try {
-      await (registration as ServiceWorkerRegistration & {
-        sync: { register: (tag: string) => Promise<void> };
-      }).sync.register("posard-sync-actions");
+      await (
+        registration as ServiceWorkerRegistration & {
+          sync: { register: (tag: string) => Promise<void> };
+        }
+      ).sync.register("posard-sync-actions");
       return;
     } catch {
       // Fall through to foreground retry.
@@ -51,25 +61,34 @@ export async function registerPOSServiceWorker() {
 }
 
 export async function fetchOfflineBootstrap(deviceId: string) {
-  const response = await fetch(
-    `/api/sync/bootstrap?deviceId=${encodeURIComponent(deviceId)}`,
-    {
+  try {
+    const payload = await fetchJsonWithRecovery<
+      | { success: true; data: OfflineBootstrapDto }
+      | { success: false; error: string }
+    >(`/api/sync/bootstrap?deviceId=${encodeURIComponent(deviceId)}`, {
       method: "GET",
       credentials: "same-origin",
       cache: "no-store",
-    },
-  );
+      retries: 2,
+      timeoutMs: 8_000,
+    });
 
-  const payload = (await response.json()) as
-    | { success: true; data: OfflineBootstrapDto }
-    | { success: false; error: string };
+    if (!payload.success) {
+      throw new Error(payload.error || "Unable to refresh offline bootstrap.");
+    }
 
-  if (!payload.success) {
-    throw new Error(payload.error || "Unable to refresh offline bootstrap.");
+    await saveOfflineBootstrap(payload.data);
+    return payload.data;
+  } catch (error) {
+    const classified = toFetchRecoveryError(error);
+    const fallback = await getOfflineBootstrapFallback(classified.safeMessage);
+
+    if (fallback) {
+      return fallback;
+    }
+
+    throw new Error(classified.safeMessage);
   }
-
-  await saveOfflineBootstrap(payload.data);
-  return payload.data;
 }
 
 export async function enqueueOfflineAction(action: QueuedPosAction) {
@@ -103,19 +122,24 @@ export async function commitLocalSale(input: {
     offlineCreatedAt: input.action.createdAtLocal,
   };
 
-  await posOfflineDb.transaction("rw", posOfflineDb.sales, posOfflineDb.queuedActions, async () => {
-    const existing = await posOfflineDb.sales
-      .where("clientTxnId")
-      .equals(input.action.idempotencyKey)
-      .first();
+  await posOfflineDb.transaction(
+    "rw",
+    posOfflineDb.sales,
+    posOfflineDb.queuedActions,
+    async () => {
+      const existing = await posOfflineDb.sales
+        .where("clientTxnId")
+        .equals(input.action.idempotencyKey)
+        .first();
 
-    if (existing) {
-      return;
-    }
+      if (existing) {
+        return;
+      }
 
-    await posOfflineDb.sales.put(sale);
-    await posOfflineDb.queuedActions.put(input.action);
-  });
+      await posOfflineDb.sales.put(sale);
+      await posOfflineDb.queuedActions.put(input.action);
+    },
+  );
 
   if (process.env.NODE_ENV !== "production") {
     console.info("POS local checkout commit", {
@@ -132,10 +156,13 @@ export async function getOfflineQueueSnapshot() {
   const actions = await posOfflineDb.queuedActions.toArray();
   return {
     actions,
-    pendingCount: actions.filter((action) => action.syncStatus === "pending").length,
-    syncingCount: actions.filter((action) => action.syncStatus === "syncing").length,
-    needsReviewCount: actions.filter((action) => action.syncStatus === "needs_review")
+    pendingCount: actions.filter((action) => action.syncStatus === "pending")
       .length,
+    syncingCount: actions.filter((action) => action.syncStatus === "syncing")
+      .length,
+    needsReviewCount: actions.filter(
+      (action) => action.syncStatus === "needs_review",
+    ).length,
   };
 }
 
@@ -165,7 +192,9 @@ async function syncOfflineActionsInternal() {
 
   await Promise.all(
     actions.map((action) =>
-      posOfflineDb.queuedActions.update(action.localId, { syncStatus: "syncing" }),
+      posOfflineDb.queuedActions.update(action.localId, {
+        syncStatus: "syncing",
+      }),
     ),
   );
   await Promise.all(
@@ -179,18 +208,52 @@ async function syncOfflineActionsInternal() {
       ),
   );
 
-  const response = await fetch("/api/sync/actions", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ actions }),
-  });
-
-  const payload = (await response.json()) as
+  let payload:
     | { success: true; data: SyncBatchResultDto }
     | { success: false; error: string };
+
+  try {
+    payload = await fetchJsonWithRecovery<
+      | { success: true; data: SyncBatchResultDto }
+      | { success: false; error: string }
+    >("/api/sync/actions", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ actions }),
+      retries: 0,
+      timeoutMs: 15_000,
+    });
+  } catch (error) {
+    const message = toFetchRecoveryError(error).safeMessage;
+    await Promise.all(
+      actions.map((action) =>
+        posOfflineDb.queuedActions.update(action.localId, {
+          syncStatus: "failed",
+          lastError: message,
+          retryCount: (action.retryCount ?? 0) + 1,
+          nextRetryAt: new Date(
+            Date.now() + getRetryDelayMs(action.retryCount ?? 0),
+          ).toISOString(),
+        }),
+      ),
+    );
+    await Promise.all(
+      actions
+        .filter((action) => action.type === "PAY_ORDER")
+        .map((action) =>
+          posOfflineDb.sales.update(action.localId, {
+            syncStatus: "failed",
+            retryCount: (action.retryCount ?? 0) + 1,
+            syncError: message,
+            updatedAt: new Date().toISOString(),
+          }),
+        ),
+    );
+    throw new Error(message);
+  }
 
   if (!payload.success) {
     const message = payload.error || "Unable to sync offline actions.";
@@ -223,10 +286,13 @@ async function syncOfflineActionsInternal() {
 
   for (const result of payload.data.results) {
     const action = actions.find((item) => item.localId === result.localId);
-    const retryCount = (action?.retryCount ?? 0) + (result.syncStatus === "failed" ? 1 : 0);
+    const retryCount =
+      (action?.retryCount ?? 0) + (result.syncStatus === "failed" ? 1 : 0);
     const nextRetryAt =
       result.syncStatus === "failed"
-        ? new Date(Date.now() + getRetryDelayMs(action?.retryCount ?? 0)).toISOString()
+        ? new Date(
+            Date.now() + getRetryDelayMs(action?.retryCount ?? 0),
+          ).toISOString()
         : null;
 
     await posOfflineDb.queuedActions.update(result.localId, {
@@ -234,7 +300,8 @@ async function syncOfflineActionsInternal() {
       lastError: result.error,
       retryCount,
       nextRetryAt,
-      syncedAt: result.syncStatus === "synced" ? new Date().toISOString() : null,
+      syncedAt:
+        result.syncStatus === "synced" ? new Date().toISOString() : null,
     });
     if (action?.type === "PAY_ORDER") {
       await posOfflineDb.sales.update(result.localId, {
@@ -243,7 +310,8 @@ async function syncOfflineActionsInternal() {
         retryCount,
         syncError: result.error,
         updatedAt: new Date().toISOString(),
-        syncedAt: result.syncStatus === "synced" ? new Date().toISOString() : null,
+        syncedAt:
+          result.syncStatus === "synced" ? new Date().toISOString() : null,
       });
     }
   }
@@ -251,7 +319,9 @@ async function syncOfflineActionsInternal() {
   if (process.env.NODE_ENV !== "production") {
     console.info("POS background sync timing", {
       actionCount: actions.length,
-      syncedCount: payload.data.results.filter((item) => item.syncStatus === "synced").length,
+      syncedCount: payload.data.results.filter(
+        (item) => item.syncStatus === "synced",
+      ).length,
     });
   }
 

@@ -36,6 +36,7 @@ import { formatCurrency, usePOSPaymentSummary } from "./checkout-shared";
 import { CustomerDisplayPublisher } from "./CustomerDisplayPublisher";
 import { publishCustomerDisplayAction } from "../_actions/customer-display.action";
 import { printClientService } from "../_services/print-client.service";
+import { NetworkSyncStatusIndicator } from "./NetworkSyncStatusIndicator";
 
 interface POSLayoutProps {
   children: React.ReactNode;
@@ -62,7 +63,9 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const setPrinterConnectionStatus = usePOSStore(
     (state) => state.setPrinterConnectionStatus,
   );
-  const activeTerminalId = usePOSStore((state) => state.activeTerminal?.id ?? null);
+  const activeTerminalId = usePOSStore(
+    (state) => state.activeTerminal?.id ?? null,
+  );
   const customerDisplayEnabled = usePOSStore(
     (state) => state.customerDisplayEnabled,
   );
@@ -204,12 +207,16 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
 
     setCustomerDisplayEnabled(false);
     toast.success("Customer display is off.", {
-      description: "No second-screen updates will be published from this device.",
+      description:
+        "No second-screen updates will be published from this device.",
     });
   }
 
   return (
-    <div data-testid="pos-shell" className="flex h-full max-h-full w-full max-w-full flex-col overflow-hidden bg-background">
+    <div
+      data-testid="pos-shell"
+      className="flex h-full max-h-full w-full max-w-full flex-col overflow-hidden bg-background"
+    >
       <CustomerDisplayPublisher />
       <HeaderActions>
         <div className="flex min-w-0 items-center justify-end gap-1.5 overflow-hidden">
@@ -224,7 +231,11 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
               <CashTrackTrigger />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 rounded-lg px-2.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-lg px-2.5"
+                  >
                     <MoreHorizontal className="size-4" />
                     Actions
                   </Button>
@@ -240,9 +251,13 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                     }
                   >
                     <MonitorUp className="mr-2 size-4" />
-                    {customerDisplayEnabled ? "Turn display off" : "Turn display on"}
+                    {customerDisplayEnabled
+                      ? "Turn display off"
+                      : "Turn display on"}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void handleToggleFullscreen()}>
+                  <DropdownMenuItem
+                    onClick={() => void handleToggleFullscreen()}
+                  >
                     {isFullscreen ? (
                       <Minimize2 className="mr-2 size-4" />
                     ) : (
@@ -310,7 +325,9 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                 <span className="hidden lg:inline">
                   {isFullscreen ? "Exit" : "Fullscreen"}
                 </span>
-                <span className="lg:hidden">{isFullscreen ? "Exit" : "Full"}</span>
+                <span className="lg:hidden">
+                  {isFullscreen ? "Exit" : "Full"}
+                </span>
               </Button>
               <Button
                 variant={printerBadgeVariant}
@@ -344,6 +361,10 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
         </div>
       </HeaderActions>
 
+      <div className="border-b bg-background px-3 py-2">
+        <NetworkSyncStatusIndicator />
+      </div>
+
       {activeTerminal?.billingLocked ? (
         <div className="border-b border-amber-300/60 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-950">
           {activeTerminal.billingMessage ??
@@ -356,7 +377,8 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           {(["WALK_IN", "DINE_IN", "TAKE_OUT", "DELIVERY", "PICKUP"] as const)
             .filter((type) => {
               if (type === "DINE_IN") return activeTerminal.enableTableService;
-              if (type === "DELIVERY") return activeTerminal.enableDeliveryDetails;
+              if (type === "DELIVERY")
+                return activeTerminal.enableDeliveryDetails;
               return true;
             })
             .map((type) => (
@@ -371,15 +393,19 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                 {type.replace(/_/g, " ")}
               </Button>
             ))}
-          {fulfillment.type === "DINE_IN" && activeTerminal.enableTableService ? (
+          {fulfillment.type === "DINE_IN" &&
+          activeTerminal.enableTableService ? (
             <Input
               value={fulfillment.tableNumber ?? ""}
-              onChange={(event) => setFulfillment({ tableNumber: event.target.value })}
+              onChange={(event) =>
+                setFulfillment({ tableNumber: event.target.value })
+              }
               placeholder="Table"
               className="h-8 w-24 shrink-0 text-xs"
             />
           ) : null}
-          {fulfillment.type === "DELIVERY" && activeTerminal.enableDeliveryDetails ? (
+          {fulfillment.type === "DELIVERY" &&
+          activeTerminal.enableDeliveryDetails ? (
             <Input
               value={fulfillment.deliveryReference ?? ""}
               onChange={(event) =>
@@ -392,7 +418,10 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
         </div>
       ) : null}
 
-      <div data-testid="pos-workspace" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+      <div
+        data-testid="pos-workspace"
+        className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+      >
         {isMobile ? (
           <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-hidden">
@@ -448,8 +477,16 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           </div>
         ) : (
           <>
-            <div data-testid="pos-product-column" className="h-full min-w-0 flex-1 overflow-hidden">{children}</div>
-            <div data-testid="pos-cart-column" className="h-full w-[288px] shrink-0 border-l bg-card lg:w-[304px] xl:w-[340px]">
+            <div
+              data-testid="pos-product-column"
+              className="h-full min-w-0 flex-1 overflow-hidden"
+            >
+              {children}
+            </div>
+            <div
+              data-testid="pos-cart-column"
+              className="h-full w-[288px] shrink-0 border-l bg-card lg:w-[304px] xl:w-[340px]"
+            >
               {cart}
             </div>
           </>
@@ -476,7 +513,12 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
           terminalId={activeTerminalId}
           onSuccess={() => {
             setShowCloseSession(false);
-            setSession({ sessionId: null, timestampId: null, terminal: null, user: null });
+            setSession({
+              sessionId: null,
+              timestampId: null,
+              terminal: null,
+              user: null,
+            });
           }}
           onCancel={() => setShowCloseSession(false)}
         />

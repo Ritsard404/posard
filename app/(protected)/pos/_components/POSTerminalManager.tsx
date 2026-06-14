@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Monitor } from "lucide-react";
+import { toast } from "sonner";
 import { getCurrentSessionAction } from "../_actions/session.action";
 import { usePOSStore } from "../_store/pos-store";
 import { POSLayout } from "./POSLayout";
@@ -28,7 +29,9 @@ import type { SessionSnapshotDto } from "../_services/_dto/offline.dto";
 
 const INITIAL_SESSION_WAIT_MS = 1800;
 
-async function refreshQueueState(setSyncCounts: ReturnType<typeof usePOSStore.getState>["setSyncCounts"]) {
+async function refreshQueueState(
+  setSyncCounts: ReturnType<typeof usePOSStore.getState>["setSyncCounts"],
+) {
   const queue = await getOfflineQueueSnapshot();
   setSyncCounts({
     pendingSyncCount: queue.pendingCount,
@@ -53,7 +56,8 @@ function mapSessionSnapshotToStore(
       discountMax: sessionSnapshot.discountMax,
       allowCashierDebtCreate: sessionSnapshot.allowCashierDebtCreate,
       allowCashierDebtCollect: sessionSnapshot.allowCashierDebtCollect,
-      requireManagerApprovalForDebt: sessionSnapshot.requireManagerApprovalForDebt,
+      requireManagerApprovalForDebt:
+        sessionSnapshot.requireManagerApprovalForDebt,
       defaultDebtDueDays: sessionSnapshot.defaultDebtDueDays,
       printerConfig: sessionSnapshot.printerConfig,
       billingLocked: sessionSnapshot.billingLocked,
@@ -164,9 +168,9 @@ export function POSTerminalManager() {
 
       return Boolean(
         sessionSnapshot ||
-          catalog.products.length > 0 ||
-          catalog.categories.length > 0 ||
-          catalog.epaymentMethods.length > 0,
+        catalog.products.length > 0 ||
+        catalog.categories.length > 0 ||
+        catalog.epaymentMethods.length > 0,
       );
     }
 
@@ -181,11 +185,16 @@ export function POSTerminalManager() {
         for (const result of syncResult.results) {
           usePOSStore
             .getState()
-            .offlineReceipts.filter((receipt) => receipt.localId === result.localId)
+            .offlineReceipts.filter(
+              (receipt) => receipt.localId === result.localId,
+            )
             .forEach((receipt) => {
               usePOSStore
                 .getState()
-                .updateOfflineReceiptStatus(receipt.receiptId, result.syncStatus);
+                .updateOfflineReceiptStatus(
+                  receipt.receiptId,
+                  result.syncStatus,
+                );
             });
         }
         if (!cancelled) {
@@ -198,7 +207,9 @@ export function POSTerminalManager() {
             syncingCount: queue.syncingCount,
             needsReviewCount: queue.needsReviewCount,
             lastSyncMessage:
-              syncedCount > 0 ? `Synced ${syncedCount} queued action(s).` : "Queue is up to date.",
+              syncedCount > 0
+                ? `Synced ${syncedCount} queued action(s).`
+                : "Queue is up to date.",
           });
         }
       } catch (error) {
@@ -209,7 +220,9 @@ export function POSTerminalManager() {
             syncingCount: queue.syncingCount,
             needsReviewCount: queue.needsReviewCount,
             lastSyncMessage:
-              error instanceof Error ? error.message : "Unable to sync queued actions.",
+              error instanceof Error
+                ? error.message
+                : "Unable to sync queued actions.",
           });
         }
       }
@@ -238,7 +251,9 @@ export function POSTerminalManager() {
     }
 
     async function resolveInitialSession(
-      sessionPromise: Promise<Awaited<ReturnType<typeof getCurrentSessionAction>>>,
+      sessionPromise: Promise<
+        Awaited<ReturnType<typeof getCurrentSessionAction>>
+      >,
     ) {
       return Promise.race([
         sessionPromise,
@@ -304,6 +319,12 @@ export function POSTerminalManager() {
             return;
           }
 
+          if (bootstrap.isStale && bootstrap.warning) {
+            toast.warning("Using saved POS data", {
+              description: bootstrap.warning,
+            });
+          }
+
           setProducts(bootstrap.metadata.products);
           setCategories(bootstrap.metadata.categories);
           setEPaymentMethods(bootstrap.metadata.epaymentMethods);
@@ -361,7 +382,10 @@ export function POSTerminalManager() {
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-    navigator.serviceWorker?.addEventListener("message", handleServiceWorkerMessage);
+    navigator.serviceWorker?.addEventListener(
+      "message",
+      handleServiceWorkerMessage,
+    );
     const retryTimer = window.setInterval(() => {
       if (navigator.onLine) {
         void syncNow(getDeviceIdentity());
@@ -474,8 +498,10 @@ export function POSTerminalManager() {
                   vat: selectedTerminal.vat,
                   discountCapType: selectedTerminal.discountCapType,
                   discountMax: selectedTerminal.discountMax,
-                  allowCashierDebtCreate: selectedTerminal.allowCashierDebtCreate,
-                  allowCashierDebtCollect: selectedTerminal.allowCashierDebtCollect,
+                  allowCashierDebtCreate:
+                    selectedTerminal.allowCashierDebtCreate,
+                  allowCashierDebtCollect:
+                    selectedTerminal.allowCashierDebtCollect,
                   requireManagerApprovalForDebt:
                     selectedTerminal.requireManagerApprovalForDebt,
                   defaultDebtDueDays: selectedTerminal.defaultDebtDueDays,
@@ -487,7 +513,8 @@ export function POSTerminalManager() {
                     selectedTerminal.enableFulfillmentTypes ?? false,
                   enableRestaurantFeatures:
                     selectedTerminal.enableRestaurantFeatures ?? false,
-                  enableTableService: selectedTerminal.enableTableService ?? false,
+                  enableTableService:
+                    selectedTerminal.enableTableService ?? false,
                   enableDeliveryDetails:
                     selectedTerminal.enableDeliveryDetails ?? false,
                   enableProductModifiers:

@@ -8,7 +8,11 @@ import type {
   QueuedPosAction,
   SessionSnapshotDto,
 } from "./_dto/offline.dto";
-import type { CategoryDto, EPaymentMethodDto, ProductDto } from "./_dto/pos.dto";
+import type {
+  CategoryDto,
+  EPaymentMethodDto,
+  ProductDto,
+} from "./_dto/pos.dto";
 
 interface SnapshotEnvelope<T> {
   key: string;
@@ -26,9 +30,15 @@ class POSOfflineDexie extends Dexie {
   sales!: Table<LocalSaleRecordDto, string>;
   queuedActions!: Table<QueuedPosAction, string>;
   sessionSnapshot!: Table<SnapshotEnvelope<SessionSnapshotDto | null>, string>;
-  catalogSnapshot!: Table<SnapshotEnvelope<{ categories: CategoryDto[]; products: ProductDto[] }>, string>;
+  catalogSnapshot!: Table<
+    SnapshotEnvelope<{ categories: CategoryDto[]; products: ProductDto[] }>,
+    string
+  >;
   paymentMethodSnapshot!: Table<SnapshotEnvelope<EPaymentMethodDto[]>, string>;
-  managerVerifierSnapshot!: Table<SnapshotEnvelope<ManagerVerifierDto[]>, string>;
+  managerVerifierSnapshot!: Table<
+    SnapshotEnvelope<ManagerVerifierDto[]>,
+    string
+  >;
   syncMeta!: Table<SyncMetaRecord, string>;
 
   constructor() {
@@ -119,7 +129,9 @@ export async function saveOfflineBootstrap(bootstrap: OfflineBootstrapDto) {
 }
 
 export async function getOfflineSessionSnapshot() {
-  return (await posOfflineDb.sessionSnapshot.get("active-session"))?.value ?? null;
+  return (
+    (await posOfflineDb.sessionSnapshot.get("active-session"))?.value ?? null
+  );
 }
 
 export async function clearOfflineSessionSnapshot() {
@@ -128,7 +140,8 @@ export async function clearOfflineSessionSnapshot() {
 
 export async function getOfflineCatalogSnapshot() {
   const catalog = await posOfflineDb.catalogSnapshot.get("catalog");
-  const methods = await posOfflineDb.paymentMethodSnapshot.get("payment-methods");
+  const methods =
+    await posOfflineDb.paymentMethodSnapshot.get("payment-methods");
 
   return {
     categories: catalog?.value.categories ?? [],
@@ -139,12 +152,49 @@ export async function getOfflineCatalogSnapshot() {
 
 export async function getOfflineManagerVerifiers() {
   return (
-    (await posOfflineDb.managerVerifierSnapshot.get("manager-verifiers"))?.value ?? []
+    (await posOfflineDb.managerVerifierSnapshot.get("manager-verifiers"))
+      ?.value ?? []
   );
 }
 
 export async function getStockSnapshotVersion() {
   return (
-    (await posOfflineDb.syncMeta.get("stock-snapshot-version"))?.value ?? "snapshot-missing"
+    (await posOfflineDb.syncMeta.get("stock-snapshot-version"))?.value ??
+    "snapshot-missing"
   );
+}
+
+export async function getOfflineBootstrapFallback(
+  warning = "Using saved product and session data while the connection recovers.",
+) {
+  const [session, catalog, managerVerifiers, stockSnapshotVersion] =
+    await Promise.all([
+      getOfflineSessionSnapshot(),
+      getOfflineCatalogSnapshot(),
+      getOfflineManagerVerifiers(),
+      getStockSnapshotVersion(),
+    ]);
+
+  if (
+    !session &&
+    catalog.products.length === 0 &&
+    catalog.categories.length === 0 &&
+    catalog.epaymentMethods.length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    session,
+    metadata: {
+      products: catalog.products,
+      categories: catalog.categories,
+      epaymentMethods: catalog.epaymentMethods,
+    },
+    managerVerifiers,
+    fetchedAt: new Date().toISOString(),
+    stockSnapshotVersion,
+    isStale: true,
+    warning,
+  };
 }

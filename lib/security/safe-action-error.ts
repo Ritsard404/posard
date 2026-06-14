@@ -21,6 +21,12 @@ const SAFE_ERROR_PATTERNS = [
   /^Queued action/i,
   /^Terminal session/i,
   /^Offline .+ requires online manager approval review/i,
+  /^Connection problem/i,
+  /^The connection timed out/i,
+  /^The server is temporarily unavailable/i,
+  /^Please sign in again/i,
+  /^You do not have permission/i,
+  /^Please review the information/i,
 ];
 
 export function toSafeActionError(error: unknown, fallback: string) {

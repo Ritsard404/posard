@@ -26,6 +26,7 @@ import type { z } from "zod";
 type Viewer = {
   profileId: string;
   companyId: string;
+  branchId: string | null;
   role: string;
 };
 
@@ -39,6 +40,7 @@ async function requireViewer(): Promise<Viewer> {
   return {
     profileId: profile.id,
     companyId: profile.companyId,
+    branchId: profile.branchId,
     role: profile.role,
   };
 }
@@ -53,7 +55,11 @@ function canApprove(viewer: Viewer) {
   return viewer.role === "admin" || viewer.role === "manager";
 }
 
-async function nextReference(prefix: string, companyId: string, table: "expense" | "purchaseOrder" | "receivingRecord" | "branchTransfer") {
+async function nextReference(
+  prefix: string,
+  companyId: string,
+  table: "expense" | "purchaseOrder" | "receivingRecord" | "branchTransfer",
+) {
   const count =
     table === "expense"
       ? await prisma.expense.count({ where: { companyId } })
@@ -83,7 +89,9 @@ async function notifyManagers(
       companyId: input.companyId,
       role: { in: ["admin", "manager"] },
       status: "active",
-      ...(input.excludeProfileId ? { id: { not: input.excludeProfileId } } : {}),
+      ...(input.excludeProfileId
+        ? { id: { not: input.excludeProfileId } }
+        : {}),
     },
     select: { id: true },
   });
@@ -115,7 +123,12 @@ async function createStockMovement(
     productId: string;
     terminalId?: string | null;
     quantityDelta: number;
-    movementType: "adjustment" | "stock_in" | "transfer_out" | "transfer_in" | "receiving_variance";
+    movementType:
+      | "adjustment"
+      | "stock_in"
+      | "transfer_out"
+      | "transfer_in"
+      | "receiving_variance";
     sourceType: string;
     sourceId?: string | null;
     referenceNumber?: string | null;
@@ -127,7 +140,11 @@ async function createStockMovement(
   }
 
   const product = await tx.product.findFirst({
-    where: { id: input.productId, companyId: input.companyId, isDeleted: false },
+    where: {
+      id: input.productId,
+      companyId: input.companyId,
+      isDeleted: false,
+    },
     select: { id: true, quantity: true, trackInventory: true },
   });
 
@@ -176,7 +193,11 @@ export const managementWorkflowService = {
     const viewer = await requireViewer();
     const [products, terminals, categories, suppliers] = await Promise.all([
       prisma.product.findMany({
-        where: { companyId: viewer.companyId, isDeleted: false, trackInventory: true },
+        where: {
+          companyId: viewer.companyId,
+          isDeleted: false,
+          trackInventory: true,
+        },
         orderBy: { name: "asc" },
         take: 200,
         select: { id: true, name: true, quantity: true, cost: true },
@@ -214,7 +235,8 @@ export const managementWorkflowService = {
 
   async createStockAdjustment(input: z.infer<typeof stockAdjustmentSchema>) {
     const viewer = await requireViewer();
-    const delta = input.direction === "increase" ? input.quantity : -input.quantity;
+    const delta =
+      input.direction === "increase" ? input.quantity : -input.quantity;
 
     await prisma.$transaction(async (tx) => {
       const movement = await createStockMovement(tx, {
@@ -235,7 +257,12 @@ export const managementWorkflowService = {
         posTerminalId: input.terminalId,
         actionType: "stock_adjustment_created",
         referenceId: movement.id,
-        changes: JSON.stringify({ productId: input.productId, quantityDelta: delta, reason: input.reason, notes: input.notes }),
+        changes: JSON.stringify({
+          productId: input.productId,
+          quantityDelta: delta,
+          reason: input.reason,
+          notes: input.notes,
+        }),
       });
 
       if (Math.abs(delta) >= 10) {
@@ -255,8 +282,15 @@ export const managementWorkflowService = {
 
   async createExpense(input: z.infer<typeof expenseCreateSchema>) {
     const viewer = await requireViewer();
-    const referenceNumber = await nextReference("EXP", viewer.companyId, "expense");
-    const status = input.amount >= 1000 || viewer.role === "cashier" ? "pending_approval" : "approved";
+    const referenceNumber = await nextReference(
+      "EXP",
+      viewer.companyId,
+      "expense",
+    );
+    const status =
+      input.amount >= 1000 || viewer.role === "cashier"
+        ? "pending_approval"
+        : "approved";
 
     await prisma.$transaction(async (tx) => {
       const expense = await tx.expense.create({
@@ -278,10 +312,17 @@ export const managementWorkflowService = {
         companyId: viewer.companyId,
         actorProfileId: viewer.profileId,
         posTerminalId: input.terminalId,
-        actionType: status === "pending_approval" ? "expense_submitted" : "expense_created",
+        actionType:
+          status === "pending_approval"
+            ? "expense_submitted"
+            : "expense_created",
         referenceId: expense.id,
         amount: input.amount,
-        changes: JSON.stringify({ referenceNumber, status, notes: input.notes }),
+        changes: JSON.stringify({
+          referenceNumber,
+          status,
+          notes: input.notes,
+        }),
       });
 
       if (status === "pending_approval") {
@@ -307,7 +348,8 @@ export const managementWorkflowService = {
       });
 
       let status = expense.status;
-      if (input.action === "submit" && expense.status === "draft") status = "pending_approval";
+      if (input.action === "submit" && expense.status === "draft")
+        status = "pending_approval";
       if (input.action === "approve" && expense.status === "pending_approval") {
         assertManager(viewer);
         status = "approved";
@@ -316,19 +358,24 @@ export const managementWorkflowService = {
         assertManager(viewer);
         status = "rejected";
       }
-      if (input.action === "cancel" && expense.status !== "posted") status = "cancelled";
+      if (input.action === "cancel" && expense.status !== "posted")
+        status = "cancelled";
       if (input.action === "post" && expense.status === "approved") {
         assertManager(viewer);
         status = "posted";
       }
 
-      if (status === expense.status) throw new Error("Invalid expense transition.");
+      if (status === expense.status)
+        throw new Error("Invalid expense transition.");
 
       await tx.expense.update({
         where: { id: expense.id },
         data: {
           status,
-          approvedById: status === "approved" || status === "posted" ? viewer.profileId : expense.approvedById,
+          approvedById:
+            status === "approved" || status === "posted"
+              ? viewer.profileId
+              : expense.approvedById,
         },
       });
 
@@ -339,7 +386,11 @@ export const managementWorkflowService = {
         actionType: `expense_${input.action}`,
         referenceId: expense.id,
         amount: Number(expense.amount),
-        changes: JSON.stringify({ from: expense.status, to: status, reason: input.reason }),
+        changes: JSON.stringify({
+          from: expense.status,
+          to: status,
+          reason: input.reason,
+        }),
       });
     });
   },
@@ -378,7 +429,12 @@ export const managementWorkflowService = {
         actorProfileId: viewer.profileId,
         actionType: input.supplierId ? "supplier_updated" : "supplier_created",
         referenceId: supplier.id,
-        changes: JSON.stringify({ name: input.name, contactName: input.contactName, phone: input.phone, email: input.email }),
+        changes: JSON.stringify({
+          name: input.name,
+          contactName: input.contactName,
+          phone: input.phone,
+          email: input.email,
+        }),
       });
     });
   },
@@ -406,7 +462,11 @@ export const managementWorkflowService = {
   async createPurchaseOrder(input: z.infer<typeof purchaseOrderCreateSchema>) {
     const viewer = await requireViewer();
     assertManager(viewer);
-    const poNumber = await nextReference("PO", viewer.companyId, "purchaseOrder");
+    const poNumber = await nextReference(
+      "PO",
+      viewer.companyId,
+      "purchaseOrder",
+    );
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.purchaseOrder.create({
@@ -418,11 +478,13 @@ export const managementWorkflowService = {
           expectedAt: input.expectedAt ? new Date(input.expectedAt) : null,
           notes: input.notes,
           items: {
-            create: [{
-              productId: input.productId,
-              quantity: new Prisma.Decimal(input.quantity),
-              unitCost: new Prisma.Decimal(input.unitCost),
-            }],
+            create: [
+              {
+                productId: input.productId,
+                quantity: new Prisma.Decimal(input.quantity),
+                unitCost: new Prisma.Decimal(input.unitCost),
+              },
+            ],
           },
         },
       });
@@ -433,12 +495,19 @@ export const managementWorkflowService = {
         actionType: "purchase_order_created",
         referenceId: order.id,
         amount: input.quantity * input.unitCost,
-        changes: JSON.stringify({ poNumber, productId: input.productId, quantity: input.quantity, unitCost: input.unitCost }),
+        changes: JSON.stringify({
+          poNumber,
+          productId: input.productId,
+          quantity: input.quantity,
+          unitCost: input.unitCost,
+        }),
       });
     });
   },
 
-  async transitionPurchaseOrder(input: z.infer<typeof purchaseOrderTransitionSchema>) {
+  async transitionPurchaseOrder(
+    input: z.infer<typeof purchaseOrderTransitionSchema>,
+  ) {
     const viewer = await requireViewer();
     assertManager(viewer);
 
@@ -447,18 +516,28 @@ export const managementWorkflowService = {
         where: { id: input.purchaseOrderId, companyId: viewer.companyId },
       });
       let status = order.status;
-      if (input.action === "submit" && order.status === "draft") status = "submitted";
-      if (input.action === "approve" && order.status === "submitted") status = "approved";
-      if (input.action === "mark_ordered" && order.status === "approved") status = "ordered";
-      if (input.action === "cancel" && !["fully_received", "cancelled"].includes(order.status)) status = "cancelled";
-      if (input.action === "close" && order.status === "fully_received") status = "fully_received";
-      if (status === order.status) throw new Error("Invalid purchase order transition.");
+      if (input.action === "submit" && order.status === "draft")
+        status = "submitted";
+      if (input.action === "approve" && order.status === "submitted")
+        status = "approved";
+      if (input.action === "mark_ordered" && order.status === "approved")
+        status = "ordered";
+      if (
+        input.action === "cancel" &&
+        !["fully_received", "cancelled"].includes(order.status)
+      )
+        status = "cancelled";
+      if (input.action === "close" && order.status === "fully_received")
+        status = "fully_received";
+      if (status === order.status)
+        throw new Error("Invalid purchase order transition.");
 
       await tx.purchaseOrder.update({
         where: { id: order.id },
         data: {
           status,
-          approvedById: status === "approved" ? viewer.profileId : order.approvedById,
+          approvedById:
+            status === "approved" ? viewer.profileId : order.approvedById,
         },
       });
 
@@ -467,29 +546,45 @@ export const managementWorkflowService = {
         actorProfileId: viewer.profileId,
         actionType: `purchase_order_${input.action}`,
         referenceId: order.id,
-        changes: JSON.stringify({ poNumber: order.poNumber, from: order.status, to: status }),
+        changes: JSON.stringify({
+          poNumber: order.poNumber,
+          from: order.status,
+          to: status,
+        }),
       });
     });
   },
 
-  async receivePurchaseOrder(input: z.infer<typeof purchaseOrderReceiveSchema>) {
+  async receivePurchaseOrder(
+    input: z.infer<typeof purchaseOrderReceiveSchema>,
+  ) {
     const viewer = await requireViewer();
     assertManager(viewer);
-    const receivingNumber = await nextReference("RCV", viewer.companyId, "receivingRecord");
+    const receivingNumber = await nextReference(
+      "RCV",
+      viewer.companyId,
+      "receivingRecord",
+    );
 
     await prisma.$transaction(async (tx) => {
       const item = await tx.purchaseOrderItem.findFirstOrThrow({
         where: {
           id: input.purchaseOrderItemId,
           purchaseOrderId: input.purchaseOrderId,
-          purchaseOrder: { companyId: viewer.companyId, status: { in: ["approved", "ordered", "partially_received"] } },
+          purchaseOrder: {
+            companyId: viewer.companyId,
+            status: { in: ["approved", "ordered", "partially_received"] },
+          },
         },
         include: { purchaseOrder: true },
       });
 
       const ordered = Number(item.quantity);
       const previouslyReceived = Number(item.receivedQuantity);
-      const receiveQty = Math.min(input.quantityReceived, Math.max(0, ordered - previouslyReceived));
+      const receiveQty = Math.min(
+        input.quantityReceived,
+        Math.max(0, ordered - previouslyReceived),
+      );
       if (receiveQty <= 0) throw new Error("No quantity remains to receive.");
 
       const receiving = await tx.receivingRecord.create({
@@ -503,19 +598,25 @@ export const managementWorkflowService = {
           postedAt: new Date(),
           notes: input.notes,
           items: {
-            create: [{
-              productId: item.productId,
-              quantityReceived: new Prisma.Decimal(receiveQty),
-              unitCost: item.unitCost,
-              varianceQuantity: new Prisma.Decimal(input.quantityReceived - receiveQty),
-            }],
+            create: [
+              {
+                productId: item.productId,
+                quantityReceived: new Prisma.Decimal(receiveQty),
+                unitCost: item.unitCost,
+                varianceQuantity: new Prisma.Decimal(
+                  input.quantityReceived - receiveQty,
+                ),
+              },
+            ],
           },
         },
       });
 
       await tx.purchaseOrderItem.update({
         where: { id: item.id },
-        data: { receivedQuantity: { increment: new Prisma.Decimal(receiveQty) } },
+        data: {
+          receivedQuantity: { increment: new Prisma.Decimal(receiveQty) },
+        },
       });
 
       const allItems = await tx.purchaseOrderItem.findMany({
@@ -523,9 +624,14 @@ export const managementWorkflowService = {
         select: { quantity: true, receivedQuantity: true, id: true },
       });
       const nextStatus = allItems.every((row) => {
-        const received = row.id === item.id ? Number(row.receivedQuantity) + receiveQty : Number(row.receivedQuantity);
+        const received =
+          row.id === item.id
+            ? Number(row.receivedQuantity) + receiveQty
+            : Number(row.receivedQuantity);
         return received >= Number(row.quantity);
-      }) ? "fully_received" : "partially_received";
+      })
+        ? "fully_received"
+        : "partially_received";
 
       await tx.purchaseOrder.update({
         where: { id: item.purchaseOrderId },
@@ -550,7 +656,12 @@ export const managementWorkflowService = {
         actionType: "purchase_order_received",
         referenceId: item.purchaseOrderId,
         amount: receiveQty * Number(item.unitCost),
-        changes: JSON.stringify({ receivingNumber, productId: item.productId, receivedQuantity: receiveQty, poStatus: nextStatus }),
+        changes: JSON.stringify({
+          receivingNumber,
+          productId: item.productId,
+          receivedQuantity: receiveQty,
+          poStatus: nextStatus,
+        }),
       });
     });
   },
@@ -558,7 +669,11 @@ export const managementWorkflowService = {
   async createTransfer(input: z.infer<typeof transferCreateSchema>) {
     const viewer = await requireViewer();
     assertManager(viewer);
-    const transferNumber = await nextReference("TRF", viewer.companyId, "branchTransfer");
+    const transferNumber = await nextReference(
+      "TRF",
+      viewer.companyId,
+      "branchTransfer",
+    );
 
     await prisma.$transaction(async (tx) => {
       const transfer = await tx.branchTransfer.create({
@@ -571,10 +686,12 @@ export const managementWorkflowService = {
           status: "pending_approval",
           notes: input.notes,
           items: {
-            create: [{
-              productId: input.productId,
-              requestedQuantity: new Prisma.Decimal(input.requestedQuantity),
-            }],
+            create: [
+              {
+                productId: input.productId,
+                requestedQuantity: new Prisma.Decimal(input.requestedQuantity),
+              },
+            ],
           },
         },
       });
@@ -585,7 +702,11 @@ export const managementWorkflowService = {
         posTerminalId: input.sourceTerminalId,
         actionType: "transfer_requested",
         referenceId: transfer.id,
-        changes: JSON.stringify({ transferNumber, productId: input.productId, requestedQuantity: input.requestedQuantity }),
+        changes: JSON.stringify({
+          transferNumber,
+          productId: input.productId,
+          requestedQuantity: input.requestedQuantity,
+        }),
       });
 
       await notifyManagers(tx, {
@@ -614,9 +735,15 @@ export const managementWorkflowService = {
       if (!firstItem) throw new Error("Transfer item is required.");
 
       let status = transfer.status;
-      if (input.action === "submit" && transfer.status === "draft") status = "pending_approval";
-      if (input.action === "approve" && transfer.status === "pending_approval") status = "approved";
-      if (input.action === "cancel" && !["received", "cancelled"].includes(transfer.status)) status = "cancelled";
+      if (input.action === "submit" && transfer.status === "draft")
+        status = "pending_approval";
+      if (input.action === "approve" && transfer.status === "pending_approval")
+        status = "approved";
+      if (
+        input.action === "cancel" &&
+        !["received", "cancelled"].includes(transfer.status)
+      )
+        status = "cancelled";
       if (input.action === "dispatch" && transfer.status === "approved") {
         status = "in_transit";
         const dispatchedQty = Number(firstItem.requestedQuantity);
@@ -638,9 +765,15 @@ export const managementWorkflowService = {
         });
       }
       if (input.action === "receive" && transfer.status === "in_transit") {
-        const dispatchedQty = Number(firstItem.dispatchedQuantity ?? firstItem.requestedQuantity);
-        const receivedQty = input.receivedQuantity === undefined ? dispatchedQty : Math.min(input.receivedQuantity, dispatchedQty);
-        status = receivedQty >= dispatchedQty ? "received" : "partially_received";
+        const dispatchedQty = Number(
+          firstItem.dispatchedQuantity ?? firstItem.requestedQuantity,
+        );
+        const receivedQty =
+          input.receivedQuantity === undefined
+            ? dispatchedQty
+            : Math.min(input.receivedQuantity, dispatchedQty);
+        status =
+          receivedQty >= dispatchedQty ? "received" : "partially_received";
         await tx.branchTransferItem.update({
           where: { id: firstItem.id },
           data: {
@@ -662,14 +795,19 @@ export const managementWorkflowService = {
         });
       }
 
-      if (status === transfer.status) throw new Error("Invalid transfer transition.");
+      if (status === transfer.status)
+        throw new Error("Invalid transfer transition.");
 
       await tx.branchTransfer.update({
         where: { id: transfer.id },
         data: {
           status,
-          approvedById: status === "approved" ? viewer.profileId : transfer.approvedById,
-          receivedById: status === "received" || status === "partially_received" ? viewer.profileId : transfer.receivedById,
+          approvedById:
+            status === "approved" ? viewer.profileId : transfer.approvedById,
+          receivedById:
+            status === "received" || status === "partially_received"
+              ? viewer.profileId
+              : transfer.receivedById,
         },
       });
 
@@ -679,7 +817,12 @@ export const managementWorkflowService = {
         posTerminalId: transfer.sourceTerminalId,
         actionType: `transfer_${input.action}`,
         referenceId: transfer.id,
-        changes: JSON.stringify({ transferNumber: transfer.transferNumber, from: transfer.status, to: status, notes: input.notes }),
+        changes: JSON.stringify({
+          transferNumber: transfer.transferNumber,
+          from: transfer.status,
+          to: status,
+          notes: input.notes,
+        }),
       });
     });
   },
@@ -714,7 +857,11 @@ export const managementWorkflowService = {
         actionType: "promotion_created",
         referenceId: promotion.id,
         amount: input.value,
-        changes: JSON.stringify({ name: input.name, promotionType: input.promotionType, status: "draft" }),
+        changes: JSON.stringify({
+          name: input.name,
+          promotionType: input.promotionType,
+          status: "draft",
+        }),
       });
     });
   },
@@ -727,9 +874,10 @@ export const managementWorkflowService = {
       const promotion = await tx.promotion.findFirstOrThrow({
         where: { id: input.promotionId, companyId: viewer.companyId },
       });
-      const metadata = typeof promotion.ruleJson === "object" && promotion.ruleJson !== null
-        ? promotion.ruleJson as Record<string, unknown>
-        : {};
+      const metadata =
+        typeof promotion.ruleJson === "object" && promotion.ruleJson !== null
+          ? (promotion.ruleJson as Record<string, unknown>)
+          : {};
 
       if (input.action === "duplicate") {
         const duplicate = await tx.promotion.create({
@@ -743,7 +891,11 @@ export const managementWorkflowService = {
             isActive: false,
             stackable: promotion.stackable,
             exclusive: promotion.exclusive,
-            ruleJson: { ...metadata, status: "draft", duplicatedFrom: promotion.id },
+            ruleJson: {
+              ...metadata,
+              status: "draft",
+              duplicatedFrom: promotion.id,
+            },
           },
         });
 
@@ -759,17 +911,23 @@ export const managementWorkflowService = {
 
       const isArchive = input.action === "archive";
       const isActive = input.action === "activate";
-      const status = input.action === "activate"
-        ? "active"
-        : input.action === "pause"
-          ? "paused"
-          : "archived";
+      const status =
+        input.action === "activate"
+          ? "active"
+          : input.action === "pause"
+            ? "paused"
+            : "archived";
 
       await tx.promotion.update({
         where: { id: promotion.id },
         data: {
           isActive: isArchive ? false : isActive,
-          ruleJson: { ...metadata, status, transitionedById: viewer.profileId, transitionedAt: new Date().toISOString() },
+          ruleJson: {
+            ...metadata,
+            status,
+            transitionedById: viewer.profileId,
+            transitionedAt: new Date().toISOString(),
+          },
         },
       });
 
@@ -778,12 +936,18 @@ export const managementWorkflowService = {
         actorProfileId: viewer.profileId,
         actionType: `promotion_${input.action}`,
         referenceId: promotion.id,
-        changes: JSON.stringify({ name: promotion.name, status, wasActive: promotion.isActive }),
+        changes: JSON.stringify({
+          name: promotion.name,
+          status,
+          wasActive: promotion.isActive,
+        }),
       });
     });
   },
 
-  async transitionKitchenTicket(input: z.infer<typeof kitchenTicketTransitionSchema>) {
+  async transitionKitchenTicket(
+    input: z.infer<typeof kitchenTicketTransitionSchema>,
+  ) {
     const viewer = await requireViewer();
 
     await prisma.$transaction(async (tx) => {
@@ -792,11 +956,16 @@ export const managementWorkflowService = {
       });
 
       let status = ticket.status;
-      if (input.action === "start" && ticket.status === "queued") status = "preparing";
-      if (input.action === "ready" && ticket.status === "preparing") status = "ready";
-      if (input.action === "served" && ticket.status === "ready") status = "served";
-      if (input.action === "cancel" && ticket.status !== "served") status = "cancelled";
-      if (status === ticket.status) throw new Error("Invalid kitchen ticket transition.");
+      if (input.action === "start" && ticket.status === "queued")
+        status = "preparing";
+      if (input.action === "ready" && ticket.status === "preparing")
+        status = "ready";
+      if (input.action === "served" && ticket.status === "ready")
+        status = "served";
+      if (input.action === "cancel" && ticket.status !== "served")
+        status = "cancelled";
+      if (status === ticket.status)
+        throw new Error("Invalid kitchen ticket transition.");
 
       await tx.kitchenTicket.update({
         where: { id: ticket.id },
@@ -815,7 +984,12 @@ export const managementWorkflowService = {
         posTerminalId: ticket.terminalId,
         actionType: `kitchen_ticket_${input.action}`,
         referenceId: ticket.id,
-        changes: JSON.stringify({ ticketNumber: ticket.ticketNumber, from: ticket.status, to: status, notes: input.notes }),
+        changes: JSON.stringify({
+          ticketNumber: ticket.ticketNumber,
+          from: ticket.status,
+          to: status,
+          notes: input.notes,
+        }),
       });
     });
   },
@@ -825,12 +999,28 @@ export const managementWorkflowService = {
 
     await prisma.$transaction(async (tx) => {
       const issue = await tx.offlineSyncIssue.findFirstOrThrow({
-        where: { id: input.issueId, companyId: viewer.companyId },
+        where: {
+          id: input.issueId,
+          companyId: viewer.companyId,
+          ...(viewer.role === "manager"
+            ? {
+                terminal: {
+                  branchId:
+                    viewer.branchId ?? "00000000-0000-0000-0000-000000000000",
+                },
+              }
+            : {}),
+        },
       });
 
       const next =
         input.action === "retry"
-          ? { syncStatus: "pending" as const, nextRetryAt: new Date(), retryCount: issue.retryCount + 1, resolvedAt: null }
+          ? {
+              syncStatus: "pending" as const,
+              nextRetryAt: new Date(),
+              retryCount: issue.retryCount + 1,
+              resolvedAt: null,
+            }
           : input.action === "review"
             ? { syncStatus: "needs_review" as const }
             : input.action === "resolve"
@@ -841,7 +1031,9 @@ export const managementWorkflowService = {
         where: { id: issue.id },
         data: {
           ...next,
-          message: input.notes ? `${issue.message} | ${input.notes}` : issue.message,
+          message: input.notes
+            ? `${issue.message} | ${input.notes}`
+            : issue.message,
         },
       });
 
@@ -851,7 +1043,7 @@ export const managementWorkflowService = {
         posTerminalId: issue.terminalId,
         actionType: `sync_issue_${input.action}`,
         referenceId: issue.id,
-        changes: JSON.stringify({ localId: issue.localId, actionType: issue.actionType, from: issue.syncStatus, to: next.syncStatus, notes: input.notes }),
+        changes: `${issue.actionType.replaceAll("_", " ").toLowerCase()} ${issue.localId} changed from ${issue.syncStatus} to ${next.syncStatus}.${input.notes ? ` Note: ${input.notes}` : ""}`,
       });
 
       if (input.action === "review") {
