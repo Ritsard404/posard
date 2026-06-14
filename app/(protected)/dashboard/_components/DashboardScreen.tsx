@@ -4,11 +4,17 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
+  Activity,
   Building2,
+  CheckCircle2,
   Clock3,
+  PackagePlus,
   Receipt,
+  Scale,
+  ServerCog,
   ShieldAlert,
   ShoppingCart,
+  WifiOff,
   Wallet,
 } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
@@ -367,6 +373,202 @@ function AddOnList({ items }: { items?: DashboardDataDto["topAddOns"] }) {
   );
 }
 
+function signalClass(status: "healthy" | "watch" | "critical" | "neutral") {
+  if (status === "critical") {
+    return "border-rose-200 bg-rose-50 text-rose-700";
+  }
+
+  if (status === "watch") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  if (status === "healthy") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  return "border-border bg-muted/20 text-muted-foreground";
+}
+
+function OperationalStatusPanel({ dashboard }: { dashboard: DashboardDataDto }) {
+  const status = dashboard.operationalStatus;
+
+  if (!status) {
+    return null;
+  }
+
+  return (
+    <Section
+      title={status.title}
+      description="Current floor health across drawers, approvals, sync, printers, stock, and kitchen flow."
+    >
+      <div className="mb-3 flex flex-wrap gap-2">
+        <Badge variant="outline" className="rounded-full">
+          <Activity className="size-3.5" />
+          Updated {formatDateTime(status.updatedAt)}
+        </Badge>
+        <Badge
+          variant="outline"
+          className={`rounded-full ${status.syncHealth === "healthy" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}
+        >
+          <ServerCog className="size-3.5" />
+          Sync {status.syncHealth === "healthy" ? "healthy" : "needs review"}
+        </Badge>
+        <Badge
+          variant="outline"
+          className={`rounded-full ${status.offlineMode === "normal" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}
+        >
+          <WifiOff className="size-3.5" />
+          Offline queue {status.offlineMode === "normal" ? "clear" : "active"}
+        </Badge>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {status.signals.map((signal) => (
+          <div key={signal.label} className={`rounded-lg border px-3 py-3 ${signalClass(signal.status)}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em]">
+                  {signal.label}
+                </div>
+                <div className="mt-1 truncate text-xl font-black text-foreground">
+                  {signal.value}
+                </div>
+              </div>
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+            </div>
+            <div className="mt-2 text-xs leading-5">{signal.helper}</div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function RestockAssistantPanel({ dashboard }: { dashboard: DashboardDataDto }) {
+  const recommendations = dashboard.restockRecommendations ?? [];
+
+  return (
+    <Section
+      title="Restock Assistant"
+      description="Suggested reorder quantities from recent sales pace and current stock."
+    >
+      <div className="space-y-3">
+        {recommendations.length === 0 ? (
+          <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+            No restock recommendations right now.
+          </div>
+        ) : (
+          recommendations.map((item) => (
+            <div key={item.id} className="rounded-lg border border-border/60 px-3 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <PackagePlus className="size-4 text-cyan-600" />
+                    <div className="truncate text-sm font-semibold">{item.name}</div>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {item.categoryName} / {item.supplierName ?? "No supplier history"}
+                  </div>
+                </div>
+                <span className={attentionPillClass(item.riskLevel === "critical" ? "danger" : item.riskLevel === "low" ? "default" : "warning")}>
+                  {item.riskLevel}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                <WatchDetail label="On Hand" value={`${item.quantity}`} auxiliary={item.baseUnit} />
+                <WatchDetail
+                  label="Days Left"
+                  value={item.remainingStockDays === null ? "No sales" : `${item.remainingStockDays}`}
+                  auxiliary="at recent pace"
+                />
+                <WatchDetail
+                  label="Reorder"
+                  value={`${item.recommendedReorderQuantity}`}
+                  auxiliary={item.baseUnit}
+                />
+                <WatchDetail
+                  label="Est. Cost"
+                  value={formatCurrency(item.estimatedReorderCost)}
+                  auxiliary="purchase budget"
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Section>
+  );
+}
+
+function VarianceInvestigationPanel({ dashboard }: { dashboard: DashboardDataDto }) {
+  const investigations = dashboard.varianceInvestigations ?? [];
+
+  if (!investigations.length) {
+    return (
+      <Section
+        title="Variance Investigation"
+        description="Closed drawer checks and explanation factors for cash differences."
+      >
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+          No closed drawers to investigate today.
+        </div>
+      </Section>
+    );
+  }
+
+  return (
+    <Section
+      title="Variance Investigation"
+      description="Expected cash, counted cash, and likely explanation factors for recently closed drawers."
+    >
+      <div className="space-y-3">
+        {investigations.map((item) => (
+          <div key={item.id} className="rounded-lg border border-border/60 px-3 py-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Scale className="size-4 text-cyan-600" />
+                  <div className="truncate text-sm font-semibold">{item.terminalName}</div>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {item.cashierName} / Closed {formatDateTime(item.closedAt)}
+                </div>
+              </div>
+              <span
+                className={attentionPillClass(
+                  item.severity === "critical"
+                    ? "danger"
+                    : item.severity === "watch"
+                      ? "warning"
+                      : "default",
+                )}
+              >
+                {item.severity}
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+              <WatchDetail label="Expected" value={formatCurrency(item.expectedCash)} auxiliary="cash drawer" />
+              <WatchDetail label="Counted" value={formatCurrency(item.actualCash)} auxiliary="cash out" />
+              <WatchDetail label="Variance" value={formatCurrency(item.variance)} auxiliary="over / short" />
+              <WatchDetail label="Withdrawals" value={formatCurrency(item.withdrawals)} auxiliary="cash out during shift" />
+              <WatchDetail label="Cash Sales" value={formatCurrency(item.cashSales)} auxiliary="cash receipts" />
+              <WatchDetail label="Refunds" value={formatCurrency(item.refunds)} auxiliary="returned cash" />
+              <WatchDetail label="Voids" value={formatCurrency(item.voids)} auxiliary="cancelled totals" />
+              <WatchDetail
+                label="Opened"
+                value={item.openedAt ? formatDateTime(item.openedAt) : "Unknown"}
+                auxiliary="session start"
+              />
+            </div>
+            <div className="mt-3 rounded-md bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
+              {item.explanation}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 function WorkspaceHealth({ dashboard }: { dashboard: DashboardDataDto }) {
   if (!dashboard.adminWorkspaceStats?.length) {
     return null;
@@ -655,7 +857,17 @@ function OperationsDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
         <AlertsPanel dashboard={dashboard} />
       </div>
 
+      <OperationalStatusPanel dashboard={dashboard} />
+
+      {dashboard.role === "manager" ? (
+        <VarianceInvestigationPanel dashboard={dashboard} />
+      ) : null}
+
       <div className="grid gap-4 xl:grid-cols-3">
+        {dashboard.restockRecommendations ? (
+          <RestockAssistantPanel dashboard={dashboard} />
+        ) : null}
+
         {dashboard.companyLeaderboard ? (
           <Section title="Top Companies" description="Best performing branches in the last 30 days.">
             <RankedBars items={dashboard.companyLeaderboard} metricLabel="Net sales" />

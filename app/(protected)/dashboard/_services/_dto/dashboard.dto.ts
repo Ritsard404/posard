@@ -1,4 +1,5 @@
 import type { UserRole } from "@prisma/client";
+import type { RestockRecommendationDto } from "../../../_services/inventory-restock.service";
 
 export interface DashboardViewerDto {
   profileId: string;
@@ -91,6 +92,39 @@ export interface DashboardShiftDto {
   isOpen: boolean;
 }
 
+export interface DashboardOperationalSignalDto {
+  label: string;
+  value: number | string;
+  status: "healthy" | "watch" | "critical" | "neutral";
+  helper: string;
+}
+
+export interface DashboardOperationalStatusDto {
+  title: string;
+  updatedAt: Date;
+  internetStatus: "unknown";
+  offlineMode: "normal" | "attention";
+  syncHealth: "healthy" | "attention";
+  signals: DashboardOperationalSignalDto[];
+}
+
+export interface DashboardVarianceInvestigationDto {
+  id: string;
+  terminalName: string;
+  cashierName: string;
+  openedAt: Date | null;
+  closedAt: Date | null;
+  expectedCash: number;
+  actualCash: number;
+  variance: number;
+  refunds: number;
+  voids: number;
+  withdrawals: number;
+  cashSales: number;
+  explanation: string;
+  severity: "balanced" | "watch" | "critical";
+}
+
 export interface DashboardAdminWorkspaceStatDto {
   label: string;
   value: number;
@@ -145,6 +179,9 @@ export interface DashboardDataDto {
   topAddOns?: DashboardAddOnStatDto[];
   recentInvoices?: DashboardInvoiceListItemDto[];
   lowStockProducts?: DashboardProductStatDto[];
+  operationalStatus?: DashboardOperationalStatusDto;
+  restockRecommendations?: RestockRecommendationDto[];
+  varianceInvestigations?: DashboardVarianceInvestigationDto[];
   companyLeaderboard?: DashboardTerminalStatDto[];
   shift?: DashboardShiftDto;
   adminWorkspaceStats?: DashboardAdminWorkspaceStatDto[];

@@ -2,9 +2,13 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { buildRestockRecommendations } from "../../_services/inventory-restock.service";
 import type {
   DashboardDataDto,
   DashboardFulfillmentMixDto,
+  DashboardOperationalSignalDto,
+  DashboardOperationalStatusDto,
+  DashboardVarianceInvestigationDto,
   DashboardViewerDto,
 } from "./_dto/dashboard.dto";
 
@@ -114,6 +118,74 @@ function calculateInvoiceNet(invoice: {
   );
 }
 
+function calculateCashCollected(invoice: {
+  cashTendered: unknown;
+  changeAmount: unknown;
+  returnedAmount: unknown;
+}) {
+  return Math.max(
+    0,
+    toNumber(invoice.cashTendered) -
+      toNumber(invoice.changeAmount) -
+      toNumber(invoice.returnedAmount),
+  );
+}
+
+function getVarianceSeverity(variance: number): DashboardVarianceInvestigationDto["severity"] {
+  const absoluteVariance = Math.abs(variance);
+
+  if (absoluteVariance >= 500) {
+    return "critical";
+  }
+
+  if (absoluteVariance >= 50) {
+    return "watch";
+  }
+
+  return "balanced";
+}
+
+function explainVariance(input: {
+  variance: number;
+  refunds: number;
+  voids: number;
+  withdrawals: number;
+  offlineIssues: number;
+  pendingApprovals: number;
+}) {
+  const factors: string[] = [];
+
+  if (Math.abs(input.variance) < 50) {
+    factors.push("drawer count is within the normal tolerance band");
+  } else if (input.variance > 0) {
+    factors.push("drawer is over expected cash");
+  } else {
+    factors.push("drawer is short against expected cash");
+  }
+
+  if (input.refunds > 0) {
+    factors.push("refunds reduced expected cash");
+  }
+
+  if (input.voids > 0) {
+    factors.push("voided or cancelled receipts need review");
+  }
+
+  if (input.withdrawals > 0) {
+    factors.push("cash withdrawals were recorded during the shift");
+  }
+
+  if (input.offlineIssues > 0) {
+    factors.push("offline sync issues may affect transaction completeness");
+  }
+
+  if (input.pendingApprovals > 0) {
+    factors.push("pending approvals may explain unfinished adjustments");
+  }
+
+  return factors.join("; ");
+}
+
 function buildFulfillmentMix(
   invoices: Array<{
     fulfillmentType: DashboardFulfillmentMixDto["type"];
@@ -142,6 +214,94 @@ function buildFulfillmentMix(
     ...bucket,
     share: totalCount > 0 ? (bucket.count / totalCount) * 100 : 0,
   }));
+}
+
+function buildOperationalSignal(
+  label: string,
+  value: number | string,
+  helper: string,
+  status: DashboardOperationalSignalDto["status"],
+): DashboardOperationalSignalDto {
+  return { label, value, helper, status };
+}
+
+function buildOperationalStatus(input: {
+  activeCashiers: number;
+  activeTerminals: number;
+  openSessions: number;
+  configuredPrinters: number;
+  pendingApprovals: number;
+  pendingSyncIssues: number;
+  failedSyncIssues: number;
+  activeKitchenTickets: number;
+  lowStockCount: number;
+  staleCustomerDisplays: number;
+}): DashboardOperationalStatusDto {
+  const syncIssues = input.pendingSyncIssues + input.failedSyncIssues;
+
+  return {
+    title: "Live Store Status",
+    updatedAt: new Date(),
+    internetStatus: "unknown",
+    offlineMode: syncIssues > 0 ? "attention" : "normal",
+    syncHealth: input.failedSyncIssues > 0 ? "attention" : "healthy",
+    signals: [
+      buildOperationalSignal(
+        "Active cashiers",
+        input.activeCashiers,
+        "Enabled cashier accounts that can operate today.",
+        input.activeCashiers > 0 ? "healthy" : "watch",
+      ),
+      buildOperationalSignal(
+        "Active terminals",
+        input.activeTerminals,
+        "Enabled terminal records for this company.",
+        input.activeTerminals > 0 ? "healthy" : "critical",
+      ),
+      buildOperationalSignal(
+        "Open drawers",
+        input.openSessions,
+        "Cashier sessions currently open.",
+        input.openSessions > 0 ? "healthy" : "watch",
+      ),
+      buildOperationalSignal(
+        "Pending approvals",
+        input.pendingApprovals,
+        "Manager approvals waiting for a decision.",
+        input.pendingApprovals > 0 ? "watch" : "healthy",
+      ),
+      buildOperationalSignal(
+        "Sync queue",
+        syncIssues,
+        `${input.pendingSyncIssues} pending, ${input.failedSyncIssues} failed sync issue(s).`,
+        input.failedSyncIssues > 0 ? "critical" : syncIssues > 0 ? "watch" : "healthy",
+      ),
+      buildOperationalSignal(
+        "Printer setup",
+        `${input.configuredPrinters}/${input.activeTerminals}`,
+        "Active terminals with printer configuration.",
+        input.activeTerminals === 0 || input.configuredPrinters < input.activeTerminals ? "watch" : "healthy",
+      ),
+      buildOperationalSignal(
+        "Kitchen queue",
+        input.activeKitchenTickets,
+        "Queued or preparing tickets still in progress.",
+        input.activeKitchenTickets > 0 ? "watch" : "healthy",
+      ),
+      buildOperationalSignal(
+        "Low stock",
+        input.lowStockCount,
+        "Tracked products at or below the dashboard stock threshold.",
+        input.lowStockCount > 0 ? "watch" : "healthy",
+      ),
+      buildOperationalSignal(
+        "Customer displays",
+        input.staleCustomerDisplays,
+        "Active terminals with no recent customer-display heartbeat.",
+        input.staleCustomerDisplays > 0 ? "watch" : "healthy",
+      ),
+    ],
+  };
 }
 
 async function getViewer(): Promise<DashboardViewerDto> {
@@ -185,6 +345,7 @@ export const dashboardService = {
     const todayEnd = endOfDay();
     const weekStart = daysAgo(6);
     const monthStart = daysAgo(29);
+    const customerDisplayFreshAfter = new Date(Date.now() - 5 * 60 * 1000);
 
     if (viewer.role === "admin") {
       const expiringWindowEnd = daysFromNow(30);
@@ -466,6 +627,15 @@ export const dashboardService = {
       debtDueToday,
       debtOverdue,
       debtCollectedToday,
+      activeCashiers,
+      pendingOperationalApprovals,
+      pendingSyncIssues,
+      failedSyncIssues,
+      activeKitchenTickets,
+      restockProducts,
+      soldItems,
+      recentlyClosedShifts,
+      debtPaymentsToday,
     ] = await Promise.all([
       prisma.invoice.findMany({
         where: { ...baseWhere, createdAt: { gte: todayStart, lte: todayEnd } },
@@ -476,6 +646,9 @@ export const dashboardService = {
           totalAmount: true,
           discountAmount: true,
           returnedAmount: true,
+          cashTendered: true,
+          changeAmount: true,
+          sourceTimestampId: true,
           fulfillmentType: true,
           status: true,
           createdAt: true,
@@ -531,6 +704,10 @@ export const dashboardService = {
           id: true,
           posName: true,
           isActive: true,
+          printerName: true,
+          printerDisplayName: true,
+          printerDriver: true,
+          customerDisplayState: { select: { updatedAt: true } },
           timestamps: { where: { timestampOut: null }, select: { id: true } },
           invoices: {
             where: { createdAt: { gte: todayStart, lte: todayEnd }, status: "PAID" },
@@ -635,6 +812,92 @@ export const dashboardService = {
           createdAt: { gte: todayStart, lte: todayEnd },
         },
         _sum: { amount: true },
+      }),
+      prisma.profile.count({
+        where: { companyId, role: "cashier", status: "active" },
+      }),
+      prisma.approvalRequest.count({
+        where: { companyId, status: "pending" },
+      }),
+      prisma.offlineSyncIssue.count({
+        where: { companyId, syncStatus: { in: ["pending", "syncing"] } },
+      }),
+      prisma.offlineSyncIssue.count({
+        where: { companyId, syncStatus: "failed" },
+      }),
+      prisma.kitchenTicket.count({
+        where: { companyId, status: { in: ["queued", "preparing"] } },
+      }),
+      prisma.product.findMany({
+        where: {
+          companyId,
+          trackInventory: true,
+          isDeleted: false,
+          OR: [{ quantity: { lte: 10 } }, { stockMovements: { none: {} } }],
+        },
+        orderBy: [{ quantity: "asc" }, { name: "asc" }],
+        take: 12,
+        select: {
+          id: true,
+          name: true,
+          quantity: true,
+          baseUnit: true,
+          cost: true,
+          price: true,
+          category: { select: { categoryName: true } },
+          purchaseOrderItems: {
+            orderBy: { purchaseOrder: { createdAt: "desc" } },
+            take: 1,
+            select: {
+              purchaseOrder: {
+                select: {
+                  supplier: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.item.groupBy({
+        by: ["productId"],
+        where: {
+          invoice: {
+            posTerminal: { companyId },
+            createdAt: { gte: monthStart, lte: todayEnd },
+            status: { in: ["PAID", "RETURNED"] },
+          },
+          status: { not: "VOID" },
+        },
+        _sum: { qty: true },
+      }),
+      prisma.timestamp.findMany({
+        where: {
+          posTerminal: { companyId },
+          timestampOut: { gte: todayStart, lte: todayEnd },
+        },
+        orderBy: { timestampOut: "desc" },
+        take: 6,
+        select: {
+          id: true,
+          timestampIn: true,
+          timestampOut: true,
+          cashInDrawerAmount: true,
+          cashOutDrawerAmount: true,
+          withdrawnDrawerAmount: true,
+          cashier: { select: { fullName: true, email: true } },
+          posTerminal: { select: { posName: true } },
+        },
+      }),
+      prisma.customerDebtPayment.findMany({
+        where: {
+          companyId,
+          createdAt: { gte: todayStart, lte: todayEnd },
+        },
+        select: {
+          timestampId: true,
+          method: true,
+          amount: true,
+        },
       }),
     ]);
 
@@ -745,11 +1008,103 @@ export const dashboardService = {
       })),
     };
 
-    if (viewer.role === "manager") {
-      const activeCashiers = await prisma.profile.count({
-        where: { companyId, role: "cashier", status: "active" },
-      });
+    const activeTerminalCount = terminals.filter((terminal) => terminal.isActive).length;
+    const configuredPrinterCount = terminals.filter(
+      (terminal) =>
+        terminal.isActive &&
+        Boolean(terminal.printerName ?? terminal.printerDisplayName ?? terminal.printerDriver),
+    ).length;
+    const staleCustomerDisplayCount = terminals.filter(
+      (terminal) =>
+        terminal.isActive &&
+        (!terminal.customerDisplayState ||
+          terminal.customerDisplayState.updatedAt.getTime() < customerDisplayFreshAfter.getTime()),
+    ).length;
+    const operationalStatus = buildOperationalStatus({
+      activeCashiers,
+      activeTerminals: activeTerminalCount,
+      openSessions: todayOpenSessions,
+      configuredPrinters: configuredPrinterCount,
+      pendingApprovals: pendingOperationalApprovals,
+      pendingSyncIssues,
+      failedSyncIssues,
+      activeKitchenTickets,
+      lowStockCount: lowStockProducts.length,
+      staleCustomerDisplays: staleCustomerDisplayCount,
+    });
+    const soldQuantityByProduct = new Map(
+      soldItems.map((item) => [item.productId, toNumber(item._sum.qty)]),
+    );
+    const restockRecommendations = buildRestockRecommendations(
+      restockProducts.map((product) => ({
+        id: product.id,
+        name: product.name,
+        categoryName: product.category.categoryName,
+        quantity: toNumber(product.quantity),
+        baseUnit: product.baseUnit,
+        cost: toNumber(product.cost),
+        price: toNumber(product.price),
+        soldQuantity: soldQuantityByProduct.get(product.id) ?? 0,
+        supplierName: product.purchaseOrderItems[0]?.purchaseOrder.supplier.name ?? null,
+      })),
+    ).slice(0, 6);
+    const debtCashByTimestamp = new Map<string, number>();
+    for (const payment of debtPaymentsToday) {
+      if (!payment.timestampId || payment.method.toUpperCase() !== "CASH") {
+        continue;
+      }
 
+      debtCashByTimestamp.set(
+        payment.timestampId,
+        (debtCashByTimestamp.get(payment.timestampId) ?? 0) + toNumber(payment.amount),
+      );
+    }
+    const varianceInvestigations = recentlyClosedShifts.map((shift) => {
+      const shiftInvoices = todayInvoices.filter(
+        (invoice) => invoice.sourceTimestampId === shift.id,
+      );
+      const refunds = shiftInvoices
+        .filter((invoice) => invoice.status === "RETURNED")
+        .reduce((sum, invoice) => sum + toNumber(invoice.returnedAmount), 0);
+      const voids = shiftInvoices
+        .filter((invoice) => invoice.status === "VOID" || invoice.status === "CANCELLED")
+        .reduce((sum, invoice) => sum + toNumber(invoice.totalAmount), 0);
+      const cashSales =
+        shiftInvoices
+          .filter((invoice) => invoice.status === "PAID" || invoice.status === "RETURNED")
+          .reduce((sum, invoice) => sum + calculateCashCollected(invoice), 0) +
+        (debtCashByTimestamp.get(shift.id) ?? 0);
+      const withdrawals = toNumber(shift.withdrawnDrawerAmount);
+      const expectedCash = toNumber(shift.cashInDrawerAmount) + cashSales - withdrawals;
+      const actualCash = toNumber(shift.cashOutDrawerAmount);
+      const variance = actualCash - expectedCash;
+
+      return {
+        id: shift.id,
+        terminalName: shift.posTerminal.posName ?? "Unnamed terminal",
+        cashierName: shift.cashier.fullName ?? shift.cashier.email,
+        openedAt: shift.timestampIn,
+        closedAt: shift.timestampOut,
+        expectedCash,
+        actualCash,
+        variance,
+        refunds,
+        voids,
+        withdrawals,
+        cashSales,
+        severity: getVarianceSeverity(variance),
+        explanation: explainVariance({
+          variance,
+          refunds,
+          voids,
+          withdrawals,
+          offlineIssues: pendingSyncIssues + failedSyncIssues,
+          pendingApprovals: pendingOperationalApprovals,
+        }),
+      };
+    });
+
+    if (viewer.role === "manager") {
       return {
         role: viewer.role,
         viewerName: viewer.fullName ?? viewer.email,
@@ -825,6 +1180,9 @@ export const dashboardService = {
             ? [{ id: "no-open-session", title: "No open sessions", description: "No cashier drawer is currently open.", tone: "info" as const }]
             : []),
         ],
+        operationalStatus,
+        restockRecommendations,
+        varianceInvestigations,
         billingRestriction,
         ...commonData,
       };
@@ -876,6 +1234,8 @@ export const dashboardService = {
           ? [{ id: "shift-closed", title: "No open shift", description: "Open a cashier session to start recording drawer activity.", tone: "info" as const }]
           : []),
       ],
+      operationalStatus,
+      restockRecommendations,
       billingRestriction,
       topAddOns: [...addOnMap.values()]
         .sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity)

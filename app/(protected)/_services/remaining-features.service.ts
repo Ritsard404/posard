@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/auth/current-user";
+import { buildRestockRecommendations } from "./inventory-restock.service";
 
 export interface ManagementListFilters {
   search?: string;
@@ -158,6 +159,7 @@ export const remainingFeaturesService = {
       outOfStock,
       totalTracked,
       watchlist,
+      soldItems,
     ] = await Promise.all([
       prisma.stockMovement.findMany({
         where: {
@@ -258,6 +260,17 @@ export const remainingFeaturesService = {
           price: true,
           baseUnit: true,
           category: { select: { categoryName: true } },
+          purchaseOrderItems: {
+            orderBy: { purchaseOrder: { createdAt: "desc" } },
+            take: 1,
+            select: {
+              purchaseOrder: {
+                select: {
+                  supplier: { select: { name: true } },
+                },
+              },
+            },
+          },
           stockMovements: {
             orderBy: { createdAt: "desc" },
             take: 1,
@@ -269,7 +282,38 @@ export const remainingFeaturesService = {
           },
         },
       }),
+      prisma.item.groupBy({
+        by: ["productId"],
+        where: {
+          invoice: {
+            posTerminal: companyWhere(viewer.companyId),
+            createdAt: {
+              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+            },
+            status: { in: ["PAID", "RETURNED"] },
+          },
+          status: { not: "VOID" },
+        },
+        _sum: { qty: true },
+      }),
     ]);
+
+    const soldQuantityByProduct = new Map(
+      soldItems.map((item) => [item.productId, toNumber(item._sum.qty)]),
+    );
+    const restockRecommendations = buildRestockRecommendations(
+      watchlist.map((product) => ({
+        id: product.id,
+        name: product.name,
+        categoryName: product.category.categoryName,
+        quantity: toNumber(product.quantity),
+        baseUnit: product.baseUnit,
+        cost: toNumber(product.cost),
+        price: toNumber(product.price),
+        soldQuantity: soldQuantityByProduct.get(product.id) ?? 0,
+        supplierName: product.purchaseOrderItems[0]?.purchaseOrder.supplier.name ?? null,
+      })),
+    );
 
     return {
       stats: { lowStock, negativeStock, noMovement, outOfStock, totalTracked },
@@ -284,6 +328,21 @@ export const remainingFeaturesService = {
           baseUnit: product.baseUnit,
           stockValue: quantity * toNumber(product.cost),
           retailValue: quantity * toNumber(product.price),
+          averageDailySales:
+            restockRecommendations.find((item) => item.id === product.id)
+              ?.averageDailySales ?? 0,
+          remainingStockDays:
+            restockRecommendations.find((item) => item.id === product.id)
+              ?.remainingStockDays ?? null,
+          recommendedReorderQuantity:
+            restockRecommendations.find((item) => item.id === product.id)
+              ?.recommendedReorderQuantity ?? 0,
+          riskLevel:
+            restockRecommendations.find((item) => item.id === product.id)
+              ?.riskLevel ?? "low",
+          supplierName:
+            restockRecommendations.find((item) => item.id === product.id)
+              ?.supplierName ?? null,
           health:
             quantity < 0
               ? "negative"
@@ -297,6 +356,7 @@ export const remainingFeaturesService = {
           lastReference: lastMovement?.referenceNumber ?? null,
         };
       }),
+      restockRecommendations,
       movements: movements.map((movement) => ({
         ...movement,
         quantityDelta: toNumber(movement.quantityDelta),
