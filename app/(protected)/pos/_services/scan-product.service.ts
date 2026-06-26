@@ -16,10 +16,16 @@ export function findProductByScanValue(
 
   return (
     products.find((product) => {
-      const barcode = product.barcode?.trim().toLowerCase();
-      const name = product.name.trim().toLowerCase();
+      const exactFields = [
+        product.barcode,
+        product.name,
+        product.genericName,
+        product.brandName,
+      ]
+        .map((field) => field?.trim().toLowerCase())
+        .filter(Boolean);
 
-      return barcode === normalizedValue || name === normalizedValue;
+      return exactFields.includes(normalizedValue);
     }) ?? null
   );
 }

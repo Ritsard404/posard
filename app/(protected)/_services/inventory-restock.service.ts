@@ -9,6 +9,7 @@ export interface RestockRecommendationInput {
   cost: number;
   price: number;
   soldQuantity: number;
+  reorderPoint?: number | null;
   supplierName?: string | null;
 }
 
@@ -31,7 +32,11 @@ function roundOne(value: number) {
   return Math.round(value * 10) / 10;
 }
 
-function getRiskLevel(quantity: number, remainingStockDays: number | null): RestockRiskLevel {
+function getRiskLevel(
+  quantity: number,
+  remainingStockDays: number | null,
+  reorderPoint: number | null,
+): RestockRiskLevel {
   if (quantity <= 0 || remainingStockDays === 0) {
     return "critical";
   }
@@ -48,7 +53,7 @@ function getRiskLevel(quantity: number, remainingStockDays: number | null): Rest
     return "medium";
   }
 
-  return quantity <= 10 ? "medium" : "low";
+  return quantity <= (reorderPoint ?? 10) ? "medium" : "low";
 }
 
 export function buildRestockRecommendations(
@@ -60,9 +65,9 @@ export function buildRestockRecommendations(
       const averageDailySales = product.soldQuantity > 0 ? product.soldQuantity / windowDays : 0;
       const remainingStockDays =
         averageDailySales > 0 ? Math.max(0, product.quantity / averageDailySales) : null;
-      const reorderTarget = averageDailySales > 0 ? Math.ceil(averageDailySales * 14) : 10;
+      const reorderTarget = product.reorderPoint ?? (averageDailySales > 0 ? Math.ceil(averageDailySales * 14) : 10);
       const recommendedReorderQuantity = Math.max(0, reorderTarget - Math.max(0, product.quantity));
-      const riskLevel = getRiskLevel(product.quantity, remainingStockDays);
+      const riskLevel = getRiskLevel(product.quantity, remainingStockDays, product.reorderPoint ?? null);
 
       return {
         id: product.id,

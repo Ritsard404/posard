@@ -26,33 +26,30 @@ Extend these existing seams before creating new subsystems:
 - Inventory value exists in inventory health/report aggregations through stock value and potential retail/profit calculations.
 - Stock movement history exists through `StockMovement` and the inventory ledger.
 - Suppliers, purchase orders, and receiving records exist.
+- Stock lots exist for received batches with batch number, expiry date, unit cost, quantity on hand, shelf location, supplier, and status.
+- FEFO allocation exists for POS sale deductions, stock adjustment decreases, and transfer dispatch stock-out movements.
+- Near-expiry and expired batch monitoring exists on Inventory Health with expired, 0-30 day, 31-60 day, 61-90 day, and no-expiry buckets.
 - Reports exist for sales, transactions, invoices, discounts, refunds, returned items, audit trail, X-reading, and Z-reading.
 - Excel export exists for reports through XLSX export.
 - Bulk product import exists for CSV and the generated Excel XML `.xls` template.
 - User roles and permissions exist through `UserRole`, `PermissionKey`, and protected application surfaces.
 - Duplicate product detection exists for name/category and barcode during product save/import.
 - PWD and Senior statutory discounts exist with required customer/id metadata.
+- Product search includes barcode, product name, generic name, brand name, category, and preferred supplier.
 
 ### Partial
 
 - Fast-moving and slow-moving visibility is partially covered by top products, restock velocity, and no-movement inventory signals, but there is no dedicated fast/slow mover report.
 - Physical stock count is partially covered by stock adjustment/count correction, but there is no count-sheet workflow with variance approval/history.
-- Search is partially covered by product name, barcode, and category, but not by generic name, brand name, supplier, or expanded product metadata.
 - Import from Excel is partially covered by `.xls` XML template import, but true `.xlsx` upload is explicitly not supported.
 - Export to Excel/PDF is partial: report Excel export exists; product catalog export and direct PDF export are missing.
 - Loss/damage tracking is partially modeled by `StockMovementType.waste`, but there is no operator workflow or report for damaged/expired/lost items.
 - Profit and gross are partially reported at sales/report level, but there is no per-product profit and markup monitor.
-- Low-stock alerts exist with fixed thresholds, but there is no per-product reorder point or configurable alert rule.
 - Non-sales cash movement exists for cash drawer operations and expenses, but there is no dedicated non-sales income ledger.
+- Prescription-required products have a product flag and POS display warning, but checkout confirmation/audit remains open.
 
 ### Missing
 
-- Near-expiry tracker/monitor.
-- Batch number and expiry per stock lot.
-- FEFO monitoring and FEFO sale/dispensing allocation.
-- Shelf location.
-- Separate branded name and generic name fields.
-- Prescription-required product flag and checkout warning/blocking rules.
 - DSWD discount type/reporting.
 - Revenue goal or monthly sales target monitoring.
 - Favorite/frequent item shortcuts.
@@ -64,29 +61,29 @@ Extend these existing seams before creating new subsystems:
 
 ### Phase 1 - Product Master Extensions
 
-- [ ] Add product metadata fields to Prisma and product DTOs:
+- [x] Add product metadata fields to Prisma and product DTOs:
   - `genericName`
   - `brandName`
   - `shelfLocation`
   - `prescriptionRequired`
   - `reorderPoint`
   - `preferredSupplierId` or equivalent supplier association
-- [ ] Keep existing `name` as the display/search fallback while adding branded/generic structure.
-- [ ] Update product form, product table, product detail display, import template, and import validation for the new fields.
-- [ ] Add derived markup display using existing `price` and `cost`.
-- [ ] Add configurable low-stock level per product and replace fixed UI-only thresholds where inventory alerts are shown.
-- [ ] Extend duplicate detection to include probable duplicates by barcode, normalized brand/generic name, strength/variant if added, and category.
-- [ ] Update POS search to match barcode, product name, generic name, brand name, category, and preferred supplier.
+- [x] Keep existing `name` as the display/search fallback while adding branded/generic structure.
+- [x] Update product form, product table, product detail display, import template, and import validation for the new fields.
+- [x] Add derived markup display using existing `price` and `cost`.
+- [x] Add configurable low-stock level per product and replace fixed UI-only thresholds where inventory alerts are shown.
+- [x] Extend duplicate detection to include probable duplicates by barcode, normalized brand/generic name, strength/variant if added, and category.
+- [x] Update POS search to match barcode, product name, generic name, brand name, category, and preferred supplier.
 
 ### Phase 2 - Batch, Expiry, and FEFO Inventory
 
-- [ ] Add a stock lot/batch model linked to product, supplier/receiving item where available, batch number, expiry date, unit cost, quantity on hand, shelf location, and status.
-- [ ] Update receiving flow to capture batch number and expiry date for tracked products.
-- [ ] Update stock movement creation so batch movements are recorded with before/after lot quantities.
-- [ ] Add FEFO allocation for POS sale deductions and stock-out flows.
-- [ ] Add a near-expiry monitor with configurable expiry windows, for example expired, 0-30 days, 31-60 days, and 61-90 days.
-- [ ] Add a batch expiry page or inventory-ledger tab showing product, batch number, expiry date, quantity, shelf location, supplier, cost value, and FEFO priority.
-- [ ] Add expiry warnings to POS product selection and block expired stock unless an admin override is intentionally supported.
+- [x] Add a stock lot/batch model linked to product, supplier/receiving item where available, batch number, expiry date, unit cost, quantity on hand, shelf location, and status.
+- [x] Update receiving flow to capture batch number and expiry date for tracked products.
+- [x] Update stock movement creation so batch movements are recorded with before/after lot quantities.
+- [x] Add FEFO allocation for POS sale deductions and stock-out flows.
+- [x] Add a near-expiry monitor with expiry windows, for example expired, 0-30 days, 31-60 days, and 61-90 days.
+- [x] Add a batch expiry page or inventory-ledger tab showing product, batch number, expiry date, quantity, shelf location, supplier, cost value, and FEFO priority.
+- [x] Add expiry warnings to POS product selection and block expired stock unless an admin override is intentionally supported.
 
 ### Phase 3 - Stock Count, Loss, Damage, and Adjustment Control
 
@@ -129,39 +126,39 @@ Extend these existing seams before creating new subsystems:
 
 | Requested item | Status | Next action |
 | --- | --- | --- |
-| Near Expiry tracker/monitor | Missing | Phase 2 |
-| Batch No. expiry per stock | Missing | Phase 2 |
-| Stock movement history | Present/partial | Keep extending `StockMovement`; ensure POS sale deductions write movement records consistently |
+| Near Expiry tracker/monitor | Present | Inventory Health includes expiry buckets and priority lots |
+| Batch No. expiry per stock | Present | Receiving creates stock lots with batch, expiry, shelf, supplier, cost, and status |
+| Stock movement history | Present | Batch-aware movements record lot before/after quantities for receiving and stock-out allocations |
 | Category of products | Present | Extend only as needed for reports/search |
-| Shelf location | Missing | Phase 1, Phase 2 |
-| Naming (Branded&Generic) | Missing | Phase 1 |
-| Out of stock alert | Present/partial | Add configurable per-product thresholds in Phase 1 |
+| Shelf location | Present | Product and stock-lot shelf locations are implemented |
+| Naming (Branded&Generic) | Present | Keep using display name fallback while products are migrated |
+| Out of stock alert | Present/partial | Product reorder points and batch expiry warnings are implemented; alert configuration can expand later |
 | Fast moving&Slow Moving | Partial | Phase 5 |
 | Price SRP and Cost tracker/monitor | Present/partial | Add markup/SRP labeling and monitoring in Phase 1/5 |
-| FEFO Monitoring | Missing | Phase 2 |
+| FEFO Monitoring | Present | POS, adjustment decreases, and transfer dispatches consume non-expired batches first |
 | Inventory Value | Present | Expand batch/category/supplier drilldowns in Phase 5 |
-| Stocks and Low Stock Level tracker/monitor | Present/partial | Add product-specific reorder points in Phase 1 |
+| Stocks and Low Stock Level tracker/monitor | Present/partial | Product-specific reorder points implemented; expand batch/category/supplier drilldowns in Phase 5 |
 | Scanning product to easy to find and add product | Present | Expand search fields in Phase 1 |
-| Searching product (easy to find) | Present/partial | Expand search fields in Phase 1 |
+| Searching product (easy to find) | Present | Product/POS search now includes barcode, name, generic, brand, category, and preferred supplier |
 | Phone to Scan | Present | Reuse existing camera scanner |
 | Add items | Present | No new subsystem needed |
 | Discount DSWD and PWD | Partial | PWD exists; add DSWD if required in Phase 4 |
 | Reports | Present | Add pharmacy-specific reports in Phase 5 |
-| Suppliers | Present | Link preferred supplier to product in Phase 1 |
+| Suppliers | Present | Preferred supplier can now be linked to products |
 | Revenue goal/monthly sales target | Missing | Phase 5 |
 | Track non-sales income | Missing/partial | Phase 6 |
 | Bulk import products | Present/partial | Add true `.xlsx` support in Phase 6 |
 | Loss and damages products tracker | Missing/partial | Phase 3 |
-| Mark up | Partial | Phase 1/5 |
+| Mark up | Present/partial | Product form/table markup display is implemented; add reporting drilldowns in Phase 5 |
 | Gross | Present/partial | Add product/category drilldowns in Phase 5 |
 | Physical stock count | Partial | Phase 3 |
 | Profit per product | Partial | Phase 5 |
-| Product information | Present/partial | Add pharmacy metadata in Phase 1 |
+| Product information | Present/partial | Pharmacy metadata and receiving batch/expiry fields are implemented; prescription audit remains Phase 4 |
 | User roles | Present | Add permissions for new workflows as needed |
-| Prescription required | Missing | Phase 1/4 |
-| Search by barcode, generic branded supplier and category | Partial | Phase 1 |
+| Prescription required | Present/partial | Product flag and POS display warning are implemented; checkout confirmation/audit remains Phase 4 |
+| Search by barcode, generic branded supplier and category | Present | Implemented in product search, POS search, and exact scan matching |
 | Favorite/Frequent Items | Missing | Phase 5 |
-| Duplicate Product Detection | Present/partial | Expand duplicate rules in Phase 1 |
+| Duplicate Product Detection | Present/partial | Barcode and brand/generic/category duplicate rules are implemented; strength/variant remains if added |
 | Backup & Restore | Missing | Phase 6 |
 | Export to Excel/PDF | Partial | Phase 6 |
 | Import from Excel | Partial | Phase 6 |

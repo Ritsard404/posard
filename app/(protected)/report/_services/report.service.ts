@@ -1190,6 +1190,7 @@ export const reportService = {
           quantity: true,
           cost: true,
           price: true,
+          reorderPoint: true,
         },
       }),
       prisma.posTerminalInfo.findMany({
@@ -1433,7 +1434,7 @@ export const reportService = {
         summary.potentialProfit += quantity * (price - cost);
         summary.trackedItemCount += quantity;
         summary.trackedProductCount += 1;
-        summary.lowStockCount += quantity > 0 && quantity <= 10 ? 1 : 0;
+        summary.lowStockCount += quantity > 0 && quantity <= toNumber(product.reorderPoint ?? 10) ? 1 : 0;
         summary.outOfStockCount += quantity <= 0 ? 1 : 0;
 
         return summary;

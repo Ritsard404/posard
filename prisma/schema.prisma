@@ -435,6 +435,7 @@ model Company {
   expenseCategories ExpenseCategory[]
   expenses          Expense[]
   stockMovements    StockMovement[]
+  stockLots         StockLot[]
   suppliers         Supplier[]
   purchaseOrders    PurchaseOrder[]
   receivingRecords  ReceivingRecord[]
@@ -1049,6 +1050,11 @@ model Product {
   name              String
   productImageUrl   String?       @map("product_image_url") @db.VarChar(500)
   barcode           String?       @db.VarChar(100)
+  genericName       String?       @map("generic_name")
+  brandName         String?       @map("brand_name")
+  shelfLocation     String?       @map("shelf_location")
+  prescriptionRequired Boolean    @default(false) @map("prescription_required")
+  reorderPoint      Decimal?      @map("reorder_point") @db.Decimal(19, 4)
   baseUnit          String        @default("") @map("base_unit") @db.VarChar(50)
   quantity          Decimal?      @db.Decimal(19, 4)
   cost              Decimal       @default(0) @db.Decimal(19, 4)
@@ -1070,6 +1076,9 @@ model Product {
   companyId String?  @map("uuid_company") @db.Uuid
   company   Company? @relation(fields: [companyId], references: [id])
 
+  preferredSupplierId String?   @map("preferred_supplier_id") @db.Uuid
+  preferredSupplier   Supplier? @relation("ProductPreferredSupplier", fields: [preferredSupplierId], references: [id], onDelete: SetNull)
+
   images         ProductImage[]
   inventory      Inventory[]
   modifierGroups ProductModifierGroup[]
@@ -1085,6 +1094,7 @@ model Product {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz
   items     Item[]
   stockMovements StockMovement[]
+  stockLots StockLot[]
   purchaseOrderItems PurchaseOrderItem[]
   receivingItems ReceivingItem[]
   branchTransferItems BranchTransferItem[]
@@ -1094,6 +1104,9 @@ model Product {
   @@unique([companyId, barcode], name: "uk_product_company_barcode")
   @@index([categoryId])
   @@index([companyId])
+  @@index([preferredSupplierId])
+  @@index([companyId, genericName])
+  @@index([companyId, brandName])
   @@map("product")
   @@schema("public")
 }
@@ -1794,6 +1807,16 @@ enum ReceivingStatus {
   @@schema("public")
 }
 
+enum StockLotStatus {
+  available
+  depleted
+  expired
+  blocked
+
+  @@map("stock_lot_status")
+  @@schema("public")
+}
+
 enum BranchTransferStatus {
   draft
   pending_approval
@@ -1944,6 +1967,10 @@ model StockMovement {
   sourceId String? @map("source_id")
   referenceNumber String? @map("reference_number")
   notes String?
+  stockLotId String? @map("stock_lot_id") @db.Uuid
+  stockLot StockLot? @relation(fields: [stockLotId], references: [id], onDelete: SetNull)
+  lotQuantityBefore Decimal? @map("lot_quantity_before") @db.Decimal(19, 4)
+  lotQuantityAfter Decimal? @map("lot_quantity_after") @db.Decimal(19, 4)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
@@ -1951,6 +1978,7 @@ model StockMovement {
   @@index([companyId, movementType, createdAt])
   @@index([productId, createdAt])
   @@index([terminalId])
+  @@index([stockLotId])
   @@map("stock_movement")
   @@schema("public")
 }
@@ -1968,6 +1996,8 @@ model Supplier {
   status SupplierStatus @default(active)
   purchaseOrders PurchaseOrder[]
   receivingRecords ReceivingRecord[]
+  preferredProducts Product[] @relation("ProductPreferredSupplier")
+  stockLots StockLot[]
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
   @@index([companyId, status])
@@ -2046,9 +2076,42 @@ model ReceivingItem {
   quantityReceived Decimal @map("quantity_received") @db.Decimal(19, 4)
   unitCost Decimal @map("unit_cost") @db.Decimal(19, 4)
   varianceQuantity Decimal @default(0) @map("variance_quantity") @db.Decimal(19, 4)
+  batchNumber String? @map("batch_number")
+  expiryDate DateTime? @map("expiry_date") @db.Date
+  shelfLocation String? @map("shelf_location")
+  stockLot StockLot?
   @@index([receivingRecordId])
   @@index([productId])
   @@map("receiving_item")
+  @@schema("public")
+}
+
+model StockLot {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productId String @map("product_id") @db.Uuid
+  product Product @relation(fields: [productId], references: [id])
+  supplierId String? @map("supplier_id") @db.Uuid
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  receivingItemId String? @unique @map("receiving_item_id") @db.Uuid
+  receivingItem ReceivingItem? @relation(fields: [receivingItemId], references: [id], onDelete: SetNull)
+  batchNumber String? @map("batch_number")
+  expiryDate DateTime? @map("expiry_date") @db.Date
+  unitCost Decimal @map("unit_cost") @db.Decimal(19, 4)
+  initialQuantity Decimal @map("initial_quantity") @db.Decimal(19, 4)
+  quantityOnHand Decimal @map("quantity_on_hand") @db.Decimal(19, 4)
+  shelfLocation String? @map("shelf_location")
+  status StockLotStatus @default(available)
+  receivedAt DateTime? @map("received_at") @db.Timestamptz
+  stockMovements StockMovement[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, status, expiryDate])
+  @@index([productId, expiryDate])
+  @@index([supplierId])
+  @@map("stock_lot")
   @@schema("public")
 }
 

@@ -56,7 +56,7 @@ export interface POSDiscount {
   oscaIdNum: string;
 }
 export type PaymentMethodType = "cash" | "reference";
-export type CartMutationFailureReason = "OUT_OF_STOCK" | "LIMIT_REACHED";
+export type CartMutationFailureReason = "OUT_OF_STOCK" | "LIMIT_REACHED" | "EXPIRED_STOCK";
 export type CartMutationWarningReason = "NEGATIVE_STOCK";
 
 export interface POSReferencePayment {
@@ -371,6 +371,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
   clearOfflineReceipts: () => set({ offlineReceipts: [] }),
 
   addToCart: (product) => {
+    if (product.saleBlockedByExpiry) {
+      return { success: false, reason: "EXPIRED_STOCK" };
+    }
+
     if (product.isConfigurable && product.modifierGroups.length > 0) {
       return { success: false, reason: "LIMIT_REACHED" };
     }
@@ -466,6 +470,9 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
     const sourceProduct =
       products.find((product) => product.id === targetItem.id) ?? targetItem;
+    if (sourceProduct.saleBlockedByExpiry) {
+      return { success: false, reason: "EXPIRED_STOCK" };
+    }
     const availableQuantity = Math.max(0, Number(sourceProduct.quantity ?? 0));
     const otherActiveQuantity = cart
       .filter(

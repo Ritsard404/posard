@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { allocateStockLotsForStockOut } from "./stock-lot-allocation.service";
 import type {
   expenseCreateSchema,
   expenseTransitionSchema,
@@ -133,6 +134,10 @@ async function createStockMovement(
     sourceId?: string | null;
     referenceNumber?: string | null;
     notes?: string | null;
+    stockLotId?: string | null;
+    lotQuantityBefore?: number | null;
+    lotQuantityAfter?: number | null;
+    unitCost?: number | null;
   },
 ) {
   if (!Number.isFinite(input.quantityDelta) || input.quantityDelta === 0) {
@@ -145,7 +150,7 @@ async function createStockMovement(
       companyId: input.companyId,
       isDeleted: false,
     },
-    select: { id: true, quantity: true, trackInventory: true },
+    select: { id: true, quantity: true, cost: true, trackInventory: true },
   });
 
   if (!product?.trackInventory) {
@@ -163,10 +168,73 @@ async function createStockMovement(
     throw new Error("Inventory movement cannot make stock negative.");
   }
 
+  const lotAllocations =
+    input.quantityDelta < 0 && !input.stockLotId
+      ? await allocateStockLotsForStockOut(tx, {
+          companyId: input.companyId,
+          productId: product.id,
+          requestedQuantity: Math.abs(input.quantityDelta),
+          productQuantity: before,
+          fallbackUnitCost: Number(product.cost ?? 0),
+        })
+      : [];
+
   await tx.product.update({
     where: { id: product.id },
     data: { quantity: new Prisma.Decimal(after) },
   });
+
+  if (lotAllocations.length > 0) {
+    let runningBefore = before;
+    let firstMovement: Awaited<ReturnType<typeof tx.stockMovement.create>> | null =
+      null;
+
+    for (const allocation of lotAllocations) {
+      const runningAfter = runningBefore - allocation.quantity;
+      const movement = await tx.stockMovement.create({
+        data: {
+          companyId: input.companyId,
+          terminalId: input.terminalId ?? null,
+          productId: product.id,
+          createdById: input.actorProfileId,
+          movementType: input.movementType,
+          quantityDelta: new Prisma.Decimal(-allocation.quantity),
+          quantityBefore: new Prisma.Decimal(runningBefore),
+          quantityAfter: new Prisma.Decimal(runningAfter),
+          unitCost: new Prisma.Decimal(allocation.unitCost),
+          sourceType: input.sourceType,
+          sourceId: input.sourceId ?? null,
+          referenceNumber: input.referenceNumber ?? null,
+          notes: [
+            input.notes,
+            allocation.stockLotId
+              ? `FEFO batch allocation${allocation.batchNumber ? ` ${allocation.batchNumber}` : ""}`
+              : "Unbatched stock allocation",
+          ]
+            .filter(Boolean)
+            .join(" - "),
+          stockLotId: allocation.stockLotId,
+          lotQuantityBefore:
+            allocation.lotQuantityBefore === null
+              ? null
+              : new Prisma.Decimal(allocation.lotQuantityBefore),
+          lotQuantityAfter:
+            allocation.lotQuantityAfter === null
+              ? null
+              : new Prisma.Decimal(allocation.lotQuantityAfter),
+        },
+      });
+
+      firstMovement ??= movement;
+      runningBefore = runningAfter;
+    }
+
+    if (!firstMovement) {
+      throw new Error("Inventory movement could not be created.");
+    }
+
+    return firstMovement;
+  }
 
   const movement = await tx.stockMovement.create({
     data: {
@@ -178,10 +246,23 @@ async function createStockMovement(
       quantityDelta: new Prisma.Decimal(input.quantityDelta),
       quantityBefore: new Prisma.Decimal(before),
       quantityAfter: new Prisma.Decimal(after),
+      unitCost:
+        input.unitCost === null || input.unitCost === undefined
+          ? null
+          : new Prisma.Decimal(input.unitCost),
       sourceType: input.sourceType,
       sourceId: input.sourceId ?? null,
       referenceNumber: input.referenceNumber ?? null,
       notes: input.notes,
+      stockLotId: input.stockLotId ?? null,
+      lotQuantityBefore:
+        input.lotQuantityBefore === null || input.lotQuantityBefore === undefined
+          ? null
+          : new Prisma.Decimal(input.lotQuantityBefore),
+      lotQuantityAfter:
+        input.lotQuantityAfter === null || input.lotQuantityAfter === undefined
+          ? null
+          : new Prisma.Decimal(input.lotQuantityAfter),
     },
   });
 
@@ -576,7 +657,10 @@ export const managementWorkflowService = {
             status: { in: ["approved", "ordered", "partially_received"] },
           },
         },
-        include: { purchaseOrder: true },
+        include: {
+          purchaseOrder: true,
+          product: { select: { shelfLocation: true } },
+        },
       });
 
       const ordered = Number(item.quantity);
@@ -587,6 +671,8 @@ export const managementWorkflowService = {
       );
       if (receiveQty <= 0) throw new Error("No quantity remains to receive.");
 
+      const receivedAt = new Date();
+      const shelfLocation = input.shelfLocation ?? item.product.shelfLocation ?? null;
       const receiving = await tx.receivingRecord.create({
         data: {
           receivingNumber,
@@ -595,7 +681,7 @@ export const managementWorkflowService = {
           purchaseOrderId: item.purchaseOrderId,
           postedById: viewer.profileId,
           status: "posted",
-          postedAt: new Date(),
+          postedAt: receivedAt,
           notes: input.notes,
           items: {
             create: [
@@ -606,10 +692,38 @@ export const managementWorkflowService = {
                 varianceQuantity: new Prisma.Decimal(
                   input.quantityReceived - receiveQty,
                 ),
+                batchNumber: input.batchNumber,
+                expiryDate: input.expiryDate,
+                shelfLocation,
               },
             ],
           },
         },
+        include: { items: { select: { id: true } } },
+      });
+      const receivingItemId = receiving.items[0]?.id;
+      const expiryTime = input.expiryDate?.getTime() ?? null;
+      const todayStart = new Date(receivedAt);
+      todayStart.setHours(0, 0, 0, 0);
+      const stockLot = await tx.stockLot.create({
+        data: {
+          companyId: viewer.companyId,
+          productId: item.productId,
+          supplierId: item.purchaseOrder.supplierId,
+          receivingItemId,
+          batchNumber: input.batchNumber,
+          expiryDate: input.expiryDate,
+          unitCost: item.unitCost,
+          initialQuantity: new Prisma.Decimal(receiveQty),
+          quantityOnHand: new Prisma.Decimal(receiveQty),
+          shelfLocation,
+          receivedAt,
+          status:
+            expiryTime !== null && expiryTime < todayStart.getTime()
+              ? "expired"
+              : "available",
+        },
+        select: { id: true },
       });
 
       await tx.purchaseOrderItem.update({
@@ -648,6 +762,10 @@ export const managementWorkflowService = {
         sourceId: receiving.id,
         referenceNumber: receivingNumber,
         notes: input.notes,
+        stockLotId: stockLot.id,
+        lotQuantityBefore: 0,
+        lotQuantityAfter: receiveQty,
+        unitCost: Number(item.unitCost),
       });
 
       await auditLogService.create(tx, {

@@ -59,6 +59,9 @@ export const purchaseOrderReceiveSchema = z.object({
   purchaseOrderId: uuid,
   purchaseOrderItemId: uuid,
   quantityReceived: positiveNumber,
+  batchNumber: optionalText,
+  expiryDate: z.coerce.date().optional().or(z.literal("")).transform((value) => value || null),
+  shelfLocation: optionalText,
   notes: optionalText,
 });
 

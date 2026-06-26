@@ -738,15 +738,16 @@ export const dashboardService = {
         where: {
           companyId,
           trackInventory: true,
-          quantity: { lte: 10 },
+          OR: [{ quantity: { lte: 10 } }, { reorderPoint: { not: null } }],
           isDeleted: false,
         },
-        take: 5,
+        take: 50,
         orderBy: { quantity: "asc" },
         select: {
           id: true,
           name: true,
           quantity: true,
+          reorderPoint: true,
           price: true,
           category: { select: { categoryName: true } },
         },
@@ -833,7 +834,11 @@ export const dashboardService = {
           companyId,
           trackInventory: true,
           isDeleted: false,
-          OR: [{ quantity: { lte: 10 } }, { stockMovements: { none: {} } }],
+          OR: [
+            { quantity: { lte: 10 } },
+            { reorderPoint: { not: null } },
+            { stockMovements: { none: {} } },
+          ],
         },
         orderBy: [{ quantity: "asc" }, { name: "asc" }],
         take: 12,
@@ -844,6 +849,8 @@ export const dashboardService = {
           baseUnit: true,
           cost: true,
           price: true,
+          reorderPoint: true,
+          preferredSupplier: { select: { name: true } },
           category: { select: { categoryName: true } },
           purchaseOrderItems: {
             orderBy: { purchaseOrder: { createdAt: "desc" } },
@@ -1020,6 +1027,12 @@ export const dashboardService = {
         (!terminal.customerDisplayState ||
           terminal.customerDisplayState.updatedAt.getTime() < customerDisplayFreshAfter.getTime()),
     ).length;
+    const thresholdLowStockProducts = lowStockProducts
+      .filter((product) => {
+        const quantity = toNumber(product.quantity);
+        return quantity > 0 && quantity <= toNumber(product.reorderPoint ?? 10);
+      })
+      .slice(0, 5);
     const operationalStatus = buildOperationalStatus({
       activeCashiers,
       activeTerminals: activeTerminalCount,
@@ -1029,7 +1042,7 @@ export const dashboardService = {
       pendingSyncIssues,
       failedSyncIssues,
       activeKitchenTickets,
-      lowStockCount: lowStockProducts.length,
+      lowStockCount: thresholdLowStockProducts.length,
       staleCustomerDisplays: staleCustomerDisplayCount,
     });
     const soldQuantityByProduct = new Map(
@@ -1045,7 +1058,8 @@ export const dashboardService = {
         cost: toNumber(product.cost),
         price: toNumber(product.price),
         soldQuantity: soldQuantityByProduct.get(product.id) ?? 0,
-        supplierName: product.purchaseOrderItems[0]?.purchaseOrder.supplier.name ?? null,
+        reorderPoint: product.reorderPoint === null ? null : toNumber(product.reorderPoint),
+        supplierName: product.preferredSupplier?.name ?? product.purchaseOrderItems[0]?.purchaseOrder.supplier.name ?? null,
       })),
     ).slice(0, 6);
     const debtCashByTimestamp = new Map<string, number>();
@@ -1156,7 +1170,7 @@ export const dashboardService = {
         topAddOns: [...addOnMap.values()]
           .sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity)
           .slice(0, 5),
-        lowStockProducts: lowStockProducts.map((product) => ({
+        lowStockProducts: thresholdLowStockProducts.map((product) => ({
           id: product.id,
           name: product.name,
           category: product.category.categoryName,
@@ -1173,8 +1187,8 @@ export const dashboardService = {
                 tone: "danger" as const,
               }]
             : []),
-          ...(lowStockProducts.length > 0
-            ? [{ id: "low-stock", title: "Low stock items detected", description: `${lowStockProducts.length} tracked product(s) are at or below 10 units.`, tone: "warning" as const }]
+          ...(thresholdLowStockProducts.length > 0
+            ? [{ id: "low-stock", title: "Low stock items detected", description: `${thresholdLowStockProducts.length} tracked product(s) are at or below their reorder point.`, tone: "warning" as const }]
             : []),
           ...(todayOpenSessions === 0
             ? [{ id: "no-open-session", title: "No open sessions", description: "No cashier drawer is currently open.", tone: "info" as const }]

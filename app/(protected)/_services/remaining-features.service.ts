@@ -153,12 +153,13 @@ export const remainingFeaturesService = {
     const status = cleanFilter(filters.status);
     const [
       movements,
-      lowStock,
+      lowStockCandidates,
       negativeStock,
       noMovement,
       outOfStock,
       totalTracked,
       watchlist,
+      stockLots,
       soldItems,
     ] = await Promise.all([
       prisma.stockMovement.findMany({
@@ -204,13 +205,14 @@ export const remainingFeaturesService = {
           createdAt: true,
         },
       }),
-      prisma.product.count({
+      prisma.product.findMany({
         where: {
           ...companyWhere(viewer.companyId),
           trackInventory: true,
-          quantity: { lte: 10, gt: 0 },
+          quantity: { gt: 0 },
           isDeleted: false,
         },
+        select: { quantity: true, reorderPoint: true },
       }),
       prisma.product.count({
         where: {
@@ -248,7 +250,11 @@ export const remainingFeaturesService = {
           ...companyWhere(viewer.companyId),
           trackInventory: true,
           isDeleted: false,
-          OR: [{ quantity: { lte: 10 } }, { stockMovements: { none: {} } }],
+          OR: [
+            { quantity: { lte: 10 } },
+            { reorderPoint: { not: null } },
+            { stockMovements: { none: {} } },
+          ],
         },
         orderBy: [{ quantity: "asc" }, { name: "asc" }],
         take: 20,
@@ -259,6 +265,8 @@ export const remainingFeaturesService = {
           cost: true,
           price: true,
           baseUnit: true,
+          reorderPoint: true,
+          preferredSupplier: { select: { name: true } },
           category: { select: { categoryName: true } },
           purchaseOrderItems: {
             orderBy: { purchaseOrder: { createdAt: "desc" } },
@@ -282,6 +290,49 @@ export const remainingFeaturesService = {
           },
         },
       }),
+      prisma.stockLot.findMany({
+        where: {
+          ...companyWhere(viewer.companyId),
+          quantityOnHand: { gt: 0 },
+          ...(search
+            ? {
+                OR: [
+                  { batchNumber: { contains: search, mode: "insensitive" } },
+                  { shelfLocation: { contains: search, mode: "insensitive" } },
+                  {
+                    product: {
+                      name: { contains: search, mode: "insensitive" },
+                    },
+                  },
+                  {
+                    supplier: {
+                      name: { contains: search, mode: "insensitive" },
+                    },
+                  },
+                ],
+              }
+            : {}),
+        },
+        orderBy: [{ expiryDate: "asc" }, { product: { name: "asc" } }],
+        take: 100,
+        select: {
+          id: true,
+          batchNumber: true,
+          expiryDate: true,
+          quantityOnHand: true,
+          unitCost: true,
+          shelfLocation: true,
+          status: true,
+          product: {
+            select: {
+              name: true,
+              baseUnit: true,
+              category: { select: { categoryName: true } },
+            },
+          },
+          supplier: { select: { name: true } },
+        },
+      }),
       prisma.item.groupBy({
         by: ["productId"],
         where: {
@@ -298,6 +349,11 @@ export const remainingFeaturesService = {
       }),
     ]);
 
+    const lowStock = lowStockCandidates.filter((product) => {
+      const quantity = toNumber(product.quantity);
+      return quantity > 0 && quantity <= toNumber(product.reorderPoint ?? 10);
+    }).length;
+
     const soldQuantityByProduct = new Map(
       soldItems.map((item) => [item.productId, toNumber(item._sum.qty)]),
     );
@@ -311,14 +367,91 @@ export const remainingFeaturesService = {
         cost: toNumber(product.cost),
         price: toNumber(product.price),
         soldQuantity: soldQuantityByProduct.get(product.id) ?? 0,
-        supplierName: product.purchaseOrderItems[0]?.purchaseOrder.supplier.name ?? null,
+        reorderPoint: product.reorderPoint === null ? null : toNumber(product.reorderPoint),
+        supplierName: product.preferredSupplier?.name ?? product.purchaseOrderItems[0]?.purchaseOrder.supplier.name ?? null,
       })),
     );
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const expiryLots = stockLots
+      .map((lot) => {
+        const quantity = toNumber(lot.quantityOnHand);
+        const daysUntilExpiry = lot.expiryDate
+          ? Math.floor((lot.expiryDate.getTime() - todayStart.getTime()) / dayMs)
+          : null;
+
+        return {
+          id: lot.id,
+          productName: lot.product.name,
+          categoryName: lot.product.category?.categoryName ?? "Uncategorized",
+          baseUnit: lot.product.baseUnit,
+          batchNumber: lot.batchNumber,
+          expiryDate: lot.expiryDate,
+          daysUntilExpiry,
+          quantity,
+          costValue: quantity * toNumber(lot.unitCost),
+          shelfLocation: lot.shelfLocation,
+          supplierName: lot.supplier?.name ?? null,
+          status: lot.status,
+          bucket:
+            daysUntilExpiry === null
+              ? "no_expiry"
+              : daysUntilExpiry < 0 || lot.status === "expired"
+                ? "expired"
+                : daysUntilExpiry <= 30
+                  ? "0_30"
+                  : daysUntilExpiry <= 60
+                    ? "31_60"
+                    : daysUntilExpiry <= 90
+                      ? "61_90"
+                      : "later",
+        };
+      })
+      .sort((a, b) => {
+        const aDays = a.daysUntilExpiry ?? Number.POSITIVE_INFINITY;
+        const bDays = b.daysUntilExpiry ?? Number.POSITIVE_INFINITY;
+        if (aDays !== bDays) return aDays - bDays;
+        return a.productName.localeCompare(b.productName);
+      });
+    const bucketOrder = [
+      { key: "expired", label: "Expired" },
+      { key: "0_30", label: "0-30 days" },
+      { key: "31_60", label: "31-60 days" },
+      { key: "61_90", label: "61-90 days" },
+      { key: "no_expiry", label: "No expiry date" },
+    ];
+    const expiryBuckets = bucketOrder.map((bucket) => {
+      const matches = expiryLots.filter((lot) => lot.bucket === bucket.key);
+      return {
+        key: bucket.key,
+        label: bucket.label,
+        count: matches.length,
+        quantity: matches.reduce((sum, lot) => sum + lot.quantity, 0),
+        costValue: matches.reduce((sum, lot) => sum + lot.costValue, 0),
+      };
+    });
+    const nearExpiryLots = expiryLots
+      .filter((lot) => lot.bucket !== "later" && lot.bucket !== "no_expiry")
+      .slice(0, 12);
 
     return {
-      stats: { lowStock, negativeStock, noMovement, outOfStock, totalTracked },
+      stats: {
+        lowStock,
+        negativeStock,
+        noMovement,
+        outOfStock,
+        totalTracked,
+        expiredLots:
+          expiryBuckets.find((bucket) => bucket.key === "expired")?.count ?? 0,
+        nearExpiryLots:
+          expiryBuckets.find((bucket) => bucket.key === "0_30")?.count ?? 0,
+      },
+      expiryBuckets,
+      nearExpiryLots,
       watchlist: watchlist.map((product) => {
         const quantity = toNumber(product.quantity);
+        const reorderPoint = product.reorderPoint === null ? null : toNumber(product.reorderPoint);
         const lastMovement = product.stockMovements[0] ?? null;
         return {
           id: product.id,
@@ -348,7 +481,7 @@ export const remainingFeaturesService = {
               ? "negative"
               : quantity === 0
                 ? "out_of_stock"
-                : quantity <= 10
+                : quantity <= (reorderPoint ?? 10)
                   ? "low_stock"
                   : "no_movement",
           lastMovementAt: lastMovement?.createdAt ?? null,

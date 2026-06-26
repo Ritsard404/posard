@@ -54,9 +54,11 @@ export function ProductDisplay() {
         setSearchQuery(scanValue);
         setPage(1);
         toast.error(
-          addResult.reason === 'OUT_OF_STOCK'
-            ? 'Product is out of stock.'
-            : 'Open the product to configure it first.',
+          addResult.reason === 'EXPIRED_STOCK'
+            ? 'Expired batch only.'
+            : addResult.reason === 'OUT_OF_STOCK'
+              ? 'Product is out of stock.'
+              : 'Open the product to configure it first.',
           { description: product.name },
         );
         return;
@@ -78,9 +80,19 @@ export function ProductDisplay() {
   const setActiveViewMode = isMobile ? setMobileProductView : setViewMode;
 
   const filteredProducts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
     return products.filter((p) => {
-      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            (p.barcode && p.barcode.includes(searchQuery));
+      const matchesSearch =
+        !query ||
+        [
+          p.name,
+          p.barcode,
+          p.genericName,
+          p.brandName,
+          p.categoryName,
+          p.preferredSupplierName,
+        ].some((field) => field?.toLowerCase().includes(query));
       const matchesCategory = selectedCategoryId ? p.categoryId === selectedCategoryId : true;
       return matchesSearch && matchesCategory;
     });
@@ -115,7 +127,7 @@ export function ProductDisplay() {
           <div className="group relative min-w-0 flex-[1_1_14rem]">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
             <Input 
-              placeholder="Search products..." 
+              placeholder="Search name, barcode, generic, brand..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);

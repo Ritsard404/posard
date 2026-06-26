@@ -151,6 +151,15 @@ function PreviewRow({ row }: { row: ProductBatchPreviewRowDto }) {
             {row.categoryName} • {row.baseUnit} • {row.trackInventory ? `${row.quantity ?? 0} in stock` : "Inventory off"}
           </p>
         </div>
+        {[row.brandName, row.genericName, row.shelfLocation ? `Shelf ${row.shelfLocation}` : null, row.preferredSupplierName ? `Supplier ${row.preferredSupplierName}` : null]
+          .filter(Boolean)
+          .length > 0 ? (
+          <div className="basis-full text-xs text-muted-foreground sm:basis-auto">
+            {[row.brandName, row.genericName, row.shelfLocation ? `Shelf ${row.shelfLocation}` : null, row.preferredSupplierName ? `Supplier ${row.preferredSupplierName}` : null]
+              .filter(Boolean)
+              .join(" / ")}
+          </div>
+        ) : null}
         <div className="text-right text-sm">
           <div className="font-semibold">₱ {row.price.toFixed(2)}</div>
           <div className="text-muted-foreground">Cost ₱ {row.cost.toFixed(2)}</div>
@@ -161,6 +170,8 @@ function PreviewRow({ row }: { row: ProductBatchPreviewRowDto }) {
         <span>Type {row.itemType}</span>
         <span>VAT {row.vatType}</span>
         <span>{row.isAvailable ? "Available" : "Unavailable"}</span>
+        {row.prescriptionRequired ? <span>Prescription</span> : null}
+        {row.reorderPoint !== null ? <span>Reorder {row.reorderPoint}</span> : null}
         {row.barcode ? <span>Barcode {row.barcode}</span> : null}
       </div>
 

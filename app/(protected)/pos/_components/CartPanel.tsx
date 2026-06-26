@@ -68,11 +68,16 @@ export function CartPanel() {
 
     if (!result.success) {
       toast.error(
-        result.reason === "OUT_OF_STOCK"
-          ? "Wala nang stock."
-          : "Naabot na ang stock limit.",
+        result.reason === "EXPIRED_STOCK"
+          ? "Expired batch only."
+          : result.reason === "OUT_OF_STOCK"
+            ? "Wala nang stock."
+            : "Naabot na ang stock limit.",
         {
-          description: "Hindi na puwedeng dagdagan ang tracked item na ito.",
+          description:
+            result.reason === "EXPIRED_STOCK"
+              ? "Receive a non-expired batch before selling this item."
+              : "Hindi na puwedeng dagdagan ang tracked item na ito.",
           duration: 5000,
         },
       );

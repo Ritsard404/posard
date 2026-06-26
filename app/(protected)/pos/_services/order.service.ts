@@ -26,6 +26,7 @@ import { receiptPrintService } from "./receipt-print.service";
 import { printArchiveService } from "./print-archive.service";
 import { printConfigService } from "./print-config.service";
 import { findProfileByPin } from "@/lib/security/pin";
+import { allocateStockLotsForStockOut } from "../../_services/stock-lot-allocation.service";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -490,6 +491,7 @@ async function loadAndValidateProducts(
       name: true,
       vatType: true,
       quantity: true,
+      cost: true,
       trackInventory: true,
     },
   });
@@ -613,6 +615,7 @@ async function loadProductsWithDb(
       name: true,
       vatType: true,
       quantity: true,
+      cost: true,
       trackInventory: true,
     },
   });
@@ -657,6 +660,13 @@ async function deductStock(
   db: Prisma.TransactionClient,
   items: ItemRequestDto[],
   productMap: Awaited<ReturnType<typeof loadProductsWithDb>>,
+  context: {
+    companyId: string;
+    terminalId: string;
+    actorProfileId: string;
+    sourceId: string;
+    referenceNumber: string;
+  },
 ) {
   const quantitiesByProduct = new Map<string, number>();
 
@@ -670,6 +680,15 @@ async function deductStock(
 
   const stockUpdates = await Promise.all(
     [...quantitiesByProduct.entries()].map(async ([productId, qty]) => {
+      const product = productMap.get(productId);
+      const quantityBefore = Number(product?.quantity ?? 0);
+      const lotAllocations = await allocateStockLotsForStockOut(db, {
+        companyId: context.companyId,
+        productId,
+        requestedQuantity: qty,
+        productQuantity: quantityBefore,
+        fallbackUnitCost: Number(product?.cost ?? 0),
+      });
       const result = await db.product.updateMany({
         where: {
           id: productId,
@@ -680,20 +699,53 @@ async function deductStock(
       });
 
       if (result.count !== 1) {
-        const product = productMap.get(productId);
         throw new Error(
           `Insufficient stock for "${product?.name ?? "Product"}". Please refresh and try again.`,
         );
       }
 
-      const product = await db.product.findUnique({
+      let runningBefore = quantityBefore;
+      for (const allocation of lotAllocations) {
+        const runningAfter = runningBefore - allocation.quantity;
+        await db.stockMovement.create({
+          data: {
+            companyId: context.companyId,
+            terminalId: context.terminalId,
+            productId,
+            createdById: context.actorProfileId,
+            movementType: "sale_deduction",
+            quantityDelta: new Prisma.Decimal(-allocation.quantity),
+            quantityBefore: new Prisma.Decimal(runningBefore),
+            quantityAfter: new Prisma.Decimal(runningAfter),
+            unitCost: new Prisma.Decimal(allocation.unitCost),
+            sourceType: "invoice",
+            sourceId: context.sourceId,
+            referenceNumber: context.referenceNumber,
+            notes: allocation.stockLotId
+              ? `FEFO batch allocation${allocation.batchNumber ? ` ${allocation.batchNumber}` : ""}`
+              : "Unbatched stock allocation",
+            stockLotId: allocation.stockLotId,
+            lotQuantityBefore:
+              allocation.lotQuantityBefore === null
+                ? null
+                : new Prisma.Decimal(allocation.lotQuantityBefore),
+            lotQuantityAfter:
+              allocation.lotQuantityAfter === null
+                ? null
+                : new Prisma.Decimal(allocation.lotQuantityAfter),
+          },
+        });
+        runningBefore = runningAfter;
+      }
+
+      const updatedProduct = await db.product.findUnique({
         where: { id: productId },
         select: { quantity: true },
       });
 
       return {
         productId,
-        remainingQuantity: Number(product?.quantity ?? 0),
+        remainingQuantity: Number(updatedProduct?.quantity ?? 0),
       };
     }),
   );
@@ -1229,7 +1281,14 @@ export const orderService = {
 
           const inventoryStartedAt = performance.now();
           const stockUpdates = !terminal.isTrainMode
-            ? await deductStock(tx, dto.items, transactionProductMap)
+            ? await deductStock(tx, dto.items, transactionProductMap, {
+                companyId,
+                terminalId: terminal.id,
+                actorProfileId: profile.id,
+                sourceId: invoice.id,
+                referenceNumber:
+                  invoice.localInvoiceNo ?? String(invoice.invoiceNumber),
+              })
             : [];
           inventoryMs += Math.round(performance.now() - inventoryStartedAt);
 
@@ -1426,7 +1485,14 @@ export const orderService = {
 
         const inventoryStartedAt = performance.now();
         const stockUpdates = !terminal.isTrainMode
-          ? await deductStock(tx, dto.items, transactionProductMap)
+          ? await deductStock(tx, dto.items, transactionProductMap, {
+              companyId,
+              terminalId: terminal.id,
+              actorProfileId: profile.id,
+              sourceId: invoice.id,
+              referenceNumber:
+                invoice.localInvoiceNo ?? String(invoice.invoiceNumber),
+            })
           : [];
         inventoryMs += Math.round(performance.now() - inventoryStartedAt);
 

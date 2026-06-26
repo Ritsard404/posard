@@ -57,7 +57,7 @@ export function InventoryStatsBar({
 }: InventoryStatsBarProps) {
   // Calcular los conteos derivados de los productos cargados en la página actual
   const lowStockCount = products.filter(
-    (p) => p.quantity !== null && p.quantity <= 5
+    (p) => p.trackInventory && p.quantity !== null && p.quantity <= (p.reorderPoint ?? 5)
   ).length;
 
   const unavailableCount = products.filter((p) => !p.isAvailable).length;

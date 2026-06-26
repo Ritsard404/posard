@@ -22,8 +22,24 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
   const activeTerminal = usePOSStore((state) => state.activeTerminal);
   const categories = usePOSStore((state) => state.categories);
   const [configOpen, setConfigOpen] = useState(false);
-  const categoryName = categories.find(c => c.id === product.categoryId)?.categoryName || 'Uncategorized';
+  const categoryName = product.categoryName || categories.find(c => c.id === product.categoryId)?.categoryName || 'Uncategorized';
   const isOutOfStock = product.trackInventory && product.quantity <= 0;
+  const lowStockThreshold = product.reorderPoint ?? 10;
+  const isLowStock = product.trackInventory && product.quantity <= lowStockThreshold;
+  const expiryLabel =
+    product.expiryStatus === 'expired_only'
+      ? 'Expired stock'
+      : product.expiryStatus === 'near_expiry' && product.nearestExpiryDate
+        ? `Expires ${product.nearestExpiryDate}`
+        : null;
+  const productMeta = [
+    product.brandName,
+    product.genericName,
+    product.shelfLocation ? `Shelf ${product.shelfLocation}` : null,
+    product.preferredSupplierName ? `Supplier ${product.preferredSupplierName}` : null,
+  ]
+    .filter(Boolean)
+    .join(' / ');
 
   const handleAdd = () => {
     if (product.isConfigurable && product.modifierGroups.length > 0) {
@@ -42,9 +58,16 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
 
     if (!result.success) {
       toast.error(
-        result.reason === 'OUT_OF_STOCK' ? 'Wala nang stock.' : 'Naabot na ang stock limit.',
+        result.reason === 'EXPIRED_STOCK'
+          ? 'Expired batch only.'
+          : result.reason === 'OUT_OF_STOCK'
+            ? 'Wala nang stock.'
+            : 'Naabot na ang stock limit.',
         {
-          description: 'Hindi na puwedeng dagdagan ang tracked item na ito.',
+          description:
+            result.reason === 'EXPIRED_STOCK'
+              ? 'Receive a non-expired batch before selling this item.'
+              : 'Hindi na puwedeng dagdagan ang tracked item na ito.',
           duration: 5000,
         },
       );
@@ -91,12 +114,27 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           <div className="min-w-0 flex-1">
             <h3 className="truncate font-heading text-sm font-bold leading-tight lg:text-[15px]">{product.name}</h3>
             <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mt-0.5">{categoryName}</p>
+            {productMeta ? (
+              <p className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+                {productMeta}
+              </p>
+            ) : null}
+            {product.prescriptionRequired ? (
+              <Badge variant="outline" className="mt-1 border-amber-500/40 px-1.5 py-0 text-[8px] font-bold text-amber-600">
+                Prescription
+              </Badge>
+            ) : null}
+            {expiryLabel ? (
+              <Badge variant="outline" className="mt-1 border-red-500/40 px-1.5 py-0 text-[8px] font-bold text-red-600">
+                {expiryLabel}
+              </Badge>
+            ) : null}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 pr-0.5 sm:gap-2">
           <div className="text-right">
             <p className="font-heading text-lg font-black tracking-tighter text-primary lg:text-xl">₱{product.price.toFixed(2)}</p>
-            <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">
+            <p className={`text-[9px] font-bold uppercase tracking-wider ${isLowStock ? 'text-amber-500' : 'text-muted-foreground/40'}`}>
               {product.quantity} {product.baseUnit || 'PCS'}
             </p>
           </div>
@@ -159,14 +197,30 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
       <CardContent className="flex flex-grow flex-col justify-between p-1.5 sm:p-2 lg:p-2.5">
         <div className="mb-1 min-w-0">
           <h3 className="line-clamp-2 min-h-8 font-heading text-[13px] font-bold leading-tight tracking-tight transition-colors group-hover:text-primary sm:text-sm lg:text-[15px]">{product.name}</h3>
+          {productMeta ? (
+            <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-wider text-muted-foreground/50">{productMeta}</p>
+          ) : null}
           <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">{product.barcode || 'NO BARCODE'}</p>
+          {product.prescriptionRequired ? (
+            <Badge variant="outline" className="mt-1 max-w-full truncate border-amber-500/40 px-1.5 py-0 text-[8px] font-bold text-amber-600">
+              Prescription
+            </Badge>
+          ) : null}
+          {expiryLabel ? (
+            <Badge variant="outline" className="mt-1 max-w-full truncate border-red-500/40 px-1.5 py-0 text-[8px] font-bold text-red-600">
+              {expiryLabel}
+            </Badge>
+          ) : null}
         </div>
         
         <div className="space-y-1 border-t pt-1 lg:space-y-1.5 lg:pt-2">
           <div className="flex justify-between items-end">
              <div className="flex flex-col">
               <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">Stock</span>
-              <span className={`text-xs font-black ${product.trackInventory && product.quantity <= 10 ? 'text-amber-500' : 'text-muted-foreground'}`}>{product.quantity}</span>
+              <span className={`text-xs font-black ${isLowStock ? 'text-amber-500' : 'text-muted-foreground'}`}>{product.quantity}</span>
+              {isLowStock ? (
+                <span className="text-[8px] font-bold uppercase tracking-wider text-amber-500">Low {lowStockThreshold}</span>
+              ) : null}
             </div>
             <div className="text-right">
               <p className="font-heading text-base font-black leading-none tracking-tighter text-primary sm:text-lg xl:text-xl">₱{product.price.toFixed(2)}</p>

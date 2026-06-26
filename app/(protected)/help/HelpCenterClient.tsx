@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, BookOpen, ListTree, Mail, Search, X } from "lucide-react";
+import { HeaderActions } from "@/components/layout/HeaderActions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type HelpAudience = "everyone" | "cashier" | "manager" | "admin";
 
@@ -65,6 +67,11 @@ function scrollToSection(id: string) {
   if (element) {
     window.history.replaceState(null, "", `#${id}`);
   }
+}
+
+function getHelpScrollContainer(root: HTMLElement | null) {
+  const container = root?.closest("main");
+  return container instanceof HTMLElement ? container : null;
 }
 
 const guideGroups: HelpGroup[] = [
@@ -521,32 +528,33 @@ const guideGroups: HelpGroup[] = [
         title: "Manage products and inventory",
         role: "Manager",
         audience: ["manager"],
-        summary: "Add products, update prices, record stock changes, and review restock recommendations.",
+        summary: "Add products, update prices, record stock changes, pharmacy metadata, batch expiry, and review restock recommendations.",
         steps: [
           "Open Products & Inventory.",
           "Add or edit a product.",
-          "Set price and stock settings.",
+          "Set price, cost, category, generic name, brand name, and barcode.",
+          "Set shelf location, prescription-required status, preferred supplier, and reorder point.",
           "Save.",
-          "Open Inventory Health to review stock watchlists and restock recommendations.",
+          "Open Inventory Health to review stock watchlists, restock recommendations, and the Batch & Expiry Monitor.",
         ],
-        reminder: "Turn on inventory tracking only for products you count. Confirm shelf stock before placing a reorder.",
-        keywords: ["product", "inventory", "stock", "price", "category", "restock", "reorder", "supplier"],
+        reminder: "Turn on inventory tracking only for products you count. Reorder points control low-stock warnings, and received batches control expiry warnings.",
+        keywords: ["product", "inventory", "stock", "price", "category", "restock", "reorder", "supplier", "generic", "brand", "shelf", "prescription", "markup", "batch", "expiry", "expiration", "fefo"],
       },
       {
         title: "Import products from a file",
         role: "Manager",
         audience: ["manager"],
-        summary: "Add many products at once using a prepared product file.",
+        summary: "Add many products at once using a prepared product file with pharmacy metadata.",
         steps: [
           "Open Products & Inventory.",
           "Choose import or upload.",
           "Select the file.",
-          "Review the preview.",
+          "Review brand, generic, shelf, reorder point, prescription, and supplier fields in the preview.",
           "Fix errors.",
           "Confirm import.",
         ],
-        reminder: "Do not import a file until you review the preview.",
-        keywords: ["import", "upload", "csv", "product file", "bulk"],
+        reminder: "Preferred Supplier must match an existing active supplier name, or leave it blank.",
+        keywords: ["import", "upload", "csv", "product file", "bulk", "generic", "brand", "supplier", "reorder point", "prescription"],
       },
       {
         title: "Manage staff accounts",
@@ -733,16 +741,18 @@ const guideGroups: HelpGroup[] = [
         title: "Use supplier and purchase order pages",
         role: "Manager",
         audience: ["manager"],
-        summary: "Track suppliers, orders, receiving, and purchase history.",
+        summary: "Track suppliers, orders, receiving, batch expiry, and purchase history.",
         steps: [
           "Open Suppliers.",
           "Check supplier details.",
           "Open Purchase Orders.",
           "Review supplier, status, expected date, and total.",
           "Use receiving records when items arrive.",
+          "Enter delivered quantity, batch number, expiry date, and shelf location when available.",
+          "Open Inventory Health to review expired and near-expiry batches.",
         ],
-        reminder: "Check delivered quantity against ordered quantity.",
-        keywords: ["supplier", "purchase order", "po", "receiving", "delivery"],
+        reminder: "Check delivered quantity against ordered quantity and keep batch numbers exactly as printed by the supplier.",
+        keywords: ["supplier", "purchase order", "po", "receiving", "delivery", "batch", "expiry", "expiration", "fefo", "lot"],
       },
       {
         title: "Use kitchen workflow",
@@ -808,14 +818,10 @@ function ReadingProgress({ progress }: { progress: number }) {
 
 function HelpHeader({
   currentRole,
-  search,
-  setSearch,
   visibleGuides,
   totalGuides,
 }: {
   currentRole: CurrentRole;
-  search: string;
-  setSearch: (value: string) => void;
   visibleGuides: number;
   totalGuides: number;
 }) {
@@ -848,35 +854,85 @@ function HelpHeader({
           </div>
         </div>
 
-        <div className="w-full lg:max-w-md">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search receipt, printer, debt, discount"
-              className="h-10 pl-9 pr-10"
-              aria-label="Search help guides"
-            />
-            {search ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 size-8 -translate-y-1/2"
-                onClick={() => setSearch("")}
-                aria-label="Clear search"
-              >
-                <X className="size-4" />
-              </Button>
-            ) : null}
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Showing {visibleGuides} of {totalGuides} guides.
+        <div className="rounded-md border border-border/80 bg-muted/30 px-3 py-2 lg:min-w-48">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Current results
           </p>
+          <p className="mt-1 text-xl font-bold tracking-tight">
+            {visibleGuides} of {totalGuides}
+          </p>
+          <p className="text-xs text-muted-foreground">guides shown</p>
         </div>
       </div>
     </Card>
+  );
+}
+
+function HelpSearchControl({
+  search,
+  setSearch,
+  visibleGuides,
+  totalGuides,
+  className,
+}: {
+  search: string;
+  setSearch: (value: string) => void;
+  visibleGuides: number;
+  totalGuides: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn("relative w-full", className)}>
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search help"
+        inputMode="search"
+        className="h-9 rounded-full pl-9 pr-20"
+        aria-label="Search help guides"
+      />
+      {search ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="absolute right-1 top-1/2 h-7 -translate-y-1/2 gap-1 rounded-full px-2 text-xs"
+          onClick={() => setSearch("")}
+        >
+          <X className="size-3.5" />
+          Clear
+        </Button>
+      ) : null}
+      <span className="sr-only" aria-live="polite">
+        Showing {visibleGuides} of {totalGuides} guides.
+      </span>
+    </div>
+  );
+}
+
+function HelpHeaderSearch({
+  search,
+  setSearch,
+  visibleGuides,
+  totalGuides,
+}: {
+  search: string;
+  setSearch: (value: string) => void;
+  visibleGuides: number;
+  totalGuides: number;
+}) {
+  return (
+    <HeaderActions>
+      <div className="order-first flex w-40 shrink-0 items-center sm:w-64 lg:w-80">
+        <HelpSearchControl
+          search={search}
+          setSearch={setSearch}
+          visibleGuides={visibleGuides}
+          totalGuides={totalGuides}
+        />
+      </div>
+    </HeaderActions>
   );
 }
 
@@ -1075,18 +1131,24 @@ function GuideSection({ group }: { group: HelpGroup }) {
   );
 }
 
-function BackToTopButton({ visible }: { visible: boolean }) {
+function BackToTopButton({
+  visible,
+  onClick,
+}: {
+  visible: boolean;
+  onClick: () => void;
+}) {
   return (
     <Button
       type="button"
-      size="icon"
+      size="sm"
       className={`fixed bottom-5 right-5 z-30 rounded-full shadow-lg transition-opacity ${
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
-      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      aria-label="Back to top"
+      onClick={onClick}
     >
       <ArrowUp className="size-4" />
+      Top
     </Button>
   );
 }
@@ -1098,6 +1160,7 @@ export function HelpCenterClient({
   currentRole: CurrentRole;
   supportEmail: string;
 }) {
+  const pageRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState("");
   const [progress, setProgress] = useState(0);
@@ -1173,21 +1236,28 @@ export function HelpCenterClient({
 
   useEffect(() => {
     const updateProgress = () => {
-      const scrollTop = window.scrollY;
-      const scrollable =
-        document.documentElement.scrollHeight - window.innerHeight;
+      const scrollContainer = getHelpScrollContainer(pageRef.current);
+      const scrollTop = scrollContainer
+        ? scrollContainer.scrollTop
+        : window.scrollY;
+      const scrollable = scrollContainer
+        ? scrollContainer.scrollHeight - scrollContainer.clientHeight
+        : document.documentElement.scrollHeight - window.innerHeight;
       setProgress(
         scrollable > 0 ? Math.min(100, (scrollTop / scrollable) * 100) : 0,
       );
       setShowBackToTop(scrollTop > 420);
     };
 
+    const scrollContainer = getHelpScrollContainer(pageRef.current);
+    const scrollTarget = scrollContainer ?? window;
+
     updateProgress();
-    window.addEventListener("scroll", updateProgress, { passive: true });
+    scrollTarget.addEventListener("scroll", updateProgress, { passive: true });
     window.addEventListener("resize", updateProgress);
 
     return () => {
-      window.removeEventListener("scroll", updateProgress);
+      scrollTarget.removeEventListener("scroll", updateProgress);
       window.removeEventListener("resize", updateProgress);
     };
   }, []);
@@ -1212,6 +1282,7 @@ export function HelpCenterClient({
         }
       },
       {
+        root: getHelpScrollContainer(pageRef.current),
         rootMargin: "-16% 0px -72% 0px",
         threshold: [0, 1],
       },
@@ -1221,8 +1292,24 @@ export function HelpCenterClient({
     return () => observer.disconnect();
   }, [filteredGroups]);
 
+  const scrollToTop = () => {
+    const scrollContainer = getHelpScrollContainer(pageRef.current);
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
-    <div className="space-y-4">
+    <div ref={pageRef} className="space-y-4">
+      <HelpHeaderSearch
+        search={search}
+        setSearch={setSearch}
+        visibleGuides={visibleGuides}
+        totalGuides={totalGuides}
+      />
       <ReadingProgress progress={progress} />
       <a
         href="#help-content"
@@ -1232,8 +1319,6 @@ export function HelpCenterClient({
       </a>
       <HelpHeader
         currentRole={currentRole}
-        search={search}
-        setSearch={setSearch}
         visibleGuides={visibleGuides}
         totalGuides={totalGuides}
       />
@@ -1271,7 +1356,7 @@ export function HelpCenterClient({
           </div>
         </>
       )}
-      <BackToTopButton visible={showBackToTop} />
+      <BackToTopButton visible={showBackToTop} onClick={scrollToTop} />
     </div>
   );
 }

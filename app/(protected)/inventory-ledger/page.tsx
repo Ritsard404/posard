@@ -12,6 +12,23 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
+function formatQuantity(value: number) {
+  return new Intl.NumberFormat("en-PH", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatExpiryDate(value: Date | null) {
+  return value ? value.toLocaleDateString() : "No expiry date";
+}
+
+function formatExpiryTiming(daysUntilExpiry: number | null) {
+  if (daysUntilExpiry === null) return "No expiry date";
+  if (daysUntilExpiry < 0) return `${Math.abs(daysUntilExpiry)} days expired`;
+  if (daysUntilExpiry === 0) return "Expires today";
+  return `${daysUntilExpiry} days left`;
+}
+
 interface InventoryLedgerPageProps {
   searchParams?: Promise<{ search?: string; status?: string }>;
 }
@@ -48,6 +65,8 @@ export default async function InventoryLedgerPage({ searchParams }: InventoryLed
           { label: "Out of Stock", value: data.stats.outOfStock },
           { label: "No Movement", value: data.stats.noMovement },
           { label: "Restock Picks", value: data.restockRecommendations.length },
+          { label: "Expired Lots", value: data.stats.expiredLots },
+          { label: "Near Expiry", value: data.stats.nearExpiryLots },
         ]}
         items={data.movements}
         emptyText="No stock movement records yet."
@@ -115,6 +134,82 @@ export default async function InventoryLedgerPage({ searchParams }: InventoryLed
           {data.restockRecommendations.length === 0 ? (
             <div className="rounded-md border bg-background p-4 text-sm text-muted-foreground">
               No restock recommendations right now.
+            </div>
+          ) : null}
+        </div>
+      </Card>
+
+      <Card className="border-border/80 p-3 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-bold tracking-tight">Batch & Expiry Monitor</h2>
+            <p className="text-xs text-muted-foreground">
+              FEFO priorities for received batches with remaining quantity on hand.
+            </p>
+          </div>
+          <StatusBadge>{data.nearExpiryLots.length} priority lots</StatusBadge>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {data.expiryBuckets.map((bucket) => (
+            <div key={bucket.key} className="rounded-md border bg-background p-2.5">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {bucket.label}
+              </div>
+              <div className="mt-1 text-xl font-bold tabular-nums">{bucket.count}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {formatQuantity(bucket.quantity)} units / {formatCurrency(bucket.costValue)}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {data.nearExpiryLots.map((lot) => (
+            <div key={lot.id} className="rounded-md border bg-background p-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">{lot.productName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {lot.categoryName} / {lot.batchNumber ?? "No batch"}
+                  </div>
+                </div>
+                <StatusBadge>{lot.status}</StatusBadge>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <div className="font-semibold tabular-nums">
+                    {formatExpiryDate(lot.expiryDate)}
+                  </div>
+                  <div className="text-muted-foreground">
+                    {formatExpiryTiming(lot.daysUntilExpiry)}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-semibold tabular-nums">
+                    {formatQuantity(lot.quantity)} {lot.baseUnit || "units"}
+                  </div>
+                  <div className="text-muted-foreground">on hand</div>
+                </div>
+                <div>
+                  <div className="font-semibold tabular-nums">
+                    {formatCurrency(lot.costValue)}
+                  </div>
+                  <div className="text-muted-foreground">cost value</div>
+                </div>
+                <div>
+                  <div className="truncate font-semibold">
+                    {lot.shelfLocation ?? "No shelf"}
+                  </div>
+                  <div className="text-muted-foreground">shelf</div>
+                </div>
+              </div>
+              <div className="mt-2 truncate text-xs text-muted-foreground">
+                Supplier: {lot.supplierName ?? "No supplier linked"}
+              </div>
+            </div>
+          ))}
+          {data.nearExpiryLots.length === 0 ? (
+            <div className="rounded-md border bg-background p-4 text-sm text-muted-foreground">
+              No expired or near-expiry batches with quantity on hand.
             </div>
           ) : null}
         </div>

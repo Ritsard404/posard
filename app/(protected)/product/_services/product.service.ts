@@ -20,6 +20,7 @@ import type { ProductBarcodeStatusFilter } from "@/app/(protected)/product/_serv
 type ProductWithCategory = Prisma.ProductGetPayload<{
   include: {
     category: true;
+    preferredSupplier: true;
     modifierGroups: {
       include: {
         modifierGroup: {
@@ -35,6 +36,7 @@ type DbClient = typeof prisma | Prisma.TransactionClient;
 
 const productDtoInclude = {
   category: true,
+  preferredSupplier: true,
   modifierGroups: {
     include: {
       modifierGroup: {
@@ -60,6 +62,12 @@ const CSV_HEADERS = [
   "Product Name",
   "Category Name",
   "Barcode",
+  "Generic Name",
+  "Brand Name",
+  "Shelf Location",
+  "Prescription Required",
+  "Reorder Point",
+  "Preferred Supplier",
   "Base Unit",
   "Track Inventory",
   "Quantity",
@@ -76,6 +84,12 @@ const IMPORT_WORKBOOK_HEADERS = [
   "Price *",
   "Category Name",
   "Barcode",
+  "Generic Name",
+  "Brand Name",
+  "Shelf Location",
+  "Prescription Required",
+  "Reorder Point",
+  "Preferred Supplier",
   "Base Unit",
   "Track Inventory",
   "Quantity",
@@ -91,6 +105,12 @@ const CSV_GUIDE_ROWS = [
   ["Price", "Yes", "Selling price. Must be zero or greater.", "25"],
   ["Category Name", "No", "Existing or new category. Blank rows go to Uncategorized.", "DRINKS"],
   ["Barcode", "No", "Product barcode or SKU. Leave blank if unused.", "4800000111111"],
+  ["Generic Name", "No", "Generic or common ingredient name for pharmacy search.", "Paracetamol"],
+  ["Brand Name", "No", "Brand or marketed name shown beside the product name.", "Biogesic"],
+  ["Shelf Location", "No", "Shelf, cabinet, aisle, or bin location.", "A1"],
+  ["Prescription Required", "No", "Use TRUE, YES, Y, or 1 when a prescription is required.", "FALSE"],
+  ["Reorder Point", "No", "Low-stock alert level for this product. Blank uses the default threshold.", "20"],
+  ["Preferred Supplier", "No", "Existing active supplier name to link as the preferred source.", "ACME Pharma"],
   ["Base Unit", "No", "Selling unit. Blank values become UNIT.", "PCS, UNIT, KG"],
   ["Track Inventory", "No", "Use TRUE, YES, Y, or 1 to track stock. Blank or FALSE disables stock tracking.", "TRUE"],
   ["Quantity", "No", "Stock count. Used only when Track Inventory is enabled.", "100"],
@@ -130,6 +150,13 @@ interface NormalizedProductInput {
   name: string;
   categoryName: string;
   barcode: string | null;
+  genericName: string | null;
+  brandName: string | null;
+  shelfLocation: string | null;
+  prescriptionRequired: boolean;
+  reorderPoint: number | null;
+  preferredSupplierId: string | null;
+  preferredSupplierName: string | null;
   baseUnit: string;
   quantity: number | null;
   cost: number;
@@ -149,10 +176,21 @@ async function getCompanyId(): Promise<string | null> {
 }
 
 function toProductDto(product: ProductWithCategory): ProductDto {
+  const cost = Number(product.cost);
+  const price = Number(product.price);
+
   return {
     id: product.id,
     name: product.name,
     productImageUrl: product.productImageUrl,
+    genericName: product.genericName,
+    brandName: product.brandName,
+    shelfLocation: product.shelfLocation,
+    prescriptionRequired: product.prescriptionRequired,
+    reorderPoint: product.reorderPoint === null ? null : Number(product.reorderPoint),
+    preferredSupplierId: product.preferredSupplierId,
+    preferredSupplierName: product.preferredSupplier?.name ?? null,
+    markupPercent: cost > 0 ? Math.round(((price - cost) / cost) * 10000) / 100 : null,
     isConfigurable: product.isConfigurable,
     configurationMode: product.configurationMode,
     modifierGroups: product.modifierGroups
@@ -179,8 +217,8 @@ function toProductDto(product: ProductWithCategory): ProductDto {
     barcode: product.barcode,
     baseUnit: product.baseUnit,
     quantity: product.quantity === null ? null : Number(product.quantity),
-    cost: Number(product.cost),
-    price: Number(product.price),
+    cost,
+    price,
     isAvailable: product.isAvailable,
     trackInventory: product.trackInventory,
     itemType: product.itemType,
@@ -199,6 +237,18 @@ function parseOptionalNumber(value?: number | string | null): number | null {
   if (value === null || value === undefined || value === "") return null;
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseNonNegativeOptionalNumber(
+  value: number | string | null | undefined,
+  label: string,
+): number | null {
+  const parsed = parseOptionalNumber(value);
+  if (parsed !== null && parsed < 0) {
+    throw new Error(`${label} must be zero or greater.`);
+  }
+
+  return parsed;
 }
 
 function parseBooleanValue(value?: string | boolean | null, fallback = false): boolean {
@@ -233,6 +283,7 @@ function normalizeProductInput(dto: ProductSaveDto): NormalizedProductInput {
   const trackInventory = dto.trackInventory ?? false;
   const parsedQuantity = parseOptionalNumber(dto.quantity);
   const quantity = trackInventory ? parsedQuantity ?? 0 : null;
+  const reorderPoint = parseNonNegativeOptionalNumber(dto.reorderPoint, "Reorder point");
 
   if (quantity !== null && quantity < 0) {
     throw new Error("Quantity must be zero or greater.");
@@ -252,6 +303,13 @@ function normalizeProductInput(dto: ProductSaveDto): NormalizedProductInput {
     name,
     categoryName: normalizeCategoryName(dto.categoryName),
     barcode: asOptionalString(dto.barcode),
+    genericName: asOptionalString(dto.genericName),
+    brandName: asOptionalString(dto.brandName),
+    shelfLocation: asOptionalString(dto.shelfLocation),
+    prescriptionRequired: dto.prescriptionRequired ?? false,
+    reorderPoint,
+    preferredSupplierId: asOptionalString(dto.preferredSupplierId),
+    preferredSupplierName: asOptionalString(dto.preferredSupplierName),
     baseUnit: dto.baseUnit?.trim() || "UNIT",
     quantity,
     cost,
@@ -283,8 +341,13 @@ function buildCreateSummary(input: NormalizedProductInput, categoryName: string)
     `Price ${input.price.toFixed(2)}`,
     `Track inventory ${input.trackInventory ? "Yes" : "No"}`,
     input.quantity === null ? "Quantity not tracked" : `Quantity ${input.quantity}`,
+    input.reorderPoint === null ? "Reorder point default" : `Reorder point ${input.reorderPoint}`,
+    input.genericName ? `Generic ${input.genericName}` : null,
+    input.brandName ? `Brand ${input.brandName}` : null,
+    input.preferredSupplierName ? `Preferred supplier ${input.preferredSupplierName}` : null,
+    input.prescriptionRequired ? "Prescription required" : null,
     `VAT ${input.vatType}`,
-  ].join(" | ");
+  ].filter(Boolean).join(" | ");
 }
 
 function buildDeleteSummary(product: ProductWithCategory): string {
@@ -305,6 +368,12 @@ function buildUpdateSummary(
     createFieldChange("Name", existing.name, next.name),
     createFieldChange("Category", existing.category?.categoryName ?? "Uncategorized", categoryName),
     createFieldChange("Barcode", formatValue(existing.barcode), formatValue(next.barcode)),
+    createFieldChange("Generic", formatValue(existing.genericName), formatValue(next.genericName)),
+    createFieldChange("Brand", formatValue(existing.brandName), formatValue(next.brandName)),
+    createFieldChange("Shelf", formatValue(existing.shelfLocation), formatValue(next.shelfLocation)),
+    createFieldChange("Prescription", formatValue(existing.prescriptionRequired), formatValue(next.prescriptionRequired)),
+    createFieldChange("Reorder point", formatValue(existing.reorderPoint === null ? null : Number(existing.reorderPoint)), formatValue(next.reorderPoint)),
+    createFieldChange("Preferred supplier", formatValue(existing.preferredSupplier?.name), formatValue(next.preferredSupplierName)),
     createFieldChange("Base unit", existing.baseUnit, next.baseUnit),
     createFieldChange("Quantity", formatValue(existing.quantity === null ? null : Number(existing.quantity)), formatValue(next.quantity)),
     createFieldChange("Cost", Number(existing.cost).toFixed(2), next.cost.toFixed(2)),
@@ -327,6 +396,12 @@ function toBatchRow(dto: ProductSaveDto, rowNumber: number): ProductBatchRowDto 
     name: normalized.name,
     categoryName: normalized.categoryName,
     barcode: normalized.barcode,
+    genericName: normalized.genericName,
+    brandName: normalized.brandName,
+    shelfLocation: normalized.shelfLocation,
+    prescriptionRequired: normalized.prescriptionRequired,
+    reorderPoint: normalized.reorderPoint,
+    preferredSupplierName: normalized.preferredSupplierName,
     baseUnit: normalized.baseUnit,
     trackInventory: normalized.trackInventory,
     quantity: normalized.quantity,
@@ -341,6 +416,18 @@ function toBatchRow(dto: ProductSaveDto, rowNumber: number): ProductBatchRowDto 
 
 function makeDuplicateKey(name: string, categoryName: string): string {
   return `${name.trim().toUpperCase()}::${normalizeCategoryName(categoryName)}`;
+}
+
+function makeBrandGenericDuplicateKey(input: {
+  genericName?: string | null;
+  brandName?: string | null;
+  categoryName: string;
+}): string | null {
+  if (!input.genericName || !input.brandName) {
+    return null;
+  }
+
+  return `${input.brandName.trim().toUpperCase()}::${input.genericName.trim().toUpperCase()}::${normalizeCategoryName(input.categoryName)}`;
 }
 
 function parseCsvRow(rawRow: CsvRow, rowNumber: number): ProductBatchPreviewRowDto {
@@ -360,6 +447,7 @@ function parseCsvRow(rawRow: CsvRow, rowNumber: number): ProductBatchPreviewRowD
   const quantityValue = parseOptionalNumber(rawRow["quantity"]);
   const costValue = parseOptionalNumber(rawRow["cost"]);
   const priceValue = parseOptionalNumber(rawRow["price"]);
+  const reorderPointValue = parseOptionalNumber(rawRow["reorder point"]);
 
   const name = rawRow["product name"]?.trim() || "";
   if (!name) {
@@ -378,11 +466,21 @@ function parseCsvRow(rawRow: CsvRow, rowNumber: number): ProductBatchPreviewRowD
     errors.push("Quantity must be zero or greater.");
   }
 
+  if (reorderPointValue !== null && reorderPointValue < 0) {
+    errors.push("Reorder Point must be zero or greater.");
+  }
+
   const row: ProductBatchPreviewRowDto = {
     rowNumber,
     name,
     categoryName: normalizeCategoryName(rawRow["category name"]),
     barcode: asOptionalString(rawRow["barcode"]),
+    genericName: asOptionalString(rawRow["generic name"]),
+    brandName: asOptionalString(rawRow["brand name"]),
+    shelfLocation: asOptionalString(rawRow["shelf location"]),
+    prescriptionRequired: parseBooleanValue(rawRow["prescription required"], false),
+    reorderPoint: reorderPointValue,
+    preferredSupplierName: asOptionalString(rawRow["preferred supplier"]),
     baseUnit: rawRow["base unit"]?.trim() || "UNIT",
     trackInventory,
     quantity: trackInventory ? quantityValue ?? 0 : null,
@@ -449,23 +547,86 @@ async function resolveCategory(
   };
 }
 
+async function resolvePreferredSupplier(
+  client: DbClient,
+  params: {
+    companyId: string;
+    preferredSupplierId?: string | null;
+    preferredSupplierName?: string | null;
+  },
+): Promise<{ id: string; name: string } | null> {
+  const { companyId, preferredSupplierId, preferredSupplierName } = params;
+
+  if (preferredSupplierId) {
+    const supplier = await client.supplier.findFirst({
+      where: { id: preferredSupplierId, companyId, status: "active" },
+      select: { id: true, name: true },
+    });
+
+    if (!supplier) {
+      throw new Error("Preferred supplier was not found.");
+    }
+
+    return supplier;
+  }
+
+  if (!preferredSupplierName) {
+    return null;
+  }
+
+  const supplier = await client.supplier.findFirst({
+    where: {
+      companyId,
+      status: "active",
+      name: { equals: preferredSupplierName, mode: "insensitive" },
+    },
+    select: { id: true, name: true },
+  });
+
+  if (!supplier) {
+    throw new Error(`Preferred supplier '${preferredSupplierName}' does not exist or is inactive.`);
+  }
+
+  return supplier;
+}
+
 async function ensureUniqueProduct(
   client: DbClient,
   productId: string | null,
-  name: string,
+  input: NormalizedProductInput,
   categoryId: string,
 ): Promise<void> {
+  const probableDuplicateRules: Prisma.ProductWhereInput[] = [
+    { name: { equals: input.name, mode: "insensitive" }, categoryId },
+  ];
+
+  if (input.genericName && input.brandName) {
+    probableDuplicateRules.push({
+      categoryId,
+      genericName: { equals: input.genericName, mode: "insensitive" },
+      brandName: { equals: input.brandName, mode: "insensitive" },
+    });
+  }
+
   const duplicate = await client.product.findFirst({
     where: {
-      name: { equals: name, mode: "insensitive" },
-      categoryId,
+      OR: probableDuplicateRules,
       isDeleted: false,
       ...(productId ? { NOT: { id: productId } } : {}),
     },
-    select: { id: true },
+    select: { id: true, name: true, genericName: true, brandName: true },
   });
 
   if (duplicate) {
+    if (
+      input.genericName &&
+      input.brandName &&
+      duplicate.genericName?.toLowerCase() === input.genericName.toLowerCase() &&
+      duplicate.brandName?.toLowerCase() === input.brandName.toLowerCase()
+    ) {
+      throw new Error("Probable duplicate product already exists for this brand, generic name, and category.");
+    }
+
     throw new Error("Product name already exists in this category.");
   }
 }
@@ -606,6 +767,15 @@ export const productService = {
         OR: [
           { name: { contains: params.keyword, mode: "insensitive" } },
           { barcode: { contains: params.keyword, mode: "insensitive" } },
+          { genericName: { contains: params.keyword, mode: "insensitive" } },
+          { brandName: { contains: params.keyword, mode: "insensitive" } },
+          { shelfLocation: { contains: params.keyword, mode: "insensitive" } },
+          { category: { categoryName: { contains: params.keyword, mode: "insensitive" } } },
+          {
+            preferredSupplier: {
+              is: { name: { contains: params.keyword, mode: "insensitive" } },
+            },
+          },
         ],
       });
     }
@@ -716,14 +886,25 @@ export const productService = {
         categoryName: dto.categoryName ?? normalized.categoryName,
         companyId: context.companyId,
       });
+      const preferredSupplier = await resolvePreferredSupplier(tx, {
+        companyId: context.companyId,
+        preferredSupplierId: normalized.preferredSupplierId,
+        preferredSupplierName: normalized.preferredSupplierName,
+      });
 
-      await ensureUniqueProduct(tx, null, normalized.name, category.id);
+      await ensureUniqueProduct(tx, null, normalized, category.id);
       await ensureUniqueBarcode(tx, null, context.companyId, normalized.barcode);
 
       const created = await tx.product.create({
         data: {
           name: normalized.name,
           barcode: normalized.barcode,
+          genericName: normalized.genericName,
+          brandName: normalized.brandName,
+          shelfLocation: normalized.shelfLocation,
+          prescriptionRequired: normalized.prescriptionRequired,
+          reorderPoint: normalized.reorderPoint,
+          preferredSupplierId: preferredSupplier?.id ?? null,
           baseUnit: normalized.baseUnit,
           quantity: normalized.quantity,
           cost: normalized.cost,
@@ -765,16 +946,32 @@ export const productService = {
     }
 
     const duplicateKeys = new Set<string>();
+    const duplicateBrandGenericKeys = new Set<string>();
     for (const row of rows) {
       const key = makeDuplicateKey(row.name, row.categoryName);
       if (duplicateKeys.has(key)) {
         throw new Error(`CSV contains duplicate product '${row.name}' in category '${row.categoryName}'.`);
       }
       duplicateKeys.add(key);
+
+      const brandGenericKey = makeBrandGenericDuplicateKey(row);
+      if (brandGenericKey) {
+        if (duplicateBrandGenericKeys.has(brandGenericKey)) {
+          throw new Error(`CSV contains duplicate brand/generic product '${row.brandName} ${row.genericName}' in category '${row.categoryName}'.`);
+        }
+        duplicateBrandGenericKeys.add(brandGenericKey);
+      }
     }
 
     const result = await prisma.$transaction(async (tx) => {
       const categoryNames = Array.from(new Set(rows.map((row) => normalizeCategoryName(row.categoryName))));
+      const supplierNames = Array.from(
+        new Set(
+          rows
+            .map((row) => row.preferredSupplierName?.trim())
+            .filter((name): name is string => Boolean(name)),
+        ),
+      );
       const existingCategories = await tx.category.findMany({
         where: {
           companyId: context.companyId,
@@ -785,6 +982,21 @@ export const productService = {
       });
 
       const categoryMap = new Map(existingCategories.map((category) => [normalizeCategoryName(category.categoryName ?? ""), category.id]));
+      const existingSuppliers = supplierNames.length
+        ? await tx.supplier.findMany({
+            where: {
+              companyId: context.companyId,
+              status: "active",
+              OR: supplierNames.map((name) => ({
+                name: { equals: name, mode: "insensitive" },
+              })),
+            },
+            select: { id: true, name: true },
+          })
+        : [];
+      const supplierMap = new Map(
+        existingSuppliers.map((supplier) => [supplier.name.trim().toUpperCase(), supplier.id]),
+      );
 
       for (const categoryName of categoryNames) {
         if (!categoryMap.has(categoryName)) {
@@ -810,7 +1022,7 @@ export const productService = {
             },
           ],
         },
-        select: { name: true, categoryId: true, barcode: true },
+        select: { name: true, categoryId: true, barcode: true, genericName: true, brandName: true },
       });
 
       const existingProductKeys = new Set(
@@ -821,6 +1033,15 @@ export const productService = {
           .map((product) => product.barcode?.trim())
           .filter((barcode): barcode is string => Boolean(barcode)),
       );
+      const existingBrandGenericKeys = new Set(
+        existingProducts
+          .map((product) =>
+            product.genericName && product.brandName
+              ? `${product.brandName.trim().toUpperCase()}::${product.genericName.trim().toUpperCase()}::${product.categoryId}`
+              : null,
+          )
+          .filter((key): key is string => Boolean(key)),
+      );
       const importBarcodes = new Set<string>();
 
       const data: Prisma.ProductCreateManyInput[] = rows.map((row) => {
@@ -829,9 +1050,24 @@ export const productService = {
           throw new Error(`Category '${row.categoryName}' could not be resolved.`);
         }
 
+        const supplierId = row.preferredSupplierName
+          ? supplierMap.get(row.preferredSupplierName.trim().toUpperCase())
+          : null;
+
+        if (row.preferredSupplierName && !supplierId) {
+          throw new Error(`Preferred supplier '${row.preferredSupplierName}' does not exist or is inactive.`);
+        }
+
         const productKey = `${row.name.trim().toUpperCase()}::${categoryId}`;
         if (existingProductKeys.has(productKey)) {
           throw new Error(`Product '${row.name}' already exists in category '${row.categoryName}'.`);
+        }
+
+        if (row.genericName && row.brandName) {
+          const brandGenericKey = `${row.brandName.trim().toUpperCase()}::${row.genericName.trim().toUpperCase()}::${categoryId}`;
+          if (existingBrandGenericKeys.has(brandGenericKey)) {
+            throw new Error(`Probable duplicate product '${row.brandName} ${row.genericName}' already exists in category '${row.categoryName}'.`);
+          }
         }
 
         if (row.barcode) {
@@ -844,6 +1080,12 @@ export const productService = {
         return {
           name: row.name,
           barcode: row.barcode,
+          genericName: row.genericName,
+          brandName: row.brandName,
+          shelfLocation: row.shelfLocation,
+          prescriptionRequired: row.prescriptionRequired,
+          reorderPoint: row.reorderPoint,
+          preferredSupplierId: supplierId,
           baseUnit: row.baseUnit,
           quantity: row.quantity,
           cost: row.cost,
@@ -895,8 +1137,13 @@ export const productService = {
         categoryName: dto.categoryName ?? normalized.categoryName,
         companyId: context.companyId,
       });
+      const preferredSupplier = await resolvePreferredSupplier(tx, {
+        companyId: context.companyId,
+        preferredSupplierId: normalized.preferredSupplierId,
+        preferredSupplierName: normalized.preferredSupplierName,
+      });
 
-      await ensureUniqueProduct(tx, id, normalized.name, category.id);
+      await ensureUniqueProduct(tx, id, normalized, category.id);
       await ensureUniqueBarcode(tx, id, context.companyId, normalized.barcode);
 
       await tx.product.update({
@@ -904,6 +1151,12 @@ export const productService = {
         data: {
           name: normalized.name,
           barcode: normalized.barcode,
+          genericName: normalized.genericName,
+          brandName: normalized.brandName,
+          shelfLocation: normalized.shelfLocation,
+          prescriptionRequired: normalized.prescriptionRequired,
+          reorderPoint: normalized.reorderPoint,
+          preferredSupplierId: preferredSupplier?.id ?? null,
           baseUnit: normalized.baseUnit,
           quantity: normalized.quantity,
           cost: normalized.cost,
@@ -986,6 +1239,7 @@ export const productService = {
 
     const rows = parsed.data.map((row, index) => parseCsvRow(row, index + 2));
     const seenKeys = new Map<string, number>();
+    const seenBrandGenericKeys = new Map<string, number>();
 
     for (const row of rows) {
       const duplicateKey = makeDuplicateKey(row.name, row.categoryName);
@@ -994,6 +1248,16 @@ export const productService = {
         row.errors.push(`Duplicate product/category combination. First seen on row ${firstSeen}.`);
       } else if (row.name) {
         seenKeys.set(duplicateKey, row.rowNumber);
+      }
+
+      const brandGenericKey = makeBrandGenericDuplicateKey(row);
+      const firstBrandGenericSeen = brandGenericKey
+        ? seenBrandGenericKeys.get(brandGenericKey)
+        : undefined;
+      if (brandGenericKey && firstBrandGenericSeen) {
+        row.errors.push(`Duplicate brand/generic/category combination. First seen on row ${firstBrandGenericSeen}.`);
+      } else if (brandGenericKey) {
+        seenBrandGenericKeys.set(brandGenericKey, row.rowNumber);
       }
     }
 
@@ -1004,6 +1268,12 @@ export const productService = {
         name: row.name,
         categoryName: row.categoryName,
         barcode: row.barcode,
+        genericName: row.genericName,
+        brandName: row.brandName,
+        shelfLocation: row.shelfLocation,
+        prescriptionRequired: row.prescriptionRequired,
+        reorderPoint: row.reorderPoint,
+        preferredSupplierName: row.preferredSupplierName,
         baseUnit: row.baseUnit,
         trackInventory: row.trackInventory,
         quantity: row.quantity,
@@ -1035,6 +1305,12 @@ export const productService = {
       name: row.name,
       categoryName: row.categoryName,
       barcode: row.barcode ?? undefined,
+      genericName: row.genericName ?? undefined,
+      brandName: row.brandName ?? undefined,
+      shelfLocation: row.shelfLocation ?? undefined,
+      prescriptionRequired: row.prescriptionRequired,
+      reorderPoint: row.reorderPoint,
+      preferredSupplierName: row.preferredSupplierName ?? undefined,
       baseUnit: row.baseUnit,
       trackInventory: row.trackInventory,
       quantity: row.quantity,
@@ -1050,7 +1326,7 @@ export const productService = {
   generateCsvTemplate(): string {
     return [
       CSV_HEADERS.join(","),
-      'Sample Item,BEVERAGES,SKU-001,UNIT,true,24,80,100,RESALE,VATABLE,true,https://example.com/product.png',
+      'Biogesic 500mg,MEDICINES,SKU-001,Paracetamol,Biogesic,A1,FALSE,20,,BOX,true,24,80,100,RESALE,VATABLE,true,https://example.com/product.png',
     ].join("\n");
   },
 
@@ -1058,39 +1334,57 @@ export const productService = {
     const templateRows = [
       buildWorkbookRow(IMPORT_WORKBOOK_HEADERS),
       buildWorkbookRow([
-        "Coca-Cola 330ml",
-        "25",
-        "DRINKS",
-        "4800000111111",
-        "PCS",
-        "TRUE",
+        "Biogesic 500mg",
         "100",
-        "18",
+        "MEDICINES",
+        "4800000111111",
+        "Paracetamol",
+        "Biogesic",
+        "A1",
+        "FALSE",
+        "20",
+        "",
+        "BOX",
+        "TRUE",
+        "24",
+        "80",
         "RESALE",
         "VATABLE",
         "TRUE",
         "",
       ]),
       buildWorkbookRow([
-        "Lucky Me Pancit Canton",
-        "15",
-        "INSTANT FOOD",
+        "Amoxicillin 500mg",
+        "12",
+        "ANTIBIOTICS",
         "4800000222222",
-        "UNIT",
+        "Amoxicillin",
+        "Generic",
+        "B2",
+        "TRUE",
+        "30",
+        "",
+        "CAPSULE",
         "TRUE",
         "50",
-        "11",
+        "8",
         "RESALE",
-        "VATABLE",
+        "EXEMPT",
         "TRUE",
         "",
       ]),
       buildWorkbookRow([
-        "Piattos Cheese 85g",
+        "Vitamin C 500mg",
         "35",
-        "SNACKS",
+        "VITAMINS",
         "4800000333333",
-        "PCS",
+        "Ascorbic Acid",
+        "Generic",
+        "C1",
+        "FALSE",
+        "25",
+        "",
+        "TABLET",
         "TRUE",
         "30",
         "25",
@@ -1100,14 +1394,20 @@ export const productService = {
         "",
       ]),
       buildWorkbookRow([
-        "Surf Powder 65g",
-        "12",
-        "HOUSEHOLD",
+        "Alcohol 70% 500ml",
+        "65",
+        "FIRST AID",
         "4800000444444",
-        "PCS",
+        "Isopropyl Alcohol",
+        "Store Brand",
+        "D1",
+        "FALSE",
+        "12",
+        "",
+        "BOTTLE",
         "TRUE",
         "80",
-        "8",
+        "45",
         "RESALE",
         "VATABLE",
         "TRUE",
@@ -1126,14 +1426,17 @@ export const productService = {
       buildWorkbookRow(["• Fields marked with * in the Products sheet are required", "", "", ""]),
       buildWorkbookRow(["• Use one product per row", "", "", ""]),
       buildWorkbookRow(["• Do not repeat the same Product Name under the same Category Name", "", "", ""]),
+      buildWorkbookRow(["• Brand Name plus Generic Name must not duplicate another product in the same category", "", "", ""]),
+      buildWorkbookRow(["• Preferred Supplier must match an existing active supplier name when provided", "", "", ""]),
       buildWorkbookRow(["• Quantity, Cost, and Price must be valid numbers", "", "", ""]),
+      buildWorkbookRow(["• Reorder Point must be zero or greater when provided", "", "", ""]),
       buildWorkbookRow(["• Boolean fields accept TRUE, FALSE, YES, NO, Y, N, 1, or 0", "", "", ""]),
       buildWorkbookRow(["• Delete the sample data rows before importing your products", "", "", ""]),
       buildWorkbookRow(["• You can upload CSV files or this POSARD Excel XML template directly", "", "", ""]),
       buildWorkbookRow(["• Duplicate products in the same category will be blocked", "", "", ""]),
     ].join("");
 
-    const productColumns = [180, 80, 140, 140, 90, 110, 90, 80, 100, 100, 90, 220]
+    const productColumns = [180, 80, 140, 140, 140, 140, 110, 130, 100, 150, 90, 110, 90, 80, 100, 100, 90, 220]
       .map(buildWorkbookColumn)
       .join("");
     const guideColumns = [180, 90, 420, 220].map(buildWorkbookColumn).join("");

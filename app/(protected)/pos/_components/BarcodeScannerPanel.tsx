@@ -67,7 +67,11 @@ export function BarcodeScannerPanel({ className }: BarcodeScannerPanelProps) {
 
       if (!result.success) {
         toast.error(
-          result.reason === "OUT_OF_STOCK" ? "Product is out of stock." : "Open the product to configure it first.",
+          result.reason === "EXPIRED_STOCK"
+            ? "Expired batch only."
+            : result.reason === "OUT_OF_STOCK"
+              ? "Product is out of stock."
+              : "Open the product to configure it first.",
           { description: `${product.name} was not added to the cart.` },
         );
         return false;
@@ -288,7 +292,7 @@ export function BarcodeScannerPanel({ className }: BarcodeScannerPanelProps) {
                   ref={manualInputRef}
                   value={manualValue}
                   onChange={(event) => setManualValue(event.target.value)}
-                  placeholder="Enter barcode or exact product name..."
+                  placeholder="Enter barcode, exact name, generic, or brand..."
                   autoComplete="off"
                   inputMode="search"
                   className="h-14 rounded-2xl text-base sm:h-16 sm:text-lg"

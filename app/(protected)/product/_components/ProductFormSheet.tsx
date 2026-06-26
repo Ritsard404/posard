@@ -35,6 +35,12 @@ const productSchema = z
     categoryId: z.string().optional(),
     categoryName: z.string().optional(),
     barcode: z.string().optional(),
+    genericName: z.string().optional(),
+    brandName: z.string().optional(),
+    shelfLocation: z.string().optional(),
+    preferredSupplierName: z.string().optional(),
+    prescriptionRequired: z.boolean(),
+    reorderPoint: z.string().optional(),
     baseUnit: z.string().trim().optional(),
     quantity: z.string().optional(),
     cost: z.string().optional(),
@@ -76,6 +82,17 @@ const productSchema = z
           code: z.ZodIssueCode.custom,
           path: ["quantity"],
           message: "Quantity must be zero or greater.",
+        });
+      }
+    }
+
+    if (value.reorderPoint) {
+      const reorderPoint = Number(value.reorderPoint);
+      if (!Number.isFinite(reorderPoint) || reorderPoint < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["reorderPoint"],
+          message: "Reorder point must be zero or greater.",
         });
       }
     }
@@ -144,6 +161,12 @@ export function ProductFormSheet({
       categoryId: "",
       categoryName: "",
       barcode: "",
+      genericName: "",
+      brandName: "",
+      shelfLocation: "",
+      preferredSupplierName: "",
+      prescriptionRequired: false,
+      reorderPoint: "",
       baseUnit: "UNIT",
       quantity: "",
       cost: "0",
@@ -176,6 +199,18 @@ export function ProductFormSheet({
   const isAvailable = watch("isAvailable");
   const isConfigurable = watch("isConfigurable");
   const selectedCategoryId = watch("categoryId");
+  const watchedPrice = watch("price");
+  const watchedCost = watch("cost");
+  const markupPercent = useMemo(() => {
+    const price = Number(watchedPrice);
+    const cost = Number(watchedCost);
+
+    if (!Number.isFinite(price) || !Number.isFinite(cost) || cost <= 0) {
+      return null;
+    }
+
+    return Math.round(((price - cost) / cost) * 10000) / 100;
+  }, [watchedCost, watchedPrice]);
 
   useEffect(() => {
     if (!open) return;
@@ -186,6 +221,12 @@ export function ProductFormSheet({
         categoryId: product.categoryId,
         categoryName: "",
         barcode: product.barcode ?? "",
+        genericName: product.genericName ?? "",
+        brandName: product.brandName ?? "",
+        shelfLocation: product.shelfLocation ?? "",
+        preferredSupplierName: product.preferredSupplierName ?? "",
+        prescriptionRequired: product.prescriptionRequired,
+        reorderPoint: product.reorderPoint === null ? "" : String(product.reorderPoint),
         baseUnit: product.baseUnit || "UNIT",
         quantity: product.trackInventory ? String(product.quantity ?? 0) : "",
         cost: String(product.cost ?? 0),
@@ -231,6 +272,12 @@ export function ProductFormSheet({
       categoryId: values.categoryId?.trim() || undefined,
       categoryName: values.categoryName?.trim() || undefined,
       barcode: values.barcode?.trim() || undefined,
+      genericName: values.genericName?.trim() || undefined,
+      brandName: values.brandName?.trim() || undefined,
+      shelfLocation: values.shelfLocation?.trim() || undefined,
+      preferredSupplierName: values.preferredSupplierName?.trim() || undefined,
+      prescriptionRequired: values.prescriptionRequired,
+      reorderPoint: values.reorderPoint?.trim() ? Number(values.reorderPoint) : null,
       baseUnit: values.baseUnit?.trim() || "UNIT",
       quantity: values.trackInventory ? (values.quantity?.trim() ? Number(values.quantity) : 0) : null,
       cost: values.cost?.trim() ? Number(values.cost) : 0,
@@ -331,6 +378,28 @@ export function ProductFormSheet({
                 <Input id="product-barcode" placeholder="Optional barcode" {...register("barcode")} />
               </div>
 
+              <div className="space-y-1.5">
+                <Label htmlFor="product-generic-name">Generic Name</Label>
+                <Input id="product-generic-name" placeholder="Paracetamol" {...register("genericName")} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-brand-name">Brand Name</Label>
+                <Input id="product-brand-name" placeholder="Biogesic" {...register("brandName")} />
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="product-preferred-supplier">Preferred Supplier</Label>
+                <Input
+                  id="product-preferred-supplier"
+                  placeholder="Existing active supplier name"
+                  {...register("preferredSupplierName")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank if this product does not have a preferred supplier yet.
+                </p>
+              </div>
+
               <div className="space-y-1.5 sm:col-span-2">
                 <input type="hidden" {...register("productImageUrl")} />
                 <ImageUploadField
@@ -425,6 +494,15 @@ export function ProductFormSheet({
                 {errors.cost ? <p className="text-xs text-destructive">{errors.cost.message}</p> : null}
               </div>
 
+              <div className="sm:col-span-2 rounded-xl border border-border/70 bg-background px-3 py-2 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">Markup</span>
+                  <span className="font-semibold tabular-nums">
+                    {markupPercent === null ? "Set cost to calculate" : `${markupPercent.toFixed(2)}%`}
+                  </span>
+                </div>
+              </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="product-item-type">Item Type</Label>
                 <select
@@ -478,6 +556,24 @@ export function ProductFormSheet({
                 />
                 {errors.quantity ? <p className="text-xs text-destructive">{errors.quantity.message}</p> : null}
               </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-reorder-point">Reorder Point</Label>
+                <Input
+                  id="product-reorder-point"
+                  type="number"
+                  min="0"
+                  step="0.0001"
+                  placeholder="Default threshold"
+                  {...register("reorderPoint")}
+                />
+                {errors.reorderPoint ? <p className="text-xs text-destructive">{errors.reorderPoint.message}</p> : null}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-shelf-location">Shelf Location</Label>
+                <Input id="product-shelf-location" placeholder="A1 / Cabinet 2" {...register("shelfLocation")} />
+              </div>
             </div>
 
             <div className="space-y-3 rounded-xl border border-border/70 bg-background px-3 py-3">
@@ -499,6 +595,24 @@ export function ProductFormSheet({
                   </Label>
                   <p className="text-sm text-muted-foreground">
                     Turn this on for packaged or counted products. If it stays off, the saved quantity becomes null.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="product-prescription-required"
+                  checked={watch("prescriptionRequired")}
+                  onCheckedChange={(checked) => setValue("prescriptionRequired", checked === true)}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="product-prescription-required" className="cursor-pointer">
+                    Prescription required
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Show POS warnings for products that need a prescription check before selling.
                   </p>
                 </div>
               </div>

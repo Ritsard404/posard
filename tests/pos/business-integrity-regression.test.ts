@@ -79,6 +79,32 @@ test("inventory movements cannot create invalid or negative tracked stock", () =
   assert.match(workflowService, /Inventory movement cannot make stock negative/);
 });
 
+test("pharmacy batch expiry and FEFO paths stay wired", () => {
+  const schema = read("prisma/schema.prisma");
+  const migration = read("prisma/migrations/20260626090000_stock_lots_batch_expiry/migration.sql");
+  const allocationService = read("app/(protected)/_services/stock-lot-allocation.service.ts");
+  const workflowService = read("app/(protected)/_services/management-workflow.service.ts");
+  const orderService = read("app/(protected)/pos/_services/order.service.ts");
+  const productService = read("app/(protected)/pos/_services/product.service.ts");
+  const inventoryPage = read("app/(protected)/inventory-ledger/page.tsx");
+  const purchaseOrdersPage = read("app/(protected)/purchase-orders/page.tsx");
+
+  assert.match(schema, /model StockLot/);
+  assert.match(schema, /stockLotId\s+String\?\s+@map\("stock_lot_id"\)/);
+  assert.match(migration, /CREATE TABLE "public"\."stock_lot"/);
+  assert.match(allocationService, /allocateStockLotsForStockOut/);
+  assert.match(allocationService, /status === "available"/);
+  assert.match(workflowService, /lotQuantityBefore/);
+  assert.match(workflowService, /allocateStockLotsForStockOut/);
+  assert.match(orderService, /movementType:\s*"sale_deduction"/);
+  assert.match(orderService, /stockLotId:\s*allocation\.stockLotId/);
+  assert.match(productService, /saleBlockedByExpiry/);
+  assert.match(productService, /expiryStatus/);
+  assert.match(inventoryPage, /Batch & Expiry Monitor/);
+  assert.match(purchaseOrdersPage, /name="batchNumber"/);
+  assert.match(purchaseOrdersPage, /name="expiryDate"/);
+});
+
 test("report and sync recovery indexes cover common POS report filters", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260606120000_phase2_pos_reliability_indexes/migration.sql");

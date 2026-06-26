@@ -5,6 +5,7 @@ export type VatType = 'VATABLE' | 'EXEMPT' | 'ZERO';
 export type BusinessMode = "RETAIL" | "RESTAURANT" | "HYBRID";
 export type FulfillmentType = "WALK_IN" | "DINE_IN" | "TAKE_OUT" | "DELIVERY" | "PICKUP";
 export type ModifierGroupType = "VARIANT" | "MODIFIER" | "ADDON" | "INSTRUCTION";
+export type ProductExpiryStatus = "none" | "near_expiry" | "expired_only";
 
 export interface ModifierOptionDto {
   id: string;
@@ -35,6 +36,20 @@ export interface ProductDto {
   name: string;
   productImageUrl: string | null;
   barcode: string | null;
+  genericName: string | null;
+  brandName: string | null;
+  shelfLocation: string | null;
+  prescriptionRequired: boolean;
+  reorderPoint: number | null;
+  preferredSupplierId: string | null;
+  preferredSupplierName: string | null;
+  hasBatchTracking: boolean;
+  nearestExpiryDate: string | null;
+  nearExpiryLotCount: number;
+  expiredLotCount: number;
+  availableLotQuantity: number;
+  expiryStatus: ProductExpiryStatus;
+  saleBlockedByExpiry: boolean;
   baseUnit: string;
   quantity: number;
   cost: number;
@@ -44,6 +59,7 @@ export interface ProductDto {
   itemType: ItemType;
   vatType: VatType;
   categoryId: string;
+  categoryName: string | null;
   isConfigurable: boolean;
   configurationMode: BusinessMode | null;
   modifierGroups: ModifierGroupDto[];

@@ -56,17 +56,20 @@ function QuantityDisplay({
   quantity,
   baseUnit,
   trackInventory,
+  reorderPoint,
 }: {
   quantity: number | null;
   baseUnit: string;
   trackInventory: boolean;
+  reorderPoint: number | null;
 }) {
   if (!trackInventory) {
     return <span className="text-sm text-muted-foreground">Inventory off</span>;
   }
 
   const numericQuantity = quantity ?? 0;
-  const isLow = numericQuantity <= 5;
+  const threshold = reorderPoint ?? 5;
+  const isLow = numericQuantity <= threshold;
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -75,11 +78,24 @@ function QuantityDisplay({
       </span>
       {isLow ? (
         <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-600">
-          Low stock
+          Low stock at {threshold.toLocaleString()}
         </span>
       ) : null}
     </div>
   );
+}
+
+function formatMarkup(value: number | null): string {
+  return value === null ? "No markup" : `${value.toFixed(2)}% markup`;
+}
+
+function productSubtitle(product: ProductDto): string {
+  return [
+    product.brandName,
+    product.genericName,
+    product.shelfLocation ? `Shelf ${product.shelfLocation}` : null,
+    product.preferredSupplierName ? `Supplier ${product.preferredSupplierName}` : null,
+  ].filter(Boolean).join(" / ");
 }
 
 function EmptyState() {
@@ -144,6 +160,11 @@ function MobileCard({
               <p className="mt-1 text-sm text-muted-foreground">
                 {product.categoryName ?? "Uncategorized"}
               </p>
+              {productSubtitle(product) ? (
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {productSubtitle(product)}
+                </p>
+              ) : null}
             </div>
           </div>
           <AvailabilityBadge available={product.isAvailable} />
@@ -156,6 +177,7 @@ function MobileCard({
           </div>
           <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Cost</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{formatMarkup(product.markupPercent)}</p>
             <p className="mt-1 font-semibold tabular-nums">₱ {product.cost.toFixed(2)}</p>
           </div>
         </div>
@@ -167,12 +189,14 @@ function MobileCard({
               quantity={product.quantity}
               baseUnit={product.baseUnit}
               trackInventory={product.trackInventory}
+              reorderPoint={product.reorderPoint}
             />
           </div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span>{product.itemType}</span>
             <span>{product.vatType}</span>
             {product.barcode ? <span>Barcode {product.barcode}</span> : null}
+            {product.prescriptionRequired ? <span>Prescription</span> : null}
           </div>
         </div>
 
@@ -389,6 +413,11 @@ export function ProductDataTable({
                       </div>
                       <div className="min-w-0">
                         <p className="truncate font-medium">{product.name}</p>
+                        {productSubtitle(product) ? (
+                          <p className="mt-0.5 max-w-72 truncate text-xs text-muted-foreground">
+                            {productSubtitle(product)}
+                          </p>
+                        ) : null}
                         <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
                           <span>{product.itemType}</span>
                           <span>{product.vatType}</span>
@@ -404,10 +433,18 @@ export function ProductDataTable({
                     ₱ {product.price.toFixed(2)}
                   </td>
                   <td className="px-5 py-4 text-right text-muted-foreground tabular-nums">
+                    <p className="mb-1 text-[11px] text-muted-foreground">{formatMarkup(product.markupPercent)}</p>
                     ₱ {product.cost.toFixed(2)}
                   </td>
                   <td className="px-5 py-4">
-                    <AvailabilityBadge available={product.isAvailable} />
+                    <div className="flex flex-col items-start gap-1.5">
+                      <AvailabilityBadge available={product.isAvailable} />
+                      {product.prescriptionRequired ? (
+                        <Badge variant="outline" className="border-amber-500/40 text-amber-600">
+                          Prescription
+                        </Badge>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-5 py-4">
                     {product.barcode ? (
@@ -425,6 +462,7 @@ export function ProductDataTable({
                       quantity={product.quantity}
                       baseUnit={product.baseUnit}
                       trackInventory={product.trackInventory}
+                      reorderPoint={product.reorderPoint}
                     />
                   </td>
                   <td className="px-5 py-4 text-right">

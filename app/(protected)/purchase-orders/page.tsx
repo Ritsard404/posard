@@ -8,6 +8,7 @@ import {
   transitionPurchaseOrderAction,
 } from "../_actions/management-workflow.actions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 function total(items: Array<{ quantity: unknown; unitCost: unknown }>) {
   return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(
@@ -71,7 +72,10 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                 <form action={receivePurchaseOrderAction} className="flex flex-wrap gap-1">
                   <input type="hidden" name="purchaseOrderId" value={item.id} />
                   <input type="hidden" name="purchaseOrderItemId" value={item.items[0].id} />
-                  <input name="quantityReceived" type="number" min="0.0001" step="0.0001" placeholder="Qty" className="h-8 w-20 rounded-md border bg-background px-2 text-sm" />
+                  <Input name="quantityReceived" type="number" min="0.0001" step="0.0001" placeholder="Qty" className="h-8 w-20" />
+                  <Input name="batchNumber" placeholder="Batch" className="h-8 w-28" />
+                  <Input name="expiryDate" type="date" className="h-8 w-36" />
+                  <Input name="shelfLocation" placeholder="Shelf" className="h-8 w-24" />
                   <Button size="sm">Receive</Button>
                 </form>
               ) : null}

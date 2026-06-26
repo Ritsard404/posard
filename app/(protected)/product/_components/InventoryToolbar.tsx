@@ -84,7 +84,7 @@ export function InventoryToolbar({
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-accent" />
         <Input
           id="inventory-search"
-          placeholder="Search products by name or barcode..."
+          placeholder="Search name, barcode, generic, brand, category, supplier..."
           value={keyword}
           onChange={(event) => onKeywordChange(event.target.value)}
           aria-busy={isPending}
