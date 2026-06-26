@@ -87,10 +87,11 @@ const guideGroups: HelpGroup[] = [
           "Open the login page.",
           "Enter your email and password.",
           "Select Log in.",
+          "On phones, use the bottom navigation bar for your main pages.",
         ],
         reminder:
-          "Ask a manager if your account is still waiting for approval.",
-        keywords: ["login", "sign in", "access", "password", "account"],
+          "Ask a manager if your account is still waiting for approval. Phone navigation follows your role access.",
+        keywords: ["login", "sign in", "access", "password", "account", "mobile", "navigation"],
       },
       {
         title: "Select a terminal",
@@ -294,7 +295,7 @@ const guideGroups: HelpGroup[] = [
         steps: [
           "Open the cart or transaction.",
           "Choose the item or order.",
-          "Enter the reason.",
+          "Enter the reason in the POSard void dialog.",
           "Ask for approval if needed.",
         ],
         reminder:

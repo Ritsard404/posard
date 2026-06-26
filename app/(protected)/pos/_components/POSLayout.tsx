@@ -74,9 +74,19 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   );
   const setSession = usePOSStore((state) => state.setSession);
   const isOnline = usePOSStore((state) => state.isOnline);
+  const pendingSyncCount = usePOSStore((state) => state.pendingSyncCount);
+  const needsReviewCount = usePOSStore((state) => state.needsReviewCount);
   const activeMobileTab = usePOSStore((state) => state.activeMobileTab);
   const setActiveMobileTab = usePOSStore((state) => state.setActiveMobileTab);
-  const { activeItemCount, total } = usePOSPaymentSummary();
+  const { activeItemCount, discountAmount, total, taxDerived } =
+    usePOSPaymentSummary();
+  const mobileOrderDetails = [
+    discountAmount > 0 ? `Discount - PHP ${formatCurrency(discountAmount)}` : null,
+    taxDerived > 0 ? `VAT PHP ${formatCurrency(taxDerived)}` : null,
+    !isOnline ? "Offline mode" : null,
+    pendingSyncCount > 0 ? `${pendingSyncCount} queued` : null,
+    needsReviewCount > 0 ? `${needsReviewCount} review` : null,
+  ].filter(Boolean);
 
   const mobileTabs: Array<{
     id: "menu" | "cart" | "tender";
@@ -432,18 +442,24 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
 
             <button
               type="button"
+              data-testid="pos-mobile-order-summary"
               onClick={() => setActiveMobileTab("cart")}
-              className="flex shrink-0 items-center justify-between border-t bg-card px-3 py-2 text-left"
+              className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-t bg-card px-3 py-2 text-left"
             >
-              <div>
+              <div className="min-w-0">
                 <p className="text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground">
                   Active Order
                 </p>
                 <p className="text-[13px] font-semibold text-foreground">
                   {activeItemCount} {activeItemCount === 1 ? "item" : "items"}
                 </p>
+                <p className="mt-0.5 truncate text-[10px] font-semibold text-muted-foreground">
+                  {mobileOrderDetails.length > 0
+                    ? mobileOrderDetails.join(" / ")
+                    : "Ready for checkout"}
+                </p>
               </div>
-              <div className="text-right">
+              <div className="shrink-0 text-right">
                 <p className="text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground">
                   Running Total
                 </p>
@@ -453,7 +469,7 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
               </div>
             </button>
 
-            <div className="grid h-14 shrink-0 grid-cols-3 border-t bg-background">
+            <div className="grid min-h-14 shrink-0 grid-cols-3 border-t bg-background">
               {mobileTabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeMobileTab === tab.id;
@@ -462,9 +478,10 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                   <button
                     key={tab.id}
                     type="button"
+                    data-testid={`pos-mobile-tab-${tab.id}`}
                     onClick={() => setActiveMobileTab(tab.id)}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors",
+                      "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors",
                       isActive ? "text-primary" : "text-muted-foreground",
                     )}
                   >

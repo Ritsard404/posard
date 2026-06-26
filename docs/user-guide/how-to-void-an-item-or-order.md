@@ -13,7 +13,7 @@ Use this for mistakes before or after a sale, depending on your store rules.
 ## Steps
 1. Open the cart or transaction record.
 2. Choose the item or order to void.
-3. Enter the reason.
+3. Enter the reason in the POSard void dialog.
 4. Ask a manager to approve if POSard requests it.
 5. Confirm the void.
 

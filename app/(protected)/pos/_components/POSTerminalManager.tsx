@@ -28,6 +28,25 @@ import {
 import type { SessionSnapshotDto } from "../_services/_dto/offline.dto";
 
 const INITIAL_SESSION_WAIT_MS = 1800;
+const OFFLINE_FALLBACK_WAIT_MS = 600;
+const EMPTY_OFFLINE_CATALOG = {
+  categories: [],
+  products: [],
+  epaymentMethods: [],
+};
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallback: T,
+) {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      window.setTimeout(() => resolve(fallback), timeoutMs);
+    }),
+  ]);
+}
 
 async function refreshQueueState(
   setSyncCounts: ReturnType<typeof usePOSStore.getState>["setSyncCounts"],
@@ -138,11 +157,15 @@ export function POSTerminalManager() {
     let cancelled = false;
 
     async function hydrateOfflineFallback() {
-      const [catalog, sessionSnapshot, managerVerifiers] = await Promise.all([
-        getOfflineCatalogSnapshot(),
-        getOfflineSessionSnapshot(),
-        getOfflineManagerVerifiers(),
-      ]);
+      const [catalog, sessionSnapshot, managerVerifiers] = await withTimeout(
+        Promise.all([
+          getOfflineCatalogSnapshot(),
+          getOfflineSessionSnapshot(),
+          getOfflineManagerVerifiers(),
+        ]),
+        OFFLINE_FALLBACK_WAIT_MS,
+        [EMPTY_OFFLINE_CATALOG, null, []] as const,
+      );
 
       if (cancelled) {
         return;

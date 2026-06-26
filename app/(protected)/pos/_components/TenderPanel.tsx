@@ -118,6 +118,7 @@ export function TenderPanel() {
         }}
       >
         <SheetContent
+          data-testid="pos-mobile-receipt-sheet"
           side="bottom"
           className="flex h-[92dvh] flex-col gap-0 rounded-t-[2rem] p-0"
         >

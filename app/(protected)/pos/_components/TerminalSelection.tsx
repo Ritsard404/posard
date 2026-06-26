@@ -122,19 +122,18 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] items-center overflow-y-auto w-full">
+    <div className="flex h-full min-h-0 w-full flex-col items-center overflow-y-auto p-3 sm:p-0">
       <div className="w-full max-w-5xl">
-        <div className="mb-14 text-center animate-in fade-in slide-in-from-top-4 duration-700">
-          <h1 className="text-4xl font-heading font-extrabold tracking-tight">Select POS Terminal</h1>
-          <p className="text-muted-foreground font-medium mt-3">Ready for business. Choose an available workstation to start your session.</p>
+        <div className="mb-6 text-center animate-in fade-in slide-in-from-top-4 duration-300 motion-reduce:animate-none sm:mb-14">
+          <h1 className="font-heading text-2xl font-extrabold tracking-tight sm:text-4xl">Select POS Terminal</h1>
+          <p className="mt-2 text-sm font-medium text-muted-foreground sm:mt-3 sm:text-base">Ready for business. Choose an available workstation to start your session.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {terminals.map((t, idx) => (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+          {terminals.map((t) => (
             <div 
               key={t.id} 
-              className="animate-in fade-in slide-in-from-bottom-4 duration-700"
-              style={{ animationDelay: `${idx * 100}ms` }}
+              className="animate-in fade-in slide-in-from-bottom-4 duration-300 motion-reduce:animate-none"
             >
               <Card 
                 className={`group relative overflow-hidden glass-card p-2 border-white/5 transition-all duration-300 ${t.isActive || t.billingLocked ? "opacity-60 grayscale-[0.5]" : "hover:scale-[1.03] active:scale-[0.98] cursor-pointer hover:border-accent/30 hover:shadow-2xl group-hover:shadow-accent/5"}`}

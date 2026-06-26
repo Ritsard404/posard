@@ -7,6 +7,15 @@ import { CheckoutModal } from "./CheckoutModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Trash2,
   Plus,
@@ -23,6 +32,8 @@ import {
   enqueueOfflineAction,
   getOfflineQueueSnapshot,
 } from "../_services/offline-sync.client";
+
+type ApprovalManager = { id: string; email: string; name: string };
 
 export function CartPanel() {
   const isMobile = useIsMobile();
@@ -51,15 +62,117 @@ export function CartPanel() {
   >("VOID_ITEM");
   const [approvalRefId, setApprovalRefId] = useState("");
   const [pendingAction, setPendingAction] = useState<
-    ((manager: { id: string; email: string; name: string }) => void | Promise<void>) | null
+    ((manager: ApprovalManager) => void | Promise<void>) | null
   >(null);
 
   const [isVoiding, setIsVoiding] = useState(false);
+  const [cancelReasonOpen, setCancelReasonOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const { activeCart, subtotal, discountAmount, total, taxDerived } =
     usePOSPaymentSummary();
   const editingItem = cart.find((item) => item.cartItemId === editingItemId) ?? null;
+
+  const buildVoidOrderDto = (): OrderDto => ({
+    timestampId: activeTimestampId ?? "",
+    deviceId: activeDeviceId ?? undefined,
+    items: cart.map((i) => ({
+      productId: i.id,
+      qty: i.cartQuantity,
+      price: i.price,
+      subTotal:
+        i.itemStatus === "VOID"
+          ? 0
+          : (i.customSubtotal ?? i.price * i.cartQuantity),
+      status: i.itemStatus || "PENDING",
+    })),
+    cashTenderAmount: 0,
+  });
+
+  const handlePrepareCancelOrder = () => {
+    if (cart.length === 0 || isVoiding) return;
+
+    const reason = cancelReason.trim();
+    if (!reason) {
+      toast.error("Void reason is required.");
+      return;
+    }
+
+    setApprovalType("CANCEL_ORDER");
+    setApprovalRefId(activeTimestampId || "");
+    setPendingAction(
+      () => async (manager: ApprovalManager) => {
+        setIsVoiding(true);
+        try {
+          const orderDto = buildVoidOrderDto();
+
+          if (!isOnline) {
+            if (
+              !activeTimestampId ||
+              !activeTerminal ||
+              !activeDeviceId ||
+              !activeCompanyId ||
+              !activeProfileId
+            ) {
+              toast.error("Offline void needs an active synced session.");
+              return;
+            }
+
+            const queue = await getOfflineQueueSnapshot();
+            await enqueueOfflineAction({
+              localId: crypto.randomUUID(),
+              type: "VOID_ORDER",
+              idempotencyKey: `${activeTerminal.id}-${activeDeviceId}-${crypto.randomUUID()}`,
+              timestampId: activeTimestampId,
+              terminalId: activeTerminal.id,
+              deviceId: activeDeviceId,
+              cashierId: activeProfileId,
+              companyId: activeCompanyId,
+              createdAtLocal: new Date().toISOString(),
+              syncStatus: "pending",
+              lastError: null,
+              syncedAt: null,
+              payload: {
+                order: orderDto,
+                managerProfileId: manager.id,
+                managerEmail: manager.email,
+                managerName: manager.name,
+                reason,
+              },
+            });
+
+            usePOSStore.getState().setSyncCounts({
+              pendingSyncCount: queue.pendingCount + 1,
+              syncingCount: queue.syncingCount,
+              needsReviewCount: queue.needsReviewCount,
+              lastSyncMessage: "Void queued for sync.",
+            });
+            clearCart();
+            toast.success("Order void queued offline.");
+            return;
+          }
+
+          const res = await cancelOrderAction({
+            order: orderDto,
+            managerIdentifier: manager.email,
+            reason,
+          });
+
+          if (res.success) {
+            clearCart();
+            toast.success("Order cancelled successfully.");
+          } else {
+            toast.error(res.error ?? "Failed to cancel order.");
+          }
+        } finally {
+          setIsVoiding(false);
+        }
+      },
+    );
+    setCancelReasonOpen(false);
+    setApprovalOpen(true);
+  };
 
   const handleCartQuantityChange = (cartItemId: string, quantity: number) => {
     if (isVoiding) return;
@@ -139,14 +252,13 @@ export function CartPanel() {
           </div>
         ) : (
           <div className="space-y-2">
-            {cart.map((item, idx) => {
+            {cart.map((item) => {
               const isVoid = item.itemStatus === "VOID";
 
               return (
                 <div
                   key={item.cartItemId}
-                  className={`flex min-w-0 flex-col rounded-lg border bg-background p-2 transition-all animate-in fade-in slide-in-from-right-2 ${isVoid ? "grayscale opacity-40" : ""}`}
-                  style={{ animationDelay: `${idx * 50}ms` }}
+                  className={`flex min-w-0 flex-col rounded-lg border bg-background p-2 transition-all animate-in fade-in slide-in-from-right-2 duration-200 motion-reduce:animate-none ${isVoid ? "grayscale opacity-40" : ""}`}
                   onClick={() => {
                     if (!isVoid && item.isConfigurable && item.modifierGroups.length > 0) {
                       setEditingItemId(item.cartItemId);
@@ -172,7 +284,7 @@ export function CartPanel() {
                           min="0"
                           step="0.01"
                           disabled={isVoid || isVoiding}
-                          className={`h-7 w-14 border-none bg-transparent p-0 text-right text-sm font-black focus-visible:ring-0 ${item.customSubtotal !== undefined ? "text-primary" : "text-foreground/80"}`}
+                          className={`h-10 w-20 border-none bg-transparent p-0 text-right text-sm font-black focus-visible:ring-0 sm:h-7 sm:w-14 ${item.customSubtotal !== undefined ? "text-primary" : "text-foreground/80"}`}
                           value={
                             item.customSubtotal !== undefined
                               ? item.customSubtotal
@@ -206,7 +318,7 @@ export function CartPanel() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={`h-8 w-8 rounded-lg ${isVoid ? "opacity-50" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                        className={`h-10 w-10 rounded-lg sm:h-8 sm:w-8 ${isVoid ? "opacity-50" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                           onClick={(event) => {
                             event.stopPropagation();
                             if (!isVoid) {
@@ -228,7 +340,7 @@ export function CartPanel() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={`h-8 w-8 rounded-lg ${isVoid ? "opacity-50" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                        className={`h-10 w-10 rounded-lg sm:h-8 sm:w-8 ${isVoid ? "opacity-50" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                         onClick={(event) => {
                           event.stopPropagation();
                             if (!isVoid) {
@@ -254,7 +366,7 @@ export function CartPanel() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-lg border border-destructive/10 bg-destructive/5 text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground"
+                        className="h-10 w-10 rounded-lg border border-destructive/10 bg-destructive/5 text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground sm:h-8 sm:w-8"
                         onClick={(event) => {
                           event.stopPropagation();
                           if (isVoiding) return;
@@ -280,7 +392,7 @@ export function CartPanel() {
       </div>
 
       <div className="shrink-0 border-t bg-card p-2 xl:p-3">
-        <div className={`${isMobile ? "hidden" : "mb-2 space-y-1"}`}>
+        <div className={isMobile ? "mb-2 space-y-1 rounded-lg border bg-background/80 p-2" : "mb-2 space-y-1"}>
           <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
             <span>Aggregated Subtotal</span>
             <span className="font-sans font-bold text-foreground">
@@ -324,100 +436,12 @@ export function CartPanel() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            className="group h-10 w-14 shrink-0 rounded-lg text-[9px] font-bold uppercase tracking-wider text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground active:scale-95 xl:h-12 xl:w-20"
-            onClick={async () => {
+            className="group h-12 w-20 shrink-0 rounded-lg text-[9px] font-bold uppercase tracking-wider text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground active:scale-95 sm:h-10 sm:w-14 xl:h-12 xl:w-20"
+            onClick={() => {
               if (cart.length === 0 || isVoiding) return;
 
-              setApprovalType("CANCEL_ORDER");
-              setApprovalRefId(activeTimestampId || "");
-              setPendingAction(
-                () => async (manager: { id: string; email: string; name: string }) => {
-                  setIsVoiding(true);
-                  try {
-                    const reason =
-                      prompt("Enter void reason:") ||
-                      "Manager Cancelled via PIN";
-
-                    const orderDto: OrderDto = {
-                      timestampId: activeTimestampId ?? "",
-                      deviceId: activeDeviceId ?? undefined,
-                      items: cart.map((i) => ({
-                        productId: i.id,
-                        qty: i.cartQuantity,
-                        price: i.price,
-                        subTotal:
-                          i.itemStatus === "VOID"
-                            ? 0
-                            : (i.customSubtotal ?? i.price * i.cartQuantity),
-                        status: i.itemStatus || "PENDING",
-                      })),
-                      cashTenderAmount: 0,
-                    };
-
-                    if (!isOnline) {
-                      if (
-                        !activeTimestampId ||
-                        !activeTerminal ||
-                        !activeDeviceId ||
-                        !activeCompanyId ||
-                        !activeProfileId
-                      ) {
-                        alert("Offline void needs an active synced session.");
-                        return;
-                      }
-
-                      const queue = await getOfflineQueueSnapshot();
-                      await enqueueOfflineAction({
-                        localId: crypto.randomUUID(),
-                        type: "VOID_ORDER",
-                        idempotencyKey: `${activeTerminal.id}-${activeDeviceId}-${crypto.randomUUID()}`,
-                        timestampId: activeTimestampId,
-                        terminalId: activeTerminal.id,
-                        deviceId: activeDeviceId,
-                        cashierId: activeProfileId,
-                        companyId: activeCompanyId,
-                        createdAtLocal: new Date().toISOString(),
-                        syncStatus: "pending",
-                        lastError: null,
-                        syncedAt: null,
-                        payload: {
-                          order: orderDto,
-                          managerProfileId: manager.id,
-                          managerEmail: manager.email,
-                          managerName: manager.name,
-                          reason,
-                        },
-                      });
-
-                      usePOSStore.getState().setSyncCounts({
-                        pendingSyncCount: queue.pendingCount + 1,
-                        syncingCount: queue.syncingCount,
-                        needsReviewCount: queue.needsReviewCount,
-                        lastSyncMessage: "Void queued for sync.",
-                      });
-                      clearCart();
-                      toast.success("Order void queued offline.");
-                      return;
-                    }
-
-                    const res = await cancelOrderAction({
-                      order: orderDto,
-                      managerIdentifier: manager.email,
-                      reason,
-                    });
-
-                    if (res.success) {
-                      clearCart();
-                      alert("Order cancelled successfully.");
-                    } else {
-                      alert("Failed to cancel order: " + res.error);
-                    }
-                  } finally {
-                    setIsVoiding(false);
-                  }
-                },
-              );
-              setApprovalOpen(true);
+              setCancelReason("");
+              setCancelReasonOpen(true);
             }}
             disabled={cart.length === 0 || isVoiding}
           >
@@ -428,7 +452,7 @@ export function CartPanel() {
           </Button>
 
           <Button
-            className="group h-10 min-w-0 flex-1 rounded-lg bg-primary text-sm font-black uppercase tracking-wider text-primary-foreground transition-all hover:bg-primary/90 active:scale-95 xl:h-12 xl:text-base"
+            className="group h-12 min-w-0 flex-1 rounded-lg bg-primary text-sm font-black uppercase tracking-wider text-primary-foreground transition-all hover:bg-primary/90 active:scale-95 sm:h-10 xl:h-12 xl:text-base"
             onClick={() => {
               setCustomerDisplayMode("payment");
               if (isMobile) {
@@ -452,6 +476,53 @@ export function CartPanel() {
           totalAmount={total}
         />
       )}
+
+      <Dialog open={cancelReasonOpen} onOpenChange={setCancelReasonOpen}>
+        <DialogContent className="w-[min(28rem,calc(100vw-2rem))] rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Void order reason</DialogTitle>
+            <DialogDescription>
+              Add the reason before manager approval. This will be attached to the void record.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handlePrepareCancelOrder();
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="cancel-order-reason">Reason</Label>
+              <Input
+                id="cancel-order-reason"
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                className="h-12 rounded-lg text-base"
+                placeholder="Wrong order, customer cancelled, duplicate entry..."
+                autoFocus
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg"
+                onClick={() => setCancelReasonOpen(false)}
+              >
+                Keep Order
+              </Button>
+              <Button
+                type="submit"
+                className="h-11 rounded-lg"
+                disabled={!cancelReason.trim()}
+              >
+                Continue
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ManagerApprovalModal
         open={approvalOpen}

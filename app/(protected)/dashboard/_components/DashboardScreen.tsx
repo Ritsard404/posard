@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -95,12 +95,12 @@ function MetricCard({
           : "text-foreground";
 
   return (
-    <Card className="rounded-xl border-border/60 bg-background shadow-sm">
+    <Card className="rounded-lg border-border/60 bg-background shadow-sm sm:rounded-xl">
       <CardContent className="p-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           {label}
         </p>
-        <p className={`mt-1.5 text-2xl font-black tracking-tight ${toneClass}`}>
+        <p className={`mt-1.5 text-xl font-black tracking-tight sm:text-2xl ${toneClass}`}>
           {label.toLowerCase().includes("sales") ||
           label.toLowerCase().includes("basket") ||
           label.toLowerCase().includes("returns") ||
@@ -128,14 +128,52 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <Card className="rounded-xl border-border/60 bg-background shadow-sm">
-      <CardHeader className="p-4 pb-2">
+    <Card className="rounded-lg border-border/60 bg-background shadow-sm sm:rounded-xl">
+      <CardHeader className="p-3 pb-2 sm:p-4 sm:pb-2">
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription className="text-xs">{description}</CardDescription>
       </CardHeader>
-      <CardContent className="p-4 pt-2">{children}</CardContent>
+      <CardContent className="p-3 pt-2 sm:p-4 sm:pt-2">{children}</CardContent>
     </Card>
   );
+}
+
+function DeferredChart({
+  children,
+  height = 220,
+}: {
+  children: ReactNode;
+  height?: number;
+}) {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const scheduleIdle = globalThis.requestIdleCallback;
+
+    if (scheduleIdle) {
+      const id = scheduleIdle(() => setReady(true), {
+        timeout: 1200,
+      });
+
+      return () => globalThis.cancelIdleCallback(id);
+    }
+
+    const id = setTimeout(() => setReady(true), 120);
+    return () => clearTimeout(id);
+  }, []);
+
+  if (!ready) {
+    return (
+      <div
+        aria-label="Loading chart"
+        role="status"
+        className="rounded-xl border border-dashed border-border/70 bg-muted/20"
+        style={{ height }}
+      />
+    );
+  }
+
+  return <>{children}</>;
 }
 
 function TrendChart({ data }: { data: DashboardDataDto["trend"] }) {
@@ -145,47 +183,49 @@ function TrendChart({ data }: { data: DashboardDataDto["trend"] }) {
   } satisfies ChartConfig;
 
   return (
-    <ChartContainer config={chartConfig} height={220}>
-      <AreaChart accessibilityLayer data={data} margin={{ left: 8, right: 8, top: 12 }}>
-        <defs>
-          <linearGradient id="fillSales" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--color-sales)" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="var(--color-sales)" stopOpacity={0.02} />
-          </linearGradient>
-          <linearGradient id="fillTransactions" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--color-transactions)" stopOpacity={0.25} />
-            <stop offset="95%" stopColor="var(--color-transactions)" stopOpacity={0.02} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid vertical={false} strokeDasharray="4 4" />
-        <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} />
-        <YAxis hide />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              formatter={(value, name) =>
-                name === "sales" ? formatCurrency(value) : `${value} txns`
-              }
-            />
-          }
-        />
-        <ChartLegend content={<ChartLegendContent />} />
-        <Area
-          type="monotone"
-          dataKey="sales"
-          stroke="var(--color-sales)"
-          strokeWidth={2.5}
-          fill="url(#fillSales)"
-        />
-        <Area
-          type="monotone"
-          dataKey="transactions"
-          stroke="var(--color-transactions)"
-          strokeWidth={2}
-          fill="url(#fillTransactions)"
-        />
-      </AreaChart>
-    </ChartContainer>
+    <DeferredChart>
+      <ChartContainer config={chartConfig} height={220}>
+        <AreaChart accessibilityLayer data={data} margin={{ left: 8, right: 8, top: 12 }}>
+          <defs>
+            <linearGradient id="fillSales" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--color-sales)" stopOpacity={0.35} />
+              <stop offset="95%" stopColor="var(--color-sales)" stopOpacity={0.02} />
+            </linearGradient>
+            <linearGradient id="fillTransactions" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--color-transactions)" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="var(--color-transactions)" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} strokeDasharray="4 4" />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} />
+          <YAxis hide />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={(value, name) =>
+                  name === "sales" ? formatCurrency(value) : `${value} txns`
+                }
+              />
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Area
+            type="monotone"
+            dataKey="sales"
+            stroke="var(--color-sales)"
+            strokeWidth={2.5}
+            fill="url(#fillSales)"
+          />
+          <Area
+            type="monotone"
+            dataKey="transactions"
+            stroke="var(--color-transactions)"
+            strokeWidth={2}
+            fill="url(#fillTransactions)"
+          />
+        </AreaChart>
+      </ChartContainer>
+    </DeferredChart>
   );
 }
 
@@ -206,21 +246,23 @@ function RankedBars({
 
   return (
     <div className="space-y-4">
-      <ChartContainer config={chartConfig} height={220}>
-        <BarChart accessibilityLayer data={items} layout="vertical" margin={{ left: 8, right: 12 }}>
-          <CartesianGrid horizontal={false} strokeDasharray="4 4" />
-          <XAxis type="number" hide />
-          <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={90} />
-          <ChartTooltip
-            content={
-              <ChartTooltipContent
-                formatter={(value) => formatCurrency(value)}
-              />
-            }
-          />
-          <Bar dataKey="sales" fill="var(--color-sales)" radius={10} />
-        </BarChart>
-      </ChartContainer>
+      <DeferredChart>
+        <ChartContainer config={chartConfig} height={220}>
+          <BarChart accessibilityLayer data={items} layout="vertical" margin={{ left: 8, right: 12 }}>
+            <CartesianGrid horizontal={false} strokeDasharray="4 4" />
+            <XAxis type="number" hide />
+            <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={90} />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={(value) => formatCurrency(value)}
+                />
+              }
+            />
+            <Bar dataKey="sales" fill="var(--color-sales)" radius={10} />
+          </BarChart>
+        </ChartContainer>
+      </DeferredChart>
       <div className="space-y-3">
         {items.map((item) => (
           <div key={item.id} className="flex items-center justify-between rounded-2xl border border-border/60 px-4 py-3">
@@ -265,32 +307,34 @@ function PaymentMixChart({ items }: { items: DashboardDataDto["paymentMix"] }) {
   }));
 
   return (
-    <ChartContainer config={chartConfig} height={220}>
-      <PieChart>
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              hideLabel
-              formatter={(value) => formatCurrency(value)}
-            />
-          }
-        />
-        <ChartLegend content={<ChartLegendContent />} />
-        <Pie
-          data={data}
-          dataKey="amount"
-          nameKey="label"
-          innerRadius={70}
-          outerRadius={110}
-          paddingAngle={3}
-          strokeWidth={2}
-        >
-          {data.map((entry) => (
-            <Cell key={entry.label} fill={entry.fill} />
-          ))}
-        </Pie>
-      </PieChart>
-    </ChartContainer>
+    <DeferredChart>
+      <ChartContainer config={chartConfig} height={220}>
+        <PieChart>
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                hideLabel
+                formatter={(value) => formatCurrency(value)}
+              />
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Pie
+            data={data}
+            dataKey="amount"
+            nameKey="label"
+            innerRadius={70}
+            outerRadius={110}
+            paddingAngle={3}
+            strokeWidth={2}
+          >
+            {data.map((entry) => (
+              <Cell key={entry.label} fill={entry.fill} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+    </DeferredChart>
   );
 }
 
@@ -1124,7 +1168,7 @@ export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) 
         : { href: "/reports", label: "Open Reports", icon: Receipt };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {dashboard.billingRestriction?.isRestricted ? (
         <Card className="border-amber-300 bg-amber-50 text-amber-950 shadow-sm">
           <CardContent className="p-5">
@@ -1152,10 +1196,10 @@ export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) 
         </Card>
       ) : null}
 
-      <Card className="overflow-hidden rounded-[2rem] border-border/60 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(6,182,212,0.2),_transparent_32%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92))] shadow-sm">
-        <CardContent className="p-6 sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-3">
+      <Card className="overflow-hidden rounded-xl border-border/60 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(6,182,212,0.2),_transparent_32%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92))] shadow-sm sm:rounded-[2rem]">
+        <CardContent className="p-4 sm:p-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-2 sm:space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className="rounded-full bg-foreground px-3 py-1 text-primary-foreground">
                   Dashboard
@@ -1168,7 +1212,7 @@ export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) 
                 </Badge>
               </div>
               <div>
-                <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-4xl">
                   {dashboard.heroTitle}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
@@ -1181,14 +1225,14 @@ export function DashboardScreen({ dashboard }: { dashboard: DashboardDataDto }) 
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button asChild className="rounded-xl">
+              <Button asChild className="h-11 rounded-xl sm:h-10">
                 <Link href={primaryAction.href}>
                   <primaryAction.icon className="size-4" />
                   {primaryAction.label}
                 </Link>
               </Button>
               {secondaryAction ? (
-                <Button asChild variant="outline" className="rounded-xl">
+                <Button asChild variant="outline" className="h-11 rounded-xl sm:h-10">
                   <Link href={secondaryAction.href}>
                     <secondaryAction.icon className="size-4" />
                     {secondaryAction.label}

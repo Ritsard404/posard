@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { usePOSStore } from '../_store/pos-store';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { Product, usePOSStore } from '../_store/pos-store';
 import { ProductCard } from './ProductCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,25 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+
+type SearchableProduct = {
+  product: Product;
+  searchText: string;
+};
+
+function buildProductSearchText(product: SearchableProduct['product']) {
+  return [
+    product.name,
+    product.barcode,
+    product.genericName,
+    product.brandName,
+    product.categoryName,
+    product.preferredSupplierName,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
 
 export function ProductDisplay() {
   const isMobile = useIsMobile();
@@ -78,26 +97,12 @@ export function ProductDisplay() {
 
   const activeViewMode = isMobile ? mobileProductView : viewMode;
   const setActiveViewMode = isMobile ? setMobileProductView : setViewMode;
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
-  const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return products
-      .filter((p) => {
-        const matchesSearch =
-          !query ||
-          [
-            p.name,
-            p.barcode,
-            p.genericName,
-            p.brandName,
-            p.categoryName,
-            p.preferredSupplierName,
-          ].some((field) => field?.toLowerCase().includes(query));
-        const matchesCategory = selectedCategoryId ? p.categoryId === selectedCategoryId : true;
-        return matchesSearch && matchesCategory;
-      })
-      .sort((a, b) => {
+  const searchableProducts = useMemo<SearchableProduct[]>(
+    () =>
+      [...products]
+        .sort((a, b) => {
         if (a.posFavorite !== b.posFavorite) {
           return a.posFavorite ? -1 : 1;
         }
@@ -107,8 +112,25 @@ export function ProductDisplay() {
         }
 
         return a.name.localeCompare(b.name);
-      });
-  }, [searchQuery, selectedCategoryId, products]);
+      })
+        .map((product) => ({
+          product,
+          searchText: buildProductSearchText(product),
+        })),
+    [products],
+  );
+
+  const filteredProducts = useMemo(() => {
+    const query = deferredSearchQuery.trim().toLowerCase();
+
+    return searchableProducts
+      .filter(({ product, searchText }) => {
+        const matchesSearch = !query || searchText.includes(query);
+        const matchesCategory = selectedCategoryId ? product.categoryId === selectedCategoryId : true;
+        return matchesSearch && matchesCategory;
+      })
+      .map(({ product }) => product);
+  }, [deferredSearchQuery, searchableProducts, selectedCategoryId]);
 
   const selectedCategory = useMemo(
     () => categories.find((cat) => cat.id === selectedCategoryId),
@@ -145,25 +167,25 @@ export function ProductDisplay() {
                 setSearchQuery(e.target.value);
                 setPage(1);
               }}
-              className="h-9 w-full rounded-lg pl-9 text-sm font-medium transition-all sm:h-10"
+              className="h-11 w-full rounded-lg pl-9 text-sm font-medium transition-all sm:h-10"
             />
           </div>
-          <BarcodeScannerPanel className="h-9 min-w-0 flex-[1_1_8.75rem] rounded-lg px-2.5 text-sm sm:h-10 sm:flex-none sm:px-3" />
+          <BarcodeScannerPanel className="h-11 min-w-0 flex-[1_1_8.75rem] rounded-lg px-2.5 text-sm sm:h-10 sm:flex-none sm:px-3" />
           <Button
             type="button"
             variant={hardwareScannerEnabled ? 'secondary' : 'outline'}
-            className="h-9 min-w-0 flex-[1_1_9rem] rounded-lg px-2.5 text-sm font-bold sm:h-10 sm:flex-none sm:px-3"
+            className="h-11 min-w-0 flex-[1_1_9rem] rounded-lg px-2.5 text-sm font-bold sm:h-10 sm:flex-none sm:px-3"
             onClick={() => setHardwareScannerEnabled((enabled) => !enabled)}
           >
             <ScanLine className="size-4" />
             {hardwareScannerEnabled ? 'Scanner On' : 'Scanner Off'}
           </Button>
-          <div className="grid h-9 shrink-0 grid-cols-2 rounded-lg border bg-card p-0.5 sm:h-10">
+          <div className="grid h-11 shrink-0 grid-cols-2 rounded-lg border bg-card p-0.5 sm:h-10">
             <Button 
               variant={activeViewMode === 'grid' ? "default" : "ghost"} 
               size="sm" 
               onClick={() => setActiveViewMode('grid')}
-              className="h-8 rounded-md px-2 sm:h-9"
+              className="h-10 rounded-md px-2 sm:h-9"
             >
               <LayoutGrid className="size-4" />
               <span className="text-xs">Grid</span>
@@ -172,7 +194,7 @@ export function ProductDisplay() {
               variant={activeViewMode === 'list' ? "default" : "ghost"} 
               size="sm" 
               onClick={() => setActiveViewMode('list')}
-              className="h-8 rounded-md px-2 sm:h-9"
+              className="h-10 rounded-md px-2 sm:h-9"
             >
               <List className="size-4" />
               <span className="text-xs">List</span>
@@ -187,7 +209,7 @@ export function ProductDisplay() {
                 <SheetTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-9 min-w-0 flex-1 justify-between rounded-lg px-3 text-left text-xs font-bold uppercase tracking-wider sm:max-w-80"
+                    className="h-11 min-w-0 flex-1 justify-between rounded-lg px-3 text-left text-xs font-bold uppercase tracking-wider sm:h-10 sm:max-w-80"
                   >
                     <span className="flex min-w-0 items-center gap-2 overflow-hidden">
                       <Tags className="size-4 shrink-0 text-muted-foreground" />
@@ -290,7 +312,7 @@ export function ProductDisplay() {
                 <div className="flex w-max min-w-full gap-1.5">
                   <Button
                     variant={selectedCategoryId === null ? 'default' : 'outline'}
-                    className="h-7 shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3"
+                    className="h-10 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3"
                     onClick={() => {
                       setSelectedCategoryId(null);
                       setPage(1);
@@ -301,7 +323,7 @@ export function ProductDisplay() {
                   {selectedCategory && !quickCategories.some((cat) => cat.id === selectedCategory.id) ? (
                     <Button
                       variant="default"
-                      className="h-7 max-w-[10rem] shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3 lg:max-w-[12rem]"
+                      className="h-10 max-w-[10rem] shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3 lg:max-w-[12rem]"
                       onClick={() => setCategoryBrowserOpen(true)}
                     >
                       <span className="truncate">{selectedCategory.categoryName}</span>
@@ -311,7 +333,7 @@ export function ProductDisplay() {
                     <Button
                       key={cat.id}
                       variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                      className="h-7 max-w-[10rem] shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3 lg:max-w-[12rem]"
+                      className="h-10 max-w-[10rem] shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3 lg:max-w-[12rem]"
                       onClick={() => {
                         setSelectedCategoryId(cat.id);
                         setPage(1);
@@ -322,7 +344,7 @@ export function ProductDisplay() {
                   ))}
                   <Button
                     variant="ghost"
-                    className="h-7 shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3"
+                    className="h-10 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3"
                     onClick={() => setCategoryBrowserOpen(true)}
                   >
                     Browse All
@@ -337,7 +359,7 @@ export function ProductDisplay() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 rounded-full px-2 text-[10px] font-bold uppercase tracking-wider"
+                  className="h-10 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider sm:h-8"
                   onClick={() => {
                     setSelectedCategoryId(null);
                     setPage(1);
@@ -356,7 +378,7 @@ export function ProductDisplay() {
               <div className="flex w-max min-w-full gap-1.5">
               <Button
                 variant={selectedCategoryId === null ? 'default' : 'outline'}
-                className="h-7 shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3"
+                className="h-10 shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3"
                 onClick={() => {
                   setSelectedCategoryId(null);
                   setPage(1);
@@ -368,7 +390,7 @@ export function ProductDisplay() {
                 <Button
                   key={cat.id}
                   variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                  className="h-7 max-w-[10rem] shrink-0 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3 lg:max-w-[12rem]"
+                  className="h-10 max-w-[10rem] shrink-0 rounded-full px-3 text-[10px] font-bold uppercase tracking-wider sm:h-8 sm:px-3 lg:max-w-[12rem]"
                   onClick={() => {
                     setSelectedCategoryId(cat.id);
                     setPage(1);
@@ -399,11 +421,10 @@ export function ProductDisplay() {
               ? "grid min-w-0 grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-1.5 pb-2 sm:gap-2 xl:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]"
               : "flex flex-col gap-1.5 pb-2 sm:gap-2"
           }>
-            {paginatedProducts.map((product, idx) => (
+            {paginatedProducts.map((product) => (
               <div 
                 key={product.id} 
-                className="min-w-0 animate-in fade-in slide-in-from-bottom-2 duration-300"
-                style={{ animationDelay: `${idx * 25}ms` }}
+                className="min-w-0 animate-in fade-in slide-in-from-bottom-2 duration-200 motion-reduce:animate-none"
               >
                 <ProductCard product={product} viewMode={activeViewMode} />
               </div>
@@ -421,7 +442,7 @@ export function ProductDisplay() {
             <Button 
               variant="outline" 
               size="sm"
-              className="h-8 rounded-lg px-3 font-bold"
+              className="h-10 rounded-lg px-3 font-bold sm:h-8"
               disabled={currentPage === 1}
               onClick={() => setPage(currentPage - 1)}
             >
@@ -433,7 +454,7 @@ export function ProductDisplay() {
             <Button 
               variant="outline" 
               size="sm"
-              className="h-8 rounded-lg px-3 font-bold"
+              className="h-10 rounded-lg px-3 font-bold sm:h-8"
               disabled={currentPage === totalPages}
               onClick={() => setPage(currentPage + 1)}
             >

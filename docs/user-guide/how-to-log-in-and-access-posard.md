@@ -15,9 +15,10 @@ Use this at the start of your work day or whenever POSard asks you to sign in ag
 2. Enter your email and password.
 3. Select **Log in**.
 4. Wait for POSard to open your dashboard or POS screen.
+5. On phones, use the bottom navigation bar to switch between the main pages allowed for your role.
 
 ## What happens next
-You will see the pages you can use. Cashiers usually see POS and their profile. Managers see more business tools.
+You will see the pages you can use. Cashiers usually see POS and their profile. Managers see more business tools. The phone bottom navigation uses the same access rules as the desktop sidebar.
 
 ## Tips or reminders
 - If your account is still waiting for approval, you cannot use the system yet.

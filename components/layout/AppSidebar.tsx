@@ -49,7 +49,7 @@ import { BrandLogo } from "@/components/branding/BrandLogo";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-interface UserProfile {
+export interface UserProfile {
   id: string;
   role: UserRole;
   full_name?: string | null;

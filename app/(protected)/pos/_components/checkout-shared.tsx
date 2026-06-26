@@ -1110,7 +1110,7 @@ export function POSTenderForm({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-7 rounded-lg px-2.5 text-[10px] font-black uppercase tracking-[0.08em]"
+                  className="h-10 rounded-lg px-3 text-[10px] font-black uppercase tracking-[0.08em]"
                   disabled={disableCashEntry}
                   onClick={() =>
                     setAmountTendered(
@@ -1123,7 +1123,7 @@ export function POSTenderForm({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="h-7 rounded-lg border px-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-destructive hover:text-destructive"
+                  className="h-10 rounded-lg border px-3 text-[10px] font-bold uppercase tracking-[0.08em] text-destructive hover:text-destructive"
                   disabled={disableCashEntry}
                   onClick={() => setAmountTendered(0)}
                 >
@@ -1147,7 +1147,7 @@ export function POSTenderForm({
               <Button
                 type="button"
                 variant={!showMobileSplitEditor ? "default" : "outline"}
-                className="h-8 rounded-xl text-[10px] font-black uppercase tracking-[0.1em]"
+                className="h-11 rounded-xl text-[10px] font-black uppercase tracking-[0.1em]"
                 onClick={handleMobileCashOption}
               >
                 Cash
@@ -1155,7 +1155,7 @@ export function POSTenderForm({
               <Button
                 type="button"
                 variant={showMobileSplitEditor ? "default" : "outline"}
-                className="h-8 rounded-xl text-[10px] font-black uppercase tracking-[0.1em]"
+                className="h-11 rounded-xl text-[10px] font-black uppercase tracking-[0.1em]"
                 disabled={
                   settlementMode === "debt" || epaymentMethods.length === 0
                 }
@@ -1228,7 +1228,7 @@ export function POSTenderForm({
                       variant={
                         settlementMode === "pay_now" ? "default" : "outline"
                       }
-                      className={isMobileVariant ? "h-8 rounded-xl text-[13px]" : "rounded-2xl"}
+                      className={isMobileVariant ? "h-11 rounded-xl text-[13px]" : "rounded-2xl"}
                       onClick={() => setSettlementMode("pay_now")}
                     >
                       Pay Now
@@ -1238,7 +1238,7 @@ export function POSTenderForm({
                       variant={
                         settlementMode === "debt" ? "default" : "outline"
                       }
-                      className={isMobileVariant ? "h-8 rounded-xl text-[13px]" : "rounded-2xl"}
+                      className={isMobileVariant ? "h-11 rounded-xl text-[13px]" : "rounded-2xl"}
                       onClick={() => {
                         setSettlementMode("debt");
                         selectCashPayment();
@@ -1418,7 +1418,7 @@ export function POSTenderForm({
                             : "discount",
                         )
                       }
-                      className="rounded-xl bg-primary px-2.5 py-1.5 text-left text-primary-foreground shadow-sm"
+                      className="min-h-12 rounded-xl bg-primary px-3 py-2 text-left text-primary-foreground shadow-sm"
                     >
                       <span className="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.1em] opacity-80">
                         <span>Discount</span>
@@ -1442,7 +1442,7 @@ export function POSTenderForm({
                             : "payment",
                         )
                       }
-                      className="rounded-xl bg-primary px-2.5 py-1.5 text-left text-primary-foreground shadow-sm"
+                      className="min-h-12 rounded-xl bg-primary px-3 py-2 text-left text-primary-foreground shadow-sm"
                     >
                       <span className="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.1em] opacity-80">
                         <span>
@@ -1478,7 +1478,7 @@ export function POSTenderForm({
                                 ? "default"
                                 : "outline"
                             }
-                            className="h-9 rounded-2xl px-2.5 text-[10px] font-black uppercase tracking-[0.12em]"
+                            className="h-11 rounded-2xl px-2.5 text-[10px] font-black uppercase tracking-[0.12em]"
                             onClick={handleMobileCashOption}
                           >
                             <Banknote className="size-4" />
@@ -1492,7 +1492,7 @@ export function POSTenderForm({
                                     ? "default"
                                     : "outline"
                                 }
-                                className="h-9 justify-between rounded-2xl px-2.5 text-left"
+                                className="h-11 justify-between rounded-2xl px-2.5 text-left"
                               >
                                 <span className="truncate text-[11px] font-semibold">
                                   {paymentMethod === "cash"
@@ -1541,7 +1541,7 @@ export function POSTenderForm({
                               onChange={(event) =>
                                 setPaymentReference(event.target.value)
                               }
-                              className="h-9 rounded-2xl text-[11px]"
+                              className="h-11 rounded-2xl text-[11px]"
                               placeholder="Enter reference number"
                             />
                             {!isReferencePaymentValid ? (
@@ -1551,7 +1551,7 @@ export function POSTenderForm({
                             ) : null}
                             <Button
                               variant="ghost"
-                              className="h-8 rounded-2xl border text-[10px] font-bold uppercase tracking-[0.1em]"
+                              className="h-10 rounded-2xl border text-[10px] font-bold uppercase tracking-[0.1em]"
                               onClick={() => setMobileEditor(null)}
                             >
                               Done
@@ -1572,7 +1572,7 @@ export function POSTenderForm({
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="outline"
-                              className="h-9 w-full justify-between rounded-2xl px-2.5 text-left"
+                              className="h-11 w-full justify-between rounded-2xl px-2.5 text-left"
                             >
                               <span className="truncate text-[11px] font-semibold">
                                 {activeDiscountLabel}
@@ -1618,7 +1618,7 @@ export function POSTenderForm({
                                   eligibleDiscName: event.target.value,
                                 })
                               }
-                              className="h-9 rounded-2xl text-[11px]"
+                              className="h-11 rounded-2xl text-[11px]"
                               placeholder="Customer name"
                             />
                             <Input
@@ -1629,7 +1629,7 @@ export function POSTenderForm({
                                   oscaIdNum: event.target.value,
                                 })
                               }
-                              className="h-9 rounded-2xl text-[11px]"
+                              className="h-11 rounded-2xl text-[11px]"
                               placeholder="OSCA / PWD ID number"
                             />
                             {!isDiscountMetadataValid ? (
@@ -1641,7 +1641,7 @@ export function POSTenderForm({
                         ) : null}
                         <Button
                           variant="ghost"
-                          className="h-8 rounded-2xl border text-[10px] font-bold uppercase tracking-[0.1em]"
+                          className="h-10 rounded-2xl border text-[10px] font-bold uppercase tracking-[0.1em]"
                           onClick={() => setMobileEditor(null)}
                         >
                           Done
@@ -2019,7 +2019,7 @@ export function POSTenderForm({
               compact
             />
             <Button
-              className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl px-3 font-heading text-[13px] font-black uppercase tracking-[0.1em]"
+              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl px-3 font-heading text-[13px] font-black uppercase tracking-[0.1em]"
               size="lg"
               disabled={!canComplete || isProcessing}
               onClick={() => handleComplete()}
@@ -2178,7 +2178,7 @@ function SplitPaymentEditor({
             type="button"
             variant="outline"
             size="sm"
-            className={isMobileVariant ? "h-8 rounded-xl px-2 text-xs" : "rounded-2xl"}
+            className={isMobileVariant ? "h-11 rounded-xl px-2 text-xs" : "rounded-2xl"}
             disabled={disabled || epaymentMethods.length === 0}
             onClick={() =>
               addReferencePayment({
@@ -2391,7 +2391,7 @@ function FastCheckoutToggle({
 }) {
   if (compact) {
     return (
-      <label className="flex min-w-[70px] cursor-pointer items-center justify-center gap-1 rounded-xl border bg-card px-2 py-1 text-left">
+      <label className="flex min-h-12 min-w-[76px] cursor-pointer items-center justify-center gap-1 rounded-xl border bg-card px-2 py-1 text-left">
         <Checkbox
           checked={checked}
           onCheckedChange={(value) => onCheckedChange(value === true)}

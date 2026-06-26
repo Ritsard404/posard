@@ -147,7 +147,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           <Button 
             size="sm" 
             variant="outline" 
-            className="h-8 rounded-lg border-primary/20 bg-primary/5 px-2.5 text-primary"
+            className="h-10 rounded-lg border-primary/20 bg-primary/5 px-3 text-primary sm:h-8 sm:px-2.5"
           >
             <Plus className="size-4" />
             <span>Add</span>
@@ -241,7 +241,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           
           <Button 
             size="sm" 
-            className="group/btn flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 sm:h-9 sm:gap-2"
+            className="group/btn flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 sm:h-9 sm:gap-2"
             variant="default"
           >
             <Plus className="size-4 group-hover/btn:scale-125 transition-transform" />

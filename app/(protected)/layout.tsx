@@ -4,6 +4,8 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import type { UserProfile } from "@/components/layout/AppSidebar";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { PageTitle } from "@/components/layout/PageTitle";
@@ -75,13 +77,14 @@ export default async function DashboardLayout({
 
   const [activePosSession, billingAccess, notifications] = await Promise.all([
     prisma.timestamp.findFirst({
-        where: {
-          cashierId: profile.id,
-          timestampOut: null,
-        },
-        select: { id: true },
-      }),
-    profile.companyId && (profile.role === "manager" || profile.role === "cashier")
+      where: {
+        cashierId: profile.id,
+        timestampOut: null,
+      },
+      select: { id: true },
+    }),
+    profile.companyId &&
+    (profile.role === "manager" || profile.role === "cashier")
       ? getCompanyBillingAccess(profile.companyId)
       : Promise.resolve(null),
     notificationService.listForCurrentUser(8),
@@ -106,24 +109,22 @@ export default async function DashboardLayout({
     ms: Math.round(performance.now() - startedAt),
   });
 
+  const initialProfile: UserProfile | null = profile
+    ? {
+        id: profile.id,
+        role: profile.role,
+        full_name: profile.fullName,
+        email: profile.email,
+        company_id: profile.companyId,
+        pos_status: activePosSession ? "in_use" : "available",
+        billing_restricted: billingAccess?.isRestricted ?? false,
+        billing_restriction_reason: billingAccess?.reason ?? null,
+      }
+    : null;
+
   return (
     <SidebarProvider>
-      <AppSidebar
-        initialProfile={
-          profile
-            ? {
-                id: profile.id,
-                role: profile.role,
-                full_name: profile.fullName,
-                email: profile.email,
-                company_id: profile.companyId,
-                pos_status: activePosSession ? "in_use" : "available",
-                billing_restricted: billingAccess?.isRestricted ?? false,
-                billing_restriction_reason: billingAccess?.reason ?? null,
-              }
-            : null
-        }
-      />
+      <AppSidebar initialProfile={initialProfile} />
       <SidebarInset className="h-svh min-w-0 overflow-hidden">
         {/* Sticky Header */}
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b bg-background/80 px-3 backdrop-blur-md lg:px-4">
@@ -155,7 +156,14 @@ export default async function DashboardLayout({
         </header>
 
         {/* Main content */}
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2 lg:p-3">{children}</main>
+        <main
+          className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2 lg:p-3 ${isPosRoute ? "" : "pb-20 md:pb-3"}`}
+        >
+          {children}
+        </main>
+        {!isPosRoute ? (
+          <MobileBottomNav initialProfile={initialProfile} />
+        ) : null}
       </SidebarInset>
     </SidebarProvider>
   );
