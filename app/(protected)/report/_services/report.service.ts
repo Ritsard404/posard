@@ -28,8 +28,13 @@ import type {
   ReportInvoicePrintPayloadDto,
   ReportOverviewDto,
   ReportFulfillmentBreakdownDto,
+  InventoryValueReportDto,
+  NonSalesIncomeReportDto,
   ReportPaginationDto,
+  ProductProfitReportDto,
+  ProductVelocityReportDto,
   ReportPaymentBreakdownDto,
+  RevenueGoalReportDto,
   ReportTerminalContextDto,
   ReportWorkspaceDto,
   ReportViewerDto,
@@ -3156,7 +3161,7 @@ export const reportService = {
 
   async getDiscountReport(
     viewer: ReportViewerDto,
-    input: ReportPagedRangeInput & { type: "PWD" | "SENIOR" },
+    input: ReportPagedRangeInput & { type: "PWD" | "SENIOR" | "DSWD" },
   ): Promise<DiscountReportDto> {
     const transactionList = await reportService.getTransactionList(viewer, input);
 
@@ -3187,6 +3192,434 @@ export const reportService = {
       items: filteredItems.slice(start, start + input.pageSize),
       pagination: createPagination(input.page, input.pageSize, filteredItems.length),
       totals,
+    };
+  },
+
+  async getProductVelocityReport(
+    viewer: ReportViewerDto,
+    input: ReportPagedRangeInput,
+  ): Promise<ProductVelocityReportDto> {
+    const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
+    const daysInRange = Math.max(
+      1,
+      Math.ceil((input.to.getTime() - input.from.getTime()) / 86_400_000) + 1,
+    );
+
+    const [products, soldItems] = await Promise.all([
+      prisma.product.findMany({
+        where: { companyId, isDeleted: false, trackInventory: true },
+        select: {
+          id: true,
+          name: true,
+          quantity: true,
+          reorderPoint: true,
+          price: true,
+          category: { select: { categoryName: true } },
+        },
+      }),
+      prisma.item.findMany({
+        where: {
+          status: { not: "VOID" },
+          invoice: {
+            posTerminal: { companyId, ...(terminalId ? { id: terminalId } : {}) },
+            createdAt: { gte: input.from, lte: input.to },
+            status: { in: ["PAID", "RETURNED"] },
+          },
+        },
+        select: {
+          qty: true,
+          subTotal: true,
+          productId: true,
+          invoice: { select: { createdAt: true } },
+        },
+      }),
+    ]);
+
+    const movementByProduct = new Map<
+      string,
+      { soldQuantity: number; revenue: number; lastSaleAt: Date | null }
+    >();
+    for (const item of soldItems) {
+      const current = movementByProduct.get(item.productId) ?? {
+        soldQuantity: 0,
+        revenue: 0,
+        lastSaleAt: null,
+      };
+      current.soldQuantity += toNumber(item.qty);
+      current.revenue += toNumber(item.subTotal);
+      if (!current.lastSaleAt || item.invoice.createdAt > current.lastSaleAt) {
+        current.lastSaleAt = item.invoice.createdAt;
+      }
+      movementByProduct.set(item.productId, current);
+    }
+
+    const now = new Date();
+    const items = products
+      .map((product) => {
+        const movement = movementByProduct.get(product.id) ?? {
+          soldQuantity: 0,
+          revenue: 0,
+          lastSaleAt: null,
+        };
+        const quantityOnHand = toNumber(product.quantity);
+        const reorderPoint =
+          product.reorderPoint === null ? null : toNumber(product.reorderPoint);
+        const averageDailySales = movement.soldQuantity / daysInRange;
+        const projectedStockoutDays =
+          averageDailySales > 0 ? quantityOnHand / averageDailySales : null;
+        const daysSinceLastSale = movement.lastSaleAt
+          ? Math.floor((now.getTime() - movement.lastSaleAt.getTime()) / 86_400_000)
+          : null;
+        const velocity: ProductVelocityReportDto["items"][number]["velocity"] =
+          movement.soldQuantity === 0
+            ? "idle"
+            : averageDailySales >= 1 || movement.soldQuantity >= 10
+              ? "fast"
+              : averageDailySales >= 0.25
+                ? "steady"
+                : "slow";
+        const riskLevel: ProductVelocityReportDto["items"][number]["riskLevel"] =
+          quantityOnHand <= 0 ||
+          (reorderPoint !== null && quantityOnHand <= reorderPoint) ||
+          (projectedStockoutDays !== null && projectedStockoutDays <= 7)
+            ? "high"
+            : projectedStockoutDays !== null && projectedStockoutDays <= 21
+              ? "medium"
+              : "low";
+
+        return {
+          productId: product.id,
+          name: product.name,
+          categoryName: product.category?.categoryName ?? null,
+          quantityOnHand,
+          reorderPoint,
+          soldQuantity: movement.soldQuantity,
+          revenue: movement.revenue,
+          averageDailySales,
+          daysSinceLastSale,
+          projectedStockoutDays,
+          velocity,
+          riskLevel,
+        };
+      })
+      .sort(
+        (a, b) =>
+          (a.riskLevel === "high" ? -1 : b.riskLevel === "high" ? 1 : 0) ||
+          b.soldQuantity - a.soldQuantity ||
+          a.name.localeCompare(b.name),
+      );
+
+    const start = (input.page - 1) * input.pageSize;
+
+    return {
+      range: createRange(input.from, input.to),
+      items: items.slice(start, start + input.pageSize),
+      pagination: createPagination(input.page, input.pageSize, items.length),
+      totals: {
+        fast: items.filter((item) => item.velocity === "fast").length,
+        steady: items.filter((item) => item.velocity === "steady").length,
+        slow: items.filter((item) => item.velocity === "slow").length,
+        idle: items.filter((item) => item.velocity === "idle").length,
+        highRisk: items.filter((item) => item.riskLevel === "high").length,
+      },
+    };
+  },
+
+  async getProductProfitReport(
+    viewer: ReportViewerDto,
+    input: ReportPagedRangeInput,
+  ): Promise<ProductProfitReportDto> {
+    const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
+    const rows = await prisma.item.findMany({
+      where: {
+        status: { not: "VOID" },
+        invoice: {
+          posTerminal: { companyId, ...(terminalId ? { id: terminalId } : {}) },
+          createdAt: { gte: input.from, lte: input.to },
+          status: { in: ["PAID", "RETURNED"] },
+        },
+      },
+      select: {
+        qty: true,
+        subTotal: true,
+        productId: true,
+        product: {
+          select: {
+            name: true,
+            cost: true,
+            price: true,
+            category: { select: { categoryName: true } },
+          },
+        },
+      },
+    });
+
+    const aggregate = new Map<string, ProductProfitReportDto["items"][number]>();
+    for (const row of rows) {
+      const quantity = toNumber(row.qty);
+      const revenue = toNumber(row.subTotal);
+      const unitCost = toNumber(row.product.cost);
+      const costOfGoods = quantity * unitCost;
+      const current = aggregate.get(row.productId) ?? {
+        productId: row.productId,
+        name: row.product.name,
+        categoryName: row.product.category?.categoryName ?? null,
+        soldQuantity: 0,
+        revenue: 0,
+        costOfGoods: 0,
+        grossProfit: 0,
+        grossMarginPercent: 0,
+        markupPercent: unitCost > 0 ? ((toNumber(row.product.price) - unitCost) / unitCost) * 100 : null,
+      };
+
+      current.soldQuantity += quantity;
+      current.revenue += revenue;
+      current.costOfGoods += costOfGoods;
+      current.grossProfit = current.revenue - current.costOfGoods;
+      current.grossMarginPercent =
+        current.revenue > 0 ? (current.grossProfit / current.revenue) * 100 : 0;
+      aggregate.set(row.productId, current);
+    }
+
+    const items = [...aggregate.values()].sort(
+      (a, b) => b.grossProfit - a.grossProfit || b.revenue - a.revenue,
+    );
+    const start = (input.page - 1) * input.pageSize;
+    const totals = items.reduce(
+      (acc, item) => {
+        acc.soldQuantity += item.soldQuantity;
+        acc.revenue += item.revenue;
+        acc.costOfGoods += item.costOfGoods;
+        acc.grossProfit += item.grossProfit;
+        return acc;
+      },
+      { soldQuantity: 0, revenue: 0, costOfGoods: 0, grossProfit: 0, grossMarginPercent: 0 },
+    );
+    totals.grossMarginPercent =
+      totals.revenue > 0 ? (totals.grossProfit / totals.revenue) * 100 : 0;
+
+    return {
+      range: createRange(input.from, input.to),
+      items: items.slice(start, start + input.pageSize),
+      pagination: createPagination(input.page, input.pageSize, items.length),
+      totals,
+    };
+  },
+
+  async getInventoryValueReport(
+    viewer: ReportViewerDto,
+    input: ReportPagedRangeInput,
+  ): Promise<InventoryValueReportDto> {
+    const { companyId } = await resolveCompanyScope(viewer, input);
+    const today = normalizeStartOfDay(new Date());
+    const nearExpiryEnd = new Date(today);
+    nearExpiryEnd.setDate(nearExpiryEnd.getDate() + 30);
+
+    const products = await prisma.product.findMany({
+      where: { companyId, isDeleted: false, trackInventory: true },
+      select: {
+        id: true,
+        name: true,
+        quantity: true,
+        cost: true,
+        price: true,
+        shelfLocation: true,
+        category: { select: { categoryName: true } },
+        preferredSupplier: { select: { name: true } },
+        stockLots: {
+          orderBy: [{ expiryDate: "asc" }, { receivedAt: "asc" }],
+          select: {
+            batchNumber: true,
+            expiryDate: true,
+            quantityOnHand: true,
+            unitCost: true,
+            shelfLocation: true,
+            supplier: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    const items = products.flatMap((product) => {
+      const lots = product.stockLots.filter((lot) => toNumber(lot.quantityOnHand) > 0);
+      const fallbackLots =
+        lots.length > 0
+          ? lots
+          : [{
+              batchNumber: null,
+              expiryDate: null,
+              quantityOnHand: product.quantity ?? new Prisma.Decimal(0),
+              unitCost: product.cost,
+              shelfLocation: product.shelfLocation,
+              supplier: null,
+            }];
+
+      return fallbackLots
+        .filter((lot) => toNumber(lot.quantityOnHand) > 0)
+        .map((lot) => {
+          const quantityOnHand = toNumber(lot.quantityOnHand);
+          const unitCost = toNumber(lot.unitCost);
+          const unitPrice = toNumber(product.price);
+          const expiryBucket: InventoryValueReportDto["items"][number]["expiryBucket"] =
+            lot.expiryDate && lot.expiryDate < today
+              ? "expired"
+              : lot.expiryDate && lot.expiryDate <= nearExpiryEnd
+                ? "near_expiry"
+                : lot.expiryDate
+                  ? "dated"
+                  : "undated";
+
+          return {
+            productId: product.id,
+            productName: product.name,
+            categoryName: product.category?.categoryName ?? null,
+            supplierName: lot.supplier?.name ?? product.preferredSupplier?.name ?? null,
+            shelfLocation: lot.shelfLocation ?? product.shelfLocation,
+            batchNumber: lot.batchNumber,
+            expiryDate: lot.expiryDate,
+            expiryBucket,
+            quantityOnHand,
+            unitCost,
+            unitPrice,
+            costValue: quantityOnHand * unitCost,
+            retailValue: quantityOnHand * unitPrice,
+            potentialProfit: quantityOnHand * (unitPrice - unitCost),
+          };
+        });
+    }).sort((a, b) => b.costValue - a.costValue || a.productName.localeCompare(b.productName));
+
+    const start = (input.page - 1) * input.pageSize;
+    const totals = items.reduce(
+      (acc, item) => {
+        acc.quantityOnHand += item.quantityOnHand;
+        acc.costValue += item.costValue;
+        acc.retailValue += item.retailValue;
+        acc.potentialProfit += item.potentialProfit;
+        return acc;
+      },
+      { quantityOnHand: 0, costValue: 0, retailValue: 0, potentialProfit: 0 },
+    );
+
+    return {
+      range: createRange(input.from, input.to),
+      items: items.slice(start, start + input.pageSize),
+      pagination: createPagination(input.page, input.pageSize, items.length),
+      totals,
+    };
+  },
+
+  async getRevenueGoalReport(
+    viewer: ReportViewerDto,
+    input: ReportPagedRangeInput,
+  ): Promise<RevenueGoalReportDto> {
+    const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
+    const month = new Date(input.from);
+    month.setDate(1);
+    month.setHours(0, 0, 0, 0);
+    const monthEnd = new Date(month);
+    monthEnd.setMonth(monthEnd.getMonth() + 1, 0);
+    monthEnd.setHours(23, 59, 59, 999);
+    const now = new Date();
+    const elapsedEnd = now < monthEnd ? now : monthEnd;
+
+    const [goal, invoices] = await Promise.all([
+      prisma.revenueGoal.findUnique({
+        where: { uk_revenue_goal_company_month: { companyId, month } },
+        select: { targetAmount: true, notes: true },
+      }),
+      prisma.invoice.findMany({
+        where: {
+          posTerminal: { companyId, ...(terminalId ? { id: terminalId } : {}) },
+          createdAt: { gte: month, lte: elapsedEnd },
+          status: "PAID",
+        },
+        select: { totalAmount: true, discountAmount: true, returnedAmount: true },
+      }),
+    ]);
+
+    const actualSales = invoices.reduce(
+      (sum, invoice) =>
+        sum +
+        toNumber(invoice.totalAmount) -
+        toNumber(invoice.discountAmount) -
+        toNumber(invoice.returnedAmount),
+      0,
+    );
+    const targetAmount = toNumber(goal?.targetAmount);
+    const daysInMonth = monthEnd.getDate();
+    const daysElapsed = Math.max(1, Math.min(daysInMonth, elapsedEnd.getDate()));
+    const daysRemaining = Math.max(0, daysInMonth - daysElapsed);
+    const dailyRunRate = actualSales / daysElapsed;
+    const requiredDailyRunRate =
+      daysRemaining > 0 ? Math.max(0, targetAmount - actualSales) / daysRemaining : 0;
+
+    return {
+      range: createRange(month, monthEnd),
+      month,
+      targetAmount,
+      actualSales,
+      varianceAmount: actualSales - targetAmount,
+      progressPercent: targetAmount > 0 ? (actualSales / targetAmount) * 100 : 0,
+      dailyRunRate,
+      requiredDailyRunRate,
+      projectedMonthEndSales: dailyRunRate * daysInMonth,
+      daysElapsed,
+      daysRemaining,
+      notes: goal?.notes ?? null,
+    };
+  },
+
+  async getNonSalesIncomeReport(
+    viewer: ReportViewerDto,
+    input: ReportPagedRangeInput,
+  ): Promise<NonSalesIncomeReportDto> {
+    const { companyId, terminalId } = await resolveCompanyScope(viewer, input);
+    const where: Prisma.NonSalesIncomeWhereInput = {
+      companyId,
+      incomeDate: { gte: input.from, lte: input.to },
+      ...(terminalId ? { terminalId } : {}),
+    };
+
+    const [totalItems, rows, aggregate] = await Promise.all([
+      prisma.nonSalesIncome.count({ where }),
+      prisma.nonSalesIncome.findMany({
+        where,
+        orderBy: { incomeDate: isOldestFirst(input.sortOrder) ? "asc" : "desc" },
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize,
+        select: {
+          id: true,
+          referenceNumber: true,
+          incomeDate: true,
+          source: true,
+          amount: true,
+          externalReference: true,
+          notes: true,
+          terminal: { select: { posName: true } },
+          createdBy: { select: { fullName: true, email: true } },
+        },
+      }),
+      prisma.nonSalesIncome.aggregate({
+        where,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return {
+      range: createRange(input.from, input.to),
+      items: rows.map((row) => ({
+        id: row.id,
+        referenceNumber: row.referenceNumber,
+        incomeDate: row.incomeDate,
+        source: row.source,
+        amount: toNumber(row.amount),
+        externalReference: row.externalReference,
+        notes: row.notes,
+        terminalName: row.terminal?.posName ?? "Company",
+        createdByName: row.createdBy.fullName ?? row.createdBy.email,
+      })),
+      pagination: createPagination(input.page, input.pageSize, totalItems),
+      totalAmount: toNumber(aggregate._sum.amount),
     };
   },
 

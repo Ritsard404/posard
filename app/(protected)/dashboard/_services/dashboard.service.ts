@@ -345,6 +345,13 @@ export const dashboardService = {
     const todayEnd = endOfDay();
     const weekStart = daysAgo(6);
     const monthStart = daysAgo(29);
+    const calendarMonthStart = new Date(todayStart);
+    calendarMonthStart.setDate(1);
+    const calendarMonthEnd = new Date(calendarMonthStart);
+    calendarMonthEnd.setMonth(calendarMonthEnd.getMonth() + 1, 0);
+    calendarMonthEnd.setHours(23, 59, 59, 999);
+    const calendarMonthElapsedEnd =
+      todayEnd < calendarMonthEnd ? todayEnd : calendarMonthEnd;
     const customerDisplayFreshAfter = new Date(Date.now() - 5 * 60 * 1000);
 
     if (viewer.role === "admin") {
@@ -636,6 +643,8 @@ export const dashboardService = {
       soldItems,
       recentlyClosedShifts,
       debtPaymentsToday,
+      revenueGoal,
+      revenueGoalInvoices,
     ] = await Promise.all([
       prisma.invoice.findMany({
         where: { ...baseWhere, createdAt: { gte: todayStart, lte: todayEnd } },
@@ -906,6 +915,23 @@ export const dashboardService = {
           amount: true,
         },
       }),
+      prisma.revenueGoal.findUnique({
+        where: {
+          uk_revenue_goal_company_month: {
+            companyId,
+            month: calendarMonthStart,
+          },
+        },
+        select: { targetAmount: true, notes: true },
+      }),
+      prisma.invoice.findMany({
+        where: {
+          posTerminal: { companyId },
+          createdAt: { gte: calendarMonthStart, lte: calendarMonthElapsedEnd },
+          status: "PAID",
+        },
+        select: { totalAmount: true, discountAmount: true, returnedAmount: true },
+      }),
     ]);
 
     const todayScopedInvoices =
@@ -1117,6 +1143,40 @@ export const dashboardService = {
         }),
       };
     });
+    const revenueGoalActualSales = revenueGoalInvoices.reduce(
+      (sum, invoice) =>
+        sum +
+        toNumber(invoice.totalAmount) -
+        toNumber(invoice.discountAmount) -
+        toNumber(invoice.returnedAmount),
+      0,
+    );
+    const revenueGoalTarget = toNumber(revenueGoal?.targetAmount);
+    const daysInGoalMonth = calendarMonthEnd.getDate();
+    const daysElapsed = Math.max(
+      1,
+      Math.min(daysInGoalMonth, calendarMonthElapsedEnd.getDate()),
+    );
+    const daysRemaining = Math.max(0, daysInGoalMonth - daysElapsed);
+    const dailyRunRate = revenueGoalActualSales / daysElapsed;
+    const requiredDailyRunRate =
+      daysRemaining > 0
+        ? Math.max(0, revenueGoalTarget - revenueGoalActualSales) / daysRemaining
+        : 0;
+    const revenueGoalProgress = {
+      month: calendarMonthStart,
+      targetAmount: revenueGoalTarget,
+      actualSales: revenueGoalActualSales,
+      varianceAmount: revenueGoalActualSales - revenueGoalTarget,
+      progressPercent:
+        revenueGoalTarget > 0 ? (revenueGoalActualSales / revenueGoalTarget) * 100 : 0,
+      dailyRunRate,
+      requiredDailyRunRate,
+      projectedMonthEndSales: dailyRunRate * daysInGoalMonth,
+      daysElapsed,
+      daysRemaining,
+      notes: revenueGoal?.notes ?? null,
+    };
 
     if (viewer.role === "manager") {
       return {
@@ -1138,6 +1198,7 @@ export const dashboardService = {
           { label: "Due Today", value: toNumber(debtDueToday._sum.remainingAmount), hint: "Debt balances due today" },
           { label: "Overdue Debt", value: toNumber(debtOverdue._sum.remainingAmount), tone: "danger", hint: "Receivables past due date" },
           { label: "Collected Today", value: toNumber(debtCollectedToday._sum.amount), tone: "success", hint: "Debt payments received today" },
+          { label: "Target Variance", value: revenueGoalProgress.varianceAmount, tone: revenueGoalProgress.varianceAmount >= 0 ? "success" : "warning", hint: "Current month revenue goal variance" },
         ],
         terminals: terminals.map((terminal) => ({
           id: terminal.id,
@@ -1197,6 +1258,7 @@ export const dashboardService = {
         operationalStatus,
         restockRecommendations,
         varianceInvestigations,
+        revenueGoal: revenueGoalProgress,
         billingRestriction,
         ...commonData,
       };
@@ -1250,6 +1312,7 @@ export const dashboardService = {
       ],
       operationalStatus,
       restockRecommendations,
+      revenueGoal: revenueGoalProgress,
       billingRestriction,
       topAddOns: [...addOnMap.values()]
         .sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity)

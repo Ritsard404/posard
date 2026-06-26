@@ -4,10 +4,11 @@
 This reduces the sale total when the customer is eligible for a discount.
 
 ## When to use it
-Use this for allowed discounts such as senior, PWD, or store-approved discounts.
+Use this for allowed discounts such as senior, PWD, DSWD, or store-approved discounts.
 
 ## Before you begin
 - Confirm the customer is eligible.
+- Have the required customer name and ID/reference details ready for senior, PWD, or DSWD discounts.
 - A manager may be needed for large or special discounts.
 
 ## Steps
@@ -23,6 +24,7 @@ The discounted amount appears in the total and on the receipt when applicable.
 
 ## Tips or reminders
 - Check customer ID when your store policy requires it.
+- Use the DSWD discount type when your store tracks it separately from senior, PWD, and other discounts.
 - Ask a manager if POSard requests approval.
 
 ## Common questions or issues

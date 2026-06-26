@@ -8,6 +8,8 @@ import {
   ScanSearch,
   ShieldAlert,
   ShoppingBag,
+  Target,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import type { ReportPrintableView } from "@/app/(protected)/report/_services/_dto/report.dto";
@@ -22,8 +24,15 @@ export type ReportsRouteSlug =
   | "audit-trail"
   | "voided"
   | "discounts"
+  | "senior-discounts"
+  | "dswd-discounts"
   | "transaction-list"
   | "sales-book"
+  | "product-profit"
+  | "movement-velocity"
+  | "inventory-value"
+  | "revenue-goal"
+  | "non-sales-income"
   | "refunds"
   | "returned-items"
   | "returned-records"
@@ -99,6 +108,51 @@ export const REPORT_ROUTE_DEFINITIONS: ReportRouteDefinition[] = [
     category: "Sales",
   },
   {
+    slug: "product-profit",
+    view: "product-profit",
+    label: "Profit Per Product",
+    shortLabel: "Profit",
+    description: "Product-level revenue, COGS, gross profit, margin, and markup.",
+    icon: TrendingUp,
+    category: "Sales",
+  },
+  {
+    slug: "movement-velocity",
+    view: "movement-velocity",
+    label: "Fast/Slow Moving",
+    shortLabel: "Velocity",
+    description: "Sale velocity, last sale recency, on-hand stock, and stockout risk.",
+    icon: ScanSearch,
+    category: "Sales",
+  },
+  {
+    slug: "inventory-value",
+    view: "inventory-value",
+    label: "Inventory Value",
+    shortLabel: "Value",
+    description: "Inventory value by category, supplier, shelf, batch, and expiry.",
+    icon: ClipboardList,
+    category: "Sales",
+  },
+  {
+    slug: "revenue-goal",
+    view: "revenue-goal",
+    label: "Revenue Goal",
+    shortLabel: "Target",
+    description: "Monthly revenue target, run-rate, variance, and projection.",
+    icon: Target,
+    category: "Sales",
+  },
+  {
+    slug: "non-sales-income",
+    view: "non-sales-income",
+    label: "Non-Sales Income",
+    shortLabel: "Income",
+    description: "Income outside invoice sales by source, terminal, user, and date.",
+    icon: Receipt,
+    category: "Sales",
+  },
+  {
     slug: "debt-outstanding",
     view: "debt-outstanding",
     label: "Debt Outstanding",
@@ -164,9 +218,27 @@ export const REPORT_ROUTE_DEFINITIONS: ReportRouteDefinition[] = [
   {
     slug: "discounts",
     view: "pwd-list",
-    label: "Discount Reports",
-    shortLabel: "Discounts",
-    description: "Discount-qualified transactions with customer context.",
+    label: "PWD Discount Report",
+    shortLabel: "PWD",
+    description: "PWD-qualified transactions with customer and ID context.",
+    icon: ShieldAlert,
+    category: "Discounts",
+  },
+  {
+    slug: "senior-discounts",
+    view: "senior-list",
+    label: "Senior Discount Report",
+    shortLabel: "Senior",
+    description: "Senior discount transactions with customer and ID context.",
+    icon: ShieldAlert,
+    category: "Discounts",
+  },
+  {
+    slug: "dswd-discounts",
+    view: "dswd-list",
+    label: "DSWD Discount Report",
+    shortLabel: "DSWD",
+    description: "DSWD discount transactions with customer and ID context.",
     icon: ShieldAlert,
     category: "Discounts",
   },

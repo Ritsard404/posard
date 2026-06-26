@@ -1,9 +1,15 @@
 import { remainingFeaturesService } from "../_services/remaining-features.service";
 import { ManagementFilters, RemainingFeatureWorkspace, StatusBadge } from "../_components/RemainingFeatureWorkspace";
 import { managementWorkflowService } from "../_services/management-workflow.service";
-import { StockAdjustmentForm } from "../_components/ManagementForms";
-import { createStockAdjustmentAction } from "../_actions/management-workflow.actions";
+import { StockAdjustmentForm, StockCountForm, StockDispositionForm } from "../_components/ManagementForms";
+import {
+  createStockAdjustmentAction,
+  createStockCountAction,
+  createStockDispositionAction,
+  transitionStockCountAction,
+} from "../_actions/management-workflow.actions";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-PH", {
@@ -57,6 +63,19 @@ export default async function InventoryLedgerPage({ searchParams }: InventoryLed
               terminals={options.terminals}
               action={createStockAdjustmentAction}
             />
+            <StockCountForm
+              products={options.products}
+              terminals={options.terminals}
+              stockLots={options.stockLots}
+              profiles={options.profiles}
+              action={createStockCountAction}
+            />
+            <StockDispositionForm
+              products={options.products}
+              terminals={options.terminals}
+              stockLots={options.stockLots}
+              action={createStockDispositionAction}
+            />
           </div>
         }
         stats={[
@@ -67,6 +86,8 @@ export default async function InventoryLedgerPage({ searchParams }: InventoryLed
           { label: "Restock Picks", value: data.restockRecommendations.length },
           { label: "Expired Lots", value: data.stats.expiredLots },
           { label: "Near Expiry", value: data.stats.nearExpiryLots },
+          { label: "Count Review", value: data.stats.pendingStockCounts },
+          { label: "Loss Events", value: data.stats.lossEvents },
         ]}
         items={data.movements}
         emptyText="No stock movement records yet."
@@ -134,6 +155,161 @@ export default async function InventoryLedgerPage({ searchParams }: InventoryLed
           {data.restockRecommendations.length === 0 ? (
             <div className="rounded-md border bg-background p-4 text-sm text-muted-foreground">
               No restock recommendations right now.
+            </div>
+          ) : null}
+        </div>
+      </Card>
+
+      <Card className="border-border/80 p-3 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-bold tracking-tight">Physical Count Control</h2>
+            <p className="text-xs text-muted-foreground">
+              Draft counts, submitted variances, and manager approvals that post adjustment movements.
+            </p>
+          </div>
+          <StatusBadge>{data.stockCountSessions.length} active counts</StatusBadge>
+        </div>
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {data.stockCountSessions.map((session) => (
+            <div key={session.id} className="rounded-md border bg-background p-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">{session.countNumber}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Assigned: {session.assignedTo}
+                  </div>
+                </div>
+                <StatusBadge>{session.status}</StatusBadge>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <div className="font-semibold tabular-nums">{session.totalVariance}</div>
+                  <div className="text-muted-foreground">total variance</div>
+                </div>
+                <div>
+                  <div className="font-semibold">{session.createdBy}</div>
+                  <div className="text-muted-foreground">started by</div>
+                </div>
+              </div>
+              <div className="mt-2 space-y-1 text-xs">
+                {session.items.map((item) => (
+                  <div key={item.id} className="rounded border bg-muted/20 p-2">
+                    <div className="font-semibold">{item.productName}</div>
+                    <div className="text-muted-foreground">
+                      Expected {item.expectedQuantity} / Counted {item.countedQuantity ?? "-"} / Variance {item.varianceQuantity ?? "-"}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {item.batchNumber ? `Batch ${item.batchNumber}` : "Product total"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                {session.status === "draft" ? (
+                  <form action={transitionStockCountAction} className="flex flex-1 gap-2">
+                    <input type="hidden" name="stockCountSessionId" value={session.id} />
+                    <input type="hidden" name="action" value="submit" />
+                    <input
+                      name="countedQuantity"
+                      type="number"
+                      min="0"
+                      step="0.0001"
+                      required
+                      placeholder="Counted"
+                      className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
+                    />
+                    <Button type="submit" size="sm" className="h-8">Submit</Button>
+                  </form>
+                ) : null}
+                {session.status === "submitted" ? (
+                  <>
+                    <form action={transitionStockCountAction}>
+                      <input type="hidden" name="stockCountSessionId" value={session.id} />
+                      <input type="hidden" name="action" value="approve" />
+                      <Button type="submit" size="sm" className="h-8">Approve</Button>
+                    </form>
+                    <form action={transitionStockCountAction}>
+                      <input type="hidden" name="stockCountSessionId" value={session.id} />
+                      <input type="hidden" name="action" value="reject" />
+                      <Button type="submit" size="sm" variant="outline" className="h-8">Reject</Button>
+                    </form>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ))}
+          {data.stockCountSessions.length === 0 ? (
+            <div className="rounded-md border bg-background p-4 text-sm text-muted-foreground">
+              No active count sessions awaiting work.
+            </div>
+          ) : null}
+        </div>
+      </Card>
+
+      <Card className="border-border/80 p-3 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-bold tracking-tight">Loss, Damage & Expiry Report</h2>
+            <p className="text-xs text-muted-foreground">
+              Disposed stock movements grouped by reason with cost and retail impact.
+            </p>
+          </div>
+          <StatusBadge>{data.dispositionEvents.length} recent events</StatusBadge>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {data.dispositionBuckets.map((bucket) => (
+            <div key={bucket.reason} className="rounded-md border bg-background p-2.5">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {bucket.reason}
+              </div>
+              <div className="mt-1 text-xl font-bold tabular-nums">{bucket.count}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {formatQuantity(bucket.quantity)} units / {formatCurrency(bucket.costImpact)}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {data.dispositionEvents.map((event) => (
+            <div key={event.id} className="rounded-md border bg-background p-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">{event.productName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {event.categoryName} / {event.batchNumber ?? "No batch"}
+                  </div>
+                </div>
+                <StatusBadge>{event.reason}</StatusBadge>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <div className="font-semibold tabular-nums">
+                    {formatQuantity(event.quantity)} {event.baseUnit || "units"}
+                  </div>
+                  <div className="text-muted-foreground">quantity</div>
+                </div>
+                <div>
+                  <div className="font-semibold tabular-nums">{formatCurrency(event.costImpact)}</div>
+                  <div className="text-muted-foreground">cost impact</div>
+                </div>
+                <div>
+                  <div className="font-semibold tabular-nums">{formatCurrency(event.retailImpact)}</div>
+                  <div className="text-muted-foreground">retail impact</div>
+                </div>
+                <div>
+                  <div className="font-semibold">{event.actor}</div>
+                  <div className="text-muted-foreground">{event.createdAt.toLocaleDateString()}</div>
+                </div>
+              </div>
+              <div className="mt-2 truncate text-xs text-muted-foreground">
+                {event.referenceNumber ?? "No reference"} {event.notes ? `/ ${event.notes}` : ""}
+              </div>
+            </div>
+          ))}
+          {data.dispositionEvents.length === 0 ? (
+            <div className="rounded-md border bg-background p-4 text-sm text-muted-foreground">
+              No damaged, lost, expired, or disposed stock recorded yet.
             </div>
           ) : null}
         </div>

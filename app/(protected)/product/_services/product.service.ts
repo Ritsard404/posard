@@ -66,6 +66,7 @@ const CSV_HEADERS = [
   "Brand Name",
   "Shelf Location",
   "Prescription Required",
+  "POS Favorite",
   "Reorder Point",
   "Preferred Supplier",
   "Base Unit",
@@ -88,6 +89,7 @@ const IMPORT_WORKBOOK_HEADERS = [
   "Brand Name",
   "Shelf Location",
   "Prescription Required",
+  "POS Favorite",
   "Reorder Point",
   "Preferred Supplier",
   "Base Unit",
@@ -109,6 +111,7 @@ const CSV_GUIDE_ROWS = [
   ["Brand Name", "No", "Brand or marketed name shown beside the product name.", "Biogesic"],
   ["Shelf Location", "No", "Shelf, cabinet, aisle, or bin location.", "A1"],
   ["Prescription Required", "No", "Use TRUE, YES, Y, or 1 when a prescription is required.", "FALSE"],
+  ["POS Favorite", "No", "Use TRUE, YES, Y, or 1 to pin this item near the top of POS search.", "TRUE"],
   ["Reorder Point", "No", "Low-stock alert level for this product. Blank uses the default threshold.", "20"],
   ["Preferred Supplier", "No", "Existing active supplier name to link as the preferred source.", "ACME Pharma"],
   ["Base Unit", "No", "Selling unit. Blank values become UNIT.", "PCS, UNIT, KG"],
@@ -154,6 +157,7 @@ interface NormalizedProductInput {
   brandName: string | null;
   shelfLocation: string | null;
   prescriptionRequired: boolean;
+  posFavorite: boolean;
   reorderPoint: number | null;
   preferredSupplierId: string | null;
   preferredSupplierName: string | null;
@@ -187,6 +191,7 @@ function toProductDto(product: ProductWithCategory): ProductDto {
     brandName: product.brandName,
     shelfLocation: product.shelfLocation,
     prescriptionRequired: product.prescriptionRequired,
+    posFavorite: product.posFavorite,
     reorderPoint: product.reorderPoint === null ? null : Number(product.reorderPoint),
     preferredSupplierId: product.preferredSupplierId,
     preferredSupplierName: product.preferredSupplier?.name ?? null,
@@ -307,6 +312,7 @@ function normalizeProductInput(dto: ProductSaveDto): NormalizedProductInput {
     brandName: asOptionalString(dto.brandName),
     shelfLocation: asOptionalString(dto.shelfLocation),
     prescriptionRequired: dto.prescriptionRequired ?? false,
+    posFavorite: dto.posFavorite ?? false,
     reorderPoint,
     preferredSupplierId: asOptionalString(dto.preferredSupplierId),
     preferredSupplierName: asOptionalString(dto.preferredSupplierName),
@@ -346,6 +352,7 @@ function buildCreateSummary(input: NormalizedProductInput, categoryName: string)
     input.brandName ? `Brand ${input.brandName}` : null,
     input.preferredSupplierName ? `Preferred supplier ${input.preferredSupplierName}` : null,
     input.prescriptionRequired ? "Prescription required" : null,
+    input.posFavorite ? "POS favorite" : null,
     `VAT ${input.vatType}`,
   ].filter(Boolean).join(" | ");
 }
@@ -372,6 +379,7 @@ function buildUpdateSummary(
     createFieldChange("Brand", formatValue(existing.brandName), formatValue(next.brandName)),
     createFieldChange("Shelf", formatValue(existing.shelfLocation), formatValue(next.shelfLocation)),
     createFieldChange("Prescription", formatValue(existing.prescriptionRequired), formatValue(next.prescriptionRequired)),
+    createFieldChange("POS favorite", formatValue(existing.posFavorite), formatValue(next.posFavorite)),
     createFieldChange("Reorder point", formatValue(existing.reorderPoint === null ? null : Number(existing.reorderPoint)), formatValue(next.reorderPoint)),
     createFieldChange("Preferred supplier", formatValue(existing.preferredSupplier?.name), formatValue(next.preferredSupplierName)),
     createFieldChange("Base unit", existing.baseUnit, next.baseUnit),
@@ -400,6 +408,7 @@ function toBatchRow(dto: ProductSaveDto, rowNumber: number): ProductBatchRowDto 
     brandName: normalized.brandName,
     shelfLocation: normalized.shelfLocation,
     prescriptionRequired: normalized.prescriptionRequired,
+    posFavorite: normalized.posFavorite,
     reorderPoint: normalized.reorderPoint,
     preferredSupplierName: normalized.preferredSupplierName,
     baseUnit: normalized.baseUnit,
@@ -479,6 +488,7 @@ function parseCsvRow(rawRow: CsvRow, rowNumber: number): ProductBatchPreviewRowD
     brandName: asOptionalString(rawRow["brand name"]),
     shelfLocation: asOptionalString(rawRow["shelf location"]),
     prescriptionRequired: parseBooleanValue(rawRow["prescription required"], false),
+    posFavorite: parseBooleanValue(rawRow["pos favorite"], false),
     reorderPoint: reorderPointValue,
     preferredSupplierName: asOptionalString(rawRow["preferred supplier"]),
     baseUnit: rawRow["base unit"]?.trim() || "UNIT",
@@ -903,6 +913,7 @@ export const productService = {
           brandName: normalized.brandName,
           shelfLocation: normalized.shelfLocation,
           prescriptionRequired: normalized.prescriptionRequired,
+          posFavorite: normalized.posFavorite,
           reorderPoint: normalized.reorderPoint,
           preferredSupplierId: preferredSupplier?.id ?? null,
           baseUnit: normalized.baseUnit,
@@ -1084,6 +1095,7 @@ export const productService = {
           brandName: row.brandName,
           shelfLocation: row.shelfLocation,
           prescriptionRequired: row.prescriptionRequired,
+          posFavorite: row.posFavorite,
           reorderPoint: row.reorderPoint,
           preferredSupplierId: supplierId,
           baseUnit: row.baseUnit,
@@ -1155,6 +1167,7 @@ export const productService = {
           brandName: normalized.brandName,
           shelfLocation: normalized.shelfLocation,
           prescriptionRequired: normalized.prescriptionRequired,
+          posFavorite: normalized.posFavorite,
           reorderPoint: normalized.reorderPoint,
           preferredSupplierId: preferredSupplier?.id ?? null,
           baseUnit: normalized.baseUnit,
@@ -1272,6 +1285,7 @@ export const productService = {
         brandName: row.brandName,
         shelfLocation: row.shelfLocation,
         prescriptionRequired: row.prescriptionRequired,
+        posFavorite: row.posFavorite,
         reorderPoint: row.reorderPoint,
         preferredSupplierName: row.preferredSupplierName,
         baseUnit: row.baseUnit,
@@ -1309,6 +1323,7 @@ export const productService = {
       brandName: row.brandName ?? undefined,
       shelfLocation: row.shelfLocation ?? undefined,
       prescriptionRequired: row.prescriptionRequired,
+      posFavorite: row.posFavorite,
       reorderPoint: row.reorderPoint,
       preferredSupplierName: row.preferredSupplierName ?? undefined,
       baseUnit: row.baseUnit,
@@ -1326,7 +1341,7 @@ export const productService = {
   generateCsvTemplate(): string {
     return [
       CSV_HEADERS.join(","),
-      'Biogesic 500mg,MEDICINES,SKU-001,Paracetamol,Biogesic,A1,FALSE,20,,BOX,true,24,80,100,RESALE,VATABLE,true,https://example.com/product.png',
+      'Biogesic 500mg,MEDICINES,SKU-001,Paracetamol,Biogesic,A1,FALSE,TRUE,20,,BOX,true,24,80,100,RESALE,VATABLE,true,https://example.com/product.png',
     ].join("\n");
   },
 
@@ -1342,6 +1357,7 @@ export const productService = {
         "Biogesic",
         "A1",
         "FALSE",
+        "TRUE",
         "20",
         "",
         "BOX",
@@ -1362,6 +1378,7 @@ export const productService = {
         "Generic",
         "B2",
         "TRUE",
+        "FALSE",
         "30",
         "",
         "CAPSULE",
@@ -1382,6 +1399,7 @@ export const productService = {
         "Generic",
         "C1",
         "FALSE",
+        "FALSE",
         "25",
         "",
         "TABLET",
@@ -1401,6 +1419,7 @@ export const productService = {
         "Isopropyl Alcohol",
         "Store Brand",
         "D1",
+        "FALSE",
         "FALSE",
         "12",
         "",
@@ -1436,7 +1455,7 @@ export const productService = {
       buildWorkbookRow(["• Duplicate products in the same category will be blocked", "", "", ""]),
     ].join("");
 
-    const productColumns = [180, 80, 140, 140, 140, 140, 110, 130, 100, 150, 90, 110, 90, 80, 100, 100, 90, 220]
+    const productColumns = [180, 80, 140, 140, 140, 140, 110, 100, 130, 100, 150, 90, 110, 90, 80, 100, 100, 90, 220]
       .map(buildWorkbookColumn)
       .join("");
     const guideColumns = [180, 90, 420, 220].map(buildWorkbookColumn).join("");

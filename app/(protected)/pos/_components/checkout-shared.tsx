@@ -137,6 +137,7 @@ export const discountOptions: { id: DiscountType; label: string }[] = [
   { id: "OTHERS", label: "Max Discount" },
   { id: "PWD", label: "PWD (20% + VAT Exempt)" },
   { id: "SENIOR", label: "Senior (20% + VAT Exempt)" },
+  { id: "DSWD", label: "DSWD (20% + VAT Exempt)" },
 ];
 
 function buildOtherDiscountPayload(
@@ -269,6 +270,8 @@ export function usePOSCheckoutFlow(
   const [debtDueDate, setDebtDueDate] = useState("");
   const [debtNotes, setDebtNotes] = useState("");
   const [debtManagerPin, setDebtManagerPin] = useState("");
+  const [prescriptionConfirmed, setPrescriptionConfirmed] = useState(false);
+  const [prescriptionReference, setPrescriptionReference] = useState("");
   const fastCheckout = fastCheckoutEnabled;
   const setFastCheckout = setFastCheckoutEnabled;
 
@@ -280,6 +283,8 @@ export function usePOSCheckoutFlow(
     clearReferencePayments();
     setDiscount(defaultDiscount);
     setPaymentMethod("cash");
+    setPrescriptionConfirmed(false);
+    setPrescriptionReference("");
     options?.onFastComplete?.();
   };
 
@@ -344,8 +349,19 @@ export function usePOSCheckoutFlow(
         : paymentMethod === "cash"
           ? "Cash"
           : getPaymentMethodLabel(selectedEPaymentMethod?.name ?? null);
+  const activeCart = cart.filter((item) => item.itemStatus !== "VOID");
+  const prescriptionItems = activeCart
+    .filter((item) => item.prescriptionRequired)
+    .map((item) => ({
+      id: item.cartItemId,
+      name: item.name,
+      cartQuantity: item.cartQuantity,
+    }));
+  const requiresPrescriptionConfirmation = prescriptionItems.length > 0;
+  const isPrescriptionValid =
+    !requiresPrescriptionConfirmation || prescriptionConfirmed;
   const requiresDiscountMetadata =
-    discount.type === "PWD" || discount.type === "SENIOR";
+    discount.type === "PWD" || discount.type === "SENIOR" || discount.type === "DSWD";
   const trimmedEligibleName = discount.eligibleDiscName.trim();
   const trimmedOscaIdNum = discount.oscaIdNum.trim();
   const isDiscountMetadataValid =
@@ -384,7 +400,8 @@ export function usePOSCheckoutFlow(
     !isBillingLocked &&
     isTenderValid &&
     isDiscountMetadataValid &&
-    isDebtFormValid;
+    isDebtFormValid &&
+    isPrescriptionValid;
   const terminalDiscountCapSummary = formatTerminalDiscountCap(activeTerminal);
 
   useEffect(() => {
@@ -444,6 +461,8 @@ export function usePOSCheckoutFlow(
     setDebtDueDate("");
     setDebtNotes("");
     setDebtManagerPin("");
+    setPrescriptionConfirmed(false);
+    setPrescriptionReference("");
 
     if (shouldClearCart) {
       clearCart();
@@ -552,6 +571,15 @@ export function usePOSCheckoutFlow(
           sortOrder: selection.sortOrder,
         })),
         specialInstructions: item.specialInstructions,
+        prescriptionRequired: item.prescriptionRequired,
+        prescriptionConfirmed:
+          item.prescriptionRequired && item.itemStatus !== "VOID"
+            ? prescriptionConfirmed
+            : false,
+        prescriptionReference:
+          item.prescriptionRequired && item.itemStatus !== "VOID"
+            ? prescriptionReference.trim() || undefined
+            : undefined,
       })),
       cashTenderAmount: amountTendered,
       fulfillmentType: fulfillment.type,
@@ -810,6 +838,11 @@ export function usePOSCheckoutFlow(
     trimmedOscaIdNum,
     isDiscountMetadataValid,
     isReferencePaymentValid,
+    requiresPrescriptionConfirmation,
+    prescriptionConfirmed,
+    prescriptionReference,
+    isPrescriptionValid,
+    prescriptionItems,
     change,
     canComplete,
     isBillingLocked,
@@ -831,6 +864,8 @@ export function usePOSCheckoutFlow(
     setDebtNotes,
     debtManagerPin,
     setDebtManagerPin,
+    setPrescriptionConfirmed,
+    setPrescriptionReference,
     setFastCheckout,
     setDiscountType,
     updateDiscountDetails,
@@ -867,6 +902,13 @@ interface POSTenderFormProps {
   discountOscaIdNum: string;
   isDiscountMetadataValid: boolean;
   isReferencePaymentValid: boolean;
+  requiresPrescriptionConfirmation: boolean;
+  prescriptionConfirmed: boolean;
+  setPrescriptionConfirmed: (value: boolean) => void;
+  prescriptionReference: string;
+  setPrescriptionReference: (value: string) => void;
+  isPrescriptionValid: boolean;
+  prescriptionItems: Array<{ id: string; name: string; cartQuantity: number }>;
   change: number;
   canComplete: boolean;
   isBillingLocked: boolean;
@@ -927,6 +969,13 @@ export function POSTenderForm({
   discountOscaIdNum,
   isDiscountMetadataValid,
   isReferencePaymentValid,
+  requiresPrescriptionConfirmation,
+  prescriptionConfirmed,
+  setPrescriptionConfirmed,
+  prescriptionReference,
+  setPrescriptionReference,
+  isPrescriptionValid,
+  prescriptionItems,
   change,
   canComplete,
   isBillingLocked,
@@ -971,6 +1020,8 @@ export function POSTenderForm({
       "Transactions are disabled because this terminal subscription is not active.")
     : requiresDiscountMetadata && !isDiscountMetadataValid
       ? "Complete the discount reference fields to continue."
+      : requiresPrescriptionConfirmation && !isPrescriptionValid
+        ? "Confirm prescription check before checkout."
       : referenceOverpayAmount > 0
         ? "Reference payments cannot exceed the total due."
         : remainingDue > 0
@@ -1756,6 +1807,57 @@ export function POSTenderForm({
                   ) : null}
                 </div>
               )}
+
+              {requiresPrescriptionConfirmation ? (
+                <div className={mobileConfigCardClassName}>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id={`prescription-confirmed-${variant}`}
+                      checked={prescriptionConfirmed}
+                      onCheckedChange={(checked) =>
+                        setPrescriptionConfirmed(checked === true)
+                      }
+                    />
+                    <div className="min-w-0 space-y-1">
+                      <Label
+                        htmlFor={`prescription-confirmed-${variant}`}
+                        className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
+                      >
+                        Prescription Checked
+                      </Label>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Required for{" "}
+                        {prescriptionItems
+                          .map((item) => `${item.cartQuantity}x ${item.name}`)
+                          .join(", ")}
+                        .
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <Label
+                      htmlFor={`prescription-reference-${variant}`}
+                      className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
+                    >
+                      Prescription Reference
+                    </Label>
+                    <Input
+                      id={`prescription-reference-${variant}`}
+                      value={prescriptionReference}
+                      onChange={(event) =>
+                        setPrescriptionReference(event.target.value)
+                      }
+                      className="h-10 rounded-2xl text-sm"
+                      placeholder="Reference number, doctor, or note"
+                    />
+                    {!isPrescriptionValid ? (
+                      <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
+                        Confirm the prescription check before checkout.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
 
               {isMobileVariant && showMobileSplitEditor ? (
                 <SplitPaymentEditor

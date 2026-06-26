@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const invoiceStatusSchema = z.enum(["CANCELLED", "RETURNED", "VOID", "PENDING", "PAID"]);
-const discountTypeSchema = z.enum(["PWD", "SENIOR", "OTHERS"]);
+const discountTypeSchema = z.enum(["PWD", "SENIOR", "DSWD", "OTHERS"]);
 const settlementModeSchema = z.enum(["pay_now", "debt"]);
 const syncStatusSchema = z.enum(["pending", "syncing", "synced", "failed", "needs_review"]);
 

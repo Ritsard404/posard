@@ -12,8 +12,13 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InventoryValueReportDto,
   InvoiceDocumentsDto,
+  NonSalesIncomeReportDto,
+  ProductProfitReportDto,
+  ProductVelocityReportDto,
   RefundInvoicesDto,
+  RevenueGoalReportDto,
   ReturnedInvoiceRecordsDto,
   ReturnedItemsDto,
   SalesBookDto,
@@ -42,8 +47,13 @@ export type LoadedReportData =
   | DebtOutstandingDto
   | DailyTransactionsDto
   | DiscountReportDto
+  | InventoryValueReportDto
   | InvoiceDocumentsDto
+  | NonSalesIncomeReportDto
+  | ProductProfitReportDto
+  | ProductVelocityReportDto
   | RefundInvoicesDto
+  | RevenueGoalReportDto
   | ReturnedInvoiceRecordsDto
   | ReturnedItemsDto
   | SalesBookDto
@@ -390,6 +400,21 @@ export const reportPageService = {
       case "sales-book":
         data = await reportService.getSalesBook(viewer, input);
         break;
+      case "product-profit":
+        data = await reportService.getProductProfitReport(viewer, input);
+        break;
+      case "movement-velocity":
+        data = await reportService.getProductVelocityReport(viewer, input);
+        break;
+      case "inventory-value":
+        data = await reportService.getInventoryValueReport(viewer, input);
+        break;
+      case "revenue-goal":
+        data = await reportService.getRevenueGoalReport(viewer, input);
+        break;
+      case "non-sales-income":
+        data = await reportService.getNonSalesIncomeReport(viewer, input);
+        break;
       case "x-reading":
         data = await reportService.getXReading(viewer, { companyId, terminalId, sortOrder });
         break;
@@ -404,6 +429,12 @@ export const reportPageService = {
         break;
       case "pwd-list":
         data = await reportService.getDiscountReport(viewer, { ...input, type: "PWD" });
+        break;
+      case "senior-list":
+        data = await reportService.getDiscountReport(viewer, { ...input, type: "SENIOR" });
+        break;
+      case "dswd-list":
+        data = await reportService.getDiscountReport(viewer, { ...input, type: "DSWD" });
         break;
       case "refund-invoices":
         data = await reportService.getRefundInvoices(viewer, input);

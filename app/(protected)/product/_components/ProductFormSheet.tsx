@@ -40,6 +40,7 @@ const productSchema = z
     shelfLocation: z.string().optional(),
     preferredSupplierName: z.string().optional(),
     prescriptionRequired: z.boolean(),
+    posFavorite: z.boolean(),
     reorderPoint: z.string().optional(),
     baseUnit: z.string().trim().optional(),
     quantity: z.string().optional(),
@@ -166,6 +167,7 @@ export function ProductFormSheet({
       shelfLocation: "",
       preferredSupplierName: "",
       prescriptionRequired: false,
+      posFavorite: false,
       reorderPoint: "",
       baseUnit: "UNIT",
       quantity: "",
@@ -226,6 +228,7 @@ export function ProductFormSheet({
         shelfLocation: product.shelfLocation ?? "",
         preferredSupplierName: product.preferredSupplierName ?? "",
         prescriptionRequired: product.prescriptionRequired,
+        posFavorite: product.posFavorite,
         reorderPoint: product.reorderPoint === null ? "" : String(product.reorderPoint),
         baseUnit: product.baseUnit || "UNIT",
         quantity: product.trackInventory ? String(product.quantity ?? 0) : "",
@@ -277,6 +280,7 @@ export function ProductFormSheet({
       shelfLocation: values.shelfLocation?.trim() || undefined,
       preferredSupplierName: values.preferredSupplierName?.trim() || undefined,
       prescriptionRequired: values.prescriptionRequired,
+      posFavorite: values.posFavorite,
       reorderPoint: values.reorderPoint?.trim() ? Number(values.reorderPoint) : null,
       baseUnit: values.baseUnit?.trim() || "UNIT",
       quantity: values.trackInventory ? (values.quantity?.trim() ? Number(values.quantity) : 0) : null,
@@ -613,6 +617,24 @@ export function ProductFormSheet({
                   </Label>
                   <p className="text-sm text-muted-foreground">
                     Show POS warnings for products that need a prescription check before selling.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="product-pos-favorite"
+                  checked={watch("posFavorite")}
+                  onCheckedChange={(checked) => setValue("posFavorite", checked === true)}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="product-pos-favorite" className="cursor-pointer">
+                    POS favorite
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Pin this product near the top of POS results before frequent recent sellers.
                   </p>
                 </div>
               </div>

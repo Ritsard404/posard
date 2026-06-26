@@ -311,6 +311,12 @@ export const appRoutes: AppRouteConfig[] = [
     showInNav: true,
   },
   {
+    href: "/data-exchange",
+    permission: "view.company.settings",
+    label: "Data Exchange",
+    showInNav: true,
+  },
+  {
     href: "/suppliers",
     permission: "manage.suppliers",
     label: "Suppliers",

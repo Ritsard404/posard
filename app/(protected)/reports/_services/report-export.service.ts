@@ -7,8 +7,13 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InventoryValueReportDto,
   InvoiceDocumentsDto,
+  NonSalesIncomeReportDto,
+  ProductProfitReportDto,
+  ProductVelocityReportDto,
   RefundInvoicesDto,
+  RevenueGoalReportDto,
   ReturnedInvoiceRecordsDto,
   ReturnedItemsDto,
   SalesBookDto,
@@ -30,8 +35,13 @@ type ExportableReportData =
   | DebtOutstandingDto
   | DailyTransactionsDto
   | DiscountReportDto
+  | InventoryValueReportDto
   | InvoiceDocumentsDto
+  | NonSalesIncomeReportDto
+  | ProductProfitReportDto
+  | ProductVelocityReportDto
   | RefundInvoicesDto
+  | RevenueGoalReportDto
   | ReturnedInvoiceRecordsDto
   | ReturnedItemsDto
   | SalesBookDto
@@ -196,7 +206,9 @@ function mapRows(slug: ReportsRouteSlug, data: ExportableReportData) {
       };
     }
     case "transaction-list":
-    case "discounts": {
+    case "discounts":
+    case "senior-discounts":
+    case "dswd-discounts": {
       const report = data as TransactionListDto | DiscountReportDto;
       return {
         headers: [
@@ -257,6 +269,141 @@ function mapRows(slug: ReportsRouteSlug, data: ExportableReportData) {
           stringifyCell(item.netSales),
           stringifyCell(item.vatableSales),
           stringifyCell(item.vatAmount),
+        ]),
+      };
+    }
+    case "product-profit": {
+      const report = data as ProductProfitReportDto;
+      return {
+        headers: [
+          "Product",
+          "Category",
+          "Sold Quantity",
+          "Revenue",
+          "COGS",
+          "Gross Profit",
+          "Gross Margin %",
+          "Markup %",
+        ],
+        rows: report.items.map((item) => [
+          item.name,
+          item.categoryName ?? "",
+          stringifyCell(item.soldQuantity),
+          stringifyCell(item.revenue),
+          stringifyCell(item.costOfGoods),
+          stringifyCell(item.grossProfit),
+          stringifyCell(item.grossMarginPercent),
+          item.markupPercent === null ? "" : stringifyCell(item.markupPercent),
+        ]),
+      };
+    }
+    case "movement-velocity": {
+      const report = data as ProductVelocityReportDto;
+      return {
+        headers: [
+          "Product",
+          "Category",
+          "On Hand",
+          "Reorder Point",
+          "Sold Quantity",
+          "Revenue",
+          "Average Daily Sales",
+          "Days Since Last Sale",
+          "Projected Stockout Days",
+          "Velocity",
+          "Risk",
+        ],
+        rows: report.items.map((item) => [
+          item.name,
+          item.categoryName ?? "",
+          stringifyCell(item.quantityOnHand),
+          stringifyCell(item.reorderPoint),
+          stringifyCell(item.soldQuantity),
+          stringifyCell(item.revenue),
+          stringifyCell(item.averageDailySales),
+          stringifyCell(item.daysSinceLastSale),
+          stringifyCell(item.projectedStockoutDays),
+          item.velocity,
+          item.riskLevel,
+        ]),
+      };
+    }
+    case "inventory-value": {
+      const report = data as InventoryValueReportDto;
+      return {
+        headers: [
+          "Product",
+          "Category",
+          "Supplier",
+          "Shelf",
+          "Batch",
+          "Expiry",
+          "Expiry Bucket",
+          "Quantity",
+          "Unit Cost",
+          "Unit Price",
+          "Cost Value",
+          "Retail Value",
+          "Potential Profit",
+        ],
+        rows: report.items.map((item) => [
+          item.productName,
+          item.categoryName ?? "",
+          item.supplierName ?? "",
+          item.shelfLocation ?? "",
+          item.batchNumber ?? "",
+          item.expiryDate ? formatDate(item.expiryDate) : "",
+          item.expiryBucket,
+          stringifyCell(item.quantityOnHand),
+          stringifyCell(item.unitCost),
+          stringifyCell(item.unitPrice),
+          stringifyCell(item.costValue),
+          stringifyCell(item.retailValue),
+          stringifyCell(item.potentialProfit),
+        ]),
+      };
+    }
+    case "revenue-goal": {
+      const report = data as RevenueGoalReportDto;
+      return {
+        headers: ["Metric", "Value"],
+        rows: [
+          ["Month", formatDate(report.month)],
+          ["Target", stringifyCell(report.targetAmount)],
+          ["Actual Sales", stringifyCell(report.actualSales)],
+          ["Variance", stringifyCell(report.varianceAmount)],
+          ["Progress %", stringifyCell(report.progressPercent)],
+          ["Daily Run-rate", stringifyCell(report.dailyRunRate)],
+          ["Required Daily Run-rate", stringifyCell(report.requiredDailyRunRate)],
+          ["Projected Month-end Sales", stringifyCell(report.projectedMonthEndSales)],
+          ["Days Elapsed", stringifyCell(report.daysElapsed)],
+          ["Days Remaining", stringifyCell(report.daysRemaining)],
+          ["Notes", report.notes ?? ""],
+        ],
+      };
+    }
+    case "non-sales-income": {
+      const report = data as NonSalesIncomeReportDto;
+      return {
+        headers: [
+          "Reference",
+          "Date",
+          "Source",
+          "Amount",
+          "External Reference",
+          "Terminal",
+          "Created By",
+          "Notes",
+        ],
+        rows: report.items.map((item) => [
+          item.referenceNumber,
+          formatDate(item.incomeDate),
+          item.source,
+          stringifyCell(item.amount),
+          item.externalReference ?? "",
+          item.terminalName,
+          item.createdByName,
+          item.notes ?? "",
         ]),
       };
     }

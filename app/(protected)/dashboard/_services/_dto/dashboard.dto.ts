@@ -125,6 +125,20 @@ export interface DashboardVarianceInvestigationDto {
   severity: "balanced" | "watch" | "critical";
 }
 
+export interface DashboardRevenueGoalDto {
+  month: Date;
+  targetAmount: number;
+  actualSales: number;
+  varianceAmount: number;
+  progressPercent: number;
+  dailyRunRate: number;
+  requiredDailyRunRate: number;
+  projectedMonthEndSales: number;
+  daysElapsed: number;
+  daysRemaining: number;
+  notes: string | null;
+}
+
 export interface DashboardAdminWorkspaceStatDto {
   label: string;
   value: number;
@@ -182,6 +196,7 @@ export interface DashboardDataDto {
   operationalStatus?: DashboardOperationalStatusDto;
   restockRecommendations?: RestockRecommendationDto[];
   varianceInvestigations?: DashboardVarianceInvestigationDto[];
+  revenueGoal?: DashboardRevenueGoalDto;
   companyLeaderboard?: DashboardTerminalStatDto[];
   shift?: DashboardShiftDto;
   adminWorkspaceStats?: DashboardAdminWorkspaceStatDto[];

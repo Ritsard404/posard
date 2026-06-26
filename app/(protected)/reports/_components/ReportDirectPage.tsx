@@ -9,9 +9,14 @@ import {
   DailyTransactionsPanel,
   DiscountReportPanel,
   InvoiceDocumentsPanel,
+  InventoryValuePanel,
+  NonSalesIncomePanel,
   RefundInvoicesPanel,
+  ProductProfitPanel,
+  ProductVelocityPanel,
   ReturnedInvoiceRecordsPanel,
   ReturnedItemsPanel,
+  RevenueGoalPanel,
   SalesBookPanel,
   TransactionListPanel,
   TransactionsPanel,
@@ -144,6 +149,16 @@ function renderReportPanel(data: NonNullable<DirectPageData>) {
       return <TransactionListPanel report={data.data as Parameters<typeof TransactionListPanel>[0]["report"]} />;
     case "sales-book":
       return <SalesBookPanel report={data.data as Parameters<typeof SalesBookPanel>[0]["report"]} />;
+    case "product-profit":
+      return <ProductProfitPanel report={data.data as Parameters<typeof ProductProfitPanel>[0]["report"]} />;
+    case "movement-velocity":
+      return <ProductVelocityPanel report={data.data as Parameters<typeof ProductVelocityPanel>[0]["report"]} />;
+    case "inventory-value":
+      return <InventoryValuePanel report={data.data as Parameters<typeof InventoryValuePanel>[0]["report"]} />;
+    case "revenue-goal":
+      return <RevenueGoalPanel report={data.data as Parameters<typeof RevenueGoalPanel>[0]["report"]} />;
+    case "non-sales-income":
+      return <NonSalesIncomePanel report={data.data as Parameters<typeof NonSalesIncomePanel>[0]["report"]} />;
     case "x-reading":
       return <XReadingPanel reading={data.data as Parameters<typeof XReadingPanel>[0]["reading"]} />;
     case "z-reading":
@@ -153,6 +168,8 @@ function renderReportPanel(data: NonNullable<DirectPageData>) {
     case "voided":
       return <VoidedListPanel report={data.data as Parameters<typeof VoidedListPanel>[0]["report"]} />;
     case "discounts":
+    case "senior-discounts":
+    case "dswd-discounts":
       return <DiscountReportPanel report={data.data as Parameters<typeof DiscountReportPanel>[0]["report"]} />;
     case "refunds":
       return <RefundInvoicesPanel report={data.data as Parameters<typeof RefundInvoicesPanel>[0]["report"]} />;

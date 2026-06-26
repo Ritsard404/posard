@@ -32,6 +32,7 @@ export interface ProductDto {
   brandName: string | null;
   shelfLocation: string | null;
   prescriptionRequired: boolean;
+  posFavorite: boolean;
   reorderPoint: number | null;
   preferredSupplierId: string | null;
   preferredSupplierName: string | null;
@@ -64,6 +65,7 @@ export interface ProductSaveDto {
   brandName?: string;
   shelfLocation?: string;
   prescriptionRequired?: boolean;
+  posFavorite?: boolean;
   reorderPoint?: number | null;
   preferredSupplierId?: string | null;
   preferredSupplierName?: string;
@@ -105,6 +107,7 @@ export interface ProductBatchRowDto {
   brandName: string | null;
   shelfLocation: string | null;
   prescriptionRequired: boolean;
+  posFavorite: boolean;
   reorderPoint: number | null;
   preferredSupplierName: string | null;
   baseUnit: string;

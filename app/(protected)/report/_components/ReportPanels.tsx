@@ -5,8 +5,13 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InventoryValueReportDto,
   InvoiceDocumentsDto,
+  NonSalesIncomeReportDto,
+  ProductProfitReportDto,
+  ProductVelocityReportDto,
   RefundInvoicesDto,
+  RevenueGoalReportDto,
   ReportOverviewDto,
   ReturnedInvoiceRecordsDto,
   ReturnedItemsDto,
@@ -749,6 +754,225 @@ export function SalesPanel({ report }: { report: SalesReportDto }) {
             <>
               <ReportField label="Profit" value={formatCurrency(item.profit)} />
               <SelectionLines selections={item.selections} note={item.specialInstructions} />
+            </>
+          }
+        />
+      ))}
+    </ReportSectionCard>
+  );
+}
+
+export function ProductVelocityPanel({ report }: { report: ProductVelocityReportDto }) {
+  if (report.items.length === 0) {
+    return (
+      <EmptyState
+        title="No inventory velocity"
+        message="No tracked products were found for the selected filters."
+      />
+    );
+  }
+
+  return (
+    <ReportSectionCard
+      title="Fast and Slow Moving Products"
+      description="Velocity, last-sale recency, stockout risk, and quantity on hand."
+      badge="Velocity"
+    >
+      <ReportSummaryStrip
+        metrics={[
+          { label: "Fast", value: String(report.totals.fast) },
+          { label: "Steady", value: String(report.totals.steady) },
+          { label: "Slow", value: String(report.totals.slow) },
+          { label: "Idle", value: String(report.totals.idle) },
+          { label: "High Risk", value: String(report.totals.highRisk) },
+        ]}
+      />
+      {report.items.map((item) => (
+        <ReportListCard
+          key={item.productId}
+          title={item.name}
+          subtitle={`${item.categoryName ?? "Uncategorized"} / ${item.velocity.toUpperCase()} / ${item.riskLevel.toUpperCase()} risk`}
+          value={`${item.soldQuantity.toFixed(2)} sold`}
+          meta={
+            <>
+              <ReportField label="On hand" value={item.quantityOnHand.toFixed(2)} />
+              <ReportField label="Avg/day" value={item.averageDailySales.toFixed(2)} />
+              <ReportField
+                label="Stockout"
+                value={
+                  item.projectedStockoutDays === null
+                    ? "No pace"
+                    : `${item.projectedStockoutDays.toFixed(1)} days`
+                }
+              />
+              <ReportField
+                label="Last sale"
+                value={item.daysSinceLastSale === null ? "No sale" : `${item.daysSinceLastSale} days ago`}
+              />
+            </>
+          }
+        />
+      ))}
+    </ReportSectionCard>
+  );
+}
+
+export function ProductProfitPanel({ report }: { report: ProductProfitReportDto }) {
+  if (report.items.length === 0) {
+    return (
+      <EmptyState
+        title="No product profit"
+        message="No sold products were found for the selected filters."
+      />
+    );
+  }
+
+  return (
+    <ReportSectionCard
+      title="Profit Per Product"
+      description="Sold quantity, revenue, cost of goods, gross profit, margin, and markup."
+      badge="Profit"
+    >
+      <ReportSummaryStrip
+        metrics={[
+          { label: "Revenue", value: formatCurrency(report.totals.revenue) },
+          { label: "COGS", value: formatCurrency(report.totals.costOfGoods) },
+          { label: "Gross Profit", value: formatCurrency(report.totals.grossProfit) },
+          { label: "Margin", value: `${report.totals.grossMarginPercent.toFixed(1)}%` },
+        ]}
+      />
+      {report.items.map((item) => (
+        <ReportListCard
+          key={item.productId}
+          title={item.name}
+          subtitle={`${item.categoryName ?? "Uncategorized"} / ${item.soldQuantity.toFixed(2)} sold`}
+          value={formatCurrency(item.grossProfit)}
+          meta={
+            <>
+              <ReportField label="Revenue" value={formatCurrency(item.revenue)} />
+              <ReportField label="COGS" value={formatCurrency(item.costOfGoods)} />
+              <ReportField label="Margin" value={`${item.grossMarginPercent.toFixed(1)}%`} />
+              <ReportField
+                label="Markup"
+                value={item.markupPercent === null ? "No cost" : `${item.markupPercent.toFixed(1)}%`}
+              />
+            </>
+          }
+        />
+      ))}
+    </ReportSectionCard>
+  );
+}
+
+export function InventoryValuePanel({ report }: { report: InventoryValueReportDto }) {
+  if (report.items.length === 0) {
+    return (
+      <EmptyState
+        title="No inventory value"
+        message="No on-hand tracked inventory was found."
+      />
+    );
+  }
+
+  return (
+    <ReportSectionCard
+      title="Inventory Value"
+      description="On-hand stock value by category, supplier, shelf, batch, and expiry bucket."
+      badge="Inventory"
+    >
+      <ReportSummaryStrip
+        metrics={[
+          { label: "Quantity", value: report.totals.quantityOnHand.toFixed(2) },
+          { label: "Cost Value", value: formatCurrency(report.totals.costValue) },
+          { label: "Retail Value", value: formatCurrency(report.totals.retailValue) },
+          { label: "Potential Profit", value: formatCurrency(report.totals.potentialProfit) },
+        ]}
+      />
+      {report.items.map((item, index) => (
+        <ReportListCard
+          key={`${item.productId}-${item.batchNumber ?? "unbatched"}-${index}`}
+          title={item.productName}
+          subtitle={`${item.categoryName ?? "Uncategorized"} / ${item.supplierName ?? "No supplier"} / ${item.shelfLocation ?? "No shelf"}`}
+          value={formatCurrency(item.costValue)}
+          badges={<Badge variant="outline" className="rounded-full">{item.expiryBucket.replace("_", " ")}</Badge>}
+          meta={
+            <>
+              <ReportField label="Batch" value={item.batchNumber ?? "Unbatched"} />
+              <ReportField label="Expiry" value={item.expiryDate ? formatDate(item.expiryDate) : "No date"} />
+              <ReportField label="Quantity" value={item.quantityOnHand.toFixed(2)} />
+              <ReportField label="Retail" value={formatCurrency(item.retailValue)} />
+            </>
+          }
+        />
+      ))}
+    </ReportSectionCard>
+  );
+}
+
+export function RevenueGoalPanel({ report }: { report: RevenueGoalReportDto }) {
+  return (
+    <ReportSectionCard
+      title="Revenue Goal"
+      description="Monthly target progress, run-rate, variance, and projected month-end sales."
+      badge="Target"
+    >
+      <ReportSummaryStrip
+        metrics={[
+          { label: "Target", value: formatCurrency(report.targetAmount) },
+          { label: "Actual", value: formatCurrency(report.actualSales) },
+          { label: "Variance", value: formatCurrency(report.varianceAmount) },
+          { label: "Progress", value: `${report.progressPercent.toFixed(1)}%` },
+        ]}
+      />
+      <ReportListCard
+        title={formatDate(report.month)}
+        subtitle={`${report.daysElapsed} day${report.daysElapsed === 1 ? "" : "s"} elapsed / ${report.daysRemaining} remaining`}
+        value={formatCurrency(report.projectedMonthEndSales)}
+        meta={
+          <>
+            <ReportField label="Daily run-rate" value={formatCurrency(report.dailyRunRate)} />
+            <ReportField label="Needed/day" value={formatCurrency(report.requiredDailyRunRate)} />
+            <ReportField label="Notes" value={report.notes ?? "No goal notes"} />
+          </>
+        }
+      />
+    </ReportSectionCard>
+  );
+}
+
+export function NonSalesIncomePanel({ report }: { report: NonSalesIncomeReportDto }) {
+  if (report.items.length === 0) {
+    return (
+      <EmptyState
+        title="No non-sales income"
+        message="No non-sales income entries were found for the selected filters."
+      />
+    );
+  }
+
+  return (
+    <ReportSectionCard
+      title="Non-Sales Income"
+      description="Income recorded outside invoice sales, with source, reference, terminal, and user context."
+      badge="Income"
+    >
+      <ReportSummaryStrip
+        metrics={[
+          { label: "Total Income", value: formatCurrency(report.totalAmount) },
+          { label: "Rows", value: String(report.pagination.totalItems) },
+        ]}
+      />
+      {report.items.map((item) => (
+        <ReportListCard
+          key={item.id}
+          title={item.referenceNumber}
+          subtitle={`${formatDate(item.incomeDate)} / ${item.source} / ${item.terminalName}`}
+          value={formatCurrency(item.amount)}
+          meta={
+            <>
+              <ReportField label="External Ref" value={item.externalReference ?? "None"} />
+              <ReportField label="Created By" value={item.createdByName} />
+              <ReportField label="Notes" value={item.notes ?? "None"} />
             </>
           }
         />

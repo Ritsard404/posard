@@ -5,10 +5,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   getAuditTrailAction,
   getDailyTransactionsAction,
+  getDswdDiscountReportAction,
+  getInventoryValueReportAction,
+  getNonSalesIncomeReportAction,
+  getProductProfitReportAction,
+  getProductVelocityReportAction,
   getPwdDiscountReportAction,
   getRefundInvoicesAction,
   getReportOverviewAction,
   getReportWorkspaceAction,
+  getRevenueGoalReportAction,
   getReturnedInvoiceRecordsAction,
   getReturnedItemsAction,
   getSalesBookAction,
@@ -24,7 +30,12 @@ import type {
   AuditTrailDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InventoryValueReportDto,
+  NonSalesIncomeReportDto,
+  ProductProfitReportDto,
+  ProductVelocityReportDto,
   RefundInvoicesDto,
+  RevenueGoalReportDto,
   ReportPaginationDto,
   ReturnedInvoiceRecordsDto,
   ReturnedItemsDto,
@@ -41,8 +52,13 @@ import {
   AuditPanel,
   DailyTransactionsPanel,
   DiscountReportPanel,
+  InventoryValuePanel,
+  NonSalesIncomePanel,
   OverviewPanel,
+  ProductProfitPanel,
+  ProductVelocityPanel,
   RefundInvoicesPanel,
+  RevenueGoalPanel,
   ReturnedInvoiceRecordsPanel,
   ReturnedItemsPanel,
   SalesBookPanel,
@@ -75,7 +91,12 @@ type DetailResult =
   | AuditTrailDto
   | DailyTransactionsDto
   | DiscountReportDto
+  | InventoryValueReportDto
+  | NonSalesIncomeReportDto
+  | ProductProfitReportDto
+  | ProductVelocityReportDto
   | RefundInvoicesDto
+  | RevenueGoalReportDto
   | ReturnedInvoiceRecordsDto
   | ReturnedItemsDto
   | SalesBookDto
@@ -161,8 +182,20 @@ async function getDetailData(
       return getPwdDiscountReportAction(filters);
     case "senior-list":
       return getSeniorDiscountReportAction(filters);
+    case "dswd-list":
+      return getDswdDiscountReportAction(filters);
     case "sales":
       return getSalesReportAction(filters);
+    case "product-profit":
+      return getProductProfitReportAction(filters);
+    case "movement-velocity":
+      return getProductVelocityReportAction(filters);
+    case "inventory-value":
+      return getInventoryValueReportAction(filters);
+    case "revenue-goal":
+      return getRevenueGoalReportAction(filters);
+    case "non-sales-income":
+      return getNonSalesIncomeReportAction(filters);
     case "sales-book":
       return getSalesBookAction(filters);
     case "refund-invoices":
@@ -206,9 +239,20 @@ function renderDetailPanel(view: ReportPrintableView, data: DetailResult) {
       return <VoidedListPanel report={data as VoidedListDto} />;
     case "pwd-list":
     case "senior-list":
+    case "dswd-list":
       return <DiscountReportPanel report={data as DiscountReportDto} />;
     case "sales":
       return <SalesPanel report={data as SalesReportDto} />;
+    case "product-profit":
+      return <ProductProfitPanel report={data as ProductProfitReportDto} />;
+    case "movement-velocity":
+      return <ProductVelocityPanel report={data as ProductVelocityReportDto} />;
+    case "inventory-value":
+      return <InventoryValuePanel report={data as InventoryValueReportDto} />;
+    case "revenue-goal":
+      return <RevenueGoalPanel report={data as RevenueGoalReportDto} />;
+    case "non-sales-income":
+      return <NonSalesIncomePanel report={data as NonSalesIncomeReportDto} />;
     case "sales-book":
       return <SalesBookPanel report={data as SalesBookDto} />;
     case "refund-invoices":

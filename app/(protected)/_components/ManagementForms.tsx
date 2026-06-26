@@ -1,6 +1,15 @@
 import { Button } from "@/components/ui/button";
 
-type Option = { id: string; name?: string | null; posName?: string | null; quantity?: number; cost?: number };
+type Option = {
+  id: string;
+  name?: string | null;
+  posName?: string | null;
+  quantity?: number;
+  cost?: number;
+  productId?: string | null;
+  barcode?: string | null;
+  status?: string | null;
+};
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -65,6 +74,130 @@ export function StockAdjustmentForm({
   );
 }
 
+export function StockCountForm({
+  products,
+  terminals,
+  stockLots,
+  profiles,
+  action,
+}: {
+  products: Option[];
+  terminals: Option[];
+  stockLots: Option[];
+  profiles: Option[];
+  action: (formData: FormData) => void | Promise<void>;
+}) {
+  return (
+    <form action={action} className={formClass("md:grid-cols-8")}>
+      <Field label="Product">
+        <select name="productId" className={inputClass()}>
+          <option value="">Use barcode or batch</option>
+          {products.map((product) => (
+            <option key={product.id} value={product.id}>{product.name} ({product.quantity ?? 0})</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Barcode / Scan">
+        <input name="productBarcode" placeholder="Scan or type barcode" className={inputClass()} />
+      </Field>
+      <Field label="Batch">
+        <select name="stockLotId" className={inputClass()}>
+          <option value="">Product total</option>
+          {stockLots.map((lot) => (
+            <option key={lot.id} value={lot.id}>{lot.name}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Terminal">
+        <select name="terminalId" className={inputClass()}>
+          <option value="">Company stock</option>
+          {terminals.map((terminal) => (
+            <option key={terminal.id} value={terminal.id}>{terminal.posName ?? "Unnamed terminal"}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Assigned">
+        <select name="assignedToId" className={inputClass()}>
+          <option value="">Current user</option>
+          {profiles.map((profile) => (
+            <option key={profile.id} value={profile.id}>{profile.name}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Counted Qty">
+        <input name="countedQuantity" type="number" min="0" step="0.0001" placeholder="Optional" className={inputClass()} />
+      </Field>
+      <Field label="Notes">
+        <input name="notes" placeholder="Count area or reason" className={inputClass()} />
+      </Field>
+      <div className="flex items-end">
+        <Button type="submit" size="sm" className="h-8 w-full">Start Count</Button>
+      </div>
+    </form>
+  );
+}
+
+export function StockDispositionForm({
+  products,
+  terminals,
+  stockLots,
+  action,
+}: {
+  products: Option[];
+  terminals: Option[];
+  stockLots: Option[];
+  action: (formData: FormData) => void | Promise<void>;
+}) {
+  return (
+    <form action={action} className={formClass("md:grid-cols-8")}>
+      <Field label="Reason">
+        <select name="reason" required className={inputClass()}>
+          <option value="damaged">Damaged</option>
+          <option value="lost">Lost</option>
+          <option value="expired">Expired</option>
+          <option value="disposed">Disposed</option>
+        </select>
+      </Field>
+      <Field label="Product">
+        <select name="productId" className={inputClass()}>
+          <option value="">Use barcode or batch</option>
+          {products.map((product) => (
+            <option key={product.id} value={product.id}>{product.name} ({product.quantity ?? 0})</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Barcode / Scan">
+        <input name="productBarcode" placeholder="Scan or type barcode" className={inputClass()} />
+      </Field>
+      <Field label="Batch">
+        <select name="stockLotId" className={inputClass()}>
+          <option value="">FEFO product stock</option>
+          {stockLots.map((lot) => (
+            <option key={lot.id} value={lot.id}>{lot.name}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Terminal">
+        <select name="terminalId" className={inputClass()}>
+          <option value="">Company stock</option>
+          {terminals.map((terminal) => (
+            <option key={terminal.id} value={terminal.id}>{terminal.posName ?? "Unnamed terminal"}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Qty">
+        <input name="quantity" type="number" min="0.0001" step="0.0001" required className={inputClass()} />
+      </Field>
+      <Field label="Notes">
+        <input name="notes" placeholder="Reason details" className={inputClass()} />
+      </Field>
+      <div className="flex items-end">
+        <Button type="submit" size="sm" className="h-8 w-full">Record Loss</Button>
+      </div>
+    </form>
+  );
+}
+
 export function ExpenseForm({
   categories,
   terminals,
@@ -103,6 +236,43 @@ export function ExpenseForm({
       <div className="flex items-end">
         <Button type="submit" size="sm" className="h-8 w-full">Record Expense</Button>
       </div>
+    </form>
+  );
+}
+
+export function NonSalesIncomeForm({
+  terminals,
+  action,
+}: {
+  terminals: Option[];
+  action: (formData: FormData) => void | Promise<void>;
+}) {
+  return (
+    <form action={action} className={formClass()}>
+      <Field label="Source">
+        <input name="source" required placeholder="Service fee, rebate, other" className={inputClass()} />
+      </Field>
+      <Field label="Terminal">
+        <select name="terminalId" className={inputClass()}>
+          <option value="">Company income</option>
+          {terminals.map((terminal) => (
+            <option key={terminal.id} value={terminal.id}>{terminal.posName ?? "Unnamed terminal"}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Date">
+        <input name="incomeDate" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass()} />
+      </Field>
+      <Field label="Amount">
+        <input name="amount" type="number" min="0.01" step="0.01" required className={inputClass()} />
+      </Field>
+      <Field label="Reference">
+        <input name="externalReference" placeholder="OR/ref no." className={inputClass()} />
+      </Field>
+      <div className="flex items-end">
+        <Button type="submit" size="sm" className="h-8 w-full">Record Income</Button>
+      </div>
+      <input name="notes" placeholder="Notes" className={`${inputClass()} md:col-span-6`} />
     </form>
   );
 }

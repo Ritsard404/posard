@@ -2,7 +2,7 @@
 // Enums
 // ─────────────────────────────────────────────
 
-export type DiscountType = "PWD" | "SENIOR" | "OTHERS";
+export type DiscountType = "PWD" | "SENIOR" | "DSWD" | "OTHERS";
 export type InvoiceStatusType = "CANCELLED" | "RETURNED" | "VOID" | "PENDING" | "PAID";
 export type VatType = "VATABLE" | "EXEMPT" | "ZERO";
 export type SettlementMode = "pay_now" | "debt";
@@ -31,6 +31,9 @@ export interface ItemRequestDto {
   basePrice?: number;
   specialInstructions?: string;
   selections?: OrderItemSelectionDto[];
+  prescriptionRequired?: boolean;
+  prescriptionConfirmed?: boolean;
+  prescriptionReference?: string;
 }
 
 export interface EPaymentDto {

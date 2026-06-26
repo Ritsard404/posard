@@ -9,12 +9,16 @@ import { allocateStockLotsForStockOut } from "./stock-lot-allocation.service";
 import type {
   expenseCreateSchema,
   expenseTransitionSchema,
+  nonSalesIncomeCreateSchema,
   purchaseOrderCreateSchema,
   purchaseOrderReceiveSchema,
   purchaseOrderTransitionSchema,
   promotionCreateSchema,
   promotionTransitionSchema,
   stockAdjustmentSchema,
+  stockCountCreateSchema,
+  stockCountTransitionSchema,
+  stockDispositionSchema,
   supplierArchiveSchema,
   supplierUpsertSchema,
   kitchenTicketTransitionSchema,
@@ -59,16 +63,26 @@ function canApprove(viewer: Viewer) {
 async function nextReference(
   prefix: string,
   companyId: string,
-  table: "expense" | "purchaseOrder" | "receivingRecord" | "branchTransfer",
+  table:
+    | "expense"
+    | "purchaseOrder"
+    | "receivingRecord"
+    | "branchTransfer"
+    | "stockCountSession"
+    | "nonSalesIncome",
 ) {
   const count =
     table === "expense"
       ? await prisma.expense.count({ where: { companyId } })
+      : table === "nonSalesIncome"
+        ? await prisma.nonSalesIncome.count({ where: { companyId } })
       : table === "purchaseOrder"
         ? await prisma.purchaseOrder.count({ where: { companyId } })
         : table === "receivingRecord"
           ? await prisma.receivingRecord.count({ where: { companyId } })
-          : await prisma.branchTransfer.count({ where: { companyId } });
+          : table === "branchTransfer"
+            ? await prisma.branchTransfer.count({ where: { companyId } })
+            : await prisma.stockCountSession.count({ where: { companyId } });
   return `${prefix}-${new Date().getFullYear()}-${String(count + 1).padStart(6, "0")}`;
 }
 
@@ -129,6 +143,7 @@ async function createStockMovement(
       | "stock_in"
       | "transfer_out"
       | "transfer_in"
+      | "waste"
       | "receiving_variance";
     sourceType: string;
     sourceId?: string | null;
@@ -138,6 +153,7 @@ async function createStockMovement(
     lotQuantityBefore?: number | null;
     lotQuantityAfter?: number | null;
     unitCost?: number | null;
+    updateStockLot?: boolean;
   },
 ) {
   if (!Number.isFinite(input.quantityDelta) || input.quantityDelta === 0) {
@@ -178,6 +194,46 @@ async function createStockMovement(
           fallbackUnitCost: Number(product.cost ?? 0),
         })
       : [];
+  let lotQuantityBefore = input.lotQuantityBefore;
+  let lotQuantityAfter = input.lotQuantityAfter;
+
+  if (input.stockLotId && input.updateStockLot) {
+    const lot = await tx.stockLot.findFirst({
+      where: {
+        id: input.stockLotId,
+        companyId: input.companyId,
+        productId: product.id,
+      },
+      select: { id: true, quantityOnHand: true },
+    });
+
+    if (!lot) {
+      throw new Error("Selected stock batch was not found.");
+    }
+
+    const beforeLotQuantity = Number(lot.quantityOnHand);
+    const afterLotQuantity = beforeLotQuantity + input.quantityDelta;
+
+    if (afterLotQuantity < 0) {
+      throw new Error("Inventory movement cannot make batch stock negative.");
+    }
+
+    await tx.stockLot.update({
+      where: { id: lot.id },
+      data: {
+        quantityOnHand: new Prisma.Decimal(afterLotQuantity),
+        status:
+          afterLotQuantity <= 0
+            ? "depleted"
+            : input.sourceType === "stock_expired"
+              ? "expired"
+              : "available",
+      },
+    });
+
+    lotQuantityBefore = beforeLotQuantity;
+    lotQuantityAfter = afterLotQuantity;
+  }
 
   await tx.product.update({
     where: { id: product.id },
@@ -256,23 +312,82 @@ async function createStockMovement(
       notes: input.notes,
       stockLotId: input.stockLotId ?? null,
       lotQuantityBefore:
-        input.lotQuantityBefore === null || input.lotQuantityBefore === undefined
+        lotQuantityBefore === null || lotQuantityBefore === undefined
           ? null
-          : new Prisma.Decimal(input.lotQuantityBefore),
+          : new Prisma.Decimal(lotQuantityBefore),
       lotQuantityAfter:
-        input.lotQuantityAfter === null || input.lotQuantityAfter === undefined
+        lotQuantityAfter === null || lotQuantityAfter === undefined
           ? null
-          : new Prisma.Decimal(input.lotQuantityAfter),
+          : new Prisma.Decimal(lotQuantityAfter),
     },
   });
 
   return movement;
 }
 
+async function resolveTrackedInventoryTarget(
+  tx: Prisma.TransactionClient,
+  input: {
+    companyId: string;
+    productId?: string | null;
+    productBarcode?: string | null;
+    stockLotId?: string | null;
+  },
+) {
+  const stockLot = input.stockLotId
+    ? await tx.stockLot.findFirst({
+        where: { id: input.stockLotId, companyId: input.companyId },
+        select: {
+          id: true,
+          productId: true,
+          batchNumber: true,
+          expiryDate: true,
+          quantityOnHand: true,
+          unitCost: true,
+          status: true,
+        },
+      })
+    : null;
+
+  const product = await tx.product.findFirst({
+    where: {
+      companyId: input.companyId,
+      isDeleted: false,
+      trackInventory: true,
+      ...(stockLot
+        ? { id: stockLot.productId }
+        : input.productId
+          ? { id: input.productId }
+          : input.productBarcode
+            ? { barcode: input.productBarcode }
+            : { id: "00000000-0000-0000-0000-000000000000" }),
+    },
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      cost: true,
+      price: true,
+      barcode: true,
+      trackInventory: true,
+    },
+  });
+
+  if (!product) {
+    throw new Error("Inventory-tracked product is required.");
+  }
+
+  if (input.productId && stockLot && input.productId !== stockLot.productId) {
+    throw new Error("Selected batch does not belong to the selected product.");
+  }
+
+  return { product, stockLot };
+}
+
 export const managementWorkflowService = {
   async getFormOptions() {
     const viewer = await requireViewer();
-    const [products, terminals, categories, suppliers] = await Promise.all([
+    const [products, terminals, categories, suppliers, profiles, stockLots] = await Promise.all([
       prisma.product.findMany({
         where: {
           companyId: viewer.companyId,
@@ -280,8 +395,8 @@ export const managementWorkflowService = {
           trackInventory: true,
         },
         orderBy: { name: "asc" },
-        take: 200,
-        select: { id: true, name: true, quantity: true, cost: true },
+        take: 300,
+        select: { id: true, name: true, barcode: true, quantity: true, cost: true },
       }),
       prisma.posTerminalInfo.findMany({
         where: { companyId: viewer.companyId },
@@ -298,6 +413,24 @@ export const managementWorkflowService = {
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       }),
+      prisma.profile.findMany({
+        where: { companyId: viewer.companyId, status: "active" },
+        orderBy: { fullName: "asc" },
+        select: { id: true, fullName: true, email: true },
+      }),
+      prisma.stockLot.findMany({
+        where: { companyId: viewer.companyId, quantityOnHand: { gt: 0 } },
+        orderBy: [{ expiryDate: "asc" }, { product: { name: "asc" } }],
+        take: 300,
+        select: {
+          id: true,
+          batchNumber: true,
+          expiryDate: true,
+          quantityOnHand: true,
+          status: true,
+          product: { select: { id: true, name: true, barcode: true } },
+        },
+      }),
     ]);
 
     return {
@@ -309,6 +442,18 @@ export const managementWorkflowService = {
       terminals,
       categories,
       suppliers,
+      profiles: profiles.map((profile) => ({
+        id: profile.id,
+        name: profile.fullName ?? profile.email,
+      })),
+      stockLots: stockLots.map((lot) => ({
+        id: lot.id,
+        name: `${lot.product.name} / ${lot.batchNumber ?? "No batch"} / ${Number(lot.quantityOnHand)}${lot.expiryDate ? ` / exp ${lot.expiryDate.toISOString().slice(0, 10)}` : ""}`,
+        productId: lot.product.id,
+        barcode: lot.product.barcode,
+        quantity: Number(lot.quantityOnHand),
+        status: lot.status,
+      })),
       canApprove: canApprove(viewer),
       canManageMasterData: viewer.role === "admin" || viewer.role === "manager",
     };
@@ -358,6 +503,281 @@ export const managementWorkflowService = {
           entityId: movement.id,
         });
       }
+    });
+  },
+
+  async createStockCountSession(input: z.infer<typeof stockCountCreateSchema>) {
+    const viewer = await requireViewer();
+    assertManager(viewer);
+    const countNumber = await nextReference(
+      "CNT",
+      viewer.companyId,
+      "stockCountSession",
+    );
+
+    await prisma.$transaction(async (tx) => {
+      const target = await resolveTrackedInventoryTarget(tx, {
+        companyId: viewer.companyId,
+        productId: input.productId,
+        productBarcode: input.productBarcode,
+        stockLotId: input.stockLotId,
+      });
+      const expectedQuantity = target.stockLot
+        ? Number(target.stockLot.quantityOnHand)
+        : Number(target.product.quantity ?? 0);
+      const countedQuantity = input.countedQuantity;
+      const hasCount = countedQuantity !== null && countedQuantity !== undefined;
+      const varianceQuantity = hasCount
+        ? Number(countedQuantity) - expectedQuantity
+        : null;
+      const now = new Date();
+
+      const session = await tx.stockCountSession.create({
+        data: {
+          countNumber,
+          companyId: viewer.companyId,
+          terminalId: input.terminalId,
+          createdById: viewer.profileId,
+          assignedToId: input.assignedToId ?? viewer.profileId,
+          submittedById: hasCount ? viewer.profileId : null,
+          status: hasCount ? "submitted" : "draft",
+          submittedAt: hasCount ? now : null,
+          notes: input.notes,
+          items: {
+            create: [
+              {
+                productId: target.product.id,
+                stockLotId: target.stockLot?.id ?? null,
+                expectedQuantity: new Prisma.Decimal(expectedQuantity),
+                countedQuantity: hasCount
+                  ? new Prisma.Decimal(Number(countedQuantity))
+                  : null,
+                varianceQuantity:
+                  varianceQuantity === null
+                    ? null
+                    : new Prisma.Decimal(varianceQuantity),
+                countedAt: hasCount ? now : null,
+                notes: input.notes,
+              },
+            ],
+          },
+        },
+        select: { id: true, status: true },
+      });
+
+      await auditLogService.create(tx, {
+        companyId: viewer.companyId,
+        actorProfileId: viewer.profileId,
+        posTerminalId: input.terminalId,
+        actionType: "stock_count_created",
+        referenceId: session.id,
+        changes: JSON.stringify({
+          countNumber,
+          productId: target.product.id,
+          stockLotId: target.stockLot?.id ?? null,
+          expectedQuantity,
+          countedQuantity,
+          varianceQuantity,
+          status: session.status,
+        }),
+      });
+
+      if (session.status === "submitted") {
+        await notifyManagers(tx, {
+          companyId: viewer.companyId,
+          excludeProfileId: viewer.profileId,
+          type: "stock_count_review",
+          title: "Stock count awaiting approval",
+          body: `${countNumber} is ready for variance review.`,
+          href: "/inventory-ledger",
+          entityType: "stock_count_session",
+          entityId: session.id,
+        });
+      }
+    });
+  },
+
+  async transitionStockCount(input: z.infer<typeof stockCountTransitionSchema>) {
+    const viewer = await requireViewer();
+    assertManager(viewer);
+
+    await prisma.$transaction(async (tx) => {
+      const session = await tx.stockCountSession.findFirstOrThrow({
+        where: { id: input.stockCountSessionId, companyId: viewer.companyId },
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, name: true, cost: true } },
+              stockLot: { select: { id: true, batchNumber: true } },
+            },
+          },
+        },
+      });
+      const now = new Date();
+
+      if (input.action === "submit") {
+        if (session.status !== "draft") {
+          throw new Error("Only draft stock counts can be submitted.");
+        }
+
+        const item = session.items[0];
+        if (!item) throw new Error("Stock count item is required.");
+        const countedQuantity =
+          input.countedQuantity ??
+          (item.countedQuantity === null ? null : Number(item.countedQuantity));
+        if (countedQuantity === null) {
+          throw new Error("Counted quantity is required before submitting.");
+        }
+
+        await tx.stockCountItem.update({
+          where: { id: item.id },
+          data: {
+            countedQuantity: new Prisma.Decimal(countedQuantity),
+            varianceQuantity: new Prisma.Decimal(
+              countedQuantity - Number(item.expectedQuantity),
+            ),
+            countedAt: now,
+            notes: input.notes ?? item.notes,
+          },
+        });
+        await tx.stockCountSession.update({
+          where: { id: session.id },
+          data: {
+            status: "submitted",
+            submittedAt: now,
+            submittedById: viewer.profileId,
+            notes: input.notes ?? session.notes,
+          },
+        });
+      }
+
+      if (input.action === "approve") {
+        if (session.status !== "submitted") {
+          throw new Error("Only submitted stock counts can be approved.");
+        }
+
+        for (const item of session.items) {
+          const variance = Number(item.varianceQuantity ?? 0);
+          if (variance === 0) continue;
+
+          await createStockMovement(tx, {
+            companyId: viewer.companyId,
+            actorProfileId: viewer.profileId,
+            productId: item.productId,
+            terminalId: session.terminalId,
+            quantityDelta: variance,
+            movementType: "adjustment",
+            sourceType: "stock_count",
+            sourceId: session.id,
+            referenceNumber: session.countNumber,
+            notes: [
+              "Approved physical count variance",
+              item.stockLot?.batchNumber
+                ? `batch ${item.stockLot.batchNumber}`
+                : null,
+              input.notes,
+            ]
+              .filter(Boolean)
+              .join(" - "),
+            stockLotId: item.stockLotId,
+            updateStockLot: Boolean(item.stockLotId),
+            unitCost: Number(item.product.cost ?? 0),
+          });
+        }
+
+        await tx.stockCountSession.update({
+          where: { id: session.id },
+          data: {
+            status: "approved",
+            approvedAt: now,
+            approvedById: viewer.profileId,
+            notes: input.notes ?? session.notes,
+          },
+        });
+      }
+
+      if (input.action === "reject" || input.action === "cancel") {
+        if (session.status === "approved") {
+          throw new Error("Approved stock counts cannot be changed.");
+        }
+
+        await tx.stockCountSession.update({
+          where: { id: session.id },
+          data: {
+            status: input.action === "reject" ? "rejected" : "cancelled",
+            notes: input.notes ?? session.notes,
+          },
+        });
+      }
+
+      await auditLogService.create(tx, {
+        companyId: viewer.companyId,
+        actorProfileId: viewer.profileId,
+        posTerminalId: session.terminalId,
+        actionType: `stock_count_${input.action}`,
+        referenceId: session.id,
+        changes: JSON.stringify({
+          countNumber: session.countNumber,
+          from: session.status,
+          action: input.action,
+          notes: input.notes,
+        }),
+      });
+    });
+  },
+
+  async createStockDisposition(input: z.infer<typeof stockDispositionSchema>) {
+    const viewer = await requireViewer();
+    assertManager(viewer);
+    const referenceNumber = `DIS-${Date.now()}`;
+
+    await prisma.$transaction(async (tx) => {
+      const target = await resolveTrackedInventoryTarget(tx, {
+        companyId: viewer.companyId,
+        productId: input.productId,
+        productBarcode: input.productBarcode,
+        stockLotId: input.stockLotId,
+      });
+      const movement = await createStockMovement(tx, {
+        companyId: viewer.companyId,
+        actorProfileId: viewer.profileId,
+        productId: target.product.id,
+        terminalId: input.terminalId,
+        quantityDelta: -input.quantity,
+        movementType: "waste",
+        sourceType: `stock_${input.reason}`,
+        referenceNumber,
+        notes: [
+          input.reason,
+          target.stockLot?.batchNumber
+            ? `batch ${target.stockLot.batchNumber}`
+            : null,
+          input.notes,
+        ]
+          .filter(Boolean)
+          .join(" - "),
+        stockLotId: target.stockLot?.id ?? null,
+        updateStockLot: Boolean(target.stockLot?.id),
+        unitCost: target.stockLot
+          ? Number(target.stockLot.unitCost)
+          : Number(target.product.cost ?? 0),
+      });
+
+      await auditLogService.create(tx, {
+        companyId: viewer.companyId,
+        actorProfileId: viewer.profileId,
+        posTerminalId: input.terminalId,
+        actionType: "stock_disposition_created",
+        referenceId: movement.id,
+        changes: JSON.stringify({
+          referenceNumber,
+          reason: input.reason,
+          productId: target.product.id,
+          stockLotId: target.stockLot?.id ?? null,
+          quantity: input.quantity,
+          notes: input.notes,
+        }),
+      });
     });
   },
 
@@ -418,6 +838,46 @@ export const managementWorkflowService = {
           entityId: expense.id,
         });
       }
+    });
+  },
+
+  async createNonSalesIncome(input: z.infer<typeof nonSalesIncomeCreateSchema>) {
+    const viewer = await requireViewer();
+    const referenceNumber = await nextReference(
+      "INC",
+      viewer.companyId,
+      "nonSalesIncome",
+    );
+
+    await prisma.$transaction(async (tx) => {
+      const income = await tx.nonSalesIncome.create({
+        data: {
+          referenceNumber,
+          companyId: viewer.companyId,
+          terminalId: input.terminalId,
+          createdById: viewer.profileId,
+          incomeDate: input.incomeDate,
+          source: input.source,
+          amount: new Prisma.Decimal(input.amount),
+          externalReference: input.externalReference,
+          notes: input.notes,
+        },
+      });
+
+      await auditLogService.create(tx, {
+        companyId: viewer.companyId,
+        actorProfileId: viewer.profileId,
+        posTerminalId: input.terminalId,
+        actionType: "non_sales_income_created",
+        referenceId: income.id,
+        amount: input.amount,
+        changes: JSON.stringify({
+          referenceNumber,
+          source: input.source,
+          externalReference: input.externalReference,
+          notes: input.notes,
+        }),
+      });
     });
   },
 

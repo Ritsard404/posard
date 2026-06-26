@@ -196,6 +196,7 @@ function MobileCard({
             <span>{product.itemType}</span>
             <span>{product.vatType}</span>
             {product.barcode ? <span>Barcode {product.barcode}</span> : null}
+            {product.posFavorite ? <span>POS Favorite</span> : null}
             {product.prescriptionRequired ? <span>Prescription</span> : null}
           </div>
         </div>
@@ -439,6 +440,11 @@ export function ProductDataTable({
                   <td className="px-5 py-4">
                     <div className="flex flex-col items-start gap-1.5">
                       <AvailabilityBadge available={product.isAvailable} />
+                      {product.posFavorite ? (
+                        <Badge variant="outline" className="border-primary/40 text-primary">
+                          POS Favorite
+                        </Badge>
+                      ) : null}
                       {product.prescriptionRequired ? (
                         <Badge variant="outline" className="border-amber-500/40 text-amber-600">
                           Prescription

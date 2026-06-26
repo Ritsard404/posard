@@ -82,20 +82,32 @@ export function ProductDisplay() {
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return products.filter((p) => {
-      const matchesSearch =
-        !query ||
-        [
-          p.name,
-          p.barcode,
-          p.genericName,
-          p.brandName,
-          p.categoryName,
-          p.preferredSupplierName,
-        ].some((field) => field?.toLowerCase().includes(query));
-      const matchesCategory = selectedCategoryId ? p.categoryId === selectedCategoryId : true;
-      return matchesSearch && matchesCategory;
-    });
+    return products
+      .filter((p) => {
+        const matchesSearch =
+          !query ||
+          [
+            p.name,
+            p.barcode,
+            p.genericName,
+            p.brandName,
+            p.categoryName,
+            p.preferredSupplierName,
+          ].some((field) => field?.toLowerCase().includes(query));
+        const matchesCategory = selectedCategoryId ? p.categoryId === selectedCategoryId : true;
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => {
+        if (a.posFavorite !== b.posFavorite) {
+          return a.posFavorite ? -1 : 1;
+        }
+
+        if (a.recentSoldQuantity !== b.recentSoldQuantity) {
+          return b.recentSoldQuantity - a.recentSoldQuantity;
+        }
+
+        return a.name.localeCompare(b.name);
+      });
   }, [searchQuery, selectedCategoryId, products]);
 
   const selectedCategory = useMemo(

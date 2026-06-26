@@ -293,7 +293,13 @@ model Profile {
   permissionOverridesCreated        UserPermissionOverride[] @relation("CreatedUserPermissionOverrides")
   expensesCreated                   Expense[]            @relation("ExpenseCreatedBy")
   expensesApproved                  Expense[]            @relation("ExpenseApprovedBy")
+  nonSalesIncomesCreated            NonSalesIncome[]     @relation("NonSalesIncomeCreatedBy")
   stockMovementsCreated             StockMovement[]      @relation("StockMovementCreatedBy")
+  stockCountsCreated                 StockCountSession[]  @relation("StockCountCreatedBy")
+  stockCountsAssigned                StockCountSession[]  @relation("StockCountAssignedTo")
+  stockCountsSubmitted               StockCountSession[]  @relation("StockCountSubmittedBy")
+  stockCountsApproved                StockCountSession[]  @relation("StockCountApprovedBy")
+  revenueGoalsCreated                RevenueGoal[]        @relation("RevenueGoalCreatedBy")
   purchaseOrdersCreated             PurchaseOrder[]      @relation("PurchaseOrderCreatedBy")
   purchaseOrdersApproved            PurchaseOrder[]      @relation("PurchaseOrderApprovedBy")
   receivingRecordsPosted            ReceivingRecord[]    @relation("ReceivingPostedBy")
@@ -434,8 +440,11 @@ model Company {
   syncIssues        OfflineSyncIssue[]
   expenseCategories ExpenseCategory[]
   expenses          Expense[]
+  nonSalesIncomes   NonSalesIncome[]
   stockMovements    StockMovement[]
   stockLots         StockLot[]
+  stockCountSessions StockCountSession[]
+  revenueGoals     RevenueGoal[]
   suppliers         Supplier[]
   purchaseOrders    PurchaseOrder[]
   receivingRecords  ReceivingRecord[]
@@ -460,6 +469,29 @@ model Company {
   auditLogs      AuditLog[]
 
   @@map("company")
+  @@schema("public")
+}
+
+model RevenueGoal {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_revenue_goal") @db.Uuid
+
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  month        DateTime @db.Date
+  targetAmount Decimal  @map("target_amount") @db.Decimal(19, 4)
+  notes        String?
+
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdBy   Profile? @relation("RevenueGoalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([companyId, month], name: "uk_revenue_goal_company_month")
+  @@index([companyId, month])
+  @@index([createdById])
+  @@map("revenue_goal")
   @@schema("public")
 }
 
@@ -606,6 +638,7 @@ model PosTerminalInfo {
   approvalRequests     ApprovalRequest[]
   syncIssues           OfflineSyncIssue[]
   expenses             Expense[]
+  nonSalesIncomes      NonSalesIncome[]
   stockMovements       StockMovement[]
   branchTransfersFrom  BranchTransfer[] @relation("SourceTerminalTransfers")
   branchTransfersTo    BranchTransfer[] @relation("DestinationTerminalTransfers")
@@ -1054,6 +1087,7 @@ model Product {
   brandName         String?       @map("brand_name")
   shelfLocation     String?       @map("shelf_location")
   prescriptionRequired Boolean    @default(false) @map("prescription_required")
+  posFavorite       Boolean       @default(false) @map("pos_favorite")
   reorderPoint      Decimal?      @map("reorder_point") @db.Decimal(19, 4)
   baseUnit          String        @default("") @map("base_unit") @db.VarChar(50)
   quantity          Decimal?      @db.Decimal(19, 4)
@@ -1095,6 +1129,7 @@ model Product {
   items     Item[]
   stockMovements StockMovement[]
   stockLots StockLot[]
+  stockCountItems StockCountItem[]
   purchaseOrderItems PurchaseOrderItem[]
   receivingItems ReceivingItem[]
   branchTransferItems BranchTransferItem[]
@@ -1104,6 +1139,7 @@ model Product {
   @@unique([companyId, barcode], name: "uk_product_company_barcode")
   @@index([categoryId])
   @@index([companyId])
+  @@index([companyId, posFavorite])
   @@index([preferredSupplierId])
   @@index([companyId, genericName])
   @@index([companyId, brandName])
@@ -1228,6 +1264,7 @@ model Inventory {
 enum DiscountType {
   PWD
   SENIOR
+  DSWD
   OTHERS
 
   @@map("discount_type")
@@ -1592,6 +1629,9 @@ model Item {
   basePrice             Decimal?          @map("base_price") @db.Decimal(19, 4)
   specialInstructions   String?           @map("special_instructions")
   configurationSnapshot Json?             @map("configuration_snapshot")
+  prescriptionRequired  Boolean           @default(false) @map("prescription_required")
+  prescriptionConfirmed Boolean           @default(false) @map("prescription_confirmed")
+  prescriptionReference String?            @map("prescription_reference")
 
   isTrainingMode Boolean @default(false) @map("is_training_mode")
 
@@ -1817,6 +1857,17 @@ enum StockLotStatus {
   @@schema("public")
 }
 
+enum StockCountStatus {
+  draft
+  submitted
+  approved
+  rejected
+  cancelled
+
+  @@map("stock_count_status")
+  @@schema("public")
+}
+
 enum BranchTransferStatus {
   draft
   pending_approval
@@ -1943,6 +1994,34 @@ model Expense {
   @@index([terminalId])
   @@index([categoryId])
   @@map("expense")
+  @@schema("public")
+}
+
+model NonSalesIncome {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_non_sales_income") @db.Uuid
+
+  referenceNumber String @unique @map("reference_number")
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId String? @map("terminal_id") @db.Uuid
+  terminal PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  createdById String @map("created_by_id") @db.Uuid
+  createdBy Profile @relation("NonSalesIncomeCreatedBy", fields: [createdById], references: [id])
+
+  incomeDate DateTime @map("income_date") @db.Date
+  source String
+  amount Decimal @db.Decimal(15, 2)
+  externalReference String? @map("external_reference")
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, incomeDate])
+  @@index([terminalId])
+  @@index([source])
+  @@index([createdById])
+  @@map("non_sales_income")
   @@schema("public")
 }
 
@@ -2105,6 +2184,7 @@ model StockLot {
   status StockLotStatus @default(available)
   receivedAt DateTime? @map("received_at") @db.Timestamptz
   stockMovements StockMovement[]
+  stockCountItems StockCountItem[]
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -2112,6 +2192,58 @@ model StockLot {
   @@index([productId, expiryDate])
   @@index([supplierId])
   @@map("stock_lot")
+  @@schema("public")
+}
+
+model StockCountSession {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countNumber String @unique @map("count_number")
+  companyId String @map("company_id") @db.Uuid
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId String? @map("terminal_id") @db.Uuid
+  createdById String @map("created_by_id") @db.Uuid
+  createdBy Profile @relation("StockCountCreatedBy", fields: [createdById], references: [id])
+  assignedToId String? @map("assigned_to_id") @db.Uuid
+  assignedTo Profile? @relation("StockCountAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  submittedById String? @map("submitted_by_id") @db.Uuid
+  submittedBy Profile? @relation("StockCountSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  approvedById String? @map("approved_by_id") @db.Uuid
+  approvedBy Profile? @relation("StockCountApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  status StockCountStatus @default(draft)
+  notes String?
+  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz
+  items StockCountItem[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, status, createdAt])
+  @@index([assignedToId])
+  @@map("stock_count_session")
+  @@schema("public")
+}
+
+model StockCountItem {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+  session StockCountSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  productId String @map("product_id") @db.Uuid
+  product Product @relation(fields: [productId], references: [id])
+  stockLotId String? @map("stock_lot_id") @db.Uuid
+  stockLot StockLot? @relation(fields: [stockLotId], references: [id], onDelete: SetNull)
+  expectedQuantity Decimal @map("expected_quantity") @db.Decimal(19, 4)
+  countedQuantity Decimal? @map("counted_quantity") @db.Decimal(19, 4)
+  varianceQuantity Decimal? @map("variance_quantity") @db.Decimal(19, 4)
+  notes String?
+  countedAt DateTime? @map("counted_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([sessionId])
+  @@index([productId])
+  @@index([stockLotId])
+  @@map("stock_count_item")
   @@schema("public")
 }
 

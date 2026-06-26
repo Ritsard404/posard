@@ -6,12 +6,16 @@ import { managementWorkflowService } from "../_services/management-workflow.serv
 import {
   expenseCreateSchema,
   expenseTransitionSchema,
+  nonSalesIncomeCreateSchema,
   purchaseOrderCreateSchema,
   purchaseOrderReceiveSchema,
   purchaseOrderTransitionSchema,
   promotionCreateSchema,
   promotionTransitionSchema,
   stockAdjustmentSchema,
+  stockCountCreateSchema,
+  stockCountTransitionSchema,
+  stockDispositionSchema,
   supplierArchiveSchema,
   supplierUpsertSchema,
   kitchenTicketTransitionSchema,
@@ -38,6 +42,36 @@ export async function createStockAdjustmentAction(formData: FormData): Promise<v
   }
 }
 
+export async function createStockCountAction(formData: FormData): Promise<void> {
+  try {
+    const input = stockCountCreateSchema.parse(formObject(formData));
+    await managementWorkflowService.createStockCountSession(input);
+    revalidatePath("/inventory-ledger");
+  } catch (error) {
+    failure(error);
+  }
+}
+
+export async function transitionStockCountAction(formData: FormData): Promise<void> {
+  try {
+    const input = stockCountTransitionSchema.parse(formObject(formData));
+    await managementWorkflowService.transitionStockCount(input);
+    revalidatePath("/inventory-ledger");
+  } catch (error) {
+    failure(error);
+  }
+}
+
+export async function createStockDispositionAction(formData: FormData): Promise<void> {
+  try {
+    const input = stockDispositionSchema.parse(formObject(formData));
+    await managementWorkflowService.createStockDisposition(input);
+    revalidatePath("/inventory-ledger");
+  } catch (error) {
+    failure(error);
+  }
+}
+
 export async function createExpenseAction(formData: FormData): Promise<void> {
   try {
     const input = expenseCreateSchema.parse(formObject(formData));
@@ -53,6 +87,17 @@ export async function transitionExpenseAction(formData: FormData): Promise<void>
     const input = expenseTransitionSchema.parse(formObject(formData));
     await managementWorkflowService.transitionExpense(input);
     revalidatePath("/expenses");
+  } catch (error) {
+    failure(error);
+  }
+}
+
+export async function createNonSalesIncomeAction(formData: FormData): Promise<void> {
+  try {
+    const input = nonSalesIncomeCreateSchema.parse(formObject(formData));
+    await managementWorkflowService.createNonSalesIncome(input);
+    revalidatePath("/expenses");
+    revalidatePath("/reports/non-sales-income");
   } catch (error) {
     failure(error);
   }

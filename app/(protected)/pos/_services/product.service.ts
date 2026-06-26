@@ -4,78 +4,98 @@ import { ProductDto, ItemType, VatType } from "./_dto/pos.dto";
 
 export const productService = {
   async getProducts(companyId?: string): Promise<ProductDto[]> {
-    const products = await prisma.product.findMany({
-      where: {
-        isDeleted: false,
-        isAvailable: true,
-        ...(companyId ? { companyId } : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        productImageUrl: true,
-        barcode: true,
-        genericName: true,
-        brandName: true,
-        shelfLocation: true,
-        prescriptionRequired: true,
-        reorderPoint: true,
-        preferredSupplierId: true,
-        preferredSupplier: { select: { name: true } },
-        stockLots: {
-          where: { quantityOnHand: { gt: 0 } },
-          orderBy: [{ expiryDate: "asc" }, { receivedAt: "asc" }],
-          select: {
-            expiryDate: true,
-            quantityOnHand: true,
-            status: true,
-          },
+    const recentStart = new Date();
+    recentStart.setDate(recentStart.getDate() - 30);
+
+    const [products, recentSales] = await Promise.all([
+      prisma.product.findMany({
+        where: {
+          isDeleted: false,
+          isAvailable: true,
+          ...(companyId ? { companyId } : {}),
         },
-        baseUnit: true,
-        quantity: true,
-        cost: true,
-        price: true,
-        isAvailable: true,
-        trackInventory: true,
-        itemType: true,
-        vatType: true,
-        categoryId: true,
-        category: { select: { categoryName: true } },
-        isConfigurable: true,
-        configurationMode: true,
-        modifierGroups: {
-          orderBy: { displayOrder: "asc" },
-          select: {
-            displayOrder: true,
-            modifierGroup: {
-              select: {
-                id: true,
-                name: true,
-                type: true,
-                required: true,
-                minSelect: true,
-                maxSelect: true,
-                displayOrder: true,
-                options: {
-                  where: { isActive: true },
-                  orderBy: { displayOrder: "asc" },
-                  select: {
-                    id: true,
-                    name: true,
-                    priceDelta: true,
-                    displayOrder: true,
-                    isDefault: true,
+        select: {
+          id: true,
+          name: true,
+          productImageUrl: true,
+          barcode: true,
+          genericName: true,
+          brandName: true,
+          shelfLocation: true,
+          prescriptionRequired: true,
+          posFavorite: true,
+          reorderPoint: true,
+          preferredSupplierId: true,
+          preferredSupplier: { select: { name: true } },
+          stockLots: {
+            where: { quantityOnHand: { gt: 0 } },
+            orderBy: [{ expiryDate: "asc" }, { receivedAt: "asc" }],
+            select: {
+              expiryDate: true,
+              quantityOnHand: true,
+              status: true,
+            },
+          },
+          baseUnit: true,
+          quantity: true,
+          cost: true,
+          price: true,
+          isAvailable: true,
+          trackInventory: true,
+          itemType: true,
+          vatType: true,
+          categoryId: true,
+          category: { select: { categoryName: true } },
+          isConfigurable: true,
+          configurationMode: true,
+          modifierGroups: {
+            orderBy: { displayOrder: "asc" },
+            select: {
+              displayOrder: true,
+              modifierGroup: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  required: true,
+                  minSelect: true,
+                  maxSelect: true,
+                  displayOrder: true,
+                  options: {
+                    where: { isActive: true },
+                    orderBy: { displayOrder: "asc" },
+                    select: {
+                      id: true,
+                      name: true,
+                      priceDelta: true,
+                      displayOrder: true,
+                      isDefault: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-      orderBy: {
-        name: "asc"
-      }
-    });
+        orderBy: [{ posFavorite: "desc" }, { name: "asc" }],
+      }),
+      prisma.item.groupBy({
+        by: ["productId"],
+        where: {
+          status: { not: "VOID" },
+          invoice: {
+            createdAt: { gte: recentStart },
+            status: { in: ["PAID", "RETURNED"] },
+            ...(companyId ? { posTerminal: { companyId } } : {}),
+          },
+        },
+        _sum: { qty: true },
+      }),
+    ]);
+
+    const recentSalesByProduct = new Map(
+      recentSales.map((row) => [row.productId, Number(row._sum.qty ?? 0)]),
+    );
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -119,6 +139,8 @@ export const productService = {
       brandName: p.brandName,
       shelfLocation: p.shelfLocation,
       prescriptionRequired: p.prescriptionRequired,
+      posFavorite: p.posFavorite,
+      recentSoldQuantity: recentSalesByProduct.get(p.id) ?? 0,
       reorderPoint: p.reorderPoint === null ? null : Number(p.reorderPoint),
       preferredSupplierId: p.preferredSupplierId,
       preferredSupplierName: p.preferredSupplier?.name ?? null,

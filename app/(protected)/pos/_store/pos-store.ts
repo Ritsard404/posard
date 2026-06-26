@@ -49,7 +49,7 @@ export interface CartItem extends Product {
   basePrice?: number;
 }
 
-export type DiscountType = "NONE" | "OTHERS" | "PWD" | "SENIOR";
+export type DiscountType = "NONE" | "OTHERS" | "PWD" | "SENIOR" | "DSWD";
 export interface POSDiscount {
   type: DiscountType;
   eligibleDiscName: string;

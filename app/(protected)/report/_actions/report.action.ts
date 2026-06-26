@@ -14,8 +14,13 @@ import type {
   AuditTrailDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InventoryValueReportDto,
+  NonSalesIncomeReportDto,
   InvoiceDocumentPrintPayloadDto,
+  ProductProfitReportDto,
+  ProductVelocityReportDto,
   RefundInvoicesDto,
+  RevenueGoalReportDto,
   ReportCompaniesWorkspaceDto,
   ReportCompanyContextDto,
   ReportInvoicePrintPayloadDto,
@@ -353,6 +358,29 @@ export async function getSeniorDiscountReportAction(
   }
 }
 
+export async function getDswdDiscountReportAction(
+  input?: unknown,
+): Promise<DataResult<DiscountReportDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportInputSchema.parse(input ?? {});
+    const range = resolveRange(validated);
+    const pagination = resolvePagination(validated);
+    const data = await reportService.getDiscountReport(viewer, {
+      ...validated,
+      ...range,
+      ...pagination,
+      type: "DSWD",
+    });
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load DSWD report"),
+    };
+  }
+}
+
 export async function getSalesReportAction(
   input?: unknown,
 ): Promise<DataResult<SalesReportDto>> {
@@ -371,6 +399,116 @@ export async function getSalesReportAction(
     return {
       success: false,
       error: toErrorMessage(error, "Failed to load sales report"),
+    };
+  }
+}
+
+export async function getProductVelocityReportAction(
+  input?: unknown,
+): Promise<DataResult<ProductVelocityReportDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportInputSchema.parse(input ?? {});
+    const range = resolveRange(validated);
+    const pagination = resolvePagination(validated);
+    const data = await reportService.getProductVelocityReport(viewer, {
+      ...validated,
+      ...range,
+      ...pagination,
+    });
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load product velocity report"),
+    };
+  }
+}
+
+export async function getProductProfitReportAction(
+  input?: unknown,
+): Promise<DataResult<ProductProfitReportDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportInputSchema.parse(input ?? {});
+    const range = resolveRange(validated);
+    const pagination = resolvePagination(validated);
+    const data = await reportService.getProductProfitReport(viewer, {
+      ...validated,
+      ...range,
+      ...pagination,
+    });
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load product profit report"),
+    };
+  }
+}
+
+export async function getInventoryValueReportAction(
+  input?: unknown,
+): Promise<DataResult<InventoryValueReportDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportInputSchema.parse(input ?? {});
+    const range = resolveRange(validated);
+    const pagination = resolvePagination(validated);
+    const data = await reportService.getInventoryValueReport(viewer, {
+      ...validated,
+      ...range,
+      ...pagination,
+    });
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load inventory value report"),
+    };
+  }
+}
+
+export async function getRevenueGoalReportAction(
+  input?: unknown,
+): Promise<DataResult<RevenueGoalReportDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportInputSchema.parse(input ?? {});
+    const range = resolveRange(validated);
+    const pagination = resolvePagination(validated);
+    const data = await reportService.getRevenueGoalReport(viewer, {
+      ...validated,
+      ...range,
+      ...pagination,
+    });
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load revenue goal report"),
+    };
+  }
+}
+
+export async function getNonSalesIncomeReportAction(
+  input?: unknown,
+): Promise<DataResult<NonSalesIncomeReportDto>> {
+  try {
+    const viewer = await reportAccessService.getViewer();
+    const validated = ReportInputSchema.parse(input ?? {});
+    const range = resolveRange(validated);
+    const pagination = resolvePagination(validated);
+    const data = await reportService.getNonSalesIncomeReport(viewer, {
+      ...validated,
+      ...range,
+      ...pagination,
+    });
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, "Failed to load non-sales income report"),
     };
   }
 }

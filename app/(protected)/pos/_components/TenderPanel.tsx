@@ -61,6 +61,13 @@ export function TenderPanel() {
         discountOscaIdNum={flow.discount.oscaIdNum}
         isDiscountMetadataValid={flow.isDiscountMetadataValid}
         isReferencePaymentValid={flow.isReferencePaymentValid}
+        requiresPrescriptionConfirmation={flow.requiresPrescriptionConfirmation}
+        prescriptionConfirmed={flow.prescriptionConfirmed}
+        setPrescriptionConfirmed={flow.setPrescriptionConfirmed}
+        prescriptionReference={flow.prescriptionReference}
+        setPrescriptionReference={flow.setPrescriptionReference}
+        isPrescriptionValid={flow.isPrescriptionValid}
+        prescriptionItems={flow.prescriptionItems}
         change={flow.change}
         canComplete={flow.canComplete}
         isBillingLocked={flow.isBillingLocked}

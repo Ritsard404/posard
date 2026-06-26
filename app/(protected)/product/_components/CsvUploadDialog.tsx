@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import * as XLSX from "xlsx";
 import {
   Download,
   FileSpreadsheet,
@@ -84,6 +85,24 @@ function worksheetToCsv(xmlText: string): string {
     .join("\n");
 }
 
+function workbookToCsv(buffer: ArrayBuffer): string {
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheetName = workbook.SheetNames.includes("Products")
+    ? "Products"
+    : workbook.SheetNames[0];
+
+  if (!sheetName) {
+    throw new Error("The workbook does not contain any sheets.");
+  }
+
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) {
+    throw new Error("The workbook sheet could not be read.");
+  }
+
+  return XLSX.utils.sheet_to_csv(sheet);
+}
+
 function normalizeUploadedText(text: string): string {
   const trimmedStart = text.trimStart();
 
@@ -93,7 +112,7 @@ function normalizeUploadedText(text: string): string {
 
   if (trimmedStart.startsWith("PK")) {
     throw new Error(
-      "XLSX files are not supported for upload yet. Export the Products sheet as CSV, or use the downloaded POSARD .xls template.",
+      "This looks like a binary workbook. Choose the .xlsx file from the file picker so it can be parsed correctly.",
     );
   }
 
@@ -219,11 +238,26 @@ export function CsvUploadDialog({
 
     setFileName(file.name);
 
+    const isWorkbook =
+      /\.(xlsx|xlsm)$/i.test(file.name) ||
+      file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      file.type === "application/vnd.ms-excel.sheet.macroEnabled.12";
+
     const reader = new FileReader();
     reader.onload = (loadEvent) => {
       try {
-        const text = String(loadEvent.target?.result ?? "");
-        setCsvText(normalizeUploadedText(text));
+        const result = loadEvent.target?.result;
+        let nextCsv: string;
+        if (isWorkbook) {
+          if (!(result instanceof ArrayBuffer)) {
+            throw new Error("The workbook file could not be read.");
+          }
+          nextCsv = workbookToCsv(result);
+        } else {
+          nextCsv = normalizeUploadedText(String(result ?? ""));
+        }
+
+        setCsvText(nextCsv);
         setPreview(null);
       } catch (readError) {
         setCsvText("");
@@ -235,7 +269,11 @@ export function CsvUploadDialog({
         );
       }
     };
-    reader.readAsText(file);
+    if (isWorkbook) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file);
+    }
   }
 
   async function handleDownloadTemplate() {
@@ -303,7 +341,7 @@ export function CsvUploadDialog({
               Batch Create Products
             </AlertDialogTitle>
             <AlertDialogDescription className="text-left">
-              Upload the standardized CSV template, review normalized rows, then confirm the import once every row is valid.
+              Upload the standardized CSV or Excel template, review normalized rows, then confirm the import once every row is valid.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -327,14 +365,14 @@ export function CsvUploadDialog({
               className="cursor-pointer rounded-2xl border-2 border-dashed border-border bg-muted/20 px-4 py-8 text-center transition-colors hover:border-primary/40 hover:bg-muted/40"
             >
               <Upload className="mx-auto size-7 text-muted-foreground" />
-              <p className="mt-3 font-medium">{fileName ?? "Tap to choose a CSV file"}</p>
+              <p className="mt-3 font-medium">{fileName ?? "Tap to choose a CSV or Excel file"}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Quoted values and commas inside fields are supported.
+                CSV, legacy .xls XML, and .xlsx workbooks are supported.
               </p>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.xls,.xml,text/csv,application/vnd.ms-excel"
+                accept=".csv,.xls,.xml,.xlsx,.xlsm,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12"
                 onChange={handleFileChange}
                 className="hidden"
               />

@@ -759,6 +759,19 @@ async function createInvoiceItems(
   items: ItemRequestDto[],
   isTrainMode: boolean,
 ) {
+  const missingPrescriptionConfirmation = items.find(
+    (item) =>
+      item.prescriptionRequired &&
+      item.status !== "VOID" &&
+      !item.prescriptionConfirmed,
+  );
+
+  if (missingPrescriptionConfirmation) {
+    throw new Error(
+      "Prescription-required items must be confirmed before checkout.",
+    );
+  }
+
   const hasSelections = items.some(
     (item) => item.selections?.length || item.specialInstructions?.trim(),
   );
@@ -774,6 +787,9 @@ async function createInvoiceItems(
         subTotal: item.status === "VOID" ? 0 : item.subTotal,
         status: item.status || ("PAID" satisfies InvoiceStatusType),
         isTrainingMode: isTrainMode,
+        prescriptionRequired: item.prescriptionRequired ?? false,
+        prescriptionConfirmed: item.prescriptionConfirmed ?? false,
+        prescriptionReference: item.prescriptionReference?.trim() || null,
       })),
     });
     return;
@@ -790,6 +806,9 @@ async function createInvoiceItems(
       subTotal: item.status === "VOID" ? 0 : item.subTotal,
       status: item.status || ("PAID" satisfies InvoiceStatusType),
       isTrainingMode: isTrainMode,
+      prescriptionRequired: item.prescriptionRequired ?? false,
+      prescriptionConfirmed: item.prescriptionConfirmed ?? false,
+      prescriptionReference: item.prescriptionReference?.trim() || null,
       specialInstructions: item.specialInstructions?.trim() || null,
       configurationSnapshot: item.selections?.length
         ? (item.selections as unknown as Prisma.InputJsonValue)

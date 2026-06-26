@@ -6,8 +6,13 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InventoryValueReportDto,
   InvoiceDocumentsDto,
+  NonSalesIncomeReportDto,
+  ProductProfitReportDto,
+  ProductVelocityReportDto,
   RefundInvoicesDto,
+  RevenueGoalReportDto,
   ReportOverviewDto,
   ReportPaymentBreakdownDto,
   ReportPrintPayloadDto,
@@ -41,7 +46,12 @@ type ReportDetailDto =
   | DebtOutstandingDto
   | DailyTransactionsDto
   | DiscountReportDto
+  | InventoryValueReportDto
+  | NonSalesIncomeReportDto
   | RefundInvoicesDto
+  | ProductProfitReportDto
+  | ProductVelocityReportDto
+  | RevenueGoalReportDto
   | ReturnedInvoiceRecordsDto
   | ReturnedItemsDto
   | SalesReportDto
@@ -347,6 +357,91 @@ function buildSalesBookLines(report: SalesBookDto) {
   ];
 }
 
+function buildProductProfitLines(report: ProductProfitReportDto) {
+  return [
+    labelValue("Range", `${formatDate(report.range.from)} - ${formatDate(report.range.to)}`),
+    labelValue("Revenue", formatCurrency(report.totals.revenue)),
+    labelValue("Gross Profit", formatCurrency(report.totals.grossProfit)),
+    labelValue("Margin", `${report.totals.grossMarginPercent.toFixed(1)}%`),
+    divider(),
+    "PROFIT PER PRODUCT",
+    ...report.items.flatMap((item) => [
+      item.name,
+      labelValue("Qty", item.soldQuantity.toFixed(2)),
+      labelValue("Revenue", formatCurrency(item.revenue)),
+      labelValue("Profit", formatCurrency(item.grossProfit)),
+      divider(),
+    ]),
+  ];
+}
+
+function buildProductVelocityLines(report: ProductVelocityReportDto) {
+  return [
+    labelValue("Range", `${formatDate(report.range.from)} - ${formatDate(report.range.to)}`),
+    labelValue("Fast", String(report.totals.fast)),
+    labelValue("Slow/Idle", String(report.totals.slow + report.totals.idle)),
+    labelValue("High Risk", String(report.totals.highRisk)),
+    divider(),
+    "FAST / SLOW MOVING",
+    ...report.items.flatMap((item) => [
+      item.name,
+      labelValue("Sold", item.soldQuantity.toFixed(2)),
+      labelValue("On Hand", item.quantityOnHand.toFixed(2)),
+      labelValue("Velocity", item.velocity),
+      labelValue("Risk", item.riskLevel),
+      divider(),
+    ]),
+  ];
+}
+
+function buildInventoryValueLines(report: InventoryValueReportDto) {
+  return [
+    labelValue("Rows", String(report.pagination.totalItems)),
+    labelValue("Cost Value", formatCurrency(report.totals.costValue)),
+    labelValue("Retail Value", formatCurrency(report.totals.retailValue)),
+    labelValue("Potential Profit", formatCurrency(report.totals.potentialProfit)),
+    divider(),
+    "INVENTORY VALUE",
+    ...report.items.flatMap((item) => [
+      item.productName,
+      labelValue("Batch", item.batchNumber ?? "Unbatched"),
+      labelValue("Qty", item.quantityOnHand.toFixed(2)),
+      labelValue("Value", formatCurrency(item.costValue)),
+      divider(),
+    ]),
+  ];
+}
+
+function buildRevenueGoalLines(report: RevenueGoalReportDto) {
+  return [
+    labelValue("Month", formatDate(report.month)),
+    labelValue("Target", formatCurrency(report.targetAmount)),
+    labelValue("Actual", formatCurrency(report.actualSales)),
+    labelValue("Variance", formatCurrency(report.varianceAmount)),
+    labelValue("Progress", `${report.progressPercent.toFixed(1)}%`),
+    labelValue("Daily Run-rate", formatCurrency(report.dailyRunRate)),
+    labelValue("Needed/Day", formatCurrency(report.requiredDailyRunRate)),
+    labelValue("Projected", formatCurrency(report.projectedMonthEndSales)),
+  ];
+}
+
+function buildNonSalesIncomeLines(report: NonSalesIncomeReportDto) {
+  return [
+    labelValue("Range", `${formatDate(report.range.from)} - ${formatDate(report.range.to)}`),
+    labelValue("Total", formatCurrency(report.totalAmount)),
+    labelValue("Rows", String(report.pagination.totalItems)),
+    divider(),
+    "NON-SALES INCOME",
+    ...report.items.flatMap((item) => [
+      item.referenceNumber,
+      labelValue("Date", formatDate(item.incomeDate)),
+      labelValue("Source", item.source),
+      labelValue("Amount", formatCurrency(item.amount)),
+      divider(),
+    ]),
+  ];
+}
+
 function buildRefundInvoiceLines(report: RefundInvoicesDto) {
   return [
     labelValue("Range", `${formatDate(report.range.from)} - ${formatDate(report.range.to)}`),
@@ -415,11 +510,22 @@ function buildBody(view: ReportPrintableView, overview: ReportOverviewDto | null
       return detail ? buildVoidedLines(detail as VoidedListDto) : null;
     case "pwd-list":
     case "senior-list":
+    case "dswd-list":
       return detail ? buildTransactionLedgerLines(detail as DiscountReportDto) : null;
     case "audit":
       return detail ? buildAuditLines(detail as AuditTrailDto) : null;
     case "sales":
       return detail ? buildSalesLines(detail as SalesReportDto) : null;
+    case "product-profit":
+      return detail ? buildProductProfitLines(detail as ProductProfitReportDto) : null;
+    case "movement-velocity":
+      return detail ? buildProductVelocityLines(detail as ProductVelocityReportDto) : null;
+    case "inventory-value":
+      return detail ? buildInventoryValueLines(detail as InventoryValueReportDto) : null;
+    case "revenue-goal":
+      return detail ? buildRevenueGoalLines(detail as RevenueGoalReportDto) : null;
+    case "non-sales-income":
+      return detail ? buildNonSalesIncomeLines(detail as NonSalesIncomeReportDto) : null;
     case "sales-book":
       return detail ? buildSalesBookLines(detail as SalesBookDto) : null;
     case "refund-invoices":
@@ -459,10 +565,22 @@ function getTitle(view: ReportPrintableView) {
       return "PWD List";
     case "senior-list":
       return "Senior List";
+    case "dswd-list":
+      return "DSWD List";
     case "audit":
       return "Audit Trail";
     case "sales":
       return "Sales Report";
+    case "product-profit":
+      return "Profit Per Product";
+    case "movement-velocity":
+      return "Fast/Slow Moving";
+    case "inventory-value":
+      return "Inventory Value";
+    case "revenue-goal":
+      return "Revenue Goal";
+    case "non-sales-income":
+      return "Non-Sales Income";
     case "sales-book":
       return "Sales Book";
     case "refund-invoices":

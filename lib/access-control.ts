@@ -19,6 +19,7 @@ import {
   CreditCard,
   FileBarChart2,
   FileClock,
+  FileSpreadsheet,
   HelpCircle,
   ListX,
   MonitorCog,
@@ -70,10 +71,12 @@ export const routes: RouteConfig[] = appRoutes.map((route) => ({
       ? LayoutDashboard
       : route.href === "/pos"
         ? ShoppingCart
-        : route.href === "/product"
-          ? Package
-          : route.href === "/reports"
-            ? BarChart3
+          : route.href === "/product"
+            ? Package
+            : route.href === "/data-exchange"
+              ? FileSpreadsheet
+            : route.href === "/reports"
+              ? BarChart3
             : route.href === "/reports/ai"
               ? Sparkles
             : route.href === "/accounts"
@@ -208,6 +211,14 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         href: "/expenses",
         permission: "manage.expenses",
         roles: ["manager", "cashier"],
+      },
+      {
+        id: "data-exchange",
+        label: "Data Exchange",
+        icon: FileSpreadsheet,
+        href: "/data-exchange",
+        permission: "view.company.settings",
+        roles: ["manager"],
       },
       {
         id: "suppliers",

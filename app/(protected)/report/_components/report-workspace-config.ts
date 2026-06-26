@@ -10,6 +10,8 @@ import {
   ScanSearch,
   ShieldAlert,
   ShoppingBag,
+  Target,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,7 +33,13 @@ export type ReportPrintableView =
   | "voided-list"
   | "pwd-list"
   | "senior-list"
+  | "dswd-list"
   | "sales"
+  | "product-profit"
+  | "movement-velocity"
+  | "inventory-value"
+  | "revenue-goal"
+  | "non-sales-income"
   | "sales-book"
   | "refund-invoices"
   | "returned-items"
@@ -116,12 +124,66 @@ export const REPORT_VIEWS: ReportViewMeta[] = [
     icon: ShieldAlert,
   },
   {
+    id: "dswd-list",
+    category: "Discount Reports",
+    label: "DSWD List",
+    description: "Transactions with DSWD discount application.",
+    supportingCopy:
+      "Review DSWD discount transactions and amounts applied.",
+    icon: ShieldAlert,
+  },
+  {
     id: "sales",
     category: "Sales Reports",
     label: "Sales Report",
     description: "Item-level sales and profitability.",
     supportingCopy:
       "Break down sold items by revenue and profit contribution.",
+    icon: CreditCard,
+  },
+  {
+    id: "product-profit",
+    category: "Sales Reports",
+    label: "Profit Per Product",
+    description: "Product-level revenue, COGS, profit, margin, and markup.",
+    supportingCopy:
+      "Compare which products create profit, not only sales volume.",
+    icon: TrendingUp,
+  },
+  {
+    id: "movement-velocity",
+    category: "Sales Reports",
+    label: "Fast/Slow Moving",
+    description: "Sale velocity, last sale, on-hand stock, and stockout risk.",
+    supportingCopy:
+      "Identify fast movers, slow movers, idle products, and replenishment risk.",
+    icon: ScanSearch,
+  },
+  {
+    id: "inventory-value",
+    category: "Sales Reports",
+    label: "Inventory Value",
+    description: "Stock value by category, supplier, shelf, batch, and expiry.",
+    supportingCopy:
+      "Review cost value, retail value, and potential profit in on-hand stock.",
+    icon: ClipboardList,
+  },
+  {
+    id: "revenue-goal",
+    category: "Sales Reports",
+    label: "Revenue Goal",
+    description: "Monthly target progress and projected month-end sales.",
+    supportingCopy:
+      "Track variance, daily run-rate, and required sales pace against target.",
+    icon: Target,
+  },
+  {
+    id: "non-sales-income",
+    category: "Sales Reports",
+    label: "Non-Sales Income",
+    description: "Income outside invoice sales, grouped by source and date.",
+    supportingCopy:
+      "Track rebates, service income, deposits, and other income without changing sales totals.",
     icon: CreditCard,
   },
   {
@@ -229,7 +291,7 @@ export const REPORT_CATEGORY_DESCRIPTIONS: Record<ReportCategory, string> = {
   "Voids & Returns":
     "Exceptions, cancelled sales, refunds, and returned item activity.",
   "Discount Reports":
-    "Qualified discount transactions for PWD and senior reporting.",
+    "Qualified discount transactions for PWD, senior, and DSWD reporting.",
   "Audit Trail":
     "Manager approvals, control events, and other sensitive actions.",
   Readings: "Shift and end-of-day reading views for operational control.",

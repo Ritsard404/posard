@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -14,12 +14,14 @@ import {
   ServerCog,
   ShieldAlert,
   ShoppingCart,
+  Target,
   WifiOff,
   Wallet,
 } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   ChartContainer,
   ChartLegend,
@@ -30,6 +32,7 @@ import {
 } from "@/components/ui/chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DashboardDataDto } from "../_services/_dto/dashboard.dto";
+import { upsertRevenueGoalAction } from "../_actions/dashboard.actions";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-PH", {
@@ -101,7 +104,11 @@ function MetricCard({
           {label.toLowerCase().includes("sales") ||
           label.toLowerCase().includes("basket") ||
           label.toLowerCase().includes("returns") ||
-          label.toLowerCase().includes("voids")
+          label.toLowerCase().includes("voids") ||
+          label.toLowerCase().includes("target") ||
+          label.toLowerCase().includes("variance") ||
+          label.toLowerCase().includes("projected") ||
+          label.toLowerCase().includes("collected")
             ? formatCurrency(value)
             : formatCompact(value)}
         </p>
@@ -569,6 +576,87 @@ function VarianceInvestigationPanel({ dashboard }: { dashboard: DashboardDataDto
   );
 }
 
+function RevenueGoalPanel({ dashboard }: { dashboard: DashboardDataDto }) {
+  const goal = dashboard.revenueGoal;
+  const [targetAmount, setTargetAmount] = useState(
+    goal ? String(goal.targetAmount || "") : "",
+  );
+  const [notes, setNotes] = useState(goal?.notes ?? "");
+  const [message, setMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  if (!goal) {
+    return null;
+  }
+
+  const progressWidth = `${Math.min(100, Math.max(0, goal.progressPercent))}%`;
+
+  const saveGoal = () => {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await upsertRevenueGoalAction({
+        month: goal.month,
+        targetAmount: Number(targetAmount || 0),
+        notes,
+      });
+
+      setMessage(result.success ? "Goal saved." : result.error ?? "Failed to save goal.");
+    });
+  };
+
+  return (
+    <Section
+      title="Revenue Goal"
+      description="Current month target progress, daily run-rate, and projected month-end sales."
+    >
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Target" value={goal.targetAmount} hint={formatShortDate(goal.month)} />
+          <MetricCard label="Actual Sales" value={goal.actualSales} tone="success" hint={`${goal.progressPercent.toFixed(1)}% complete`} />
+          <MetricCard label="Target Variance" value={goal.varianceAmount} tone={goal.varianceAmount >= 0 ? "success" : "warning"} hint="Actual minus target" />
+          <MetricCard label="Projected Sales" value={goal.projectedMonthEndSales} hint={`${goal.daysRemaining} day(s) remaining`} />
+        </div>
+        <div className="space-y-2">
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-primary" style={{ width: progressWidth }} />
+          </div>
+          <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+            <span>Run-rate: {formatCurrency(goal.dailyRunRate)} per day</span>
+            <span>Needed: {formatCurrency(goal.requiredDailyRunRate)} per remaining day</span>
+          </div>
+        </div>
+
+        {dashboard.role === "manager" ? (
+          <div className="grid gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 sm:grid-cols-[1fr_1.4fr_auto]">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={targetAmount}
+              onChange={(event) => setTargetAmount(event.target.value)}
+              placeholder="Monthly target"
+              className="h-10"
+            />
+            <Input
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Notes"
+              className="h-10"
+            />
+            <Button type="button" onClick={saveGoal} disabled={isPending} className="h-10">
+              <Target className="size-4" />
+              Save
+            </Button>
+            {message ? (
+              <p className="text-xs text-muted-foreground sm:col-span-3">{message}</p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </Section>
+  );
+}
+
 function WorkspaceHealth({ dashboard }: { dashboard: DashboardDataDto }) {
   if (!dashboard.adminWorkspaceStats?.length) {
     return null;
@@ -858,6 +946,8 @@ function OperationsDashboard({ dashboard }: { dashboard: DashboardDataDto }) {
       </div>
 
       <OperationalStatusPanel dashboard={dashboard} />
+
+      <RevenueGoalPanel dashboard={dashboard} />
 
       {dashboard.role === "manager" ? (
         <VarianceInvestigationPanel dashboard={dashboard} />

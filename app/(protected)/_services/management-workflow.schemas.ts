@@ -13,11 +13,53 @@ export const stockAdjustmentSchema = z.object({
   notes: optionalText,
 });
 
+export const stockCountCreateSchema = z.object({
+  productId: uuid.optional().or(z.literal("")).transform((value) => value || null),
+  productBarcode: optionalText,
+  stockLotId: uuid.optional().or(z.literal("")).transform((value) => value || null),
+  terminalId: uuid.optional().or(z.literal("")).transform((value) => value || null),
+  assignedToId: uuid.optional().or(z.literal("")).transform((value) => value || null),
+  countedQuantity: z.coerce.number().min(0).optional().or(z.literal("")).transform((value) => value === "" ? null : value),
+  notes: optionalText,
+}).refine((value) => value.productId || value.productBarcode || value.stockLotId, {
+  message: "Product, barcode, or batch is required.",
+  path: ["productId"],
+});
+
+export const stockCountTransitionSchema = z.object({
+  stockCountSessionId: uuid,
+  action: z.enum(["submit", "approve", "reject", "cancel"]),
+  countedQuantity: z.coerce.number().min(0).optional().or(z.literal("")).transform((value) => value === "" ? null : value),
+  notes: optionalText,
+});
+
+export const stockDispositionSchema = z.object({
+  productId: uuid.optional().or(z.literal("")).transform((value) => value || null),
+  productBarcode: optionalText,
+  stockLotId: uuid.optional().or(z.literal("")).transform((value) => value || null),
+  terminalId: uuid.optional().or(z.literal("")).transform((value) => value || null),
+  reason: z.enum(["damaged", "lost", "expired", "disposed"]),
+  quantity: positiveNumber,
+  notes: optionalText,
+}).refine((value) => value.productId || value.productBarcode || value.stockLotId, {
+  message: "Product, barcode, or batch is required.",
+  path: ["productId"],
+});
+
 export const expenseCreateSchema = z.object({
   categoryId: uuid,
   terminalId: uuid.optional().or(z.literal("")).transform((value) => value || null),
   expenseDate: z.coerce.date(),
   amount: positiveNumber,
+  notes: optionalText,
+});
+
+export const nonSalesIncomeCreateSchema = z.object({
+  source: z.string().trim().min(2).max(120),
+  terminalId: uuid.optional().or(z.literal("")).transform((value) => value || null),
+  incomeDate: z.coerce.date(),
+  amount: positiveNumber,
+  externalReference: optionalText,
   notes: optionalText,
 });
 

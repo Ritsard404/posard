@@ -23,8 +23,12 @@ export interface PaymentCalculationInput {
 
 export function isDiscountWithRequiredMetadata(
   discountType?: DiscountDto["discountType"],
-): discountType is "PWD" | "SENIOR" {
-  return discountType === "PWD" || discountType === "SENIOR";
+): discountType is "PWD" | "SENIOR" | "DSWD" {
+  return (
+    discountType === "PWD" ||
+    discountType === "SENIOR" ||
+    discountType === "DSWD"
+  );
 }
 
 export function getEffectiveDiscountPercent(

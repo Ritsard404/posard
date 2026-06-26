@@ -40,6 +40,8 @@ export interface ProductDto {
   brandName: string | null;
   shelfLocation: string | null;
   prescriptionRequired: boolean;
+  posFavorite: boolean;
+  recentSoldQuantity: number;
   reorderPoint: number | null;
   preferredSupplierId: string | null;
   preferredSupplierName: string | null;

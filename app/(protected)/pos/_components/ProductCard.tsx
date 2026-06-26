@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Product, usePOSStore } from '../_store/pos-store';
-import { Package, Plus } from 'lucide-react';
+import { Package, Plus, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -124,6 +124,12 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
                 Prescription
               </Badge>
             ) : null}
+            {product.posFavorite ? (
+              <Badge variant="outline" className="mt-1 border-primary/40 px-1.5 py-0 text-[8px] font-bold text-primary">
+                <Star className="mr-1 size-2.5" />
+                Favorite
+              </Badge>
+            ) : null}
             {expiryLabel ? (
               <Badge variant="outline" className="mt-1 border-red-500/40 px-1.5 py-0 text-[8px] font-bold text-red-600">
                 {expiryLabel}
@@ -204,6 +210,12 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
           {product.prescriptionRequired ? (
             <Badge variant="outline" className="mt-1 max-w-full truncate border-amber-500/40 px-1.5 py-0 text-[8px] font-bold text-amber-600">
               Prescription
+            </Badge>
+          ) : null}
+          {product.posFavorite ? (
+            <Badge variant="outline" className="mt-1 max-w-full truncate border-primary/40 px-1.5 py-0 text-[8px] font-bold text-primary">
+              <Star className="mr-1 size-2.5" />
+              Favorite
             </Badge>
           ) : null}
           {expiryLabel ? (

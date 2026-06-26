@@ -499,7 +499,7 @@ export interface VoidedListDto {
 
 export interface DiscountReportDto {
   range: ReportDateRangeDto;
-  type: "PWD" | "SENIOR";
+  type: "PWD" | "SENIOR" | "DSWD";
   items: TransactionListItemDto[];
   pagination: ReportPaginationDto;
   totals: TransactionListTotalsDto;
@@ -653,6 +653,122 @@ export interface SalesReportDto {
   topConfiguredProducts: ReportTopProductDto[];
 }
 
+export interface ProductVelocityReportItemDto {
+  productId: string;
+  name: string;
+  categoryName: string | null;
+  quantityOnHand: number;
+  reorderPoint: number | null;
+  soldQuantity: number;
+  revenue: number;
+  averageDailySales: number;
+  daysSinceLastSale: number | null;
+  projectedStockoutDays: number | null;
+  velocity: "fast" | "steady" | "slow" | "idle";
+  riskLevel: "high" | "medium" | "low";
+}
+
+export interface ProductVelocityReportDto {
+  range: ReportDateRangeDto;
+  items: ProductVelocityReportItemDto[];
+  pagination: ReportPaginationDto;
+  totals: {
+    fast: number;
+    steady: number;
+    slow: number;
+    idle: number;
+    highRisk: number;
+  };
+}
+
+export interface ProductProfitReportItemDto {
+  productId: string;
+  name: string;
+  categoryName: string | null;
+  soldQuantity: number;
+  revenue: number;
+  costOfGoods: number;
+  grossProfit: number;
+  grossMarginPercent: number;
+  markupPercent: number | null;
+}
+
+export interface ProductProfitReportDto {
+  range: ReportDateRangeDto;
+  items: ProductProfitReportItemDto[];
+  pagination: ReportPaginationDto;
+  totals: {
+    soldQuantity: number;
+    revenue: number;
+    costOfGoods: number;
+    grossProfit: number;
+    grossMarginPercent: number;
+  };
+}
+
+export interface InventoryValueReportItemDto {
+  productId: string;
+  productName: string;
+  categoryName: string | null;
+  supplierName: string | null;
+  shelfLocation: string | null;
+  batchNumber: string | null;
+  expiryDate: Date | null;
+  expiryBucket: "expired" | "near_expiry" | "dated" | "undated";
+  quantityOnHand: number;
+  unitCost: number;
+  unitPrice: number;
+  costValue: number;
+  retailValue: number;
+  potentialProfit: number;
+}
+
+export interface InventoryValueReportDto {
+  range: ReportDateRangeDto;
+  items: InventoryValueReportItemDto[];
+  pagination: ReportPaginationDto;
+  totals: {
+    quantityOnHand: number;
+    costValue: number;
+    retailValue: number;
+    potentialProfit: number;
+  };
+}
+
+export interface RevenueGoalReportDto {
+  range: ReportDateRangeDto;
+  month: Date;
+  targetAmount: number;
+  actualSales: number;
+  varianceAmount: number;
+  progressPercent: number;
+  dailyRunRate: number;
+  requiredDailyRunRate: number;
+  projectedMonthEndSales: number;
+  daysElapsed: number;
+  daysRemaining: number;
+  notes: string | null;
+}
+
+export interface NonSalesIncomeReportItemDto {
+  id: string;
+  referenceNumber: string;
+  incomeDate: Date;
+  source: string;
+  amount: number;
+  externalReference: string | null;
+  notes: string | null;
+  terminalName: string;
+  createdByName: string;
+}
+
+export interface NonSalesIncomeReportDto {
+  range: ReportDateRangeDto;
+  items: NonSalesIncomeReportItemDto[];
+  pagination: ReportPaginationDto;
+  totalAmount: number;
+}
+
 export interface DebtOutstandingItemDto {
   debtId: string;
   invoiceId: string;
@@ -738,7 +854,13 @@ export type ReportPrintableView =
   | "voided-list"
   | "pwd-list"
   | "senior-list"
+  | "dswd-list"
   | "sales"
+  | "product-profit"
+  | "movement-velocity"
+  | "inventory-value"
+  | "revenue-goal"
+  | "non-sales-income"
   | "sales-book"
   | "refund-invoices"
   | "returned-items"

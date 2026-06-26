@@ -4,8 +4,13 @@ import type {
   DebtOutstandingDto,
   DailyTransactionsDto,
   DiscountReportDto,
+  InventoryValueReportDto,
   InvoiceDocumentsDto,
+  NonSalesIncomeReportDto,
+  ProductProfitReportDto,
+  ProductVelocityReportDto,
   RefundInvoicesDto,
+  RevenueGoalReportDto,
   ReportOverviewDto,
   ReturnedInvoiceRecordsDto,
   ReturnedItemsDto,
@@ -209,6 +214,51 @@ function buildMetrics(
         { label: "VAT Amount", value: formatCurrency(report.totals.vatAmount) },
       ];
     }
+    case "product-profit": {
+      const report = data as ProductProfitReportDto;
+      return [
+        { label: "Revenue", value: formatCurrency(report.totals.revenue) },
+        { label: "COGS", value: formatCurrency(report.totals.costOfGoods) },
+        { label: "Gross Profit", value: formatCurrency(report.totals.grossProfit) },
+        { label: "Margin", value: `${report.totals.grossMarginPercent.toFixed(1)}%` },
+      ];
+    }
+    case "movement-velocity": {
+      const report = data as ProductVelocityReportDto;
+      return [
+        { label: "Fast", value: formatCount(report.totals.fast) },
+        { label: "Steady", value: formatCount(report.totals.steady) },
+        { label: "Slow/Idle", value: formatCount(report.totals.slow + report.totals.idle) },
+        { label: "High Risk", value: formatCount(report.totals.highRisk) },
+      ];
+    }
+    case "inventory-value": {
+      const report = data as InventoryValueReportDto;
+      return [
+        { label: "Cost Value", value: formatCurrency(report.totals.costValue) },
+        { label: "Retail Value", value: formatCurrency(report.totals.retailValue) },
+        { label: "Potential Profit", value: formatCurrency(report.totals.potentialProfit) },
+        { label: "Rows", value: formatCount(report.pagination.totalItems) },
+      ];
+    }
+    case "revenue-goal": {
+      const report = data as RevenueGoalReportDto;
+      return [
+        { label: "Target", value: formatCurrency(report.targetAmount) },
+        { label: "Actual", value: formatCurrency(report.actualSales) },
+        { label: "Variance", value: formatCurrency(report.varianceAmount) },
+        { label: "Progress", value: `${report.progressPercent.toFixed(1)}%` },
+      ];
+    }
+    case "non-sales-income": {
+      const report = data as NonSalesIncomeReportDto;
+      return [
+        { label: "Income", value: formatCurrency(report.totalAmount) },
+        { label: "Rows", value: formatCount(report.pagination.totalItems) },
+        { label: "Sales", value: formatCurrency(overview.totalSales) },
+        { label: "Expenses", value: formatCurrency(overview.totalExpenses) },
+      ];
+    }
     case "x-reading": {
       const report = data as XReadingDto;
       return [
@@ -248,7 +298,9 @@ function buildMetrics(
         { label: "VAT", value: formatCurrency(report.totals.totalVat) },
       ];
     }
-    case "discounts": {
+    case "discounts":
+    case "senior-discounts":
+    case "dswd-discounts": {
       const report = data as DiscountReportDto;
       return [
         { label: "Gross Sales", value: formatCurrency(report.totals.totalGrossSales) },

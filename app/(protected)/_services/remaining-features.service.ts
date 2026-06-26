@@ -147,6 +147,45 @@ export const remainingFeaturesService = {
     });
   },
 
+  async getNonSalesIncomes(filters: ManagementListFilters = {}) {
+    const viewer = await requireCompany();
+    const search = cleanFilter(filters.search);
+
+    return prisma.nonSalesIncome.findMany({
+      where: {
+        ...companyWhere(viewer.companyId),
+        ...(search
+          ? {
+              OR: [
+                { referenceNumber: { contains: search, mode: "insensitive" } },
+                { source: { contains: search, mode: "insensitive" } },
+                { externalReference: { contains: search, mode: "insensitive" } },
+                { notes: { contains: search, mode: "insensitive" } },
+                {
+                  terminal: {
+                    posName: { contains: search, mode: "insensitive" },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { incomeDate: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        referenceNumber: true,
+        incomeDate: true,
+        source: true,
+        amount: true,
+        externalReference: true,
+        notes: true,
+        terminal: { select: { posName: true } },
+        createdBy: { select: { fullName: true, email: true } },
+      },
+    });
+  },
+
   async getInventoryHealth(filters: ManagementListFilters = {}) {
     const viewer = await requireCompany();
     const search = cleanFilter(filters.search);
@@ -160,6 +199,8 @@ export const remainingFeaturesService = {
       totalTracked,
       watchlist,
       stockLots,
+      stockCountSessions,
+      dispositionMovements,
       soldItems,
     ] = await Promise.all([
       prisma.stockMovement.findMany({
@@ -333,6 +374,115 @@ export const remainingFeaturesService = {
           supplier: { select: { name: true } },
         },
       }),
+      prisma.stockCountSession.findMany({
+        where: {
+          ...companyWhere(viewer.companyId),
+          ...(status
+            ? { status: status as never }
+            : { status: { in: ["draft", "submitted", "rejected"] } }),
+          ...(search
+            ? {
+                OR: [
+                  { countNumber: { contains: search, mode: "insensitive" } },
+                  { notes: { contains: search, mode: "insensitive" } },
+                  {
+                    items: {
+                      some: {
+                        product: {
+                          name: { contains: search, mode: "insensitive" },
+                        },
+                      },
+                    },
+                  },
+                ],
+              }
+            : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: 12,
+        select: {
+          id: true,
+          countNumber: true,
+          status: true,
+          notes: true,
+          startedAt: true,
+          submittedAt: true,
+          approvedAt: true,
+          createdBy: { select: { fullName: true, email: true } },
+          assignedTo: { select: { fullName: true, email: true } },
+          items: {
+            take: 5,
+            select: {
+              id: true,
+              expectedQuantity: true,
+              countedQuantity: true,
+              varianceQuantity: true,
+              notes: true,
+              product: {
+                select: {
+                  name: true,
+                  baseUnit: true,
+                  category: { select: { categoryName: true } },
+                },
+              },
+              stockLot: {
+                select: {
+                  batchNumber: true,
+                  expiryDate: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.stockMovement.findMany({
+        where: {
+          ...companyWhere(viewer.companyId),
+          movementType: "waste",
+          sourceType: {
+            in: ["stock_damaged", "stock_lost", "stock_expired", "stock_disposed"],
+          },
+          ...(search
+            ? {
+                OR: [
+                  { referenceNumber: { contains: search, mode: "insensitive" } },
+                  { notes: { contains: search, mode: "insensitive" } },
+                  {
+                    product: {
+                      name: { contains: search, mode: "insensitive" },
+                    },
+                  },
+                ],
+              }
+            : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+        select: {
+          id: true,
+          quantityDelta: true,
+          unitCost: true,
+          sourceType: true,
+          referenceNumber: true,
+          notes: true,
+          createdAt: true,
+          product: {
+            select: {
+              name: true,
+              baseUnit: true,
+              price: true,
+              category: { select: { categoryName: true } },
+            },
+          },
+          stockLot: {
+            select: {
+              batchNumber: true,
+              expiryDate: true,
+            },
+          },
+          createdBy: { select: { fullName: true, email: true } },
+        },
+      }),
       prisma.item.groupBy({
         by: ["productId"],
         where: {
@@ -434,6 +584,90 @@ export const remainingFeaturesService = {
     const nearExpiryLots = expiryLots
       .filter((lot) => lot.bucket !== "later" && lot.bucket !== "no_expiry")
       .slice(0, 12);
+    const stockCountItems = stockCountSessions.map((session) => {
+      const totalVariance = session.items.reduce(
+        (sum, item) => sum + toNumber(item.varianceQuantity),
+        0,
+      );
+
+      return {
+        id: session.id,
+        countNumber: session.countNumber,
+        status: session.status,
+        notes: session.notes,
+        startedAt: session.startedAt,
+        submittedAt: session.submittedAt,
+        approvedAt: session.approvedAt,
+        createdBy:
+          session.createdBy.fullName ?? session.createdBy.email ?? "Unknown",
+        assignedTo:
+          session.assignedTo?.fullName ??
+          session.assignedTo?.email ??
+          "Unassigned",
+        totalVariance,
+        items: session.items.map((item) => ({
+          id: item.id,
+          productName: item.product.name,
+          categoryName: item.product.category?.categoryName ?? "Uncategorized",
+          baseUnit: item.product.baseUnit,
+          batchNumber: item.stockLot?.batchNumber ?? null,
+          expiryDate: item.stockLot?.expiryDate ?? null,
+          expectedQuantity: toNumber(item.expectedQuantity),
+          countedQuantity:
+            item.countedQuantity === null
+              ? null
+              : toNumber(item.countedQuantity),
+          varianceQuantity:
+            item.varianceQuantity === null
+              ? null
+              : toNumber(item.varianceQuantity),
+          notes: item.notes,
+        })),
+      };
+    });
+    const dispositionEvents = dispositionMovements.map((movement) => {
+      const quantity = Math.abs(toNumber(movement.quantityDelta));
+      const unitCost = movement.unitCost === null
+        ? 0
+        : toNumber(movement.unitCost);
+      const reason = (movement.sourceType ?? "stock_disposed").replace(
+        "stock_",
+        "",
+      );
+
+      return {
+        id: movement.id,
+        reason,
+        referenceNumber: movement.referenceNumber,
+        productName: movement.product.name,
+        categoryName: movement.product.category?.categoryName ?? "Uncategorized",
+        baseUnit: movement.product.baseUnit,
+        batchNumber: movement.stockLot?.batchNumber ?? null,
+        expiryDate: movement.stockLot?.expiryDate ?? null,
+        quantity,
+        costImpact: quantity * unitCost,
+        retailImpact: quantity * toNumber(movement.product.price),
+        notes: movement.notes,
+        createdAt: movement.createdAt,
+        actor:
+          movement.createdBy?.fullName ?? movement.createdBy?.email ?? "Unknown",
+      };
+    });
+    const dispositionBuckets = ["damaged", "lost", "expired", "disposed"].map(
+      (reason) => {
+        const matches = dispositionEvents.filter((event) => event.reason === reason);
+        return {
+          reason,
+          count: matches.length,
+          quantity: matches.reduce((sum, event) => sum + event.quantity, 0),
+          costImpact: matches.reduce((sum, event) => sum + event.costImpact, 0),
+          retailImpact: matches.reduce(
+            (sum, event) => sum + event.retailImpact,
+            0,
+          ),
+        };
+      },
+    );
 
     return {
       stats: {
@@ -446,9 +680,16 @@ export const remainingFeaturesService = {
           expiryBuckets.find((bucket) => bucket.key === "expired")?.count ?? 0,
         nearExpiryLots:
           expiryBuckets.find((bucket) => bucket.key === "0_30")?.count ?? 0,
+        pendingStockCounts: stockCountItems.filter(
+          (session) => session.status === "submitted",
+        ).length,
+        lossEvents: dispositionEvents.length,
       },
       expiryBuckets,
       nearExpiryLots,
+      stockCountSessions: stockCountItems,
+      dispositionBuckets,
+      dispositionEvents: dispositionEvents.slice(0, 12),
       watchlist: watchlist.map((product) => {
         const quantity = toNumber(product.quantity);
         const reorderPoint = product.reorderPoint === null ? null : toNumber(product.reorderPoint);
