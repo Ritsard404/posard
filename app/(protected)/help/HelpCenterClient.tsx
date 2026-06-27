@@ -152,6 +152,31 @@ const guideGroups: HelpGroup[] = [
         reminder: "Use reports when you need exact totals for a date range.",
         keywords: ["dashboard", "summary", "warning", "overview", "live status", "sync", "printer", "approval", "restock", "variance", "cash short", "cash over"],
       },
+      {
+        title: "Open the feature guide",
+        role: "Everyone",
+        audience: ["everyone"],
+        summary:
+          "Browse POSard features, see how each workflow works, and open the matching app page or help topic.",
+        steps: [
+          "Open Feature Guide from the sidebar account section.",
+          "Choose a feature group such as Checkout, Inventory and Purchasing, Operations, Reports and Control, or Setup and Support.",
+          "Read the how-it-works steps and sample outcome.",
+          "Use Open app area to try the feature in POSard, or Help guide for the detailed guide.",
+        ],
+        reminder:
+          "Some app area links require manager or admin access, but the guide still shows the feature benefit for training.",
+        keywords: [
+          "feature guide",
+          "feature catalog",
+          "features",
+          "benefits",
+          "sample outcome",
+          "walkthrough",
+          "training",
+          "how it works",
+        ],
+      },
     ],
   },
   {

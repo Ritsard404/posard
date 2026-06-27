@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { featureCatalog } from "@/lib/feature-catalog";
 
 export const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://posard.vercel.app"
@@ -229,21 +230,7 @@ export function softwareJsonLd() {
     url: siteConfig.url,
     description: siteConfig.description,
     areaServed: "Philippines",
-    featureList: [
-      "Checkout and order workflows for restaurants, retail counters, cafes, and service desks",
-      "Inventory and stock tracking",
-      "Offline checkout sync review",
-      "Suppliers, purchase orders, and receiving records",
-      "Expenses and branch transfer tracking",
-      "Customer, loyalty, and debt visibility",
-      "Promotions and kitchen ticket workflow",
-      "PWD, Senior Citizen, and custom discount handling",
-      "X-Reading and Z-Reading sales reports",
-      "Receipt archive and receipt reprinting",
-      "Permissions, approvals, and role-based access for admins, managers, and cashiers",
-      "Searchable role-aware help guides",
-      "Per-terminal subscriptions and cashier assignment",
-    ],
+    featureList: featureCatalog.map((feature) => feature.title),
     offers: {
       "@type": "Offer",
       price: siteConfig.price.amount,

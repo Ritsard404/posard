@@ -12,6 +12,7 @@ import {
   Settings,
   BaggageClaimIcon,
   BarChart3,
+  BookOpen,
   Boxes,
   Building2,
   CalendarDays,
@@ -600,6 +601,14 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         icon: UserRound,
         href: "/accounts/[profileId]",
         permission: "view.profile",
+        keepVisibleWithoutHref: true,
+      },
+      {
+        id: "feature-guide",
+        label: "Feature Guide",
+        icon: BookOpen,
+        href: "/feature-guide",
+        permission: "view.help",
         keepVisibleWithoutHref: true,
       },
       {

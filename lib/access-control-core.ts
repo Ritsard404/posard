@@ -287,6 +287,12 @@ export const appRoutes: AppRouteConfig[] = [
     showInNav: false,
   },
   {
+    href: "/feature-guide",
+    permission: "view.help",
+    label: "Feature Guide",
+    showInNav: false,
+  },
+  {
     href: "/product",
     permission: "view.product",
     label: "Products & Inventory",

@@ -15,6 +15,8 @@ export const config = {
     "/report/:path*",
     "/reports/:path*",
     "/accounts/:path*",
+    "/feature-guide/:path*",
+    "/help/:path*",
     "/companies/:path*",
     "/terminals/:path*",
     "/subscriptions/:path*",
