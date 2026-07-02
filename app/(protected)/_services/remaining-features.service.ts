@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 import { buildRestockRecommendations } from "./inventory-restock.service";
@@ -8,6 +9,15 @@ export interface ManagementListFilters {
   search?: string;
   status?: string;
 }
+
+export interface CustomerListFilters {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+const CUSTOMER_PAGE_SIZE = 25;
+const CUSTOMER_MAX_PAGE_SIZE = 100;
 
 async function requireCompany() {
   const profile = await getCurrentProfile();
@@ -38,6 +48,14 @@ function cleanFilter(value?: string) {
 
 function companyWhere(companyId: string | null) {
   return companyId ? { companyId } : {};
+}
+
+function boundedPositiveInteger(value: number | undefined, fallback: number, max: number) {
+  if (!value || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(Math.floor(value), 1), max);
 }
 
 export const remainingFeaturesService = {
@@ -896,19 +914,72 @@ export const remainingFeaturesService = {
     });
   },
 
-  async getCustomers() {
+  async getCustomers(filters: CustomerListFilters = {}) {
     const viewer = await requireCompany();
-    const customers = await prisma.customer.findMany({
-      where: companyWhere(viewer.companyId),
-      orderBy: { name: "asc" },
-      take: 100,
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        isActive: true,
-      },
-    });
+    const search = cleanFilter(filters.search);
+    const pageSize = boundedPositiveInteger(
+      filters.pageSize,
+      CUSTOMER_PAGE_SIZE,
+      CUSTOMER_MAX_PAGE_SIZE,
+    );
+    const requestedPage = boundedPositiveInteger(filters.page, 1, 10_000);
+    const customerWhere: Prisma.CustomerWhereInput = {
+      ...companyWhere(viewer.companyId),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { phone: { contains: search, mode: "insensitive" } },
+              { address: { contains: search, mode: "insensitive" } },
+              { notes: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
+    const totalCustomers = await prisma.customer.count({ where: customerWhere });
+    const totalPages = Math.max(1, Math.ceil(totalCustomers / pageSize));
+    const page = Math.min(requestedPage, totalPages);
+    const [customers, activeCustomers, debtSummary, loyaltySummary, purchaseSummary] =
+      await Promise.all([
+        prisma.customer.findMany({
+          where: customerWhere,
+          orderBy: { name: "asc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            isActive: true,
+          },
+        }),
+        prisma.customer.count({
+          where: { ...customerWhere, isActive: true },
+        }),
+        prisma.customerDebt.aggregate({
+          where: {
+            ...(viewer.companyId ? { companyId: viewer.companyId } : {}),
+            customer: customerWhere,
+            status: { in: ["UNPAID", "PARTIAL"] },
+          },
+          _sum: { remainingAmount: true },
+        }),
+        prisma.loyaltyTransaction.aggregate({
+          where: {
+            ...(viewer.companyId ? { companyId: viewer.companyId } : {}),
+            customer: customerWhere,
+          },
+          _sum: { pointsDelta: true },
+        }),
+        prisma.invoice.aggregate({
+          where: {
+            customer: { is: customerWhere },
+            posTerminal: companyWhere(viewer.companyId),
+            status: { in: ["PAID", "RETURNED"] },
+          },
+          _sum: { totalAmount: true },
+        }),
+      ]);
     const customerIds = customers.map((customer) => customer.id);
     const customerAggregateResults = customerIds.length
       ? await Promise.all([
@@ -935,7 +1006,7 @@ export const remainingFeaturesService = {
               customerId: { in: customerIds },
             },
             orderBy: { createdAt: "desc" },
-            take: 300,
+            take: Math.min(customerIds.length * 12, 300),
             select: {
               customerId: true,
               pointsDelta: true,
@@ -966,7 +1037,7 @@ export const remainingFeaturesService = {
               status: { in: ["PAID", "RETURNED"] },
             },
             orderBy: { createdAt: "desc" },
-            take: 300,
+            take: Math.min(customerIds.length * 12, 300),
             select: {
               id: true,
               customerId: true,
@@ -1023,7 +1094,7 @@ export const remainingFeaturesService = {
       }
     }
 
-    return customers.map((customer) => {
+    const items = customers.map((customer) => {
       const customerInvoices = invoicesByCustomer.get(customer.id) ?? [];
       const purchaseSummary = purchaseSummaryByCustomer.get(customer.id);
       return {
@@ -1053,6 +1124,26 @@ export const remainingFeaturesService = {
         })),
       };
     });
+
+    return {
+      items,
+      summary: {
+        activeCustomers,
+        totalCustomers,
+        totalOutstanding: toNumber(debtSummary._sum.remainingAmount),
+        totalPoints: loyaltySummary._sum.pointsDelta ?? 0,
+        totalSpent: toNumber(purchaseSummary._sum.totalAmount),
+      },
+      pagination: {
+        page,
+        pageSize,
+        totalItems: totalCustomers,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+      filters: { search },
+    };
   },
 
   async getPromotions(filters: ManagementListFilters = {}) {

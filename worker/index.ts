@@ -20,12 +20,16 @@ type ExtendableEventLike = Event & {
   waitUntil: (promise: Promise<unknown>) => void;
 };
 
+declare const self: Window &
+  typeof globalThis & {
+    __SW_MANIFEST: Array<PrecacheEntry | string>;
+  };
+
 type ServiceWorkerClient = {
   postMessage: (message: unknown) => void;
 };
 
 type ServiceWorkerScopeLike = {
-  __SW_MANIFEST: Array<PrecacheEntry | string>;
   location: Location;
   clients: {
     matchAll: (options: {
@@ -138,7 +142,7 @@ const runtimeCaching: RuntimeCaching[] = [
 ];
 
 const serwist = new Serwist({
-  precacheEntries: serviceWorker.__SW_MANIFEST,
+  precacheEntries: self.__SW_MANIFEST,
   precacheOptions: {
     cleanupOutdatedCaches: true,
     ignoreURLParametersMatching: [],

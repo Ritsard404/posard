@@ -1,5 +1,12 @@
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { remainingFeaturesService } from "../_services/remaining-features.service";
-import { RemainingFeatureWorkspace, StatusBadge } from "../_components/RemainingFeatureWorkspace";
+import {
+  ManagementFilters,
+  RemainingFeatureWorkspace,
+  StatusBadge,
+} from "../_components/RemainingFeatureWorkspace";
 
 function money(value: number) {
   return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(value);
@@ -9,25 +16,133 @@ function date(value: Date | null) {
   return value ? value.toLocaleDateString() : "-";
 }
 
-export default async function CustomersPage() {
-  const customers = await remainingFeaturesService.getCustomers();
-  const activeCustomers = customers.filter((customer) => customer.isActive).length;
-  const totalOutstanding = customers.reduce((sum, customer) => sum + customer.outstandingDebt, 0);
-  const totalPoints = customers.reduce((sum, customer) => sum + customer.loyaltyPoints, 0);
-  const totalSpent = customers.reduce((sum, customer) => sum + customer.totalSpent, 0);
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function positivePage(value: string | string[] | undefined) {
+  const parsed = Number(firstParam(value) ?? "1");
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
+}
+
+function customersPageHref(search: string | undefined, page: number) {
+  const params = new URLSearchParams();
+  if (search) {
+    params.set("search", search);
+  }
+
+  if (page > 1) {
+    params.set("page", String(page));
+  }
+
+  const query = params.toString();
+  return query ? `/customers?${query}` : "/customers";
+}
+
+function CustomerPagination({
+  pagination,
+  search,
+}: {
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+  search?: string;
+}) {
+  const firstItem =
+    pagination.totalItems === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
+  const lastItem = Math.min(
+    pagination.totalItems,
+    pagination.page * pagination.pageSize,
+  );
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border bg-background/80 p-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        Showing {firstItem.toLocaleString()}-{lastItem.toLocaleString()} of{" "}
+        {pagination.totalItems.toLocaleString()} customers
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        {pagination.hasPreviousPage ? (
+          <Button asChild variant="outline" className="h-12 sm:h-9">
+            <Link href={customersPageHref(search, pagination.page - 1)}>
+              <ChevronLeft className="size-4" />
+              Previous
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" className="h-12 sm:h-9" disabled>
+            <ChevronLeft className="size-4" />
+            Previous
+          </Button>
+        )}
+        <Button variant="secondary" className="h-12 sm:h-9" disabled>
+          Page {pagination.page.toLocaleString()} of{" "}
+          {pagination.totalPages.toLocaleString()}
+        </Button>
+        {pagination.hasNextPage ? (
+          <Button asChild variant="outline" className="h-12 sm:h-9">
+            <Link href={customersPageHref(search, pagination.page + 1)}>
+              Next
+              <ChevronRight className="size-4" />
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" className="h-12 sm:h-9" disabled>
+            Next
+            <ChevronRight className="size-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface CustomersPageProps {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function CustomersPage({ searchParams }: CustomersPageProps) {
+  const params = (await searchParams) ?? {};
+  const search = firstParam(params.search)?.trim() || undefined;
+  const customers = await remainingFeaturesService.getCustomers({
+    search,
+    page: positivePage(params.page),
+  });
 
   return (
     <RemainingFeatureWorkspace
       title="Customers & Loyalty"
       description="Customer profiles with debt exposure, loyalty point balances, recent purchase history, and return visibility."
       stats={[
-        { label: "Active Customers", value: activeCustomers },
-        { label: "Outstanding Debt", value: money(totalOutstanding) },
-        { label: "Loyalty Points", value: totalPoints },
-        { label: "Lifetime Spend", value: money(totalSpent) },
+        { label: "Active Customers", value: customers.summary.activeCustomers },
+        { label: "Outstanding Debt", value: money(customers.summary.totalOutstanding) },
+        { label: "Loyalty Points", value: customers.summary.totalPoints },
+        { label: "Lifetime Spend", value: money(customers.summary.totalSpent) },
       ]}
-      items={customers}
-      emptyText="No customers recorded yet."
+      toolbar={
+        <div className="space-y-2">
+          <ManagementFilters
+            search={customers.filters.search}
+            statuses={[]}
+            placeholder="Customer, phone, address, notes"
+          />
+          <CustomerPagination
+            pagination={customers.pagination}
+            search={customers.filters.search}
+          />
+        </div>
+      }
+      items={customers.items}
+      emptyText={
+        customers.filters.search
+          ? "No matching customers found."
+          : "No customers recorded yet."
+      }
       columns={[
         { label: "Customer", value: (item) => item.name },
         { label: "Phone", value: (item) => item.phone ?? "-" },

@@ -32,20 +32,20 @@ Priority: Critical
 - [x] Replace `"latest"` dependency ranges with pinned compatible versions for production packages.
 - [x] Upgrade `next` from `16.2.1` to the audit-recommended patched version or the latest compatible patched 16.x release, then rerun audit, typecheck, and build.
 - [x] Align `eslint-config-next` with the installed Next major version.
-- [ ] Resolve the `next-pwa` / Workbox / `serialize-javascript` vulnerability chain.
-  - [ ] Prefer replacing or reconfiguring the PWA layer instead of accepting the audit-suggested downgrade path blindly.
+- [x] Resolve the `next-pwa` / Workbox / `serialize-javascript` vulnerability chain.
+  - [x] Prefer replacing or reconfiguring the PWA layer instead of accepting the audit-suggested downgrade path blindly.
   - [x] If a safe replacement is not immediately available, temporarily disable generated Workbox runtime caching for protected app surfaces.
-- [ ] Replace or isolate `xlsx@0.18.5`, which has no npm audit fix available.
+- [x] Replace or isolate `xlsx@0.18.5`, which has no npm audit fix available.
   - [x] Move workbook parsing out of the main client bundle.
   - [x] Parse imports on the server or lazy-load parser code only after a file is selected.
-  - [ ] Enforce file size, MIME/type, sheet count, row count, and timeout limits for spreadsheet imports.
+  - [x] Enforce file size, MIME/type, sheet count, row count, and timeout limits for spreadsheet imports.
 - [x] Rerun `npm.cmd audit --omit=dev --json` and record remaining accepted risks with package owner, reason, and planned removal date.
 
 Acceptance checks:
 
 - [x] No vulnerable direct production dependency remains without an explicit documented exception.
 - [x] Lockfile is deterministic and does not rely on `"latest"` for core runtime dependencies.
-- [ ] `npm.cmd audit --omit=dev --json` is clean or has only documented accepted transitive risk.
+- [x] `npm.cmd audit --omit=dev --json` is clean or has only documented accepted transitive risk.
 
 ## Phase 1 - Protected Route Coverage
 
@@ -125,13 +125,13 @@ Priority: High
 - [x] Add sanitized `try/catch` error handling to export routes so internal errors do not leak implementation details.
 - [x] Add export audit logging with actor, company, export type, timestamp, row counts, and file size.
 - [x] Add no-store headers to all sensitive exports.
-- [ ] Add payload size, date range, and row count limits for report and data-exchange exports.
+- [x] Add payload size, date range, and row count limits for report and data-exchange exports.
 
 Acceptance checks:
 
 - [x] Login, signup, manager PIN, sync bootstrap, report export, backup export, and product catalog export are protected by durable production rate limits.
 - [x] Export failures return safe user-facing errors.
-- [ ] Managers can inspect export history for their company.
+- [x] Managers can inspect export history for their company.
 
 ## Phase 5 - Database RLS Defense in Depth
 
@@ -146,7 +146,7 @@ Priority: High
   - [ ] Option A: enable RLS and add service-role-only policies where browser grants are not needed.
   - [x] Option B: document why RLS remains disabled and add CI checks that prevent accidental browser grants.
 - [x] Add a schema/security check that fails if `anon` or `authenticated` receives broad table privileges without matching RLS policies.
-- [ ] Add migration tests for `profiles`, `registration_requests`, and `customer_display_state` policies.
+- [x] Add migration tests for `profiles`, `registration_requests`, and `customer_display_state` policies.
 
 Acceptance checks:
 
@@ -180,27 +180,27 @@ Acceptance checks:
 Priority: High
 
 - [x] Rate-limit and validate `app/api/sync/bootstrap/route.ts`.
-- [ ] Add snapshot/cursor support for POS bootstrap so products, categories, stock, payment methods, and modifiers are not always fetched as one full payload.
-- [ ] Add `updatedAt` or version markers where syncable entities do not have reliable change cursors.
-- [ ] Add response compression and no-store/private cache policy appropriate for signed-in device bootstrap.
-- [ ] Add payload metrics for bootstrap size, product count, and request duration.
-- [ ] Keep the existing offline fallback behavior but make stale-data age visible to operators.
+- [x] Add snapshot/cursor support for POS bootstrap so products, categories, stock, payment methods, and modifiers are not always fetched as one full payload.
+- [x] Add `updatedAt` or version markers where syncable entities do not have reliable change cursors.
+- [x] Add response compression and no-store/private cache policy appropriate for signed-in device bootstrap.
+- [x] Add payload metrics for bootstrap size, product count, and request duration.
+- [x] Keep the existing offline fallback behavior but make stale-data age visible to operators.
 
 Acceptance checks:
 
 - [ ] Large catalogs can open POS without timing out.
-- [ ] Repeat bootstrap requests fetch only changed records where possible.
-- [ ] Offline mode still has enough data for checkout.
+- [x] Repeat bootstrap requests fetch only changed records where possible.
+- [x] Offline mode still has enough data for checkout.
 
 ## Phase 8 - Dashboard and Reporting Performance
 
 Priority: Medium
 
-- [ ] Move dashboard top-products, payment mix, fulfillment, and variance summaries from broad in-memory reductions to database aggregation queries.
-- [ ] Add sensible date ranges and row limits for dashboard detail datasets.
-- [ ] Consider short-lived per-company summary caching for dashboard widgets where real-time precision is not required.
-- [ ] Lazy-load dashboard chart components so Recharts does not inflate the initial dashboard bundle.
-- [ ] Add performance tests or query timing logs for dashboard companies with large invoice and item counts.
+- [x] Move dashboard top-products, payment mix, fulfillment, and variance summaries from broad in-memory reductions to database aggregation queries.
+- [x] Add sensible date ranges and row limits for dashboard detail datasets.
+- [x] Consider short-lived per-company summary caching for dashboard widgets where real-time precision is not required.
+- [x] Lazy-load dashboard chart components so Recharts does not inflate the initial dashboard bundle.
+- [x] Add performance tests or query timing logs for dashboard companies with large invoice and item counts.
 
 Acceptance checks:
 
@@ -212,16 +212,16 @@ Acceptance checks:
 
 Priority: Medium
 
-- [ ] Convert full-company backup export to streaming or an async export job for large stores.
-- [ ] Add progress/status states for long-running backup exports.
-- [ ] Limit sensitive fields in backup output unless a full administrative backup is explicitly requested.
-- [ ] Replace customer purchase-history lookups by `customerName` with a relational purchase/customer link or dedicated history table.
-- [ ] Paginate customer debts, loyalty transactions, and purchase history instead of loading all child rows into the customer list.
+- [x] Convert full-company backup export to streaming or an async export job for large stores.
+- [x] Add progress/status states for long-running backup exports.
+- [x] Limit sensitive fields in backup output unless a full administrative backup is explicitly requested.
+- [x] Replace customer purchase-history lookups by `customerName` with a relational purchase/customer link or dedicated history table.
+- [x] Paginate customer debts, loyalty transactions, and purchase history instead of loading all child rows into the customer list.
 
 Acceptance checks:
 
-- [ ] Backup export does not hold the entire company dataset in memory for large stores.
-- [ ] Customer list remains fast with many customers, debts, loyalty transactions, and invoices.
+- [x] Backup export does not hold the entire company dataset in memory for large stores.
+- [x] Customer list remains fast with many customers, debts, loyalty transactions, and invoices.
 - [ ] Existing customer/debt/loyalty screens keep the same visible behavior.
 
 ## Phase 10 - Verification Contract
@@ -233,7 +233,7 @@ Run these checks after each implementation slice that touches the related area:
 - [x] `npx.cmd prisma migrate status`
 - [x] `npx.cmd tsc --noEmit`
 - [x] Targeted ESLint for changed app/components/lib files
-- [ ] Focused regression tests for auth, proxy routing, rate limiting, sync, exports, and offline POS
+- [x] Focused regression tests for auth, proxy routing, rate limiting, sync, exports, and offline POS
 - [x] `npm.cmd audit --omit=dev --json`
 - [x] `git diff --check`
 - [x] Production build after route, dependency, PWA, or shared contract changes
@@ -243,7 +243,7 @@ Run these checks after each implementation slice that touches the related area:
 - [x] Add operator-facing Help Center guidance for safe shared-device logout, offline mode data retention, and export permissions.
 - [x] Add manager/admin documentation explaining export audit history and rate-limit behavior.
 - [x] Update technical docs for dependency-risk exceptions, RLS posture, service-worker cache rules, and production rate-limit storage.
-- [ ] Add release notes for any change that affects offline POS availability, export formats, or manager permissions.
+- [x] Add release notes for any change that affects offline POS availability, export formats, or manager permissions.
 
 ## Completion Rule
 
@@ -256,4 +256,4 @@ This TODO is complete only when:
 - [x] RLS posture and browser grants are guarded by tests or checks.
 - [x] Missing FK indexes are added or explicitly documented.
 - [ ] Large bootstrap, dashboard, export, and customer-history paths have scalable implementations.
-- [ ] The verification contract passes.
+- [x] The verification contract passes.

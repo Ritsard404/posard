@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 interface Column<T> {
   label: string;
@@ -129,20 +130,22 @@ export function ManagementFilters({
   search,
   status,
   statuses,
+  placeholder = "Reference, product, supplier, notes",
 }: {
   search?: string;
   status?: string;
   statuses?: string[];
+  placeholder?: string;
 }) {
   return (
     <form className="flex flex-col gap-2 rounded-md border bg-background/80 p-2 sm:flex-row sm:items-end sm:justify-end">
       <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         <span>Search</span>
-        <input
+        <Input
           name="search"
           defaultValue={search}
-          placeholder="Reference, product, supplier, notes"
-          className="h-8 min-w-0 rounded-md border bg-background px-2 text-sm normal-case tracking-normal text-foreground sm:w-64"
+          placeholder={placeholder}
+          className="h-12 bg-background text-sm normal-case tracking-normal text-foreground sm:h-8 sm:w-64"
         />
       </label>
       {statuses?.length ? (
@@ -151,7 +154,7 @@ export function ManagementFilters({
           <select
             name="status"
             defaultValue={status ?? ""}
-            className="h-8 rounded-md border bg-background px-2 text-sm normal-case tracking-normal text-foreground"
+            className="h-12 rounded-md border bg-background px-2 text-sm normal-case tracking-normal text-foreground sm:h-8"
           >
             <option value="">All statuses</option>
             {statuses.map((item) => (
@@ -162,7 +165,7 @@ export function ManagementFilters({
           </select>
         </label>
       ) : null}
-      <Button type="submit" size="sm" className="h-8">
+      <Button type="submit" size="sm" className="h-12 w-full sm:h-8 sm:w-auto">
         Search
       </Button>
     </form>

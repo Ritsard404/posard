@@ -46,3 +46,4 @@ Updated: 2026-07-02
 - Dashboard top products, payment mix, fulfillment mix, terminal totals, variance summaries, and trend widgets use aggregate queries instead of broad in-memory reductions.
 - Dashboard charts are dynamically loaded so Recharts is not part of the first dashboard client chunk.
 - Short-lived widget caching is intentionally deferred because drawer status, approvals, sync health, and same-day sales need near-real-time reads; aggregate queries and bounded detail lists carry the current performance path.
+- Customer history uses URL search and pagination, then loads debt, loyalty, and recent purchase summaries only for the visible customer page.

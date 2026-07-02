@@ -129,8 +129,12 @@ test("phase 3 workflow pages expose operational health, history, and recovery co
   assert.match(remainingFeatures, /watchlist/);
   assert.match(remainingFeatures, /recentPurchases/);
   assert.match(remainingFeatures, /loyaltyEvents/);
+  assert.match(remainingFeatures, /CUSTOMER_PAGE_SIZE/);
+  assert.match(remainingFeatures, /skip:\s*\(page - 1\) \* pageSize/);
+  assert.match(remainingFeatures, /customerId:\s*{\s*in:\s*customerIds/);
   assert.match(inventoryPage, /Stock Watchlist/);
   assert.match(customerPage, /Recent History/);
+  assert.match(customerPage, /CustomerPagination/);
   assert.match(debtClient, /daysOverdue/);
   assert.match(debtClient, /paymentHistory/);
   assert.match(kitchenPage, /Over 30 Min/);

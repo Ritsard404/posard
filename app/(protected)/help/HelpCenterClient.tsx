@@ -665,12 +665,13 @@ const guideGroups: HelpGroup[] = [
           "Review customer profiles, contact details, and loyalty point balances.",
         steps: [
           "Open Customers.",
-          "Search for the customer.",
-          "Review details and points.",
+          "Search by customer name, phone, address, or notes.",
+          "Use Previous or Next when there are many matches.",
+          "Review details, points, and recent purchases.",
           "Update details when needed.",
         ],
-        reminder: "Avoid creating duplicate customer records.",
-        keywords: ["customer", "loyalty", "points", "profile"],
+        reminder: "Avoid creating duplicate customer records and keep searches narrow for faster review.",
+        keywords: ["customer", "loyalty", "points", "profile", "pagination", "purchase history"],
       },
       {
         title: "Manage debts or unpaid orders",
