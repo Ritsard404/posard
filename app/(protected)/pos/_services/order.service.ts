@@ -1173,6 +1173,7 @@ export const orderService = {
               posTerminalId: terminal.id,
               branchId: activeTimestamp.branchId,
               cashierId: activeTimestamp.cashierId,
+              customerId: debtCustomer.id,
 
               grossAmount: calc.grossAmount,
               totalAmount: calc.totalAmount,

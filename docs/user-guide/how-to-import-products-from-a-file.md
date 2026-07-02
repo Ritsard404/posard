@@ -1,13 +1,14 @@
 # How to Import Products from a File
 
 ## What this feature does
-This lets managers add many products at once from a prepared CSV or Excel file.
+This lets managers add many products at once from a prepared CSV file or the POSARD Excel XML template.
 
 ## When to use it
 Use this when setting up a store or adding a large product list.
 
 ## Before you begin
-- Prepare the product file carefully. CSV, legacy POSARD `.xls` XML templates, and `.xlsx` workbooks are supported.
+- Prepare the product file carefully. CSV and POSARD `.xls` Excel XML templates are supported. Binary `.xlsx` workbooks are rejected.
+- Keep the file at 2 MB or smaller, with no more than 1,000 product rows and 2 worksheets.
 - Check product names, categories, prices, stock values, generic/brand names, shelf locations, reorder points, prescription flags, and preferred supplier names.
 
 ## Steps
@@ -27,6 +28,7 @@ Valid products are added to the product list with their pharmacy metadata, POS f
 - Preferred supplier must match an existing active supplier name, or leave it blank.
 - Reorder Point must be zero or greater when provided.
 - Duplicate Product Name within the same Category and duplicate Brand Name plus Generic Name within the same Category are blocked.
+- If your spreadsheet app creates `.xlsx`, export or save the sheet as CSV before uploading.
 
 ## Common questions or issues
 - **Some rows have errors**  

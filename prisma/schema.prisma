@@ -1085,6 +1085,7 @@ model Category {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz
 
   @@index([companyId])
+  @@index([companyId, updatedAt])
   @@map("category")
   @@schema("public")
 }
@@ -1155,6 +1156,7 @@ model Product {
   @@unique([companyId, barcode], name: "uk_product_company_barcode")
   @@index([categoryId])
   @@index([companyId])
+  @@index([companyId, updatedAt])
   @@index([companyId, posFavorite])
   @@index([preferredSupplierId])
   @@index([companyId, genericName])
@@ -1184,6 +1186,7 @@ model ModifierGroup {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([companyId, isActive])
+  @@index([companyId, updatedAt])
   @@map("modifier_group")
   @@schema("public")
 }
@@ -1204,6 +1207,7 @@ model ModifierOption {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([modifierGroupId, isActive])
+  @@index([updatedAt])
   @@map("modifier_option")
   @@schema("public")
 }
@@ -1219,9 +1223,13 @@ model ProductModifierGroup {
 
   displayOrder Int @default(0) @map("display_order")
 
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
   @@unique([productId, modifierGroupId], name: "uk_product_modifier_group")
   @@index([productId])
   @@index([modifierGroupId])
+  @@index([updatedAt])
   @@map("product_modifier_group")
   @@schema("public")
 }
@@ -1339,6 +1347,7 @@ model SaleType {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@index([updatedAt])
   @@map("sale_type")
   @@schema("public")
 }
@@ -1387,6 +1396,7 @@ model Invoice {
    */
 
   customerName     String   @default("Walk-in Customer") @map("customer_name")
+  customerId       String?  @map("customer_id") @db.Uuid
   eligibleDiscName String?  @map("eligible_disc_name")
   oscaIdNum        String?  @map("osca_id_num")
   discountType     String?  @map("discount_type")
@@ -1440,6 +1450,7 @@ model Invoice {
   documents            InvoiceDocument[]
   returns              InvoiceReturn[]
   customerDebt         CustomerDebt?
+  customer             Customer?                @relation(fields: [customerId], references: [id], onDelete: SetNull)
   loyaltyTransactions  LoyaltyTransaction[]
   promotionRedemptions PromotionRedemptionLog[]
   kitchenTickets       KitchenTicket[]
@@ -1457,6 +1468,7 @@ model Invoice {
   @@index([posTerminalId, status, createdAt])
   @@index([cashierId])
   @@index([cashierId, createdAt])
+  @@index([customerId, createdAt])
   @@index([voidedById])
   @@index([createdAt])
   @@index([localInvoiceNo])
@@ -1489,6 +1501,7 @@ model Customer {
 
   debts               CustomerDebt[]
   loyaltyTransactions LoyaltyTransaction[]
+  invoices            Invoice[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -2211,6 +2224,7 @@ model StockLot {
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([companyId, status, expiryDate])
+  @@index([companyId, updatedAt])
   @@index([productId, expiryDate])
   @@index([supplierId])
   @@map("stock_lot")

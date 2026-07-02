@@ -1,11 +1,14 @@
 import "dotenv/config";
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { test } from "node:test";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const migrationsRoot = path.join(process.cwd(), "prisma", "migrations");
 
 function createPrismaClient() {
   if (!connectionString) {
@@ -15,6 +18,38 @@ function createPrismaClient() {
   const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
+
+function readMigrationSql() {
+  return fs
+    .readdirSync(migrationsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(migrationsRoot, entry.name, "migration.sql"))
+    .filter((filePath) => fs.existsSync(filePath))
+    .map((filePath) => fs.readFileSync(filePath, "utf8"))
+    .join("\n\n");
+}
+
+test("RLS migration contract covers browser-visible auth tables", () => {
+  const migrationSql = readMigrationSql();
+
+  for (const table of ["profiles", "registration_requests", "customer_display_state"]) {
+    assert.match(
+      migrationSql,
+      new RegExp(`ALTER TABLE\\s+"public"\\."${table}"\\s+ENABLE ROW LEVEL SECURITY`, "i"),
+    );
+  }
+});
+
+test("RLS policy migrations use optimized auth helper calls", () => {
+  const migrationSql = readMigrationSql();
+  const policyMigration = migrationSql.match(
+    /CREATE POLICY "profiles_self_or_admin_read"[\s\S]+CREATE POLICY "registration_requests_admin_update"[\s\S]+WITH CHECK \(public\.is_admin\(\(SELECT auth\.uid\(\)\)\)\);/i,
+  )?.[0];
+
+  assert.ok(policyMigration);
+  assert.doesNotMatch(policyMigration, /(?<!SELECT )auth\.uid\(\)/i);
+  assert.match(policyMigration, /\(SELECT auth\.uid\(\)\)/i);
+});
 
 test(
   "is_admin is a search-path-safe security definer function",

@@ -34,6 +34,13 @@ import type {
   ProductBatchPreviewDto,
   ProductBatchPreviewRowDto,
 } from "@/app/(protected)/product/_services/_dto/product.dto";
+import {
+  assertProductImportLimits,
+  formatFileSizeLimit,
+  isAllowedProductImportFile,
+  PRODUCT_IMPORT_MAX_SHEETS,
+  PRODUCT_IMPORT_PARSE_TIMEOUT_MS,
+} from "@/app/(protected)/product/_services/product-import-limits";
 
 interface CsvUploadDialogProps {
   open: boolean;
@@ -58,6 +65,10 @@ function worksheetToCsv(xmlText: string): string {
   }
 
   const worksheets = Array.from(document.getElementsByTagName("Worksheet"));
+  if (worksheets.length > PRODUCT_IMPORT_MAX_SHEETS) {
+    throw new Error(`Product import files can include at most ${PRODUCT_IMPORT_MAX_SHEETS} worksheets.`);
+  }
+
   const productsSheet =
     worksheets.find(
       (worksheet) =>
@@ -71,7 +82,7 @@ function worksheetToCsv(xmlText: string): string {
 
   const rows = Array.from(productsSheet.getElementsByTagName("Row"));
 
-  return rows
+  const csv = rows
     .map((row) => {
       const cells = Array.from(row.getElementsByTagName("Cell"));
       return cells
@@ -82,25 +93,9 @@ function worksheetToCsv(xmlText: string): string {
         .join(",");
     })
     .join("\n");
-}
 
-async function workbookToCsv(buffer: ArrayBuffer): Promise<string> {
-  const XLSX = await import("xlsx");
-  const workbook = XLSX.read(buffer, { type: "array" });
-  const sheetName = workbook.SheetNames.includes("Products")
-    ? "Products"
-    : workbook.SheetNames[0];
-
-  if (!sheetName) {
-    throw new Error("The workbook does not contain any sheets.");
-  }
-
-  const sheet = workbook.Sheets[sheetName];
-  if (!sheet) {
-    throw new Error("The workbook sheet could not be read.");
-  }
-
-  return XLSX.utils.sheet_to_csv(sheet);
+  assertProductImportLimits({ csvText: csv, sheetCount: worksheets.length });
+  return csv;
 }
 
 function normalizeUploadedText(text: string): string {
@@ -112,11 +107,33 @@ function normalizeUploadedText(text: string): string {
 
   if (trimmedStart.startsWith("PK")) {
     throw new Error(
-      "This looks like a binary workbook. Choose the .xlsx file from the file picker so it can be parsed correctly.",
+      "Binary .xlsx workbooks are not accepted. Save the sheet as CSV or use the POSARD Excel XML template.",
     );
   }
 
+  assertProductImportLimits({ csvText: text });
   return text;
+}
+
+function readTextFileWithTimeout(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    const timeout = window.setTimeout(() => {
+      reader.abort();
+      reject(new Error("The import file took too long to read. Try a smaller file."));
+    }, PRODUCT_IMPORT_PARSE_TIMEOUT_MS);
+
+    reader.onerror = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("The import file could not be read."));
+    };
+    reader.onload = (loadEvent) => {
+      window.clearTimeout(timeout);
+      resolve(String(loadEvent.target?.result ?? ""));
+    };
+
+    reader.readAsText(file);
+  });
 }
 
 function UploadSummary({
@@ -238,28 +255,35 @@ export function CsvUploadDialog({
 
     setFileName(file.name);
 
-    const isWorkbook =
-      /\.(xlsx|xlsm)$/i.test(file.name) ||
-      file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-      file.type === "application/vnd.ms-excel.sheet.macroEnabled.12";
+    if (!isAllowedProductImportFile(file)) {
+      setCsvText("");
+      setPreview(null);
+      setError("Upload a CSV file or the POSARD Excel XML template. Binary .xlsx files are not supported.");
+      return;
+    }
 
-    const reader = new FileReader();
-    reader.onload = async (loadEvent) => {
+    if (file.size > 0) {
       try {
-        const result = loadEvent.target?.result;
-        let nextCsv: string;
-        if (isWorkbook) {
-          if (!(result instanceof ArrayBuffer)) {
-            throw new Error("The workbook file could not be read.");
-          }
-          nextCsv = await workbookToCsv(result);
-        } else {
-          nextCsv = normalizeUploadedText(String(result ?? ""));
-        }
+        assertProductImportLimits({ csvText: "", byteLength: file.size });
+      } catch (limitError) {
+        setCsvText("");
+        setPreview(null);
+        setError(
+          limitError instanceof Error
+            ? limitError.message
+            : `Product import files must be ${formatFileSizeLimit()} or smaller.`,
+        );
+        return;
+      }
+    }
 
+    void readTextFileWithTimeout(file)
+      .then((text) => {
+        const nextCsv = normalizeUploadedText(text);
         setCsvText(nextCsv);
         setPreview(null);
-      } catch (readError) {
+      })
+      .catch((readError) => {
         setCsvText("");
         setPreview(null);
         setError(
@@ -267,13 +291,7 @@ export function CsvUploadDialog({
             ? readError.message
             : "The uploaded file could not be read.",
         );
-      }
-    };
-    if (isWorkbook) {
-      reader.readAsArrayBuffer(file);
-    } else {
-      reader.readAsText(file);
-    }
+      });
   }
 
   async function handleDownloadTemplate() {
@@ -341,7 +359,7 @@ export function CsvUploadDialog({
               Batch Create Products
             </AlertDialogTitle>
             <AlertDialogDescription className="text-left">
-              Upload the standardized CSV or Excel template, review normalized rows, then confirm the import once every row is valid.
+              Upload the standardized CSV or Excel XML template, review normalized rows, then confirm the import once every row is valid.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -365,14 +383,14 @@ export function CsvUploadDialog({
               className="cursor-pointer rounded-2xl border-2 border-dashed border-border bg-muted/20 px-4 py-8 text-center transition-colors hover:border-primary/40 hover:bg-muted/40"
             >
               <Upload className="mx-auto size-7 text-muted-foreground" />
-              <p className="mt-3 font-medium">{fileName ?? "Tap to choose a CSV or Excel file"}</p>
+              <p className="mt-3 font-medium">{fileName ?? "Tap to choose a CSV or Excel XML file"}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                CSV, legacy .xls XML, and .xlsx workbooks are supported.
+                CSV and the POSARD .xls XML template are supported up to {formatFileSizeLimit()}.
               </p>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.xls,.xml,.xlsx,.xlsm,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12"
+                accept=".csv,.xls,.xml,text/csv,application/vnd.ms-excel,application/xml,text/xml"
                 onChange={handleFileChange}
                 className="hidden"
               />

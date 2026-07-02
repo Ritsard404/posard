@@ -907,68 +907,130 @@ export const remainingFeaturesService = {
         name: true,
         phone: true,
         isActive: true,
-        debts: { select: { remainingAmount: true, status: true } },
-        loyaltyTransactions: {
-          orderBy: { createdAt: "desc" },
-          select: {
-            pointsDelta: true,
-            transactionType: true,
-            reason: true,
-            createdAt: true,
-            invoice: {
-              select: {
-                invoiceNumber: true,
-                totalAmount: true,
-                createdAt: true,
-              },
+      },
+    });
+    const customerIds = customers.map((customer) => customer.id);
+    const customerAggregateResults = customerIds.length
+      ? await Promise.all([
+          prisma.customerDebt.groupBy({
+            by: ["customerId"],
+            where: {
+              companyId: viewer.companyId ?? undefined,
+              customerId: { in: customerIds },
+              status: { in: ["UNPAID", "PARTIAL"] },
             },
+            _sum: { remainingAmount: true },
+          }),
+          prisma.loyaltyTransaction.groupBy({
+            by: ["customerId"],
+            where: {
+              companyId: viewer.companyId ?? undefined,
+              customerId: { in: customerIds },
+            },
+            _sum: { pointsDelta: true },
+          }),
+          prisma.loyaltyTransaction.findMany({
+            where: {
+              companyId: viewer.companyId ?? undefined,
+              customerId: { in: customerIds },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 300,
+            select: {
+              customerId: true,
+              pointsDelta: true,
+              transactionType: true,
+              reason: true,
+              createdAt: true,
+              invoice: { select: { invoiceNumber: true } },
+            },
+          }),
+          prisma.invoice.groupBy({
+            by: ["customerId"],
+            where: {
+              customerId: { in: customerIds },
+              posTerminal: companyWhere(viewer.companyId),
+              status: { in: ["PAID", "RETURNED"] },
+            },
+            _count: { _all: true },
+            _sum: {
+              totalAmount: true,
+              returnedAmount: true,
+            },
+            _max: { createdAt: true },
+          }),
+          prisma.invoice.findMany({
+            where: {
+              customerId: { in: customerIds },
+              posTerminal: companyWhere(viewer.companyId),
+              status: { in: ["PAID", "RETURNED"] },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 300,
+            select: {
+              id: true,
+              customerId: true,
+              invoiceNumber: true,
+              totalAmount: true,
+              returnedAmount: true,
+              status: true,
+              createdAt: true,
+              posTerminal: { select: { posName: true } },
+            },
+          }),
+        ])
+      : null;
+    const debtSummaries = customerAggregateResults?.[0] ?? [];
+    const loyaltySummaries = customerAggregateResults?.[1] ?? [];
+    const recentLoyaltyTransactions = customerAggregateResults?.[2] ?? [];
+    const purchaseSummaries = customerAggregateResults?.[3] ?? [];
+    const recentInvoices = customerAggregateResults?.[4] ?? [];
+
+    const debtByCustomer = new Map(
+      debtSummaries.map((item) => [item.customerId, toNumber(item._sum.remainingAmount)]),
+    );
+    const loyaltyByCustomer = new Map(
+      loyaltySummaries.map((item) => [item.customerId, item._sum.pointsDelta ?? 0]),
+    );
+    const purchaseSummaryByCustomer = new Map(
+      purchaseSummaries
+        .filter((item) => item.customerId)
+        .map((item) => [
+          item.customerId!,
+          {
+            purchaseCount: item._count._all,
+            totalSpent: toNumber(item._sum.totalAmount),
+            returnedAmount: toNumber(item._sum.returnedAmount),
+            lastPurchaseAt: item._max.createdAt,
           },
-        },
-      },
-    });
-
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        posTerminal: companyWhere(viewer.companyId),
-        status: { in: ["PAID", "RETURNED"] },
-        customerName: { in: customers.map((customer) => customer.name) },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-      select: {
-        id: true,
-        invoiceNumber: true,
-        customerName: true,
-        totalAmount: true,
-        returnedAmount: true,
-        status: true,
-        createdAt: true,
-        posTerminal: { select: { posName: true } },
-      },
-    });
-
-    const invoicesByCustomer = new Map<string, typeof invoices>();
-    invoices.forEach((invoice) => {
-      const list = invoicesByCustomer.get(invoice.customerName) ?? [];
-      list.push(invoice);
-      invoicesByCustomer.set(invoice.customerName, list);
-    });
+        ]),
+    );
+    const loyaltyEventsByCustomer = new Map<string, typeof recentLoyaltyTransactions>();
+    for (const transaction of recentLoyaltyTransactions) {
+      const list = loyaltyEventsByCustomer.get(transaction.customerId) ?? [];
+      if (list.length < 3) {
+        list.push(transaction);
+        loyaltyEventsByCustomer.set(transaction.customerId, list);
+      }
+    }
+    const invoicesByCustomer = new Map<string, typeof recentInvoices>();
+    for (const invoice of recentInvoices) {
+      if (!invoice.customerId) continue;
+      const list = invoicesByCustomer.get(invoice.customerId) ?? [];
+      if (list.length < 3) {
+        list.push(invoice);
+        invoicesByCustomer.set(invoice.customerId, list);
+      }
+    }
 
     return customers.map((customer) => {
-      const customerInvoices = invoicesByCustomer.get(customer.name) ?? [];
+      const customerInvoices = invoicesByCustomer.get(customer.id) ?? [];
+      const purchaseSummary = purchaseSummaryByCustomer.get(customer.id);
       return {
         ...customer,
-        outstandingDebt: customer.debts
-          .filter(
-            (debt) => debt.status === "UNPAID" || debt.status === "PARTIAL",
-          )
-          .reduce((sum, debt) => sum + toNumber(debt.remainingAmount), 0),
-        loyaltyPoints: customer.loyaltyTransactions.reduce(
-          (sum, transaction) => sum + transaction.pointsDelta,
-          0,
-        ),
-        loyaltyEvents: customer.loyaltyTransactions
-          .slice(0, 3)
+        outstandingDebt: debtByCustomer.get(customer.id) ?? 0,
+        loyaltyPoints: loyaltyByCustomer.get(customer.id) ?? 0,
+        loyaltyEvents: (loyaltyEventsByCustomer.get(customer.id) ?? [])
           .map((transaction) => ({
             pointsDelta: transaction.pointsDelta,
             transactionType: transaction.transactionType,
@@ -976,16 +1038,10 @@ export const remainingFeaturesService = {
             createdAt: transaction.createdAt,
             invoiceNumber: transaction.invoice?.invoiceNumber ?? null,
           })),
-        purchaseCount: customerInvoices.length,
-        totalSpent: customerInvoices.reduce(
-          (sum, invoice) => sum + toNumber(invoice.totalAmount),
-          0,
-        ),
-        returnedAmount: customerInvoices.reduce(
-          (sum, invoice) => sum + toNumber(invoice.returnedAmount),
-          0,
-        ),
-        lastPurchaseAt: customerInvoices[0]?.createdAt ?? null,
+        purchaseCount: purchaseSummary?.purchaseCount ?? 0,
+        totalSpent: purchaseSummary?.totalSpent ?? 0,
+        returnedAmount: purchaseSummary?.returnedAmount ?? 0,
+        lastPurchaseAt: purchaseSummary?.lastPurchaseAt ?? null,
         recentPurchases: customerInvoices.slice(0, 3).map((invoice) => ({
           id: invoice.id,
           invoiceNumber: invoice.invoiceNumber,

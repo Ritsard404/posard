@@ -1,6 +1,9 @@
 import { DataExchangeClient } from "./_components/DataExchangeClient";
+import { dataExchangeService } from "./_services/data-exchange.service";
 
-export default function DataExchangePage() {
+export default async function DataExchangePage() {
+  const exportHistory = await dataExchangeService.getExportHistory();
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border/70 bg-background p-4">
@@ -9,7 +12,7 @@ export default function DataExchangePage() {
           Export backup data, download product catalog files, and validate restore files with a dry-run duplicate preview before importing.
         </p>
       </div>
-      <DataExchangeClient />
+      <DataExchangeClient exportHistory={exportHistory} />
     </div>
   );
 }

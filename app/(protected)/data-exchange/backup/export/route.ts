@@ -10,17 +10,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/security/response";
 
-const textEncoder = new TextEncoder();
-
-function getBackupRowCounts(backup: Record<string, unknown>) {
-  return Object.fromEntries(
-    Object.entries(backup)
-      .filter(([, value]) => Array.isArray(value))
-      .map(([key, value]) => [key, (value as unknown[]).length]),
-  );
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const profile = await getCurrentProfile();
     if (!profile?.companyId) {
@@ -41,12 +31,17 @@ export async function GET() {
       companyId: profile.companyId,
     });
 
-    const backup = await dataExchangeService.buildBackup();
-    const json = JSON.stringify(backup, null, 2);
+    const url = new URL(request.url);
+    const includeSensitive = url.searchParams.get("scope") === "full";
+    if (includeSensitive && profile.role !== "admin") {
+      return forbiddenResponse("Full administrative backup requires admin access.");
+    }
+
+    const { stream, tableCounts } = await dataExchangeService.buildBackupStream({
+      includeSensitive,
+    });
     const dateSuffix = new Date().toISOString().slice(0, 10);
-    const tableCounts = getBackupRowCounts(backup as Record<string, unknown>);
     const rowCount = Object.values(tableCounts).reduce((sum, value) => sum + value, 0);
-    const fileSize = textEncoder.encode(json).byteLength;
 
     await auditSecurityEventBestEffort({
       action: "DATA_BACKUP_EXPORT",
@@ -60,16 +55,17 @@ export async function GET() {
       metadata: {
         exportType: "backup",
         format: "json",
+        scope: includeSensitive ? "full-admin" : "operational",
         rowCount,
-        fileSize,
+        fileSize: null,
         tableCounts,
       },
     });
 
-    return new Response(json, {
+    return new Response(stream, {
       headers: sensitiveDownloadHeaders({
         contentType: "application/json",
-        filename: `posard-backup-${dateSuffix}.json`,
+        filename: `posard-backup-${includeSensitive ? "full-" : ""}${dateSuffix}.json`,
       }),
     });
   } catch (error) {

@@ -1,6 +1,8 @@
 import "server-only";
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { REPORT_TIME_ZONE } from "@/lib/report-date-format";
 import { createClient } from "@/lib/supabase/server";
 import { buildRestockRecommendations } from "../../_services/inventory-restock.service";
 import type {
@@ -11,6 +13,28 @@ import type {
   DashboardVarianceInvestigationDto,
   DashboardViewerDto,
 } from "./_dto/dashboard.dto";
+
+const DASHBOARD_RECENT_LIMIT = 6;
+const DASHBOARD_LOW_STOCK_SCAN_LIMIT = 50;
+const DASHBOARD_RESTOCK_LIMIT = 12;
+const DASHBOARD_TOP_PRODUCT_LIMIT = 5;
+const DASHBOARD_TOP_ADDON_LIMIT = 5;
+
+type AggregateNumber = Prisma.Decimal | number | bigint | null;
+
+type TrendAggregateRow = {
+  dayKey: string;
+  sales: AggregateNumber;
+  transactions: AggregateNumber;
+};
+
+type AddOnAggregateRow = {
+  id: string;
+  name: string;
+  parentProductName: string;
+  quantity: AggregateNumber;
+  revenue: AggregateNumber;
+};
 
 function toNumber(value: unknown) {
   return Number(value ?? 0);
@@ -61,17 +85,24 @@ function isDateWithinDays(value: Date | null | undefined, days: number) {
 function formatDayLabel(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
+    timeZone: REPORT_TIME_ZONE,
   }).format(value);
 }
 
-function buildTrend(
-  invoices: Array<{ createdAt: Date; totalAmount: unknown; discountAmount: unknown; returnedAmount: unknown; status: string }>,
-  days = 7,
-) {
+function formatDateKey(value: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: REPORT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value);
+}
+
+function buildTrend(rows: TrendAggregateRow[], days = 7) {
   const labels = Array.from({ length: days }, (_, index) => {
     const date = daysAgo(days - index - 1);
     return {
-      key: date.toISOString().slice(0, 10),
+      key: formatDateKey(date),
       label: formatDayLabel(date),
       sales: 0,
       transactions: 0,
@@ -80,19 +111,14 @@ function buildTrend(
 
   const map = new Map(labels.map((item) => [item.key, item]));
 
-  for (const invoice of invoices) {
-    const key = startOfDay(invoice.createdAt).toISOString().slice(0, 10);
-    const bucket = map.get(key);
-
-    if (!bucket || invoice.status !== "PAID") {
+  for (const row of rows) {
+    const bucket = map.get(row.dayKey);
+    if (!bucket) {
       continue;
     }
 
-    bucket.sales +=
-      toNumber(invoice.totalAmount) -
-      toNumber(invoice.discountAmount) -
-      toNumber(invoice.returnedAmount);
-    bucket.transactions += 1;
+    bucket.sales = toNumber(row.sales);
+    bucket.transactions = toNumber(row.transactions);
   }
 
   return labels;
@@ -118,16 +144,15 @@ function calculateInvoiceNet(invoice: {
   );
 }
 
-function calculateCashCollected(invoice: {
-  cashTendered: unknown;
-  changeAmount: unknown;
-  returnedAmount: unknown;
-}) {
-  return Math.max(
-    0,
-    toNumber(invoice.cashTendered) -
-      toNumber(invoice.changeAmount) -
-      toNumber(invoice.returnedAmount),
+function calculateNetFromSums(sums: {
+  totalAmount?: unknown;
+  discountAmount?: unknown;
+  returnedAmount?: unknown;
+} | null | undefined) {
+  return (
+    toNumber(sums?.totalAmount) -
+    toNumber(sums?.discountAmount) -
+    toNumber(sums?.returnedAmount)
   );
 }
 
@@ -187,12 +212,14 @@ function explainVariance(input: {
 }
 
 function buildFulfillmentMix(
-  invoices: Array<{
+  rows: Array<{
     fulfillmentType: DashboardFulfillmentMixDto["type"];
-    status: string;
-    totalAmount: unknown;
-    discountAmount: unknown;
-    returnedAmount: unknown;
+    _count: { _all: number };
+    _sum: {
+      totalAmount: unknown;
+      discountAmount: unknown;
+      returnedAmount: unknown;
+    };
   }>,
 ): DashboardFulfillmentMixDto[] {
   const buckets = new Map<DashboardFulfillmentMixDto["type"], DashboardFulfillmentMixDto>(
@@ -201,15 +228,14 @@ function buildFulfillmentMix(
       { type, label: fulfillmentLabels[type], count: 0, sales: 0, share: 0 },
     ]),
   );
-  const paidInvoices = invoices.filter((invoice) => invoice.status === "PAID");
 
-  for (const invoice of paidInvoices) {
-    const bucket = buckets.get(invoice.fulfillmentType) ?? buckets.get("WALK_IN")!;
-    bucket.count += 1;
-    bucket.sales += calculateInvoiceNet(invoice);
+  for (const row of rows) {
+    const bucket = buckets.get(row.fulfillmentType) ?? buckets.get("WALK_IN")!;
+    bucket.count += row._count._all;
+    bucket.sales += calculateNetFromSums(row._sum);
   }
 
-  const totalCount = paidInvoices.length;
+  const totalCount = [...buckets.values()].reduce((sum, bucket) => sum + bucket.count, 0);
   return [...buckets.values()].map((bucket) => ({
     ...bucket,
     share: totalCount > 0 ? (bucket.count / totalCount) * 100 : 0,
@@ -618,13 +644,27 @@ export const dashboardService = {
 
     const billingRestriction = null;
 
+    const dashboardStartedAt = Date.now();
     const baseWhere = { posTerminal: { companyId } } as const;
+    const invoiceScopeWhere =
+      viewer.role === "cashier"
+        ? { ...baseWhere, cashierId: viewer.profileId }
+        : baseWhere;
+    const cashierTrendFilter =
+      viewer.role === "cashier"
+        ? Prisma.sql`AND invoice.cashier_id = ${viewer.profileId}::uuid`
+        : Prisma.empty;
 
     const [
-      todayInvoices,
-      weekInvoices,
-      monthItems,
+      todayInvoiceStats,
+      weekTrendRows,
+      paymentRows,
+      fulfillmentRows,
+      topProductRows,
+      topConfiguredProductRows,
+      topAddOnRows,
       terminals,
+      terminalSalesRows,
       auditLogs,
       todayOpenSessions,
       lowStockProducts,
@@ -644,69 +684,119 @@ export const dashboardService = {
       recentlyClosedShifts,
       debtPaymentsToday,
       revenueGoal,
-      revenueGoalInvoices,
+      revenueGoalSales,
     ] = await Promise.all([
-      prisma.invoice.findMany({
-        where: { ...baseWhere, createdAt: { gte: todayStart, lte: todayEnd } },
-        select: {
-          id: true,
-          invoiceNumber: true,
-          customerName: true,
+      prisma.invoice.groupBy({
+        by: ["status"],
+        where: { ...invoiceScopeWhere, createdAt: { gte: todayStart, lte: todayEnd } },
+        _count: { _all: true },
+        _sum: {
           totalAmount: true,
           discountAmount: true,
           returnedAmount: true,
-          cashTendered: true,
-          changeAmount: true,
-          sourceTimestampId: true,
-          fulfillmentType: true,
-          status: true,
-          createdAt: true,
-          cashierId: true,
-          posTerminal: { select: { posName: true } },
-          ePayments: { select: { amount: true, saleType: { select: { name: true } } } },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.invoice.findMany({
-        where: { ...baseWhere, createdAt: { gte: weekStart, lte: todayEnd } },
-        select: {
-          createdAt: true,
-          totalAmount: true,
-          discountAmount: true,
-          returnedAmount: true,
-          status: true,
-          cashierId: true,
         },
       }),
-      prisma.item.findMany({
+      prisma.$queryRaw<TrendAggregateRow[]>(Prisma.sql`
+        SELECT
+          to_char(invoice.created_at AT TIME ZONE ${REPORT_TIME_ZONE}, 'YYYY-MM-DD') AS "dayKey",
+          COALESCE(
+            SUM(invoice.total_amount - COALESCE(invoice.discount_amount, 0) - COALESCE(invoice.returned_amount, 0)),
+            0
+          ) AS sales,
+          COUNT(*)::int AS transactions
+        FROM public.invoice AS invoice
+        INNER JOIN public.pos_terminal_info AS terminal
+          ON terminal.uuid_pos_terminal = invoice.uuid_pos_terminal
+        WHERE terminal.company_id = ${companyId}::uuid
+          AND invoice.created_at >= ${weekStart}
+          AND invoice.created_at <= ${todayEnd}
+          AND invoice.status = 'PAID'
+          ${cashierTrendFilter}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `),
+      prisma.ePayment.groupBy({
+        by: ["saleTypeId"],
         where: {
-          invoice: { posTerminal: { companyId }, createdAt: { gte: monthStart, lte: todayEnd } },
+          invoice: {
+            ...invoiceScopeWhere,
+            createdAt: { gte: todayStart, lte: todayEnd },
+            status: "PAID",
+          },
+        },
+        _sum: { amount: true },
+        orderBy: { _sum: { amount: "desc" } },
+      }),
+      prisma.invoice.groupBy({
+        by: ["fulfillmentType"],
+        where: {
+          ...invoiceScopeWhere,
+          createdAt: { gte: todayStart, lte: todayEnd },
+          status: "PAID",
+        },
+        _count: { _all: true },
+        _sum: {
+          totalAmount: true,
+          discountAmount: true,
+          returnedAmount: true,
+        },
+      }),
+      prisma.item.groupBy({
+        by: ["productId"],
+        where: {
+          invoice: {
+            posTerminal: { companyId },
+            createdAt: { gte: monthStart, lte: todayEnd },
+            status: { in: ["PAID", "RETURNED"] },
+          },
           status: { not: "VOID" },
         },
-        select: {
-          id: true,
-          qty: true,
-          subTotal: true,
-          selections: {
-            select: {
-              id: true,
-              modifierGroupType: true,
-              optionName: true,
-              priceDelta: true,
-              quantity: true,
-            },
-          },
-          invoice: { select: { status: true, returnedAmount: true, totalAmount: true } },
-          product: {
-            select: {
-              id: true,
-              name: true,
-              isConfigurable: true,
-              category: { select: { categoryName: true } },
-            },
-          },
-        },
+        _sum: { qty: true, subTotal: true },
+        orderBy: { _sum: { subTotal: "desc" } },
+        take: DASHBOARD_TOP_PRODUCT_LIMIT,
       }),
+      prisma.item.groupBy({
+        by: ["productId"],
+        where: {
+          invoice: {
+            posTerminal: { companyId },
+            createdAt: { gte: monthStart, lte: todayEnd },
+            status: { in: ["PAID", "RETURNED"] },
+          },
+          status: { not: "VOID" },
+          OR: [{ product: { isConfigurable: true } }, { selections: { some: {} } }],
+        },
+        _sum: { qty: true, subTotal: true },
+        orderBy: { _sum: { subTotal: "desc" } },
+        take: DASHBOARD_TOP_PRODUCT_LIMIT,
+      }),
+      prisma.$queryRaw<AddOnAggregateRow[]>(Prisma.sql`
+        SELECT
+          MIN(selection.uuid_order_item_selection::text) AS id,
+          selection.option_name AS name,
+          product.name AS "parentProductName",
+          COALESCE(SUM(selection.quantity * item.qty), 0) AS quantity,
+          COALESCE(SUM(selection.price_delta * selection.quantity * item.qty), 0) AS revenue
+        FROM public.order_item_selection AS selection
+        INNER JOIN public.item AS item
+          ON item.uuid_item = selection.order_item_id
+        INNER JOIN public.product AS product
+          ON product.uuid_product = item.uuid_product
+        INNER JOIN public.invoice AS invoice
+          ON invoice.uuid_invoice = item.uuid_invoice
+        INNER JOIN public.pos_terminal_info AS terminal
+          ON terminal.uuid_pos_terminal = invoice.uuid_pos_terminal
+        WHERE terminal.company_id = ${companyId}::uuid
+          AND invoice.created_at >= ${monthStart}
+          AND invoice.created_at <= ${todayEnd}
+          AND invoice.status IN ('PAID', 'RETURNED')
+          AND item.status <> 'VOID'
+          AND selection.modifier_group_type = 'ADDON'
+          AND selection.option_name IS NOT NULL
+        GROUP BY selection.option_name, product.name
+        ORDER BY revenue DESC, quantity DESC
+        LIMIT ${DASHBOARD_TOP_ADDON_LIMIT}
+      `),
       prisma.posTerminalInfo.findMany({
         where: { companyId },
         select: {
@@ -718,16 +808,26 @@ export const dashboardService = {
           printerDriver: true,
           customerDisplayState: { select: { updatedAt: true } },
           timestamps: { where: { timestampOut: null }, select: { id: true } },
-          invoices: {
-            where: { createdAt: { gte: todayStart, lte: todayEnd }, status: "PAID" },
-            select: { totalAmount: true, discountAmount: true, returnedAmount: true },
-          },
         },
         orderBy: { posName: "asc" },
       }),
+      prisma.invoice.groupBy({
+        by: ["posTerminalId"],
+        where: {
+          ...baseWhere,
+          createdAt: { gte: todayStart, lte: todayEnd },
+          status: "PAID",
+        },
+        _count: { _all: true },
+        _sum: {
+          totalAmount: true,
+          discountAmount: true,
+          returnedAmount: true,
+        },
+      }),
       prisma.auditLog.findMany({
         where: { companyId },
-        take: 6,
+        take: DASHBOARD_RECENT_LIMIT,
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -750,7 +850,7 @@ export const dashboardService = {
           OR: [{ quantity: { lte: 10 } }, { reorderPoint: { not: null } }],
           isDeleted: false,
         },
-        take: 50,
+        take: DASHBOARD_LOW_STOCK_SCAN_LIMIT,
         orderBy: { quantity: "asc" },
         select: {
           id: true,
@@ -762,11 +862,8 @@ export const dashboardService = {
         },
       }),
       prisma.invoice.findMany({
-        where:
-          viewer.role === "cashier"
-            ? { ...baseWhere, cashierId: viewer.profileId }
-            : baseWhere,
-        take: 6,
+        where: invoiceScopeWhere,
+        take: DASHBOARD_RECENT_LIMIT,
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -850,7 +947,7 @@ export const dashboardService = {
           ],
         },
         orderBy: [{ quantity: "asc" }, { name: "asc" }],
-        take: 12,
+        take: DASHBOARD_RESTOCK_LIMIT,
         select: {
           id: true,
           name: true,
@@ -892,7 +989,7 @@ export const dashboardService = {
           timestampOut: { gte: todayStart, lte: todayEnd },
         },
         orderBy: { timestampOut: "desc" },
-        take: 6,
+        take: DASHBOARD_RECENT_LIMIT,
         select: {
           id: true,
           timestampIn: true,
@@ -924,106 +1021,103 @@ export const dashboardService = {
         },
         select: { targetAmount: true, notes: true },
       }),
-      prisma.invoice.findMany({
+      prisma.invoice.aggregate({
         where: {
-          posTerminal: { companyId },
+          ...baseWhere,
           createdAt: { gte: calendarMonthStart, lte: calendarMonthElapsedEnd },
           status: "PAID",
         },
-        select: { totalAmount: true, discountAmount: true, returnedAmount: true },
+        _sum: { totalAmount: true, discountAmount: true, returnedAmount: true },
       }),
     ]);
 
-    const todayScopedInvoices =
-      viewer.role === "cashier"
-        ? todayInvoices.filter((invoice) => invoice.cashierId === viewer.profileId)
-        : todayInvoices;
-    const weekScopedInvoices =
-      viewer.role === "cashier"
-        ? weekInvoices
-        : weekInvoices;
+    const paymentSaleTypeIds = [...new Set(paymentRows.map((row) => row.saleTypeId))];
+    const topProductIds = [
+      ...new Set([
+        ...topProductRows.map((row) => row.productId),
+        ...topConfiguredProductRows.map((row) => row.productId),
+      ]),
+    ];
+    const [paymentSaleTypes, topProductRecords] = await Promise.all([
+      paymentSaleTypeIds.length > 0
+        ? prisma.saleType.findMany({
+            where: { id: { in: paymentSaleTypeIds } },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([] as Array<{ id: string; name: string | null }>),
+      topProductIds.length > 0
+        ? prisma.product.findMany({
+            where: { id: { in: topProductIds } },
+            select: {
+              id: true,
+              name: true,
+              category: { select: { categoryName: true } },
+            },
+          })
+        : Promise.resolve([] as Array<{ id: string; name: string; category: { categoryName: string } }>),
+    ]);
 
-    const salesToday = todayScopedInvoices.reduce((sum, invoice) => {
-      if (invoice.status !== "PAID") return sum;
-      return (
-        sum +
-        toNumber(invoice.totalAmount) -
-        toNumber(invoice.discountAmount) -
-        toNumber(invoice.returnedAmount)
-      );
-    }, 0);
+    const todayStatsByStatus = new Map(todayInvoiceStats.map((row) => [row.status, row]));
+    const paidInvoiceStats = todayStatsByStatus.get("PAID");
+    const paidTransactionCount = paidInvoiceStats?._count._all ?? 0;
+    const salesToday = calculateNetFromSums(paidInvoiceStats?._sum);
+    const returnsToday = toNumber(todayStatsByStatus.get("RETURNED")?._sum.returnedAmount);
+    const voidsToday =
+      toNumber(todayStatsByStatus.get("VOID")?._sum.totalAmount) +
+      toNumber(todayStatsByStatus.get("CANCELLED")?._sum.totalAmount);
 
-    const returnsToday = todayScopedInvoices
-      .filter((invoice) => invoice.status === "RETURNED")
-      .reduce((sum, invoice) => sum + toNumber(invoice.returnedAmount), 0);
-    const voidsToday = todayScopedInvoices
-      .filter((invoice) => invoice.status === "VOID" || invoice.status === "CANCELLED")
-      .reduce((sum, invoice) => sum + toNumber(invoice.totalAmount), 0);
-
+    const saleTypeNameById = new Map(paymentSaleTypes.map((saleType) => [saleType.id, saleType.name]));
     const paymentMap = new Map<string, number>();
-    for (const invoice of todayScopedInvoices) {
-      for (const payment of invoice.ePayments) {
-        const key = getPaymentMethodName(payment.saleType.name);
-        paymentMap.set(key, (paymentMap.get(key) ?? 0) + toNumber(payment.amount));
-      }
+    for (const row of paymentRows) {
+      const key = getPaymentMethodName(saleTypeNameById.get(row.saleTypeId) ?? null);
+      paymentMap.set(key, (paymentMap.get(key) ?? 0) + toNumber(row._sum.amount));
     }
 
-    const productMap = new Map<string, { id: string; category: string | null; quantity: number; sales: number }>();
-    const configuredProductMap = new Map<string, { id: string; name: string; category: string | null; quantity: number; sales: number }>();
-    const addOnMap = new Map<string, { id: string; name: string; parentProductName: string; quantity: number; revenue: number }>();
-    for (const item of monthItems) {
-      const current = productMap.get(item.product.name) ?? {
-        id: item.id,
-        category: item.product.category.categoryName,
-        quantity: 0,
-        sales: 0,
-      };
-      current.quantity += toNumber(item.qty);
-      current.sales += toNumber(item.subTotal);
-      productMap.set(item.product.name, current);
-
-      if (item.product.isConfigurable || item.selections.length > 0) {
-        const configured = configuredProductMap.get(item.product.id) ?? {
-          id: item.product.id,
-          name: item.product.name,
-          category: item.product.category.categoryName,
-          quantity: 0,
-          sales: 0,
-        };
-        configured.quantity += toNumber(item.qty);
-        configured.sales += toNumber(item.subTotal);
-        configuredProductMap.set(item.product.id, configured);
+    const productById = new Map(topProductRecords.map((product) => [product.id, product]));
+    const topProducts = topProductRows.flatMap((row) => {
+      const product = productById.get(row.productId);
+      if (!product) {
+        return [];
       }
 
-      for (const selection of item.selections) {
-        if (selection.modifierGroupType !== "ADDON" || !selection.optionName) {
-          continue;
-        }
-
-        const key = `${selection.optionName}::${item.product.name}`;
-        const currentAddOn = addOnMap.get(key) ?? {
-          id: selection.id,
-          name: selection.optionName,
-          parentProductName: item.product.name,
-          quantity: 0,
-          revenue: 0,
-        };
-        currentAddOn.quantity += selection.quantity * toNumber(item.qty);
-        currentAddOn.revenue += toNumber(selection.priceDelta) * selection.quantity * toNumber(item.qty);
-        addOnMap.set(key, currentAddOn);
+      return [{
+        id: product.id,
+        name: product.name,
+        category: product.category.categoryName,
+        quantity: toNumber(row._sum.qty),
+        sales: toNumber(row._sum.subTotal),
+      }];
+    });
+    const topConfiguredProducts = topConfiguredProductRows.flatMap((row) => {
+      const product = productById.get(row.productId);
+      if (!product) {
+        return [];
       }
-    }
+
+      return [{
+        id: product.id,
+        name: product.name,
+        category: product.category.categoryName,
+        quantity: toNumber(row._sum.qty),
+        sales: toNumber(row._sum.subTotal),
+      }];
+    });
+    const topAddOns = topAddOnRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      parentProductName: row.parentProductName,
+      quantity: toNumber(row.quantity),
+      revenue: toNumber(row.revenue),
+    }));
+
+    const terminalSalesById = new Map(terminalSalesRows.map((row) => [row.posTerminalId, row]));
 
     const commonData = {
-      trend: buildTrend(
-        viewer.role === "cashier"
-          ? weekInvoices.filter((invoice) => invoice.cashierId === viewer.profileId)
-          : weekScopedInvoices,
-      ),
+      trend: buildTrend(weekTrendRows),
       paymentMix: [...paymentMap.entries()]
         .map(([label, amount]) => ({ label, amount }))
         .sort((a, b) => b.amount - a.amount),
-      fulfillmentMix: buildFulfillmentMix(todayScopedInvoices),
+      fulfillmentMix: buildFulfillmentMix(fulfillmentRows),
       recentActivities: auditLogs.map((log) => ({
         id: log.id,
         title: log.actionType,
@@ -1099,20 +1193,88 @@ export const dashboardService = {
         (debtCashByTimestamp.get(payment.timestampId) ?? 0) + toNumber(payment.amount),
       );
     }
+    const shiftIds = recentlyClosedShifts.map((shift) => shift.id);
+    let shiftRefundRows: Array<{
+      sourceTimestampId: string | null;
+      _sum: { returnedAmount: AggregateNumber };
+    }> = [];
+    let shiftVoidRows: Array<{
+      sourceTimestampId: string | null;
+      _sum: { totalAmount: AggregateNumber };
+    }> = [];
+    let shiftCashRows: Array<{
+      sourceTimestampId: string | null;
+      _sum: {
+        cashTendered: AggregateNumber;
+        changeAmount: AggregateNumber;
+        returnedAmount: AggregateNumber;
+      };
+    }> = [];
+
+    if (shiftIds.length > 0) {
+      [shiftRefundRows, shiftVoidRows, shiftCashRows] = await Promise.all([
+        prisma.invoice.groupBy({
+          by: ["sourceTimestampId"],
+          where: {
+            ...baseWhere,
+            sourceTimestampId: { in: shiftIds },
+            status: "RETURNED",
+          },
+          _sum: { returnedAmount: true },
+        }),
+        prisma.invoice.groupBy({
+          by: ["sourceTimestampId"],
+          where: {
+            ...baseWhere,
+            sourceTimestampId: { in: shiftIds },
+            status: { in: ["VOID", "CANCELLED"] },
+          },
+          _sum: { totalAmount: true },
+        }),
+        prisma.invoice.groupBy({
+          by: ["sourceTimestampId"],
+          where: {
+            ...baseWhere,
+            sourceTimestampId: { in: shiftIds },
+            status: { in: ["PAID", "RETURNED"] },
+          },
+          _sum: {
+            cashTendered: true,
+            changeAmount: true,
+            returnedAmount: true,
+          },
+        }),
+      ]);
+    }
+
+    const refundsByShift = new Map(
+      shiftRefundRows
+        .filter((row) => row.sourceTimestampId)
+        .map((row) => [row.sourceTimestampId!, toNumber(row._sum.returnedAmount)]),
+    );
+    const voidsByShift = new Map(
+      shiftVoidRows
+        .filter((row) => row.sourceTimestampId)
+        .map((row) => [row.sourceTimestampId!, toNumber(row._sum.totalAmount)]),
+    );
+    const cashSalesByShift = new Map(
+      shiftCashRows
+        .filter((row) => row.sourceTimestampId)
+        .map((row) => [
+          row.sourceTimestampId!,
+          Math.max(
+            0,
+            toNumber(row._sum.cashTendered) -
+              toNumber(row._sum.changeAmount) -
+              toNumber(row._sum.returnedAmount),
+          ),
+        ]),
+    );
     const varianceInvestigations = recentlyClosedShifts.map((shift) => {
-      const shiftInvoices = todayInvoices.filter(
-        (invoice) => invoice.sourceTimestampId === shift.id,
-      );
-      const refunds = shiftInvoices
-        .filter((invoice) => invoice.status === "RETURNED")
-        .reduce((sum, invoice) => sum + toNumber(invoice.returnedAmount), 0);
-      const voids = shiftInvoices
-        .filter((invoice) => invoice.status === "VOID" || invoice.status === "CANCELLED")
-        .reduce((sum, invoice) => sum + toNumber(invoice.totalAmount), 0);
+      const refunds = refundsByShift.get(shift.id) ?? 0;
+      const voids = voidsByShift.get(shift.id) ?? 0;
       const cashSales =
-        shiftInvoices
-          .filter((invoice) => invoice.status === "PAID" || invoice.status === "RETURNED")
-          .reduce((sum, invoice) => sum + calculateCashCollected(invoice), 0) +
+        (cashSalesByShift.get(shift.id) ?? 0) +
         (debtCashByTimestamp.get(shift.id) ?? 0);
       const withdrawals = toNumber(shift.withdrawnDrawerAmount);
       const expectedCash = toNumber(shift.cashInDrawerAmount) + cashSales - withdrawals;
@@ -1143,14 +1305,7 @@ export const dashboardService = {
         }),
       };
     });
-    const revenueGoalActualSales = revenueGoalInvoices.reduce(
-      (sum, invoice) =>
-        sum +
-        toNumber(invoice.totalAmount) -
-        toNumber(invoice.discountAmount) -
-        toNumber(invoice.returnedAmount),
-      0,
-    );
+    const revenueGoalActualSales = calculateNetFromSums(revenueGoalSales._sum);
     const revenueGoalTarget = toNumber(revenueGoal?.targetAmount);
     const daysInGoalMonth = calendarMonthEnd.getDate();
     const daysElapsed = Math.max(
@@ -1178,6 +1333,16 @@ export const dashboardService = {
       notes: revenueGoal?.notes ?? null,
     };
 
+    console.info("POSard dashboard aggregate metrics", {
+      companyId,
+      role: viewer.role,
+      durationMs: Date.now() - dashboardStartedAt,
+      trendBuckets: weekTrendRows.length,
+      topProductBuckets: topProductRows.length,
+      topAddOnBuckets: topAddOnRows.length,
+      recentShiftCount: recentlyClosedShifts.length,
+    });
+
     if (viewer.role === "manager") {
       return {
         role: viewer.role,
@@ -1188,8 +1353,8 @@ export const dashboardService = {
         heroDescription: "Monitor live terminals, sales momentum, and stock pressure before it becomes an issue.",
         summary: [
           { label: "Net Sales", value: salesToday, tone: "success", hint: "Today across your company" },
-          { label: "Transactions", value: todayScopedInvoices.filter((item) => item.status === "PAID").length, hint: "Completed receipts today" },
-          { label: "Average Basket", value: todayScopedInvoices.filter((item) => item.status === "PAID").length > 0 ? salesToday / todayScopedInvoices.filter((item) => item.status === "PAID").length : 0, hint: "Net sales per paid invoice" },
+          { label: "Transactions", value: paidTransactionCount, hint: "Completed receipts today" },
+          { label: "Average Basket", value: paidTransactionCount > 0 ? salesToday / paidTransactionCount : 0, hint: "Net sales per paid invoice" },
           { label: "Open Sessions", value: todayOpenSessions, hint: "Cash drawers currently open" },
           { label: "Returns Today", value: returnsToday, tone: "warning", hint: "Returned amount today" },
           { label: "Voids Today", value: voidsToday, tone: "danger", hint: "Voided or cancelled totals" },
@@ -1204,33 +1369,13 @@ export const dashboardService = {
           id: terminal.id,
           name: terminal.posName ?? "Unnamed terminal",
           secondaryLabel: terminal.timestamps.length > 0 ? "Open drawer" : "No open shift",
-          sales: terminal.invoices.reduce(
-            (sum, invoice) =>
-              sum +
-              toNumber(invoice.totalAmount) -
-              toNumber(invoice.discountAmount) -
-              toNumber(invoice.returnedAmount),
-            0,
-          ),
-          transactions: terminal.invoices.length,
+          sales: calculateNetFromSums(terminalSalesById.get(terminal.id)?._sum),
+          transactions: terminalSalesById.get(terminal.id)?._count._all ?? 0,
           statusLabel: terminal.isActive ? "Live" : "Inactive",
         })),
-        topProducts: [...productMap.entries()]
-          .map(([name, item]) => ({
-            id: item.id,
-            name,
-            category: item.category,
-            quantity: item.quantity,
-            sales: item.sales,
-          }))
-          .sort((a, b) => b.sales - a.sales)
-          .slice(0, 5),
-        topConfiguredProducts: [...configuredProductMap.values()]
-          .sort((a, b) => b.sales - a.sales)
-          .slice(0, 5),
-        topAddOns: [...addOnMap.values()]
-          .sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity)
-          .slice(0, 5),
+        topProducts,
+        topConfiguredProducts,
+        topAddOns,
         lowStockProducts: thresholdLowStockProducts.map((product) => ({
           id: product.id,
           name: product.name,
@@ -1289,8 +1434,8 @@ export const dashboardService = {
       heroDescription: "Focus on your terminal, today's sales, and the receipts you've already handled.",
       summary: [
         { label: "My Sales Today", value: salesToday, tone: "success", hint: "Net paid sales on your receipts" },
-        { label: "My Transactions", value: todayScopedInvoices.filter((item) => item.status === "PAID").length, hint: "Paid invoices handled today" },
-        { label: "Average Basket", value: todayScopedInvoices.filter((item) => item.status === "PAID").length > 0 ? salesToday / todayScopedInvoices.filter((item) => item.status === "PAID").length : 0, hint: "Average paid receipt value" },
+        { label: "My Transactions", value: paidTransactionCount, hint: "Paid invoices handled today" },
+        { label: "Average Basket", value: paidTransactionCount > 0 ? salesToday / paidTransactionCount : 0, hint: "Average paid receipt value" },
         { label: "Returns", value: returnsToday, tone: "warning", hint: "Returned amount on your invoices" },
         { label: "Debt Outstanding", value: toNumber(debtOutstanding._sum.remainingAmount), tone: "warning", hint: "Company receivables still unpaid" },
         { label: "Collected Today", value: toNumber(debtCollectedToday._sum.amount), tone: "success", hint: "Debt payments recorded today" },
@@ -1314,9 +1459,7 @@ export const dashboardService = {
       restockRecommendations,
       revenueGoal: revenueGoalProgress,
       billingRestriction,
-      topAddOns: [...addOnMap.values()]
-        .sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity)
-        .slice(0, 3),
+      topAddOns: topAddOns.slice(0, 3),
       ...commonData,
     };
   },

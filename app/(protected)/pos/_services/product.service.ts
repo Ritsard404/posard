@@ -3,9 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { ProductDto, ItemType, VatType } from "./_dto/pos.dto";
 
 export const productService = {
-  async getProducts(companyId?: string): Promise<ProductDto[]> {
+  async getProducts(
+    companyId?: string,
+    options: { changedSince?: Date } = {},
+  ): Promise<ProductDto[]> {
     const recentStart = new Date();
     recentStart.setDate(recentStart.getDate() - 30);
+    const changedSince = options.changedSince;
 
     const [products, recentSales] = await Promise.all([
       prisma.product.findMany({
@@ -13,6 +17,34 @@ export const productService = {
           isDeleted: false,
           isAvailable: true,
           ...(companyId ? { companyId } : {}),
+          ...(changedSince
+            ? {
+                OR: [
+                  { updatedAt: { gt: changedSince } },
+                  { category: { updatedAt: { gt: changedSince } } },
+                  { stockLots: { some: { updatedAt: { gt: changedSince } } } },
+                  { modifierGroups: { some: { updatedAt: { gt: changedSince } } } },
+                  {
+                    modifierGroups: {
+                      some: {
+                        modifierGroup: {
+                          updatedAt: { gt: changedSince },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    modifierGroups: {
+                      some: {
+                        modifierGroup: {
+                          options: { some: { updatedAt: { gt: changedSince } } },
+                        },
+                      },
+                    },
+                  },
+                ],
+              }
+            : {}),
         },
         select: {
           id: true,

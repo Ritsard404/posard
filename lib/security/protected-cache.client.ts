@@ -20,12 +20,29 @@ function shouldDeleteCache(cacheName: string) {
   );
 }
 
+function clearSupabaseBrowserCookies() {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  for (const cookie of document.cookie.split(";")) {
+    const cookieName = cookie.split("=")[0]?.trim();
+    if (!cookieName?.startsWith("sb-")) {
+      continue;
+    }
+
+    document.cookie = `${cookieName}=; Max-Age=0; path=/; SameSite=Lax`;
+  }
+}
+
 export async function clearProtectedBrowserCaches() {
   if (typeof window === "undefined") {
     return;
   }
 
   try {
+    clearSupabaseBrowserCookies();
+
     if ("caches" in window) {
       const cacheNames = await window.caches.keys();
       await Promise.all(

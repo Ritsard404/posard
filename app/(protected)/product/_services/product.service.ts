@@ -16,6 +16,7 @@ import type {
   PageResponse,
 } from "@/app/(protected)/product/_services/_dto/product.dto";
 import type { ProductBarcodeStatusFilter } from "@/app/(protected)/product/_services/product-query";
+import { assertProductImportLimits } from "./product-import-limits";
 
 type ProductWithCategory = Prisma.ProductGetPayload<{
   include: {
@@ -1236,6 +1237,8 @@ export const productService = {
       throw new Error("Uploaded file is empty.");
     }
 
+    assertProductImportLimits({ csvText: trimmedCsv });
+
     const parsed = Papa.parse<CsvRow>(trimmedCsv, {
       header: true,
       skipEmptyLines: "greedy",
@@ -1249,6 +1252,8 @@ export const productService = {
     if (parsed.errors.length > 0) {
       throw new Error(parsed.errors[0]?.message || "CSV parsing failed.");
     }
+
+    assertProductImportLimits({ csvText: trimmedCsv });
 
     const rows = parsed.data.map((row, index) => parseCsvRow(row, index + 2));
     const seenKeys = new Map<string, number>();

@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
-import withPWAInit from "next-pwa";
+import withSerwistInit from "@serwist/next";
 
-type PwaPlugin = (options: Record<string, unknown>) => (config: NextConfig) => NextConfig;
+type SerwistPlugin = (options: Record<string, unknown>) => (config: NextConfig) => NextConfig;
 
-const createPWA = withPWAInit as unknown as PwaPlugin;
+const createSerwist = withSerwistInit as unknown as SerwistPlugin;
 const cspReportOnly = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -51,7 +51,7 @@ const globalSecurityHeaders = [
 const sensitiveDownloadHeaders = [
   {
     key: "Cache-Control",
-    value: "no-store, no-cache, max-age=0, must-revalidate",
+    value: "private, no-store, no-cache, max-age=0, must-revalidate",
   },
   {
     key: "Pragma",
@@ -65,117 +65,28 @@ const sensitiveDownloadHeaders = [
     key: "X-Content-Type-Options",
     value: "nosniff",
   },
-];
-const runtimeCaching = [
   {
-    urlPattern: ({ request, url }: { request: Request; url: URL }) => {
-      const isSameOrigin = self.location.origin === url.origin;
-      if (!isSameOrigin) {
-        return false;
-      }
-
-      const pathname = url.pathname;
-      const protectedPrefixes = [
-        "/accounts",
-        "/admin",
-        "/approvals",
-        "/companies",
-        "/customers",
-        "/dashboard",
-        "/data-exchange",
-        "/debts",
-        "/expenses",
-        "/feature-guide",
-        "/help",
-        "/inventory-ledger",
-        "/kitchen",
-        "/notifications",
-        "/pos",
-        "/product",
-        "/promotions",
-        "/purchase-orders",
-        "/report",
-        "/reports",
-        "/settings",
-        "/setup-company",
-        "/subscriptions",
-        "/suppliers",
-        "/sync",
-        "/terminals",
-        "/transfers",
-      ];
-
-      return (
-        request.mode === "navigate" ||
-        pathname.startsWith("/api/") ||
-        pathname.startsWith("/_next/data/") ||
-        url.searchParams.has("_rsc") ||
-        protectedPrefixes.some(
-          (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-        )
-      );
-    },
-    handler: "NetworkOnly",
-    method: "GET",
-    options: {
-      cacheName: "posard-network-only",
-    },
-  },
-  {
-    urlPattern: ({ url }: { url: URL }) => {
-      const isSameOrigin = self.location.origin === url.origin;
-      if (!isSameOrigin) {
-        return false;
-      }
-
-      const pathname = url.pathname;
-      if (
-        pathname === "/sw.js" ||
-        pathname.startsWith("/workbox-") ||
-        pathname.startsWith("/worker-")
-      ) {
-        return false;
-      }
-
-      return (
-        pathname.startsWith("/_next/static/") ||
-        /\.(?:js|css|woff|woff2|png|jpg|jpeg|gif|svg|ico|webp)$/i.test(pathname)
-      );
-    },
-    handler: "StaleWhileRevalidate",
-    options: {
-      cacheName: "posard-static-assets",
-      expiration: {
-        maxEntries: 96,
-        maxAgeSeconds: 7 * 24 * 60 * 60,
-      },
-    },
+    key: "Vary",
+    value: "Accept-Encoding",
   },
 ];
-
-const withPWA = createPWA({
-  dest: "public",
+const withSerwist = createSerwist({
   disable: process.env.NODE_ENV === "development",
   register: true,
-  sw: "sw.js",
+  swSrc: "worker/index.ts",
+  swDest: "public/sw.js",
+  swUrl: "/sw.js",
   scope: "/",
-  skipWaiting: true,
-  clientsClaim: true,
-  cleanupOutdatedCaches: true,
-  runtimeCaching,
-  cacheStartUrl: false,
-  dynamicStartUrl: true,
+  cacheOnNavigation: false,
   reloadOnOnline: false,
-  customWorkerDir: "worker",
-  publicExcludes: [
-    "!pos-sw.js",
-    "!sw.js",
-    "!workbox-*.js",
-    "!worker-*.js",
+  globPublicPatterns: [
+    "apple-icon.png",
+    "branding/posard-logo.png",
+    "images/**/*",
+    "manifest.json",
+    "pwa-icon-*.png",
+    "pwa-maskable-512.png",
   ],
-  fallbacks: {
-    document: "/_offline",
-  },
 });
 
 const nextConfig: NextConfig = {
@@ -243,4 +154,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+export default withSerwist(nextConfig);

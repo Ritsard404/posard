@@ -1,6 +1,5 @@
 import "server-only";
 
-import * as XLSX from "xlsx";
 import type {
   AuditTrailDto,
   DebtCollectionsDto,
@@ -28,6 +27,7 @@ import {
   formatReportExportDate,
   formatReportExportDateTime,
 } from "@/lib/report-date-format";
+import { buildSpreadsheetXml } from "@/lib/export/spreadsheet-xml";
 
 type ExportableReportData =
   | AuditTrailDto
@@ -83,10 +83,14 @@ function createCsv(headers: string[], rows: string[][]) {
 }
 
 function buildWorkbook(headers: string[], rows: string[][]) {
-  const workbook = XLSX.utils.book_new();
-  const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  XLSX.utils.book_append_sheet(workbook, sheet, "Report");
-  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  return buildSpreadsheetXml({
+    sheets: [
+      {
+        name: "Report",
+        rows: [headers, ...rows],
+      },
+    ],
+  });
 }
 
 function mapRows(slug: ReportsRouteSlug, data: ExportableReportData) {
@@ -614,7 +618,7 @@ export const reportExportService = {
     const mapped = mapRows(slug, data);
     return createCsv(mapped.headers, mapped.rows);
   },
-  buildXlsx(slug: ReportsRouteSlug, data: ExportableReportData) {
+  buildSpreadsheet(slug: ReportsRouteSlug, data: ExportableReportData) {
     const mapped = mapRows(slug, data);
     return buildWorkbook(mapped.headers, mapped.rows);
   },

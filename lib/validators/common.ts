@@ -13,4 +13,4 @@ export const isoDateStringSchema = z.string().trim().refine((value) => {
   return !Number.isNaN(date.getTime());
 }, "Invalid date.");
 
-export const reportFormatSchema = z.enum(["csv", "xlsx"]).default("csv");
+export const reportFormatSchema = z.enum(["csv", "xls", "xlsx"]).default("csv");

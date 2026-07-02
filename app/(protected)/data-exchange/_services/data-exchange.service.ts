@@ -1,8 +1,8 @@
 import "server-only";
 
-import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/auth/current-user";
+import { buildSpreadsheetXml } from "@/lib/export/spreadsheet-xml";
 
 function toNumber(value: unknown) {
   return Number(value ?? 0);
@@ -50,8 +50,139 @@ function textPdf(title: string, lines: string[]) {
 }
 
 const PRODUCT_CATALOG_PDF_ROW_LIMIT = 45;
+const BACKUP_STREAM_PAGE_SIZE = 250;
+
+type BackupTableName =
+  | "categories"
+  | "suppliers"
+  | "products"
+  | "customers"
+  | "invoices"
+  | "stockMovements"
+  | "stockLots"
+  | "users"
+  | "settings"
+  | "expenses"
+  | "nonSalesIncomes";
+
+async function countBackupRows(companyId: string, includeSensitive: boolean) {
+  const [
+    categories,
+    suppliers,
+    products,
+    customers,
+    invoices,
+    stockMovements,
+    stockLots,
+    users,
+    terminals,
+    expenses,
+    nonSalesIncomes,
+  ] = await Promise.all([
+    prisma.category.count({ where: { companyId } }),
+    prisma.supplier.count({ where: { companyId } }),
+    prisma.product.count({ where: { companyId, isDeleted: false } }),
+    prisma.customer.count({ where: { companyId } }),
+    prisma.invoice.count({ where: { posTerminal: { companyId } } }),
+    prisma.stockMovement.count({ where: { companyId } }),
+    prisma.stockLot.count({ where: { companyId } }),
+    includeSensitive ? prisma.profile.count({ where: { companyId } }) : Promise.resolve(0),
+    prisma.posTerminalInfo.count({ where: { companyId } }),
+    prisma.expense.count({ where: { companyId } }),
+    prisma.nonSalesIncome.count({ where: { companyId } }),
+  ]);
+
+  return {
+    categories,
+    suppliers,
+    products,
+    customers,
+    invoices,
+    stockMovements,
+    stockLots,
+    users,
+    settings: terminals,
+    expenses,
+    nonSalesIncomes,
+  } satisfies Record<BackupTableName, number>;
+}
+
+async function streamRowsById<T extends { id: string }>(
+  write: (chunk: string) => void,
+  fetchPage: (cursor: string | null) => Promise<T[]>,
+) {
+  let cursor: string | null = null;
+  let first = true;
+
+  while (true) {
+    const rows = await fetchPage(cursor);
+    if (rows.length === 0) break;
+
+    for (const row of rows) {
+      write(`${first ? "" : ","}${JSON.stringify(row)}`);
+      first = false;
+    }
+
+    cursor = rows[rows.length - 1]?.id ?? null;
+    if (rows.length < BACKUP_STREAM_PAGE_SIZE || !cursor) break;
+  }
+}
 
 export const dataExchangeService = {
+  async getExportHistory() {
+    const { companyId } = await requireCompanyManager();
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        companyId,
+        actionType: {
+          in: [
+            "SECURITY_REPORT_EXPORT",
+            "SECURITY_DATA_BACKUP_EXPORT",
+            "SECURITY_PRODUCT_CATALOG_EXPORT",
+          ],
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+      select: {
+        id: true,
+        actionType: true,
+        changes: true,
+        createdAt: true,
+        actorProfile: {
+          select: {
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return logs.map((log) => {
+      let metadata: Record<string, unknown> = {};
+      try {
+        const parsed = log.changes ? JSON.parse(log.changes) : {};
+        metadata =
+          parsed && typeof parsed === "object" && "metadata" in parsed
+            ? (parsed.metadata as Record<string, unknown>)
+            : {};
+      } catch {
+        metadata = {};
+      }
+
+      return {
+        id: log.id,
+        actionType: log.actionType.replace(/^SECURITY_/, ""),
+        actorName: log.actorProfile.fullName ?? log.actorProfile.email ?? "Unknown",
+        exportType: String(metadata.exportType ?? "export"),
+        format: String(metadata.format ?? "unknown"),
+        rowCount: Number(metadata.rowCount ?? 0),
+        fileSize: typeof metadata.fileSize === "number" ? metadata.fileSize : null,
+        createdAt: log.createdAt.toISOString(),
+      };
+    });
+  },
+
   async buildBackup() {
     const { companyId } = await requireCompanyManager();
     const [
@@ -107,6 +238,134 @@ export const dataExchangeService = {
     };
   },
 
+  async buildBackupStream(input: { includeSensitive: boolean }) {
+    const { companyId } = await requireCompanyManager();
+    const tableCounts = await countBackupRows(companyId, input.includeSensitive);
+    const encoder = new TextEncoder();
+    const exportedAt = new Date().toISOString();
+
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const write = (chunk: string) => controller.enqueue(encoder.encode(chunk));
+        const writeJsonField = (key: string, value: unknown, prefix = ",") => {
+          write(`${prefix}${JSON.stringify(key)}:${JSON.stringify(value)}`);
+        };
+        const writeArrayField = async <T extends { id: string }>(
+          key: BackupTableName,
+          fetchPage: (cursor: string | null) => Promise<T[]>,
+        ) => {
+          write(`,${JSON.stringify(key)}:[`);
+          await streamRowsById(write, fetchPage);
+          write("]");
+        };
+
+        try {
+          const company = await prisma.company.findUnique({ where: { id: companyId } });
+          write("{");
+          writeJsonField("version", 2, "");
+          writeJsonField("exportedAt", exportedAt);
+          writeJsonField("scope", input.includeSensitive ? "full-admin" : "operational");
+          writeJsonField("company", company);
+
+          await writeArrayField("categories", (cursor) =>
+            prisma.category.findMany({
+              where: { companyId },
+              orderBy: { id: "asc" },
+              take: BACKUP_STREAM_PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }),
+          );
+          await writeArrayField("suppliers", (cursor) =>
+            prisma.supplier.findMany({
+              where: { companyId },
+              orderBy: { id: "asc" },
+              take: BACKUP_STREAM_PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }),
+          );
+          await writeArrayField("products", (cursor) =>
+            prisma.product.findMany({
+              where: { companyId, isDeleted: false },
+              orderBy: { id: "asc" },
+              take: BACKUP_STREAM_PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }),
+          );
+          await writeArrayField("customers", (cursor) =>
+            prisma.customer.findMany({
+              where: { companyId },
+              orderBy: { id: "asc" },
+              take: BACKUP_STREAM_PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }),
+          );
+          await writeArrayField("invoices", (cursor) =>
+            prisma.invoice.findMany({
+              where: { posTerminal: { companyId } },
+              include: { items: true, ePayments: true },
+              orderBy: { id: "asc" },
+              take: BACKUP_STREAM_PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }),
+          );
+          await writeArrayField("stockMovements", (cursor) =>
+            prisma.stockMovement.findMany({
+              where: { companyId },
+              orderBy: { id: "asc" },
+              take: BACKUP_STREAM_PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }),
+          );
+          await writeArrayField("stockLots", (cursor) =>
+            prisma.stockLot.findMany({
+              where: { companyId },
+              orderBy: { id: "asc" },
+              take: BACKUP_STREAM_PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }),
+          );
+          if (input.includeSensitive) {
+            await writeArrayField("users", (cursor) =>
+              prisma.profile.findMany({
+                where: { companyId },
+                orderBy: { id: "asc" },
+                take: BACKUP_STREAM_PAGE_SIZE,
+                ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+                select: { id: true, email: true, fullName: true, role: true, status: true },
+              }),
+            );
+          } else {
+            writeJsonField("users", []);
+          }
+          const terminals = await prisma.posTerminalInfo.findMany({ where: { companyId } });
+          writeJsonField("settings", { terminals });
+          await writeArrayField("expenses", (cursor) =>
+            prisma.expense.findMany({
+              where: { companyId },
+              orderBy: { id: "asc" },
+              take: BACKUP_STREAM_PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }),
+          );
+          await writeArrayField("nonSalesIncomes", (cursor) =>
+            prisma.nonSalesIncome.findMany({
+              where: { companyId },
+              orderBy: { id: "asc" },
+              take: BACKUP_STREAM_PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }),
+          );
+          write("}");
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+
+    return { stream, tableCounts };
+  },
+
   async previewRestore(payload: string) {
     const { companyId } = await requireCompanyManager();
     const parsed = JSON.parse(payload) as {
@@ -149,33 +408,53 @@ export const dataExchangeService = {
     };
   },
 
-  async buildProductCatalogWorkbook() {
+  async buildProductCatalogSpreadsheet() {
     const { companyId } = await requireCompanyManager();
     const products = await prisma.product.findMany({
       where: { companyId, isDeleted: false },
       include: { category: true, preferredSupplier: true },
       orderBy: { name: "asc" },
     });
-    const rows = products.map((product) => ({
-      Product: product.name,
-      Barcode: product.barcode ?? "",
-      Category: product.category?.categoryName ?? "",
-      Generic: product.genericName ?? "",
-      Brand: product.brandName ?? "",
-      Shelf: product.shelfLocation ?? "",
-      Supplier: product.preferredSupplier?.name ?? "",
-      Favorite: product.posFavorite ? "Yes" : "No",
-      Quantity: toNumber(product.quantity),
-      Cost: toNumber(product.cost),
-      Price: toNumber(product.price),
-      "Inventory Value": toNumber(product.quantity) * toNumber(product.cost),
-    }));
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), "Products");
-    return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+    const headers = [
+      "Product",
+      "Barcode",
+      "Category",
+      "Generic",
+      "Brand",
+      "Shelf",
+      "Supplier",
+      "Favorite",
+      "Quantity",
+      "Cost",
+      "Price",
+      "Inventory Value",
+    ];
+    const rows = products.map((product) => [
+      product.name,
+      product.barcode ?? "",
+      product.category?.categoryName ?? "",
+      product.genericName ?? "",
+      product.brandName ?? "",
+      product.shelfLocation ?? "",
+      product.preferredSupplier?.name ?? "",
+      product.posFavorite ? "Yes" : "No",
+      toNumber(product.quantity),
+      toNumber(product.cost),
+      toNumber(product.price),
+      toNumber(product.quantity) * toNumber(product.cost),
+    ]);
+
+    return buildSpreadsheetXml({
+      sheets: [
+        {
+          name: "Products",
+          rows: [headers, ...rows],
+        },
+      ],
+    });
   },
 
-  async countProductCatalogExportRows(format: "pdf" | "xlsx") {
+  async countProductCatalogExportRows(format: "pdf" | "xls") {
     const { companyId } = await requireCompanyManager();
     const productCount = await prisma.product.count({
       where: { companyId, isDeleted: false },

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, LogOut } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -257,7 +257,7 @@ export function AppSidebar({
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [profile] = useState<UserProfile | null>(initialProfile);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-  const [isLoggingOut, startLogoutTransition] = useTransition();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const navContext = useMemo(
     () => ({
@@ -292,15 +292,20 @@ export function AppSidebar({
   );
 
   const handleLogout = async () => {
-    startLogoutTransition(() => {
-      void (async () => {
-        const supabase = createClient();
-        await supabase.auth.signOut();
-        await clearProtectedBrowserCaches();
-        router.push("/auth/login");
-        setShowLogoutDialog(false);
-      })();
-    });
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
+    const supabase = createClient();
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      await clearProtectedBrowserCaches();
+      setShowLogoutDialog(false);
+      router.replace("/auth/login");
+      router.refresh();
+    }
   };
 
   const toggleSection = (sectionId: string, defaultOpen: boolean) => {

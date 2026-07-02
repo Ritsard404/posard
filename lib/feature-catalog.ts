@@ -219,11 +219,11 @@ export const featureCatalog: FeatureCatalogItem[] = [
     category: "Inventory and Purchasing",
     title: "Product import and catalog export",
     summary:
-      "Import products from CSV or Excel and export product catalogs for review or backup.",
+      "Import products from CSV or POSARD Excel XML and export product catalogs for review or backup.",
     benefit:
       "Bulk setup and supplier catalog work take minutes instead of repetitive manual entry.",
     howItWorks: [
-      "Prepare a CSV or Excel product file.",
+      "Prepare a CSV file or the POSARD Excel XML product template.",
       "Upload it from Products & Inventory and review the preview.",
       "Export product catalogs or backup files from Data Exchange when needed.",
     ],
@@ -232,7 +232,7 @@ export const featureCatalog: FeatureCatalogItem[] = [
     roles: ["Manager"],
     appPath: "/data-exchange",
     helpAnchor: "management-import-products-from-a-file",
-    keywords: ["import", "csv", "xlsx", "excel", "export", "catalog"],
+    keywords: ["import", "csv", "xls", "excel", "xml", "export", "catalog"],
   },
   {
     id: "branch-transfers",

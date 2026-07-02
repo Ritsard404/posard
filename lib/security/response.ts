@@ -47,10 +47,11 @@ export function rateLimitErrorResponse(message = "Too many requests. Please try 
 }
 
 export const sensitiveNoStoreHeaders = {
-  "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+  "Cache-Control": "private, no-store, no-cache, max-age=0, must-revalidate",
   Pragma: "no-cache",
   Expires: "0",
   "X-Content-Type-Options": "nosniff",
+  Vary: "Accept-Encoding",
 } as const;
 
 export function sensitiveDownloadHeaders(input: {

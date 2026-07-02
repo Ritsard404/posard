@@ -572,7 +572,7 @@ const guideGroups: HelpGroup[] = [
         title: "Import products from a file",
         role: "Manager",
         audience: ["manager"],
-        summary: "Add many products at once using a prepared CSV or Excel product file with pharmacy metadata.",
+        summary: "Add many products at once using a prepared CSV file or POSARD Excel XML template with pharmacy metadata.",
         steps: [
           "Open Products & Inventory.",
           "Choose import or upload.",
@@ -581,8 +581,8 @@ const guideGroups: HelpGroup[] = [
           "Fix errors.",
           "Confirm import.",
         ],
-        reminder: "Preferred Supplier must match an existing active supplier name, or leave it blank.",
-        keywords: ["import", "upload", "csv", "xlsx", "excel", "product file", "bulk", "generic", "brand", "supplier", "reorder point", "prescription"],
+        reminder: "Preferred Supplier must match an existing active supplier name, or leave it blank. Binary .xlsx workbooks are not accepted; save them as CSV first.",
+        keywords: ["import", "upload", "csv", "xls", "excel", "xml", "product file", "bulk", "generic", "brand", "supplier", "reorder point", "prescription"],
       },
       {
         title: "Export backups and product catalogs",
@@ -591,13 +591,14 @@ const guideGroups: HelpGroup[] = [
         summary: "Download store data backups, export product catalogs, and preview restore files before importing.",
         steps: [
           "Open Data Exchange.",
-          "Download a JSON backup for store records.",
-          "Export the product catalog as Excel or PDF when needed.",
+          "Download a streamed JSON backup for store records.",
+          "Export the product catalog as POSARD Excel XML or PDF when needed.",
           "Upload or paste a backup file to preview duplicate products, barcodes, categories, and customers.",
+          "Review Recent Export History when you need to confirm export activity.",
           "Log out if you exported from a shared device.",
         ],
-        reminder: "Only managers and admins can export. POSard rate-limits repeated downloads, records export activity, and sends downloads with no-store headers.",
-        keywords: ["data exchange", "backup", "restore", "catalog", "xlsx", "pdf", "export", "rate limit", "audit", "download"],
+        reminder: "Only managers and admins can export. Full sensitive backups require admin access. POSard rate-limits repeated downloads, records export activity, and sends downloads with no-store headers.",
+        keywords: ["data exchange", "backup", "restore", "catalog", "xls", "excel", "pdf", "export", "rate limit", "audit", "download"],
       },
       {
         title: "Manage staff accounts",

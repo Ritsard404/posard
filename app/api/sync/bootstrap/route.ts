@@ -15,6 +15,9 @@ import {
   sensitiveNoStoreHeaders,
 } from "@/lib/security/response";
 
+const textEncoder = new TextEncoder();
+const BOOTSTRAP_STALE_AFTER_MINUTES = 30;
+
 async function getCurrentProfile() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
@@ -39,8 +42,20 @@ async function getCurrentProfile() {
   });
 }
 
+function parseSinceCursor(value: string | null) {
+  if (!value) return null;
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Invalid since cursor.");
+  }
+
+  return parsed;
+}
+
 export async function GET(request: Request) {
   try {
+    const startedAt = Date.now();
     const profile = await getCurrentProfile();
     if (!profile?.companyId) {
       return NextResponse.json(
@@ -61,6 +76,16 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const deviceId = searchParams.get("deviceId")?.trim();
+    let changedSince: Date | null = null;
+    try {
+      changedSince = parseSinceCursor(searchParams.get("since"));
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "Invalid since cursor." },
+        { status: 400, headers: sensitiveNoStoreHeaders },
+      );
+    }
+
     if (!deviceId) {
       return NextResponse.json(
         { success: false, error: "deviceId is required" },
@@ -68,11 +93,31 @@ export async function GET(request: Request) {
       );
     }
 
-    const [categories, products, epaymentMethods, managers, timestamp] =
+    const [categories, products, epaymentMethods, removedCategories, removedProducts, managers, timestamp] =
       await Promise.all([
-        categoryService.getCategories(companyId),
-        productService.getProducts(companyId),
-        epaymentService.getEPaymentMethods(),
+        categoryService.getCategories(companyId, { changedSince: changedSince ?? undefined }),
+        productService.getProducts(companyId, { changedSince: changedSince ?? undefined }),
+        epaymentService.getEPaymentMethods({ changedSince: changedSince ?? undefined }),
+        changedSince
+          ? prisma.category.findMany({
+              where: {
+                companyId,
+                isDeleted: true,
+                deletedAt: { gt: changedSince },
+              },
+              select: { id: true },
+            })
+          : Promise.resolve([]),
+        changedSince
+          ? prisma.product.findMany({
+              where: {
+                companyId,
+                isDeleted: true,
+                deletedAt: { gt: changedSince },
+              },
+              select: { id: true },
+            })
+          : Promise.resolve([]),
         Promise.resolve([]),
         prisma.timestamp.findFirst({
           where: { cashierId: profile.id, timestampOut: null },
@@ -134,10 +179,11 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
+    const fetchedAt = new Date();
+    const durationMs = Date.now() - startedAt;
+    const responsePayload = {
+      success: true,
+      data: {
           session: timestamp
             ? {
                 timestampId: timestamp.id,
@@ -178,12 +224,44 @@ export async function GET(request: Request) {
             epaymentMethods,
           },
           managerVerifiers: managers,
-          fetchedAt: new Date().toISOString(),
-          stockSnapshotVersion: new Date().toISOString(),
+          fetchedAt: fetchedAt.toISOString(),
+          stockSnapshotVersion: fetchedAt.toISOString(),
+          sync: {
+            mode: changedSince ? "delta" : "snapshot",
+            requestedSince: changedSince?.toISOString() ?? null,
+            cursor: fetchedAt.toISOString(),
+            durationMs,
+            payloadBytes: 0,
+            counts: {
+              categories: categories.length,
+              products: products.length,
+              epaymentMethods: epaymentMethods.length,
+              removedCategories: removedCategories.length,
+              removedProducts: removedProducts.length,
+            },
+            removed: {
+              categoryIds: removedCategories.map((item) => item.id),
+              productIds: removedProducts.map((item) => item.id),
+            },
+            staleAfterMinutes: BOOTSTRAP_STALE_AFTER_MINUTES,
+          },
         },
-      },
-      { headers: sensitiveNoStoreHeaders },
-    );
+    };
+
+    responsePayload.data.sync.payloadBytes = textEncoder.encode(
+      JSON.stringify(responsePayload),
+    ).byteLength;
+
+    console.info("POS bootstrap metrics", {
+      companyId,
+      mode: responsePayload.data.sync.mode,
+      productCount: products.length,
+      categoryCount: categories.length,
+      durationMs,
+      payloadBytes: responsePayload.data.sync.payloadBytes,
+    });
+
+    return NextResponse.json(responsePayload, { headers: sensitiveNoStoreHeaders });
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("Too many requests")) {
       return rateLimitErrorResponse(error.message);

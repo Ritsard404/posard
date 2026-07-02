@@ -1,3 +1,12 @@
+import {
+  ExpirationPlugin,
+  NetworkOnly,
+  Serwist,
+  StaleWhileRevalidate,
+  type PrecacheEntry,
+  type RuntimeCaching,
+} from "serwist";
+
 type SyncEventLike = Event & {
   tag?: string;
   waitUntil: (promise: Promise<unknown>) => void;
@@ -16,6 +25,8 @@ type ServiceWorkerClient = {
 };
 
 type ServiceWorkerScopeLike = {
+  __SW_MANIFEST: Array<PrecacheEntry | string>;
+  location: Location;
   clients: {
     matchAll: (options: {
       type: "window";
@@ -27,6 +38,35 @@ type ServiceWorkerScopeLike = {
 };
 
 const serviceWorker = self as unknown as ServiceWorkerScopeLike;
+const protectedPrefixes = [
+  "/accounts",
+  "/admin",
+  "/approvals",
+  "/companies",
+  "/customers",
+  "/dashboard",
+  "/data-exchange",
+  "/debts",
+  "/expenses",
+  "/feature-guide",
+  "/help",
+  "/inventory-ledger",
+  "/kitchen",
+  "/notifications",
+  "/pos",
+  "/product",
+  "/promotions",
+  "/purchase-orders",
+  "/report",
+  "/reports",
+  "/settings",
+  "/setup-company",
+  "/subscriptions",
+  "/suppliers",
+  "/sync",
+  "/terminals",
+  "/transfers",
+];
 const legacyRuntimeCacheNames = new Set([
   "apis",
   "others",
@@ -35,6 +75,86 @@ const legacyRuntimeCacheNames = new Set([
   "cross-origin",
   "start-url",
 ]);
+
+function isProtectedRequest({ request, url }: { request: Request; url: URL }) {
+  const isSameOrigin = serviceWorker.location.origin === url.origin;
+  if (!isSameOrigin) {
+    return false;
+  }
+
+  const pathname = url.pathname;
+  return (
+    request.mode === "navigate" ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/data/") ||
+    url.searchParams.has("_rsc") ||
+    protectedPrefixes.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    )
+  );
+}
+
+function isSafeStaticAsset({ url }: { url: URL }) {
+  const isSameOrigin = serviceWorker.location.origin === url.origin;
+  if (!isSameOrigin) {
+    return false;
+  }
+
+  const pathname = url.pathname;
+  if (
+    pathname === "/sw.js" ||
+    pathname.startsWith("/workbox-") ||
+    pathname.startsWith("/worker-") ||
+    pathname.startsWith("/fallback-")
+  ) {
+    return false;
+  }
+
+  return (
+    pathname.startsWith("/_next/static/") ||
+    /\.(?:js|css|woff|woff2|png|jpg|jpeg|gif|svg|ico|webp)$/i.test(pathname)
+  );
+}
+
+const runtimeCaching: RuntimeCaching[] = [
+  {
+    matcher: isProtectedRequest,
+    handler: new NetworkOnly(),
+    method: "GET",
+  },
+  {
+    matcher: isSafeStaticAsset,
+    handler: new StaleWhileRevalidate({
+      cacheName: "posard-static-assets",
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 96,
+          maxAgeSeconds: 7 * 24 * 60 * 60,
+        }),
+      ],
+    }),
+    method: "GET",
+  },
+];
+
+const serwist = new Serwist({
+  precacheEntries: serviceWorker.__SW_MANIFEST,
+  precacheOptions: {
+    cleanupOutdatedCaches: true,
+    ignoreURLParametersMatching: [],
+    navigateFallback: "/_offline",
+    navigateFallbackDenylist: [
+      /^\/api\//,
+      /^\/_next\/data\//,
+      /[?&]_rsc=/,
+    ],
+  },
+  skipWaiting: true,
+  clientsClaim: true,
+  runtimeCaching,
+});
+
+serwist.addEventListeners();
 
 async function clearLegacyRuntimeCaches() {
   const cacheNames = await caches.keys();

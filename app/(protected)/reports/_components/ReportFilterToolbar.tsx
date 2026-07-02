@@ -489,9 +489,9 @@ export function ReportFilterToolbar({
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="rounded-xl">
-                  <Link href={`${exportBaseUrl}&format=xlsx`}>
+                  <Link href={`${exportBaseUrl}&format=xls`}>
                     <FileSpreadsheet className="size-4" />
-                    XLSX
+                    Excel
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>

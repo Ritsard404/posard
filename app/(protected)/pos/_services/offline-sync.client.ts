@@ -12,6 +12,7 @@ import {
   toFetchRecoveryError,
 } from "@/lib/fetch-recovery";
 import {
+  getBootstrapSyncCursor,
   getOfflineBootstrapFallback,
   posOfflineDb,
   saveOfflineBootstrap,
@@ -62,10 +63,16 @@ export async function registerPOSServiceWorker() {
 
 export async function fetchOfflineBootstrap(deviceId: string) {
   try {
+    const syncCursor = await getBootstrapSyncCursor();
+    const searchParams = new URLSearchParams({ deviceId });
+    if (syncCursor) {
+      searchParams.set("since", syncCursor);
+    }
+
     const payload = await fetchJsonWithRecovery<
       | { success: true; data: OfflineBootstrapDto }
       | { success: false; error: string }
-    >(`/api/sync/bootstrap?deviceId=${encodeURIComponent(deviceId)}`, {
+    >(`/api/sync/bootstrap?${searchParams.toString()}`, {
       method: "GET",
       credentials: "same-origin",
       cache: "no-store",

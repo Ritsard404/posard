@@ -9,8 +9,10 @@ import {
   sensitiveDownloadHeaders,
   unauthorizedResponse,
 } from "@/lib/security/response";
+import { spreadsheetXmlContentType } from "@/lib/export/spreadsheet-xml";
 
 const textEncoder = new TextEncoder();
+const PRODUCT_CATALOG_EXPORT_ROW_LIMIT = 10_000;
 
 export async function GET(request: Request) {
   try {
@@ -24,7 +26,8 @@ export async function GET(request: Request) {
     }
 
     const url = new URL(request.url);
-    const format = url.searchParams.get("format") === "pdf" ? "pdf" : "xlsx";
+    const requestedFormat = url.searchParams.get("format") ?? "xls";
+    const format = requestedFormat === "pdf" ? "pdf" : "xls";
     await enforceRateLimit({
       bucket: "dataExport",
       route: "/data-exchange/product-catalog/export",
@@ -36,6 +39,11 @@ export async function GET(request: Request) {
     });
     const dateSuffix = new Date().toISOString().slice(0, 10);
     const rowCount = await dataExchangeService.countProductCatalogExportRows(format);
+    if (rowCount > PRODUCT_CATALOG_EXPORT_ROW_LIMIT) {
+      return invalidPayloadResponse(
+        `Product catalog exports are limited to ${PRODUCT_CATALOG_EXPORT_ROW_LIMIT.toLocaleString()} rows per file.`,
+      );
+    }
 
     if (format === "pdf") {
       const pdf = await dataExchangeService.buildProductCatalogPdf();
@@ -65,8 +73,8 @@ export async function GET(request: Request) {
       });
     }
 
-    const workbook = await dataExchangeService.buildProductCatalogWorkbook();
-    const body = new Uint8Array(workbook);
+    const workbook = await dataExchangeService.buildProductCatalogSpreadsheet();
+    const fileSize = textEncoder.encode(workbook).byteLength;
     await auditSecurityEventBestEffort({
       action: "PRODUCT_CATALOG_EXPORT",
       route: "/data-exchange/product-catalog/export",
@@ -77,18 +85,18 @@ export async function GET(request: Request) {
       role: profile.role,
       companyId: profile.companyId,
       metadata: {
-        exportType: "product-catalog",
-        format,
-        rowCount,
-        fileSize: body.byteLength,
+          exportType: "product-catalog",
+          format,
+          requestedFormat,
+          rowCount,
+          fileSize,
       },
     });
 
-    return new Response(body, {
+    return new Response(workbook, {
       headers: sensitiveDownloadHeaders({
-        contentType:
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename: `product-catalog-${dateSuffix}.xlsx`,
+        contentType: spreadsheetXmlContentType,
+        filename: `product-catalog-${dateSuffix}.xls`,
       }),
     });
   } catch (error) {

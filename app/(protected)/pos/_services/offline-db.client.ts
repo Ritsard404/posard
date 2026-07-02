@@ -96,8 +96,43 @@ class POSOfflineDexie extends Dexie {
 
 export const posOfflineDb = new POSOfflineDexie();
 
+function upsertById<T extends { id: string }>(current: T[], changes: T[]) {
+  const byId = new Map(current.map((item) => [item.id, item]));
+  for (const item of changes) {
+    byId.set(item.id, item);
+  }
+  return Array.from(byId.values());
+}
+
+function removeById<T extends { id: string }>(current: T[], removedIds: string[] = []) {
+  if (removedIds.length === 0) return current;
+  const removed = new Set(removedIds);
+  return current.filter((item) => !removed.has(item.id));
+}
+
 export async function saveOfflineBootstrap(bootstrap: OfflineBootstrapDto) {
   const updatedAt = bootstrap.fetchedAt;
+  const existingCatalog = await posOfflineDb.catalogSnapshot.get("catalog");
+  const existingPaymentMethods =
+    await posOfflineDb.paymentMethodSnapshot.get("payment-methods");
+  const isDelta = bootstrap.sync?.mode === "delta";
+  const categories = isDelta
+    ? removeById(
+        upsertById(existingCatalog?.value.categories ?? [], bootstrap.metadata.categories),
+        bootstrap.sync?.removed.categoryIds,
+      )
+    : bootstrap.metadata.categories;
+  const products = isDelta
+    ? removeById(
+        upsertById(existingCatalog?.value.products ?? [], bootstrap.metadata.products),
+        bootstrap.sync?.removed.productIds,
+      )
+    : bootstrap.metadata.products;
+  const epaymentMethods = isDelta
+    ? upsertById(existingPaymentMethods?.value ?? [], bootstrap.metadata.epaymentMethods)
+    : bootstrap.metadata.epaymentMethods;
+  const syncCursor = bootstrap.sync?.cursor ?? bootstrap.stockSnapshotVersion;
+
   await posOfflineDb.sessionSnapshot.put({
     key: "active-session",
     value: bootstrap.session,
@@ -106,14 +141,14 @@ export async function saveOfflineBootstrap(bootstrap: OfflineBootstrapDto) {
   await posOfflineDb.catalogSnapshot.put({
     key: "catalog",
     value: {
-      categories: bootstrap.metadata.categories,
-      products: bootstrap.metadata.products,
+      categories,
+      products,
     },
     updatedAt,
   });
   await posOfflineDb.paymentMethodSnapshot.put({
     key: "payment-methods",
-    value: bootstrap.metadata.epaymentMethods,
+    value: epaymentMethods,
     updatedAt,
   });
   await posOfflineDb.managerVerifierSnapshot.put({
@@ -123,7 +158,12 @@ export async function saveOfflineBootstrap(bootstrap: OfflineBootstrapDto) {
   });
   await posOfflineDb.syncMeta.put({
     key: "stock-snapshot-version",
-    value: bootstrap.stockSnapshotVersion,
+    value: syncCursor,
+    updatedAt,
+  });
+  await posOfflineDb.syncMeta.put({
+    key: "bootstrap-sync-cursor",
+    value: syncCursor,
     updatedAt,
   });
 }
@@ -164,16 +204,31 @@ export async function getStockSnapshotVersion() {
   );
 }
 
+export async function getBootstrapSyncCursor() {
+  return (
+    (await posOfflineDb.syncMeta.get("bootstrap-sync-cursor"))?.value ??
+    null
+  );
+}
+
 export async function getOfflineBootstrapFallback(
   warning = "Using saved product and session data while the connection recovers.",
 ) {
-  const [session, catalog, managerVerifiers, stockSnapshotVersion] =
+  const [sessionRecord, catalogRecord, methodsRecord, managerVerifierRecord, stockSnapshotVersion] =
     await Promise.all([
-      getOfflineSessionSnapshot(),
-      getOfflineCatalogSnapshot(),
-      getOfflineManagerVerifiers(),
+      posOfflineDb.sessionSnapshot.get("active-session"),
+      posOfflineDb.catalogSnapshot.get("catalog"),
+      posOfflineDb.paymentMethodSnapshot.get("payment-methods"),
+      posOfflineDb.managerVerifierSnapshot.get("manager-verifiers"),
       getStockSnapshotVersion(),
     ]);
+  const session = sessionRecord?.value ?? null;
+  const catalog = {
+    categories: catalogRecord?.value.categories ?? [],
+    products: catalogRecord?.value.products ?? [],
+    epaymentMethods: methodsRecord?.value ?? [],
+  };
+  const managerVerifiers = managerVerifierRecord?.value ?? [];
 
   if (
     !session &&
@@ -183,6 +238,22 @@ export async function getOfflineBootstrapFallback(
   ) {
     return null;
   }
+
+  const snapshotAges = [
+    catalogRecord?.updatedAt,
+    methodsRecord?.updatedAt,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+  const staleAgeMinutes =
+    snapshotAges.length > 0
+      ? Math.max(0, Math.floor((Date.now() - Math.max(...snapshotAges)) / 60_000))
+      : null;
+  const ageWarning =
+    staleAgeMinutes === null
+      ? warning
+      : `${warning} Saved data is about ${staleAgeMinutes} minute${staleAgeMinutes === 1 ? "" : "s"} old.`;
 
   return {
     session,
@@ -195,6 +266,7 @@ export async function getOfflineBootstrapFallback(
     fetchedAt: new Date().toISOString(),
     stockSnapshotVersion,
     isStale: true,
-    warning,
+    staleAgeMinutes,
+    warning: ageWarning,
   };
 }

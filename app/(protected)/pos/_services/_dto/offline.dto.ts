@@ -131,7 +131,27 @@ export interface OfflineBootstrapDto {
   managerVerifiers: ManagerVerifierDto[];
   fetchedAt: string;
   stockSnapshotVersion: string;
+  sync?: {
+    mode: "snapshot" | "delta";
+    requestedSince: string | null;
+    cursor: string;
+    durationMs: number;
+    payloadBytes: number;
+    counts: {
+      categories: number;
+      products: number;
+      epaymentMethods: number;
+      removedCategories: number;
+      removedProducts: number;
+    };
+    removed: {
+      categoryIds: string[];
+      productIds: string[];
+    };
+    staleAfterMinutes: number;
+  };
   isStale?: boolean;
+  staleAgeMinutes?: number | null;
   warning?: string | null;
 }
 

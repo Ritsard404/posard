@@ -15,10 +15,13 @@ function normalizePaymentMethodName(name: string | null) {
 }
 
 export const epaymentService = {
-  async getEPaymentMethods(): Promise<EPaymentMethodDto[]> {
+  async getEPaymentMethods(
+    options: { changedSince?: Date } = {},
+  ): Promise<EPaymentMethodDto[]> {
     const existingTypes = await prisma.saleType.findMany({
       where: {
         type: "EPAYMENT",
+        ...(options.changedSince ? { updatedAt: { gt: options.changedSince } } : {}),
       },
       select: {
         name: true,
