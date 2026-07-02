@@ -7,6 +7,10 @@ type ServiceWorkerMessageEventLike = MessageEvent & {
   waitUntil: (promise: Promise<unknown>) => void;
 };
 
+type ExtendableEventLike = Event & {
+  waitUntil: (promise: Promise<unknown>) => void;
+};
+
 type ServiceWorkerClient = {
   postMessage: (message: unknown) => void;
 };
@@ -17,11 +21,36 @@ type ServiceWorkerScopeLike = {
       type: "window";
       includeUncontrolled: boolean;
     }) => Promise<ServiceWorkerClient[]>;
+    claim: () => Promise<void>;
   };
   addEventListener: typeof self.addEventListener;
 };
 
 const serviceWorker = self as unknown as ServiceWorkerScopeLike;
+const legacyRuntimeCacheNames = new Set([
+  "apis",
+  "others",
+  "next-data",
+  "static-data-assets",
+  "cross-origin",
+  "start-url",
+]);
+
+async function clearLegacyRuntimeCaches() {
+  const cacheNames = await caches.keys();
+  await Promise.all(
+    cacheNames
+      .filter(
+        (cacheName) =>
+          legacyRuntimeCacheNames.has(cacheName) ||
+          cacheName.startsWith("workbox-runtime-apis") ||
+          cacheName.startsWith("workbox-runtime-others") ||
+          cacheName.startsWith("workbox-runtime-next-data") ||
+          cacheName.startsWith("workbox-runtime-static-data-assets"),
+      )
+      .map((cacheName) => caches.delete(cacheName)),
+  );
+}
 
 async function broadcastSyncTrigger() {
   const clients = await serviceWorker.clients.matchAll({
@@ -34,6 +63,13 @@ async function broadcastSyncTrigger() {
   }
 }
 
+serviceWorker.addEventListener("activate", (event) => {
+  const activateEvent = event as ExtendableEventLike;
+  activateEvent.waitUntil(
+    Promise.all([clearLegacyRuntimeCaches(), serviceWorker.clients.claim()]),
+  );
+});
+
 serviceWorker.addEventListener("sync", (event) => {
   const syncEvent = event as SyncEventLike;
   if (syncEvent.tag === "posard-sync-actions") {
@@ -45,5 +81,9 @@ serviceWorker.addEventListener("message", (event) => {
   const messageEvent = event as ServiceWorkerMessageEventLike;
   if (messageEvent.data?.type === "POSARD_SYNC_TRIGGER") {
     messageEvent.waitUntil(broadcastSyncTrigger());
+  }
+
+  if (messageEvent.data?.type === "POSARD_CLEAR_PROTECTED_CACHES") {
+    messageEvent.waitUntil(clearLegacyRuntimeCaches());
   }
 });

@@ -27,6 +27,7 @@ You can see which actions still need attention instead of losing them silently. 
 - Do not ignore needs-review items.
 - Compare the receipt and report if a sale looks duplicated or missing.
 - Cashiers can keep selling with saved product data when the product refresh fails.
+- Logging out clears protected browser caches, but POS offline data stays in the explicit offline storage path until it syncs or a manager handles it.
 - Official sales may pause if no invoice number is available. Training mode can continue with local records.
 - Do not repeat the same sale manually unless a manager confirms the queued sale will not sync.
 

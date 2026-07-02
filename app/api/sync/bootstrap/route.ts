@@ -9,6 +9,11 @@ import {
   isTerminalPosAccessible,
   TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE,
 } from "@/lib/billing-access";
+import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
+import {
+  rateLimitErrorResponse,
+  sensitiveNoStoreHeaders,
+} from "@/lib/security/response";
 
 async function getCurrentProfile() {
   const supabase = await createClient();
@@ -40,16 +45,26 @@ export async function GET(request: Request) {
     if (!profile?.companyId) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 },
+        { status: 401, headers: sensitiveNoStoreHeaders },
       );
     }
     const companyId = profile.companyId;
+    await enforceRateLimit({
+      bucket: "sync",
+      route: "/api/sync/bootstrap",
+      action: "OFFLINE_BOOTSTRAP",
+      profileId: profile.id,
+      userId: profile.id,
+      role: profile.role,
+      companyId,
+    });
+
     const { searchParams } = new URL(request.url);
     const deviceId = searchParams.get("deviceId")?.trim();
     if (!deviceId) {
       return NextResponse.json(
         { success: false, error: "deviceId is required" },
-        { status: 400 },
+        { status: 400, headers: sensitiveNoStoreHeaders },
       );
     }
 
@@ -119,55 +134,67 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        session: timestamp
-          ? {
-              timestampId: timestamp.id,
-              terminalId: timestamp.posTerminal.id,
-              terminalName: timestamp.posTerminal.posName ?? "Unnamed terminal",
-              terminalVat: timestamp.posTerminal.vat ?? 0,
-              discountCapType: timestamp.posTerminal.discountCapType,
-              discountMax: timestamp.posTerminal.discountMax
-                ? Number(timestamp.posTerminal.discountMax)
-                : 0,
-              allowCashierDebtCreate: timestamp.posTerminal.allowCashierDebtCreate,
-              allowCashierDebtCollect: timestamp.posTerminal.allowCashierDebtCollect,
-              requireManagerApprovalForDebt:
-                timestamp.posTerminal.requireManagerApprovalForDebt,
-              defaultDebtDueDays: timestamp.posTerminal.defaultDebtDueDays ?? null,
-              printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
-              cashierId: timestamp.cashierId,
-              cashierName: timestamp.cashier.fullName ?? null,
-              companyId,
-              companyCode: profile.company?.code ?? null,
-              deviceId: timestamp.deviceId ?? deviceId,
-              isTrainMode: timestamp.posTerminal.isTrainMode,
-              lastSeenAt: timestamp.lastSeenAt?.toISOString() ?? null,
-              billingLocked: !isTerminalPosAccessible(timestamp.posTerminal),
-              billingMessage: !isTerminalPosAccessible(timestamp.posTerminal)
-                ? TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE
-                : null,
-            }
-          : null,
-        metadata: {
-          categories,
-          products,
-          epaymentMethods,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          session: timestamp
+            ? {
+                timestampId: timestamp.id,
+                terminalId: timestamp.posTerminal.id,
+                terminalName: timestamp.posTerminal.posName ?? "Unnamed terminal",
+                terminalVat: timestamp.posTerminal.vat ?? 0,
+                discountCapType: timestamp.posTerminal.discountCapType,
+                discountMax: timestamp.posTerminal.discountMax
+                  ? Number(timestamp.posTerminal.discountMax)
+                  : 0,
+                allowCashierDebtCreate:
+                  timestamp.posTerminal.allowCashierDebtCreate,
+                allowCashierDebtCollect:
+                  timestamp.posTerminal.allowCashierDebtCollect,
+                requireManagerApprovalForDebt:
+                  timestamp.posTerminal.requireManagerApprovalForDebt,
+                defaultDebtDueDays:
+                  timestamp.posTerminal.defaultDebtDueDays ?? null,
+                printerConfig: printConfigService.mapPrinterConfig(
+                  timestamp.posTerminal,
+                ),
+                cashierId: timestamp.cashierId,
+                cashierName: timestamp.cashier.fullName ?? null,
+                companyId,
+                companyCode: profile.company?.code ?? null,
+                deviceId: timestamp.deviceId ?? deviceId,
+                isTrainMode: timestamp.posTerminal.isTrainMode,
+                lastSeenAt: timestamp.lastSeenAt?.toISOString() ?? null,
+                billingLocked: !isTerminalPosAccessible(timestamp.posTerminal),
+                billingMessage: !isTerminalPosAccessible(timestamp.posTerminal)
+                  ? TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE
+                  : null,
+              }
+            : null,
+          metadata: {
+            categories,
+            products,
+            epaymentMethods,
+          },
+          managerVerifiers: managers,
+          fetchedAt: new Date().toISOString(),
+          stockSnapshotVersion: new Date().toISOString(),
         },
-        managerVerifiers: managers,
-        fetchedAt: new Date().toISOString(),
-        stockSnapshotVersion: new Date().toISOString(),
       },
-    });
-  } catch {
+      { headers: sensitiveNoStoreHeaders },
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Too many requests")) {
+      return rateLimitErrorResponse(error.message);
+    }
+
     return NextResponse.json(
       {
         success: false,
         error: "Unable to build offline bootstrap.",
       },
-      { status: 500 },
+      { status: 500, headers: sensitiveNoStoreHeaders },
     );
   }
 }

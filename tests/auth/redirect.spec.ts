@@ -6,6 +6,40 @@ import {
   loginWithCredentials,
 } from '../fixtures/auth.fixture';
 
+const protectedRouteGroups = [
+  '/accounts',
+  '/admin',
+  '/approvals',
+  '/companies',
+  '/customers',
+  '/dashboard',
+  '/data-exchange',
+  '/debts',
+  '/expenses',
+  '/feature-guide',
+  '/help',
+  '/inventory-ledger',
+  '/kitchen',
+  '/notifications',
+  '/pos',
+  '/product',
+  '/promotions',
+  '/purchase-orders',
+  '/report',
+  '/reports',
+  '/settings',
+  '/setup-company',
+  '/subscriptions',
+  '/suppliers',
+  '/sync',
+  '/terminals',
+  '/transfers',
+] as const;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 test.describe('auth redirects', () => {
   test('allows unauthenticated users to visit public marketing pages', async ({
     page,
@@ -21,10 +55,18 @@ test.describe('auth redirects', () => {
   test('redirects unauthenticated users from protected routes to login', async ({
     page,
   }) => {
-    await page.goto('/dashboard');
+    test.setTimeout(90_000);
 
-    await expect(page).toHaveURL(/\/auth\/login\?callbackUrl=%2Fdashboard$/);
-    await expectLoginPage(page);
+    for (const path of protectedRouteGroups) {
+      await page.goto(path, { waitUntil: 'domcontentloaded' });
+
+      await expect(page).toHaveURL(
+        new RegExp(
+          `/auth/login\\?callbackUrl=${escapeRegExp(encodeURIComponent(path))}$`,
+        ),
+      );
+      await expectLoginPage(page);
+    }
   });
 
   test('redirects authenticated users away from the login page', async ({

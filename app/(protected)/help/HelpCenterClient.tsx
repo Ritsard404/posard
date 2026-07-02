@@ -88,10 +88,11 @@ const guideGroups: HelpGroup[] = [
           "Enter your email and password.",
           "Select Log in.",
           "On phones, use the bottom navigation bar for your main pages.",
+          "Log out when you finish on a shared device.",
         ],
         reminder:
-          "Ask a manager if your account is still waiting for approval. Phone navigation follows your role access.",
-        keywords: ["login", "sign in", "access", "password", "account", "mobile", "navigation"],
+          "Ask a manager if your account is still waiting for approval. Logging out clears protected browser caches, while pending offline checkout work still follows Sync Center rules.",
+        keywords: ["login", "sign in", "access", "password", "account", "mobile", "navigation", "logout", "shared device", "cache"],
       },
       {
         title: "Select a terminal",
@@ -593,9 +594,10 @@ const guideGroups: HelpGroup[] = [
           "Download a JSON backup for store records.",
           "Export the product catalog as Excel or PDF when needed.",
           "Upload or paste a backup file to preview duplicate products, barcodes, categories, and customers.",
+          "Log out if you exported from a shared device.",
         ],
-        reminder: "Preview restore files first. The dry run shows duplicate risks before any future restore step is allowed.",
-        keywords: ["data exchange", "backup", "restore", "catalog", "xlsx", "pdf", "export"],
+        reminder: "Only managers and admins can export. POSard rate-limits repeated downloads, records export activity, and sends downloads with no-store headers.",
+        keywords: ["data exchange", "backup", "restore", "catalog", "xlsx", "pdf", "export", "rate limit", "audit", "download"],
       },
       {
         title: "Manage staff accounts",
@@ -749,7 +751,7 @@ const guideGroups: HelpGroup[] = [
           "Retry, mark reviewed, resolve, or dismiss when appropriate.",
         ],
         reminder:
-          "Do not ignore needs-review items or manually repeat a sale until the queued record is checked.",
+          "Do not ignore needs-review items or manually repeat a sale until the queued record is checked. Logout clears protected browser caches, not unsynced checkout work.",
         keywords: [
           "sync",
           "offline",
@@ -1270,10 +1272,6 @@ export function HelpCenterClient({
   const selectedSectionId = visibleSectionIds.has(activeId)
     ? activeId
     : firstSectionId;
-
-  useEffect(() => {
-    setActiveId(firstSectionId);
-  }, [firstSectionId]);
 
   useEffect(() => {
     const updateProgress = () => {

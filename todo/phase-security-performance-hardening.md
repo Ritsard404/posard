@@ -29,29 +29,29 @@ Scope: POSard application security, dependency risk, protected route coverage, s
 
 Priority: Critical
 
-- [ ] Replace `"latest"` dependency ranges with pinned compatible versions for production packages.
-- [ ] Upgrade `next` from `16.2.1` to the audit-recommended patched version or the latest compatible patched 16.x release, then rerun audit, typecheck, and build.
-- [ ] Align `eslint-config-next` with the installed Next major version.
+- [x] Replace `"latest"` dependency ranges with pinned compatible versions for production packages.
+- [x] Upgrade `next` from `16.2.1` to the audit-recommended patched version or the latest compatible patched 16.x release, then rerun audit, typecheck, and build.
+- [x] Align `eslint-config-next` with the installed Next major version.
 - [ ] Resolve the `next-pwa` / Workbox / `serialize-javascript` vulnerability chain.
   - [ ] Prefer replacing or reconfiguring the PWA layer instead of accepting the audit-suggested downgrade path blindly.
-  - [ ] If a safe replacement is not immediately available, temporarily disable generated Workbox runtime caching for protected app surfaces.
+  - [x] If a safe replacement is not immediately available, temporarily disable generated Workbox runtime caching for protected app surfaces.
 - [ ] Replace or isolate `xlsx@0.18.5`, which has no npm audit fix available.
-  - [ ] Move workbook parsing out of the main client bundle.
-  - [ ] Parse imports on the server or lazy-load parser code only after a file is selected.
+  - [x] Move workbook parsing out of the main client bundle.
+  - [x] Parse imports on the server or lazy-load parser code only after a file is selected.
   - [ ] Enforce file size, MIME/type, sheet count, row count, and timeout limits for spreadsheet imports.
-- [ ] Rerun `npm.cmd audit --omit=dev --json` and record remaining accepted risks with package owner, reason, and planned removal date.
+- [x] Rerun `npm.cmd audit --omit=dev --json` and record remaining accepted risks with package owner, reason, and planned removal date.
 
 Acceptance checks:
 
-- [ ] No vulnerable direct production dependency remains without an explicit documented exception.
-- [ ] Lockfile is deterministic and does not rely on `"latest"` for core runtime dependencies.
+- [x] No vulnerable direct production dependency remains without an explicit documented exception.
+- [x] Lockfile is deterministic and does not rely on `"latest"` for core runtime dependencies.
 - [ ] `npm.cmd audit --omit=dev --json` is clean or has only documented accepted transitive risk.
 
 ## Phase 1 - Protected Route Coverage
 
 Priority: Critical
 
-- [ ] Add these missing protected route groups to `proxy.ts` matcher coverage:
+- [x] Add these missing protected route groups to `proxy.ts` matcher coverage:
   - `/customers/:path*`
   - `/data-exchange/:path*`
   - `/expenses/:path*`
@@ -63,32 +63,32 @@ Priority: Critical
   - `/suppliers/:path*`
   - `/sync/:path*`
   - `/transfers/:path*`
-- [ ] Add a protected route manifest test that compares `app/(protected)` top-level routes against `proxy.ts` matcher coverage.
-- [ ] Add unauthenticated redirect coverage for every protected route group.
-- [ ] Verify that `/feature-guide` keeps the intended signed-in walkthrough behavior.
+- [x] Add a protected route manifest test that compares `app/(protected)` top-level routes against `proxy.ts` matcher coverage.
+- [x] Add unauthenticated redirect coverage for every protected route group.
+- [x] Verify that `/feature-guide` keeps the intended signed-in walkthrough behavior.
 
 Acceptance checks:
 
-- [ ] Every top-level protected route is covered by the proxy matcher or has a documented reason for exclusion.
-- [ ] Unauthenticated requests redirect to login before server auth reads protected data.
+- [x] Every top-level protected route is covered by the proxy matcher or has a documented reason for exclusion.
+- [x] Unauthenticated requests redirect to login before server auth reads protected data.
 - [ ] Existing role and billing guards in `app/(protected)/layout.tsx` still work.
 
 ## Phase 2 - Security Headers
 
 Priority: Critical
 
-- [ ] Add global security headers in `next.config.ts`:
+- [x] Add global security headers in `next.config.ts`:
   - `Content-Security-Policy` or `Content-Security-Policy-Report-Only` for initial rollout.
   - `Strict-Transport-Security` in production.
   - `X-Content-Type-Options: nosniff`.
   - `Referrer-Policy`.
   - `Permissions-Policy`.
   - `X-Frame-Options` or CSP `frame-ancestors`.
-- [ ] Add stricter headers for export/download routes:
+- [x] Add stricter headers for export/download routes:
   - `Cache-Control: no-store`.
   - `Pragma: no-cache`.
   - `X-Content-Type-Options: nosniff`.
-- [ ] Confirm JSON-LD script rendering still works after CSP changes.
+- [x] Confirm JSON-LD script rendering still works after CSP changes.
 - [ ] Check whether receipt printing, customer display, and any embedded displays need explicit CSP exceptions.
 
 Acceptance checks:
@@ -100,59 +100,59 @@ Acceptance checks:
 
 Priority: Critical
 
-- [ ] Reconfigure service-worker runtime caching so protected app pages, RSC payloads, API responses, exports, and reports are not stored in browser Cache Storage.
-- [ ] Cache only safe static assets and explicit offline POS resources.
-- [ ] Keep offline POS business data in the existing explicit offline storage path, where purge and sync rules are visible and testable.
-- [ ] Add logout/session-expiry cleanup that clears protected caches, POS offline state when required, and stale service-worker caches.
-- [ ] Add a service-worker version migration that deletes older broad Workbox caches such as `apis` and `others`.
+- [x] Reconfigure service-worker runtime caching so protected app pages, RSC payloads, API responses, exports, and reports are not stored in browser Cache Storage.
+- [x] Cache only safe static assets and explicit offline POS resources.
+- [x] Keep offline POS business data in the existing explicit offline storage path, where purge and sync rules are visible and testable.
+- [x] Add logout/session-expiry cleanup that clears protected caches, POS offline state when required, and stale service-worker caches.
+- [x] Add a service-worker version migration that deletes older broad Workbox caches such as `apis` and `others`.
 - [ ] Add browser verification that a signed-in POS session does not leave protected HTML, RSC payloads, backup exports, or report exports in Cache Storage after logout.
 
 Acceptance checks:
 
 - [ ] Offline POS still works for the intended checkout flow.
 - [ ] Protected pages and export responses are not available from Cache Storage after logout.
-- [ ] Existing generated service-worker artifacts are either regenerated safely or removed from source control if they are build outputs.
+- [x] Existing generated service-worker artifacts are either regenerated safely or removed from source control if they are build outputs.
 
 ## Phase 4 - Rate Limits, Exports, and Abuse Resistance
 
 Priority: High
 
-- [ ] Replace the active in-memory rate-limit store with a shared durable store for production.
-  - [ ] Keep memory store only as a development/test fallback.
-  - [ ] Use a key model that includes user, company, terminal, and hashed IP where appropriate.
-- [ ] Add rate limiting to sync bootstrap requests.
-- [ ] Add route-level rate limiting to data exchange backup and product catalog export routes.
-- [ ] Add sanitized `try/catch` error handling to export routes so internal errors do not leak implementation details.
-- [ ] Add export audit logging with actor, company, export type, timestamp, row counts, and file size.
-- [ ] Add no-store headers to all sensitive exports.
+- [x] Replace the active in-memory rate-limit store with a shared durable store for production.
+  - [x] Keep memory store only as a development/test fallback.
+  - [x] Use a key model that includes user, company, terminal, and hashed IP where appropriate.
+- [x] Add rate limiting to sync bootstrap requests.
+- [x] Add route-level rate limiting to data exchange backup and product catalog export routes.
+- [x] Add sanitized `try/catch` error handling to export routes so internal errors do not leak implementation details.
+- [x] Add export audit logging with actor, company, export type, timestamp, row counts, and file size.
+- [x] Add no-store headers to all sensitive exports.
 - [ ] Add payload size, date range, and row count limits for report and data-exchange exports.
 
 Acceptance checks:
 
-- [ ] Login, signup, manager PIN, sync bootstrap, report export, backup export, and product catalog export are protected by durable production rate limits.
-- [ ] Export failures return safe user-facing errors.
+- [x] Login, signup, manager PIN, sync bootstrap, report export, backup export, and product catalog export are protected by durable production rate limits.
+- [x] Export failures return safe user-facing errors.
 - [ ] Managers can inspect export history for their company.
 
 ## Phase 5 - Database RLS Defense in Depth
 
 Priority: High
 
-- [ ] Harden the `is_admin` function.
-  - [ ] Set an explicit `search_path`.
-  - [ ] Fully qualify table references.
-  - [ ] Keep the function `SECURITY DEFINER` only if still required.
-- [ ] Optimize RLS policy helper calls by using Supabase-recommended `select auth.uid()` style where applicable.
-- [ ] Decide the defense-in-depth RLS posture for Prisma-managed business tables.
+- [x] Harden the `is_admin` function.
+  - [x] Set an explicit `search_path`.
+  - [x] Fully qualify table references.
+  - [x] Keep the function `SECURITY DEFINER` only if still required.
+- [x] Optimize RLS policy helper calls by using Supabase-recommended `select auth.uid()` style where applicable.
+- [x] Decide the defense-in-depth RLS posture for Prisma-managed business tables.
   - [ ] Option A: enable RLS and add service-role-only policies where browser grants are not needed.
-  - [ ] Option B: document why RLS remains disabled and add CI checks that prevent accidental browser grants.
-- [ ] Add a schema/security check that fails if `anon` or `authenticated` receives broad table privileges without matching RLS policies.
+  - [x] Option B: document why RLS remains disabled and add CI checks that prevent accidental browser grants.
+- [x] Add a schema/security check that fails if `anon` or `authenticated` receives broad table privileges without matching RLS policies.
 - [ ] Add migration tests for `profiles`, `registration_requests`, and `customer_display_state` policies.
 
 Acceptance checks:
 
-- [ ] `is_admin` is search-path safe.
-- [ ] Direct browser roles cannot read or mutate business tables unless explicitly intended.
-- [ ] Future grants cannot silently expose tables with RLS disabled.
+- [x] `is_admin` is search-path safe.
+- [x] Direct browser roles cannot read or mutate business tables unless explicitly intended.
+- [x] Future grants cannot silently expose tables with RLS disabled.
 
 ## Phase 6 - Missing FK Indexes
 
@@ -160,26 +160,26 @@ Priority: High
 
 Add direct indexes or document why each index is unnecessary:
 
-- [ ] `UserPermissionOverride.permissionKey`
-- [ ] `LoyaltyTransaction.invoiceId`
-- [ ] `ReceivingRecord.purchaseOrderId`
-- [ ] `PromotionRedemptionLog.productId`
-- [ ] `RolePermission.permissionKey`
-- [ ] `PosTerminalInfo.branchId`
-- [ ] `KitchenTicket.itemId`
+- [x] `UserPermissionOverride.permissionKey`
+- [x] `LoyaltyTransaction.invoiceId`
+- [x] `ReceivingRecord.purchaseOrderId`
+- [x] `PromotionRedemptionLog.productId`
+- [x] `RolePermission.permissionKey`
+- [x] `PosTerminalInfo.branchId`
+- [x] `KitchenTicket.itemId`
 
 Acceptance checks:
 
-- [ ] Prisma migration adds the selected indexes.
-- [ ] `npx.cmd prisma validate` passes.
-- [ ] `npx.cmd prisma migrate status` passes after migration is applied.
+- [x] Prisma migration adds the selected indexes.
+- [x] `npx.cmd prisma validate` passes.
+- [x] `npx.cmd prisma migrate status` passes after migration is applied.
 - [ ] High-volume delete, join, and relation checks do not produce missing-FK-index warnings.
 
 ## Phase 7 - POS Bootstrap and Offline Sync Performance
 
 Priority: High
 
-- [ ] Rate-limit and validate `app/api/sync/bootstrap/route.ts`.
+- [x] Rate-limit and validate `app/api/sync/bootstrap/route.ts`.
 - [ ] Add snapshot/cursor support for POS bootstrap so products, categories, stock, payment methods, and modifiers are not always fetched as one full payload.
 - [ ] Add `updatedAt` or version markers where syncable entities do not have reliable change cursors.
 - [ ] Add response compression and no-store/private cache policy appropriate for signed-in device bootstrap.
@@ -228,32 +228,32 @@ Acceptance checks:
 
 Run these checks after each implementation slice that touches the related area:
 
-- [ ] `npx.cmd prisma validate`
-- [ ] `npx.cmd prisma generate` after schema edits
-- [ ] `npx.cmd prisma migrate status`
-- [ ] `npx.cmd tsc --noEmit`
-- [ ] Targeted ESLint for changed app/components/lib files
+- [x] `npx.cmd prisma validate`
+- [x] `npx.cmd prisma generate` after schema edits
+- [x] `npx.cmd prisma migrate status`
+- [x] `npx.cmd tsc --noEmit`
+- [x] Targeted ESLint for changed app/components/lib files
 - [ ] Focused regression tests for auth, proxy routing, rate limiting, sync, exports, and offline POS
-- [ ] `npm.cmd audit --omit=dev --json`
-- [ ] `git diff --check`
-- [ ] Production build after route, dependency, PWA, or shared contract changes
+- [x] `npm.cmd audit --omit=dev --json`
+- [x] `git diff --check`
+- [x] Production build after route, dependency, PWA, or shared contract changes
 
 ## Documentation and Help Center Updates
 
-- [ ] Add operator-facing Help Center guidance for safe shared-device logout, offline mode data retention, and export permissions.
-- [ ] Add manager/admin documentation explaining export audit history and rate-limit behavior.
-- [ ] Update technical docs for dependency-risk exceptions, RLS posture, service-worker cache rules, and production rate-limit storage.
+- [x] Add operator-facing Help Center guidance for safe shared-device logout, offline mode data retention, and export permissions.
+- [x] Add manager/admin documentation explaining export audit history and rate-limit behavior.
+- [x] Update technical docs for dependency-risk exceptions, RLS posture, service-worker cache rules, and production rate-limit storage.
 - [ ] Add release notes for any change that affects offline POS availability, export formats, or manager permissions.
 
 ## Completion Rule
 
 This TODO is complete only when:
 
-- [ ] Critical dependency vulnerabilities are resolved or explicitly accepted with owner/date.
-- [ ] Protected route matcher coverage is complete.
-- [ ] Protected data is not broadly cached by the service worker.
-- [ ] Production rate limiting is durable across instances.
-- [ ] RLS posture and browser grants are guarded by tests or checks.
-- [ ] Missing FK indexes are added or explicitly documented.
+- [x] Critical dependency vulnerabilities are resolved or explicitly accepted with owner/date.
+- [x] Protected route matcher coverage is complete.
+- [x] Protected data is not broadly cached by the service worker.
+- [x] Production rate limiting is durable across instances.
+- [x] RLS posture and browser grants are guarded by tests or checks.
+- [x] Missing FK indexes are added or explicitly documented.
 - [ ] Large bootstrap, dashboard, export, and customer-history paths have scalable implementations.
 - [ ] The verification contract passes.

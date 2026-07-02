@@ -42,6 +42,36 @@ export function rateLimitResponse(result: RateLimitResult) {
   );
 }
 
+export function rateLimitErrorResponse(message = "Too many requests. Please try again later.") {
+  return NextResponse.json(securityFailure("RATE_LIMITED", message), { status: 429 });
+}
+
+export const sensitiveNoStoreHeaders = {
+  "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+  "X-Content-Type-Options": "nosniff",
+} as const;
+
+export function sensitiveDownloadHeaders(input: {
+  contentType: string;
+  filename: string;
+}) {
+  return {
+    ...sensitiveNoStoreHeaders,
+    "Content-Type": input.contentType,
+    "Content-Disposition": `attachment; filename="${input.filename}"`,
+  };
+}
+
+export function unauthorizedResponse(message = "Unauthorized.") {
+  return NextResponse.json(securityFailure("UNAUTHORIZED", message), { status: 401 });
+}
+
+export function forbiddenResponse(message = "Forbidden.") {
+  return NextResponse.json(securityFailure("FORBIDDEN", message), { status: 403 });
+}
+
 export function invalidPayloadResponse(message = "Invalid request payload.") {
   return NextResponse.json(securityFailure("INVALID_PAYLOAD", message), { status: 400 });
 }

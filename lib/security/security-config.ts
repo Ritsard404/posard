@@ -31,6 +31,10 @@ export const securityConfig = {
       windowMs: 5 * 60_000,
       max: intEnv("SECURITY_RATE_LIMIT_EXPORT_REPORT_MAX", 10),
     },
+    dataExport: {
+      windowMs: 5 * 60_000,
+      max: intEnv("SECURITY_RATE_LIMIT_DATA_EXPORT_MAX", 6),
+    },
     invoiceReprint: {
       windowMs: 10 * 60_000,
       max: intEnv("SECURITY_RATE_LIMIT_INVOICE_REPRINT_MAX", 10),

@@ -16,6 +16,27 @@ This tracker must be treated as an implementation contract. Delete it only after
 - Multi-branch and multi-terminal stores with branch-scoped terminals, cashier sessions, invoice numbering, reports, subscriptions, and role-based access.
 - Stores that need customer debt/utang, loyalty, returns, discounts, expenses, non-sales income, purchase orders, sync monitoring, and data exchange.
 
+## Scan Result - POS And F&B Queueing
+
+Checked: 2026-07-01
+
+Present:
+
+- Offline POS sync queue exists for local actions such as `PAY_ORDER`, voids, cash withdrawals, and session close retries.
+- Kitchen ticket queue exists through `KitchenTicket` and `/kitchen`, with `queued`, `preparing`, `ready`, `served`, and `cancelled` states.
+- POS checkout captures restaurant fulfillment details such as dine-in, takeout, delivery, pickup, table number, delivery reference, modifiers, and instructions.
+
+Partial:
+
+- Kitchen tickets are created from finalized POS invoices when terminal kitchen tickets are enabled.
+- Debt checkout can create a pending invoice balance, but it is not an F&B open-order queue.
+
+Missing:
+
+- Cashier-facing POS transaction queue for F&B service is not implemented.
+- No persisted open ticket/order queue for holding the current cart, recalling it later, sending it to the kitchen before payment, table/tab management, merge/split, transfer, or settle-later workflows.
+- No POS queue view that lets cashiers switch between active transactions without completing checkout first.
+
 ## Reuse Targets
 
 Before implementing any phase, inspect and extend these existing seams first:
@@ -26,6 +47,7 @@ Before implementing any phase, inspect and extend these existing seams first:
 - Suppliers and purchasing: `app/(protected)/suppliers`, `app/(protected)/purchase-orders`
 - Customers, debt, and loyalty: `app/(protected)/customers`, `app/(protected)/debts`, `app/(protected)/_services/remaining-features.service.ts`
 - Restaurant flow: `app/(protected)/kitchen`, terminal restaurant settings, `KitchenTicket`
+- POS queue candidate seams: `app/(protected)/pos/_store/pos-store.ts`, `app/(protected)/pos/_components/POSLayout.tsx`, `app/(protected)/pos/_components/checkout-shared.tsx`, `app/(protected)/pos/_services/order.service.ts`, `app/(protected)/pos/_actions/order.action.ts`
 - Reports and exports: `app/(protected)/reports`, `app/(protected)/reports/_services`, `app/(protected)/data-exchange`
 - Operator docs: `docs/user-guide/user-guide-index.md`, matching `docs/user-guide/how-to-*.md`, and `app/(protected)/help/HelpCenterClient.tsx`
 - Database contract: `prisma/schema.prisma`
@@ -137,15 +159,27 @@ Acceptance:
 Target businesses: dine-in restaurants, cafes with modifiers, quick service with kitchen stations, delivery-heavy food businesses.
 
 - [ ] Add menu modifiers and add-ons, such as size, sugar level, toppings, cooking preference, and side choices.
+- [ ] Add a cashier-facing POS transaction queue for F&B open tickets before payment.
+- [ ] Let cashiers hold the active cart as a named, table-linked, pickup, delivery, or walk-in ticket and immediately start another transaction.
+- [ ] Let cashiers recall, edit, cancel, transfer, and settle queued tickets without losing items, modifiers, instructions, discounts, fulfillment details, customer/debt context, or manager approvals.
+- [ ] Add queue statuses such as draft, held, sent to kitchen, preparing, ready, settling, completed, and cancelled, mapped cleanly to Prisma-backed enums or documented DTO-safe unions.
+- [ ] Add a POS queue panel or route that filters by table, customer, fulfillment type, status, age, cashier, and kitchen station.
+- [ ] Support sending queued tickets to the kitchen before payment when terminal settings allow it, while keeping existing invoice-created kitchen tickets compatible.
 - [ ] Add table map or table list with open tickets, transfer table, merge table, and split bill.
 - [ ] Add service charge, tips, and dining-specific receipt controls if required by settings.
 - [ ] Add kitchen stations, prep timing, ticket priority, and item-level preparation status.
 - [ ] Add order hold/fire behavior for dine-in service if needed.
-- [ ] Update docs and Help Center for menu modifiers, table service, split bills, and kitchen stations.
+- [ ] Define inventory timing rules for queued tickets: stock should deduct only at settlement unless a sent-to-kitchen workflow explicitly reserves stock with safe reversal behavior.
+- [ ] Keep the new transaction queue separate from the existing offline sync queue, with idempotency and conflict handling for devices that go offline during hold, recall, send, or settle actions.
+- [ ] Add audit logs for ticket create, hold, recall, send, transfer, split, merge, cancel, kitchen status changes, and settlement.
+- [ ] Update docs and Help Center for POS queueing, held tickets, table service, split bills, kitchen stations, and settle-later workflows.
 
 Acceptance:
 
 - [ ] A restaurant can run dine-in, takeout, pickup, and delivery without using retail-only workarounds.
+- [ ] A cashier can park the current transaction, serve the next customer, then recall and settle the parked ticket.
+- [ ] A kitchen can receive an order before payment only when configured, and the cashier can still settle or cancel that ticket correctly.
+- [ ] Multiple open F&B tickets can coexist for the same terminal/company without invoice-number duplication or cart-state loss.
 - [ ] Kitchen staff can see enough detail to prepare modified items.
 - [ ] Reports separate food/service charges, tips, discounts, and refunds correctly.
 

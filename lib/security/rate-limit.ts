@@ -41,6 +41,40 @@ class MemoryRateLimitStore implements RateLimitStore {
   }
 }
 
+class PrismaRateLimitStore implements RateLimitStore {
+  async increment(input: RateLimitInput) {
+    const { prisma } = await import("@/lib/prisma");
+    const now = input.now ?? Date.now();
+    const nowDate = new Date(now);
+    const nextResetDate = new Date(now + input.windowMs);
+    const rows = await prisma.$queryRaw<
+      Array<{ count: number; reset_at: Date }>
+    >`
+      INSERT INTO "public"."rate_limit_counter" AS current_counter ("key", "bucket", "count", "reset_at", "updated_at")
+      VALUES (${input.key}, ${input.bucket}, 1, ${nextResetDate}, ${nowDate})
+      ON CONFLICT ("key") DO UPDATE SET
+        "bucket" = EXCLUDED."bucket",
+        "count" = CASE
+          WHEN current_counter."reset_at" <= ${nowDate} THEN 1
+          ELSE current_counter."count" + 1
+        END,
+        "reset_at" = CASE
+          WHEN current_counter."reset_at" <= ${nowDate} THEN ${nextResetDate}
+          ELSE current_counter."reset_at"
+        END,
+        "updated_at" = ${nowDate}
+      RETURNING "count", "reset_at";
+    `;
+    const row = rows[0];
+
+    if (!row) {
+      throw new Error("Rate limit counter update failed.");
+    }
+
+    return { count: row.count, resetAt: row.reset_at.getTime() };
+  }
+}
+
 const globalRateLimitStore = globalThis as typeof globalThis & {
   __posardRateLimitStore?: RateLimitStore;
 };
@@ -49,7 +83,10 @@ export const memoryRateLimitStore =
   globalRateLimitStore.__posardRateLimitStore ?? new MemoryRateLimitStore();
 globalRateLimitStore.__posardRateLimitStore = memoryRateLimitStore;
 
-let activeStore: RateLimitStore = memoryRateLimitStore;
+const prismaRateLimitStore = new PrismaRateLimitStore();
+
+let activeStore: RateLimitStore =
+  process.env.NODE_ENV === "production" ? prismaRateLimitStore : memoryRateLimitStore;
 
 export function setRateLimitStoreForTesting(store: RateLimitStore) {
   activeStore = store;

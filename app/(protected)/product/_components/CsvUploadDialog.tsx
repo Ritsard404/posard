@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import * as XLSX from "xlsx";
 import {
   Download,
   FileSpreadsheet,
@@ -85,7 +84,8 @@ function worksheetToCsv(xmlText: string): string {
     .join("\n");
 }
 
-function workbookToCsv(buffer: ArrayBuffer): string {
+async function workbookToCsv(buffer: ArrayBuffer): Promise<string> {
+  const XLSX = await import("xlsx");
   const workbook = XLSX.read(buffer, { type: "array" });
   const sheetName = workbook.SheetNames.includes("Products")
     ? "Products"
@@ -244,7 +244,7 @@ export function CsvUploadDialog({
       file.type === "application/vnd.ms-excel.sheet.macroEnabled.12";
 
     const reader = new FileReader();
-    reader.onload = (loadEvent) => {
+    reader.onload = async (loadEvent) => {
       try {
         const result = loadEvent.target?.result;
         let nextCsv: string;
@@ -252,7 +252,7 @@ export function CsvUploadDialog({
           if (!(result instanceof ArrayBuffer)) {
             throw new Error("The workbook file could not be read.");
           }
-          nextCsv = workbookToCsv(result);
+          nextCsv = await workbookToCsv(result);
         } else {
           nextCsv = normalizeUploadedText(String(result ?? ""));
         }

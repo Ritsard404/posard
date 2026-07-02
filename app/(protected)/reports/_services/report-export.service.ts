@@ -603,6 +603,13 @@ function mapRows(slug: ReportsRouteSlug, data: ExportableReportData) {
 }
 
 export const reportExportService = {
+  describe(slug: ReportsRouteSlug, data: ExportableReportData) {
+    const mapped = mapRows(slug, data);
+    return {
+      rowCount: mapped.rows.length,
+      columnCount: mapped.headers.length,
+    };
+  },
   buildCsv(slug: ReportsRouteSlug, data: ExportableReportData) {
     const mapped = mapRows(slug, data);
     return createCsv(mapped.headers, mapped.rows);

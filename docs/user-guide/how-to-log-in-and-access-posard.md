@@ -16,6 +16,7 @@ Use this at the start of your work day or whenever POSard asks you to sign in ag
 3. Select **Log in**.
 4. Wait for POSard to open your dashboard or POS screen.
 5. On phones, use the bottom navigation bar to switch between the main pages allowed for your role.
+6. When you finish on a shared device, select **Log out** from the sidebar or account menu.
 
 ## What happens next
 You will see the pages you can use. Cashiers usually see POS and their profile. Managers see more business tools. The phone bottom navigation uses the same access rules as the desktop sidebar.
@@ -23,6 +24,7 @@ You will see the pages you can use. Cashiers usually see POS and their profile. 
 ## Tips or reminders
 - If your account is still waiting for approval, you cannot use the system yet.
 - If your business billing is paused, POS access may be limited until it is fixed.
+- Always log out on shared counters, tablets, and manager workstations. POSard clears protected browser caches during logout, but any pending offline checkout work still follows the Sync Center rules.
 
 ## Common questions or issues
 - **I cannot log in**  

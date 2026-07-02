@@ -47,6 +47,7 @@ import {
 } from "@/lib/access-control";
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { createClient } from "@/lib/supabase/client";
+import { clearProtectedBrowserCaches } from "@/lib/security/protected-cache.client";
 import { cn } from "@/lib/utils";
 
 export interface UserProfile {
@@ -295,6 +296,7 @@ export function AppSidebar({
       void (async () => {
         const supabase = createClient();
         await supabase.auth.signOut();
+        await clearProtectedBrowserCaches();
         router.push("/auth/login");
         setShowLogoutDialog(false);
       })();

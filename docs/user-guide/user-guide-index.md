@@ -39,6 +39,7 @@ Simple guides for daily POSard work. Start with the section that matches what yo
 - [How to view sales reports](how-to-view-sales-reports.md)
 - [How to manage products and inventory](how-to-manage-products-and-inventory.md)
 - [How to import products from a file](how-to-import-products-from-a-file.md)
+- [How to export backups and product catalogs](how-to-export-backups-and-product-catalogs.md)
 - [How to manage customers and loyalty](how-to-manage-customers-and-loyalty.md)
 - [How to manage debts or unpaid orders](how-to-manage-debts-or-unpaid-orders.md)
 - [How to review approvals](how-to-review-approvals.md)

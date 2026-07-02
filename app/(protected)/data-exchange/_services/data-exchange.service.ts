@@ -49,6 +49,8 @@ function textPdf(title: string, lines: string[]) {
     .join("\n")}\ntrailer << /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
 }
 
+const PRODUCT_CATALOG_PDF_ROW_LIMIT = 45;
+
 export const dataExchangeService = {
   async buildBackup() {
     const { companyId } = await requireCompanyManager();
@@ -173,13 +175,24 @@ export const dataExchangeService = {
     return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
   },
 
+  async countProductCatalogExportRows(format: "pdf" | "xlsx") {
+    const { companyId } = await requireCompanyManager();
+    const productCount = await prisma.product.count({
+      where: { companyId, isDeleted: false },
+    });
+
+    return format === "pdf"
+      ? Math.min(productCount, PRODUCT_CATALOG_PDF_ROW_LIMIT)
+      : productCount;
+  },
+
   async buildProductCatalogPdf() {
     const { companyId } = await requireCompanyManager();
     const products = await prisma.product.findMany({
       where: { companyId, isDeleted: false },
       include: { category: true },
       orderBy: { name: "asc" },
-      take: 45,
+      take: PRODUCT_CATALOG_PDF_ROW_LIMIT,
     });
 
     return textPdf(
