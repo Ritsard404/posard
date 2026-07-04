@@ -33,6 +33,10 @@ The Android app therefore loads the hosted POSard URL inside Capacitor, while Ve
 
 Use `CAPACITOR_APP_URL` when you want the Android app to point to a LAN or local development URL without changing the normal Vercel/web configuration.
 
+Production sync/builds guard against accidental local HTTP targets. If `NODE_ENV=production` and `CAPACITOR_APP_URL` points to localhost, `10.0.2.2`, `192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`, or a `.local` host, the config falls back to `https://posard.vercel.app`.
+
+The hosted shell also participates in POSard mobile/tablet app mode. The app detects Android Capacitor, phone browser, tablet browser, and desktop browser modes, then keeps the app shell focused on checkout-critical routes.
+
 ## Setup Commands
 
 Install dependencies:
@@ -155,7 +159,33 @@ Current behavior:
 - web/browser printing still uses the existing POSard print services
 - receipt printing can prefer a native SUNMI path when running inside Capacitor on Android
 - the Android app now includes a local Capacitor plugin that binds to the SUNMI built-in print service
+- SUNMI plugin registration is lazy; it runs only when a built-in printer operation or diagnostic check is requested
 - if the device does not expose the SUNMI printer service, POSard falls back safely to the current browser preview/print flow
+
+## Mobile and Tablet App Mode
+
+Phones, tablets, and Capacitor app runtimes use the same protected routes and role permissions as the web app, but the app shell hides or restricts heavy admin surfaces by default.
+
+Available in app mode:
+
+- Point of Sale
+- cashier session open/close and cash movement controls
+- printer setup
+- barcode scanning and checkout product lookup
+- Sync Center
+- customer and debt workflows needed around checkout
+- Help Center
+
+Restricted in app mode:
+
+- large reports and AI reports
+- company/admin management
+- bulk product import/export and backup/restore pages
+- deep setup pages other than printer setup
+- broad feature-guide walkthroughs
+- heavy dashboard work
+
+Restricted pages show a friendly direction screen with quick links back to Point of Sale, Sync Center, and printer setup. Managers and admins keep full access from desktop browsers.
 
 Currently implemented in the Android plugin:
 

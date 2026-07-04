@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePOSStore } from "../_store/pos-store";
 import {
   POSReceiptContent,
@@ -21,9 +21,24 @@ export function TenderPanel() {
   const { total } = usePOSPaymentSummary();
   const setActiveMobileTab = usePOSStore((state) => state.setActiveMobileTab);
   const [approvalOpen, setApprovalOpen] = useState(false);
+  const tenderReadyLoggedRef = useRef(false);
   const flow = usePOSCheckoutFlow(total, {
     onFastComplete: () => setActiveMobileTab("menu"),
   });
+
+  useEffect(() => {
+    if (tenderReadyLoggedRef.current) {
+      return;
+    }
+
+    tenderReadyLoggedRef.current = true;
+
+    if (process.env.NODE_ENV !== "production") {
+      console.info("POS cart to tender ready timing", {
+        sinceNavigationStartMs: Math.round(performance.now()),
+      });
+    }
+  }, []);
 
   const handleReceiptClose = () => {
     flow.resetCheckoutState(true);

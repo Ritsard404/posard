@@ -23,6 +23,7 @@ POSard opens in its own app window.
 ## Tips or reminders
 - If the install button does not appear, use the browser menu and look for install or add-to-home-screen.
 - Install POSard only on trusted devices.
+- Phones, tablets, and Android app devices use a focused app mode for checkout, sync, printer setup, customers, debts, and help. Use a desktop browser for deeper reports, imports, and company setup.
 
 ## Common questions or issues
 - **I do not see Install**  

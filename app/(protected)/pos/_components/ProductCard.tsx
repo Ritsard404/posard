@@ -42,6 +42,8 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
     .join(' / ');
 
   const handleAdd = () => {
+    const addStartedAt = performance.now();
+
     if (product.isConfigurable && product.modifierGroups.length > 0) {
       if (!activeTerminal?.enableProductModifiers) {
         toast.error("Modifiers are disabled for this terminal.", {
@@ -78,6 +80,14 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
       toast.warning("Inventory will go negative.", {
         description: `${product.name} is tracked and the sale exceeds available stock.`,
         duration: 5000,
+      });
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('POS product tap to cart timing', {
+        productId: product.id,
+        configurable: false,
+        ms: Math.round(performance.now() - addStartedAt),
       });
     }
   };

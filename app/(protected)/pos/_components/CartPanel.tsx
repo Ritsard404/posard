@@ -332,11 +332,30 @@ export function CartPanel() {
                       >
                         <Minus className="size-4" />
                       </Button>
-                      <div
-                        className={`w-8 text-center text-sm font-black tracking-tighter ${isVoid ? "text-destructive line-through" : ""}`}
-                      >
-                        {item.cartQuantity}
-                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        disabled={isVoid || isVoiding}
+                        value={item.cartQuantity}
+                        className={`h-10 w-12 border-none bg-transparent p-0 text-center text-sm font-black tracking-tighter focus-visible:ring-0 sm:h-8 sm:w-10 ${isVoid ? "text-destructive line-through" : ""}`}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => {
+                          event.stopPropagation();
+                          const nextQuantity = Number.parseInt(
+                            event.target.value || "0",
+                            10,
+                          );
+
+                          if (!Number.isNaN(nextQuantity)) {
+                            handleCartQuantityChange(
+                              item.cartItemId,
+                              nextQuantity,
+                            );
+                          }
+                        }}
+                      />
                       <Button
                         variant="ghost"
                         size="icon"

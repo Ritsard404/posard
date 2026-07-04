@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { prisma } from '../../lib/prisma';
 import {
+  POSARD_APP_MODE_COOKIE,
+} from '../../lib/mobile-app-mode';
+import {
   authenticatePageWithCredentials,
   cashierCredentials,
   ensureAuthUserForProfile,
@@ -20,6 +23,7 @@ const desktopViewports = [
   { width: 1024, height: 768 },
   { width: 1280, height: 720 },
   { width: 1366, height: 768 },
+  { width: 1440, height: 900 },
 ];
 
 const mobileViewports = [
@@ -382,6 +386,50 @@ test.describe('POS responsive layout', () => {
       }
     } finally {
       await seeded?.cleanup();
+      await authUser?.cleanup();
+      await profiles.cleanup();
+    }
+  });
+
+  test('shows the friendly restricted screen for heavy routes in tablet app mode', async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+
+    const profiles = await ensurePosResponsiveProfiles();
+    let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null =
+      null;
+
+    try {
+      authUser = await ensureAuthUserForProfile(managerCredentials);
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await authenticatePageWithCredentials(page, managerCredentials);
+
+      const baseUrl =
+        process.env.PLAYWRIGHT_BASE_URL ??
+        `http://127.0.0.1:${Number(process.env.PORT ?? 3000)}`;
+      await page.context().addCookies([
+        {
+          name: POSARD_APP_MODE_COOKIE,
+          value: 'tablet-browser',
+          url: baseUrl,
+        },
+      ]);
+
+      await page.goto('/reports/sales');
+
+      await expect(
+        page.getByRole('heading', {
+          name: /Use a desktop or admin device for this area/i,
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'Point of Sale', exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'Sync Center', exact: true }),
+      ).toBeVisible();
+    } finally {
       await authUser?.cleanup();
       await profiles.cleanup();
     }

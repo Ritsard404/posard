@@ -16,7 +16,8 @@ Use this whenever a customer is ready to buy.
 2. Find the item by browsing products or scanning a barcode.
 3. Tap or click the item to add it to the cart.
 4. Review the cart before checkout.
-5. Select **Checkout** when the order is ready.
+5. On phones, use **Cart** and **Tender** from the bottom POS tabs.
+6. Select **Checkout** or **Go to Tender** when the order is ready.
 
 ## What happens next
 POSard opens the payment step so you can collect payment and finish the sale.
@@ -24,6 +25,7 @@ POSard opens the payment step so you can collect payment and finish the sale.
 ## Tips or reminders
 - Check the cart before accepting payment.
 - Remove wrong items before checkout.
+- On mobile and tablet app mode, keep sales in **Point of Sale** and use **Sync Center** for offline work.
 
 ## Common questions or issues
 - **The item is missing**  

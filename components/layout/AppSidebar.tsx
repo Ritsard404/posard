@@ -45,6 +45,11 @@ import {
   type SidebarNavSection,
   type UserRole,
 } from "@/lib/access-control";
+import {
+  isMobileAppHrefAllowed,
+  type PosardAppMode,
+} from "@/lib/mobile-app-mode";
+import { useMobileAppMode } from "@/hooks/use-mobile-app-mode";
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { clearClientSessionForLogout } from "@/lib/auth/client-logout";
 import { cn } from "@/lib/utils";
@@ -128,6 +133,44 @@ function sectionHasActiveItem(
       ? sectionHasActiveItem(pathname, searchParams, item.children)
       : false;
   });
+}
+
+function filterAppModeItems(
+  items: SidebarNavItem[],
+  appMode: PosardAppMode,
+): SidebarNavItem[] {
+  const filteredItems: SidebarNavItem[] = [];
+
+  for (const item of items) {
+    const children = item.children
+      ? filterAppModeItems(item.children, appMode)
+      : undefined;
+    const hrefAllowed = isMobileAppHrefAllowed(item.href, appMode);
+
+    if (!hrefAllowed && (!children || children.length === 0)) {
+      continue;
+    }
+
+    filteredItems.push({
+      ...item,
+      children,
+      disabled: item.disabled || !hrefAllowed,
+    });
+  }
+
+  return filteredItems;
+}
+
+function filterAppModeSections(
+  sections: SidebarNavSection[],
+  appMode: PosardAppMode,
+) {
+  return sections
+    .map((section) => ({
+      ...section,
+      items: filterAppModeItems(section.items, appMode),
+    }))
+    .filter((section) => section.items.length > 0);
 }
 
 function NavBadge({
@@ -246,8 +289,10 @@ function SidebarNavSubLink({
 
 export function AppSidebar({
   initialProfile,
+  initialMode = "desktop-browser",
 }: {
   initialProfile: UserProfile | null;
+  initialMode?: PosardAppMode;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -256,6 +301,7 @@ export function AppSidebar({
   const [profile] = useState<UserProfile | null>(initialProfile);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const appMode = useMobileAppMode(initialMode);
 
   const navContext = useMemo(
     () => ({
@@ -278,8 +324,14 @@ export function AppSidebar({
   );
 
   const sidebarSections = useMemo(
-    () => (profile ? getSidebarSections(profile.role, navContext) : []),
-    [navContext, profile],
+    () =>
+      profile
+        ? filterAppModeSections(
+            getSidebarSections(profile.role, navContext),
+            appMode,
+          )
+        : [],
+    [appMode, navContext, profile],
   );
 
   const contentSections = sidebarSections.filter(

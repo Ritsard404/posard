@@ -7,6 +7,11 @@ import {
   getSidebarSections,
   type SidebarNavItem,
 } from "@/lib/access-control";
+import {
+  isMobileAppHrefAllowed,
+  type PosardAppMode,
+} from "@/lib/mobile-app-mode";
+import { useMobileAppMode } from "@/hooks/use-mobile-app-mode";
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/components/layout/AppSidebar";
 
@@ -59,12 +64,15 @@ const mobilePriority = [
 
 export function MobileBottomNav({
   initialProfile,
+  initialMode = "desktop-browser",
 }: {
   initialProfile: UserProfile | null;
+  initialMode?: PosardAppMode;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const params = useParams();
+  const appMode = useMobileAppMode(initialMode);
 
   const items = useMemo(() => {
     if (!initialProfile) return [];
@@ -86,7 +94,12 @@ export function MobileBottomNav({
     getSidebarSections(initialProfile.role, navContext)
       .filter((section) => section.placement !== "footer")
       .flatMap((section) => flattenItems(section.items))
-      .filter((item) => item.href && !item.disabled)
+      .filter(
+        (item) =>
+          item.href &&
+          !item.disabled &&
+          isMobileAppHrefAllowed(item.href, appMode),
+      )
       .forEach((item) => {
         const key = item.href ?? item.id;
         if (!uniqueItems.has(key)) {
@@ -106,7 +119,7 @@ export function MobileBottomNav({
         return aScore - bScore;
       })
       .slice(0, 4);
-  }, [initialProfile, params?.companyId]);
+  }, [appMode, initialProfile, params?.companyId]);
 
   if (items.length === 0) {
     return null;

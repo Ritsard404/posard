@@ -1,6 +1,4 @@
 "use client";
-
-import { registerPlugin } from "@capacitor/core";
 import type {
   PrinterCapabilityDto,
   PrinterDeviceSummaryDto,
@@ -77,18 +75,29 @@ export interface SunmiNativePrinterDiagnostics {
   statusCode: number | null;
 }
 
-const sunmiPrinterPlugin =
-  typeof window === "undefined"
-    ? null
-    : registerPlugin<SunmiPrinterPlugin>("SunmiPrinter");
+let sunmiPrinterPluginPromise: Promise<SunmiPrinterPlugin | null> | null = null;
 
-function getCapacitorBridge(): SunmiNativePrinterBridge | null {
+async function getSunmiPrinterPlugin() {
   if (
-    !sunmiPrinterPlugin ||
+    typeof window === "undefined" ||
     !isNativePlatform() ||
     getPlatform() !== "android" ||
     !isCapacitorPluginAvailable("SunmiPrinter")
   ) {
+    return null;
+  }
+
+  sunmiPrinterPluginPromise ??= import("@capacitor/core").then(
+    ({ registerPlugin }) => registerPlugin<SunmiPrinterPlugin>("SunmiPrinter"),
+  );
+
+  return sunmiPrinterPluginPromise;
+}
+
+async function getCapacitorBridge(): Promise<SunmiNativePrinterBridge | null> {
+  const sunmiPrinterPlugin = await getSunmiPrinterPlugin();
+
+  if (!sunmiPrinterPlugin) {
     return null;
   }
 
@@ -113,8 +122,8 @@ function getCapacitorBridge(): SunmiNativePrinterBridge | null {
   };
 }
 
-function getBridge(): SunmiNativePrinterBridge | null {
-  const nativeBridge = getCapacitorBridge();
+async function getBridge(): Promise<SunmiNativePrinterBridge | null> {
+  const nativeBridge = await getCapacitorBridge();
 
   if (nativeBridge) {
     return nativeBridge;
@@ -133,7 +142,7 @@ function getBridge(): SunmiNativePrinterBridge | null {
 }
 
 async function assertAvailableBridge() {
-  const bridge = getBridge();
+  const bridge = await getBridge();
 
   if (!bridge) {
     throw new Error(
@@ -155,7 +164,16 @@ async function assertAvailableBridge() {
 export const sunmiNativePrintService = {
   getCapability(): PrinterCapabilityDto {
     const meta = getPrinterModeMeta("sunmi-built-in-native");
-    const bridge = getBridge();
+    const supported =
+      (isNativePlatform() &&
+        getPlatform() === "android" &&
+        isCapacitorPluginAvailable("SunmiPrinter")) ||
+      (typeof window !== "undefined" &&
+        Boolean(
+          window.__POSARD_SUNMI_PRINTER__ ??
+            window.POSARDSunmiPrinter ??
+            window.SunmiPrinter,
+        ));
 
     return {
       mode: "sunmi-built-in-native",
@@ -163,8 +181,8 @@ export const sunmiNativePrintService = {
       driver: meta.driver,
       label: meta.label,
       description: meta.description,
-      supported: Boolean(bridge),
-      reason: bridge
+      supported,
+      reason: supported
         ? null
         : "Requires the Sunmi-enabled Android wrapper or native bridge.",
     };
@@ -196,12 +214,9 @@ export const sunmiNativePrintService = {
   },
 
   async printReceipt(segments: string[]) {
-    if (
-      sunmiPrinterPlugin &&
-      isNativePlatform() &&
-      getPlatform() === "android" &&
-      isCapacitorPluginAvailable("SunmiPrinter")
-    ) {
+    const sunmiPrinterPlugin = await getSunmiPrinterPlugin();
+
+    if (sunmiPrinterPlugin) {
       const result = await sunmiPrinterPlugin.isAvailable();
 
       if (!result.available) {
@@ -221,12 +236,9 @@ export const sunmiNativePrintService = {
   },
 
   async getDiagnostics(): Promise<SunmiNativePrinterDiagnostics> {
-    if (
-      sunmiPrinterPlugin &&
-      isNativePlatform() &&
-      getPlatform() === "android" &&
-      isCapacitorPluginAvailable("SunmiPrinter")
-    ) {
+    const sunmiPrinterPlugin = await getSunmiPrinterPlugin();
+
+    if (sunmiPrinterPlugin) {
       const availability = await sunmiPrinterPlugin.isAvailable();
 
       if (!availability.available) {
@@ -260,7 +272,7 @@ export const sunmiNativePrintService = {
       };
     }
 
-    const bridge = getBridge();
+    const bridge = await getBridge();
     const available = bridge ? await bridge.isAvailable() : false;
     const deviceInfo =
       bridge && available ? await bridge.getDeviceInfo() : null;

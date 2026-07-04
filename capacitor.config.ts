@@ -3,12 +3,20 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const DEFAULT_HOSTED_URL = "https://posard.vercel.app";
 
 function getHostedAppUrl() {
-  return (
+  const configuredUrl =
     process.env.CAPACITOR_APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    DEFAULT_HOSTED_URL
-  );
+    DEFAULT_HOSTED_URL;
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    isLocalAndroidDevUrl(configuredUrl)
+  ) {
+    return DEFAULT_HOSTED_URL;
+  }
+
+  return configuredUrl;
 }
 
 function isLocalAndroidDevUrl(value: string) {

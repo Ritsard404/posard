@@ -3,6 +3,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useMobileAppMode } from "@/hooks/use-mobile-app-mode";
+import { isRestrictedMobileAppMode } from "@/lib/mobile-app-mode";
 import {
   Cable,
   ClipboardList,
@@ -48,6 +50,8 @@ interface POSLayoutProps {
 
 export function POSLayout({ children, cart, tender }: POSLayoutProps) {
   const isMobile = useIsMobile();
+  const appMode = useMobileAppMode();
+  const isAppMode = isRestrictedMobileAppMode(appMode);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showCloseSession, setShowCloseSession] = useState(false);
   const [showPrinterConfig, setShowPrinterConfig] = useState(false);
@@ -286,14 +290,14 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                     <Wallet className="mr-2 size-4" />
                     Withdraw cash
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    asChild
-                  >
-                    <Link href="/business-fit">
-                      <ClipboardList className="mr-2 size-4" />
-                      Business Fit
-                    </Link>
-                  </DropdownMenuItem>
+                  {!isAppMode ? (
+                    <DropdownMenuItem asChild>
+                      <Link href="/business-fit">
+                        <ClipboardList className="mr-2 size-4" />
+                        Business Fit
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
                     onClick={() => setShowCloseSession(true)}
@@ -395,6 +399,40 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
       <div className="border-b bg-background px-3 py-2">
         <NetworkSyncStatusIndicator />
       </div>
+
+      {isAppMode ? (
+        <div className="grid shrink-0 grid-cols-3 gap-1 border-b bg-card px-2 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground sm:hidden">
+          <button
+            type="button"
+            className="min-h-11 min-w-0 rounded-lg border bg-background px-2 text-left"
+            onClick={() => setShowPrinterConfig(true)}
+          >
+            <span className="block truncate text-foreground">Printer</span>
+            <span className="block truncate">{printerLabel}</span>
+          </button>
+          <Link
+            href="/sync"
+            className="flex min-h-11 min-w-0 flex-col justify-center rounded-lg border bg-background px-2"
+          >
+            <span className="truncate text-foreground">Sync</span>
+            <span className="truncate">
+              {pendingSyncCount + needsReviewCount > 0
+                ? `${pendingSyncCount + needsReviewCount} action(s)`
+                : "Ready"}
+            </span>
+          </Link>
+          <button
+            type="button"
+            className="min-h-11 min-w-0 rounded-lg border bg-background px-2 text-left"
+            onClick={() => setShowWithdraw(true)}
+          >
+            <span className="block truncate text-foreground">Session</span>
+            <span className="block truncate">
+              {activeSessionId ? "Open" : "Closed"}
+            </span>
+          </button>
+        </div>
+      ) : null}
 
       {activeTerminal?.billingLocked ? (
         <div className="border-b border-amber-300/60 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-950">

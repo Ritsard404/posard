@@ -511,6 +511,7 @@ export function usePOSCheckoutFlow(
 
     processingRef.current = true;
     setIsProcessing(true);
+    const checkoutStartedAt = performance.now();
 
     try {
       let debtCustomerId = selectedDebtCustomerId;
@@ -636,6 +637,13 @@ export function usePOSCheckoutFlow(
         );
 
         if (res.success) {
+          if (process.env.NODE_ENV !== "production") {
+            console.info("POS online checkout timing", {
+              clientTxnId: idempotencyKey,
+              totalMs: Math.round(performance.now() - checkoutStartedAt),
+              settlementMode,
+            });
+          }
           checkoutIdempotencyKeyRef.current = null;
           applyStockUpdates(res.receipt.stockUpdates);
 
@@ -754,6 +762,9 @@ export function usePOSCheckoutFlow(
             localPayloadBuildMs: Math.round(commitStartedAt - clickStartedAt),
             dexieCommitMs: Math.round(performance.now() - commitStartedAt),
             totalMs,
+            completeSaleToSavedReceiptMs: Math.round(
+              performance.now() - checkoutStartedAt,
+            ),
             onlineAtCommit: isOnline,
           });
         }

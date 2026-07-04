@@ -136,6 +136,32 @@ const guideGroups: HelpGroup[] = [
         keywords: ["install", "app", "device", "home screen", "tablet"],
       },
       {
+        title: "Use mobile and tablet app mode",
+        role: "Cashier / Manager",
+        audience: ["cashier", "manager"],
+        summary:
+          "Keep phone, tablet, and Android app devices focused on checkout work.",
+        steps: [
+          "Open POSard on the phone, tablet, or Android app.",
+          "Use Point of Sale for menu, cart, and tender.",
+          "Use the compact printer, sync, and session actions when needed.",
+          "Open Sync Center for queued offline work.",
+          "Use a desktop or admin device for reports, imports, and deep setup.",
+        ],
+        reminder:
+          "Restricted mobile pages show links back to POS, Sync Center, and printer setup.",
+        keywords: [
+          "mobile app",
+          "tablet",
+          "android",
+          "restricted",
+          "desktop",
+          "checkout",
+          "sync",
+          "printer",
+        ],
+      },
+      {
         title: "Use the dashboard",
         role: "Everyone",
         audience: ["everyone"],

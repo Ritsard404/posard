@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Product, usePOSStore } from '../_store/pos-store';
 import { ProductCard } from './ProductCard';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,7 @@ export function ProductDisplay() {
   const [categorySearch, setCategorySearch] = useState('');
   const [categoryBrowserOpen, setCategoryBrowserOpen] = useState(false);
   const [hardwareScannerEnabled, setHardwareScannerEnabled] = useState(false);
+  const readinessLoggedRef = useRef(false);
   const { 
     searchQuery, setSearchQuery, 
     selectedCategoryId, setSelectedCategoryId,
@@ -55,6 +56,7 @@ export function ProductDisplay() {
   useHardwareBarcodeScanner({
     enabled: hardwareScannerEnabled,
     onScan: (result) => {
+      const scanStartedAt = performance.now();
       const scanValue = normalizeScanValue(result.value);
       const product = findProductByScanValue(products, scanValue);
 
@@ -86,14 +88,15 @@ export function ProductDisplay() {
       toast.success('Scanned item added.', {
         description: product.name,
       });
+      if (process.env.NODE_ENV !== 'production') {
+        console.info('POS scan to cart timing', {
+          source: result.source,
+          exactMatch: true,
+          ms: Math.round(performance.now() - scanStartedAt),
+        });
+      }
     },
   });
-
-  useEffect(() => {
-    if (categoryBrowserOpen) {
-      setHardwareScannerEnabled(false);
-    }
-  }, [categoryBrowserOpen]);
 
   const activeViewMode = isMobile ? mobileProductView : viewMode;
   const setActiveViewMode = isMobile ? setMobileProductView : setViewMode;
@@ -154,6 +157,30 @@ export function ProductDisplay() {
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  useEffect(() => {
+    const safeTotalPages = Math.max(totalPages, 1);
+
+    if (currentPage > safeTotalPages) {
+      setPage(safeTotalPages);
+    }
+  }, [currentPage, setPage, totalPages]);
+
+  useEffect(() => {
+    if (readinessLoggedRef.current || products.length === 0) {
+      return;
+    }
+
+    readinessLoggedRef.current = true;
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('POS product search ready timing', {
+        products: products.length,
+        categories: categories.length,
+        sinceNavigationStartMs: Math.round(performance.now()),
+      });
+    }
+  }, [categories.length, products.length]);
+
   return (
     <div data-testid="pos-product-panel" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-background animate-in fade-in duration-300">
       <div className="shrink-0 space-y-1.5 border-b bg-background p-1.5 sm:p-2.5 lg:p-3">
@@ -205,7 +232,15 @@ export function ProductDisplay() {
         {hasManyCategories ? (
           <div className="space-y-2">
             <div className="flex min-w-0 items-center gap-2">
-              <Sheet open={categoryBrowserOpen} onOpenChange={setCategoryBrowserOpen}>
+              <Sheet
+                open={categoryBrowserOpen}
+                onOpenChange={(open) => {
+                  setCategoryBrowserOpen(open);
+                  if (open) {
+                    setHardwareScannerEnabled(false);
+                  }
+                }}
+              >
                 <SheetTrigger asChild>
                   <Button
                     variant="outline"

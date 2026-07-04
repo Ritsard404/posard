@@ -5,6 +5,7 @@ Simple guides for daily POSard work. Start with the section that matches what yo
 ## Getting Started
 - [How to log in and access POSard](how-to-log-in-and-access-posard.md)
 - [How to install POSard on a device](how-to-install-posard-on-a-device.md)
+- [How to use mobile and tablet app mode](how-to-use-mobile-tablet-app-mode.md)
 - [How to select a terminal](how-to-select-a-terminal.md)
 - [How to start a cashier session](how-to-start-a-cashier-session.md)
 - [How to use the dashboard](how-to-use-the-dashboard.md)
