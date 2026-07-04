@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageUploadField } from "@/components/storage/ImageUploadField";
+import { businessFitPresetGuides } from "@/app/(protected)/_services/business-fit-presets";
 import {
   AdminCompanyUpsertSchema,
   type AdminCompanyUpsertInput,
@@ -53,6 +54,7 @@ export function CompanyAdminDialog({
       phone: company?.phone ?? "",
       address: company?.address ?? "",
       logoImageUrl: company?.logoImageUrl ?? "",
+      businessTypePreset: company?.businessTypePreset ?? "RETAIL",
     });
   }, [company, open, reset]);
 
@@ -83,6 +85,18 @@ export function CompanyAdminDialog({
           </Field>
           <Field label="Address" error={errors.address?.message}>
             <Input {...register("address")} placeholder="Street, City, Province" />
+          </Field>
+          <Field label="Business Type" error={errors.businessTypePreset?.message}>
+            <select
+              {...register("businessTypePreset")}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {businessFitPresetGuides.map((guide) => (
+                <option key={guide.preset} value={guide.preset}>
+                  {guide.label}
+                </option>
+              ))}
+            </select>
           </Field>
           <div>
             <input type="hidden" {...register("logoImageUrl")} />

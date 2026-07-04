@@ -5,6 +5,10 @@ export const createCustomerSchema = z.object({
   phone: z.string().trim().optional().nullable(),
   address: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
+  accountType: z.enum(["RETAIL", "WHOLESALE", "B2B", "VIP", "STAFF"]).default("RETAIL"),
+  priceLevel: z.string().trim().optional().nullable(),
+  creditLimit: z.coerce.number().min(0).optional().nullable(),
+  paymentTermsDays: z.coerce.number().int().min(0).max(365).optional().nullable(),
 });
 
 export const recordDebtPaymentSchema = z.object({
@@ -33,6 +37,10 @@ export type CustomerListItemDto = {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  accountType: "RETAIL" | "WHOLESALE" | "B2B" | "VIP" | "STAFF";
+  priceLevel: string | null;
+  creditLimit: number | null;
+  paymentTermsDays: number | null;
   isActive: boolean;
 };
 

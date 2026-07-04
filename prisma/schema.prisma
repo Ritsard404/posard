@@ -243,6 +243,118 @@ enum ModifierGroupType {
   @@schema("public")
 }
 
+enum BusinessTypePreset {
+  RETAIL
+  PHARMACY
+  RESTAURANT
+  SERVICE
+  REPAIR
+  WHOLESALE
+  APPAREL
+  HARDWARE
+  SERIALIZED_GOODS
+
+  @@map("business_type_preset")
+  @@schema("public")
+}
+
+enum CustomerAccountType {
+  RETAIL
+  WHOLESALE
+  B2B
+  VIP
+  STAFF
+
+  @@map("customer_account_type")
+  @@schema("public")
+}
+
+enum ProductTrackingMode {
+  STANDARD
+  SERVICE
+  NON_STOCK
+  VARIANT_PARENT
+  SERIALIZED
+  BUNDLE
+
+  @@map("product_tracking_mode")
+  @@schema("public")
+}
+
+enum ServiceBookingStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+
+  @@map("service_booking_status")
+  @@schema("public")
+}
+
+enum RepairJobStatus {
+  INTAKE
+  DIAGNOSING
+  WAITING_PARTS
+  IN_PROGRESS
+  READY_FOR_PICKUP
+  COMPLETED
+  CANCELLED
+  WARRANTY_REWORK
+
+  @@map("repair_job_status")
+  @@schema("public")
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  QUOTED
+  APPROVED
+  FULFILLING
+  PARTIALLY_INVOICED
+  INVOICED
+  CANCELLED
+
+  @@map("sales_order_status")
+  @@schema("public")
+}
+
+enum SerialItemStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  RETURNED
+  WARRANTY_SERVICE
+  RETIRED
+
+  @@map("serial_item_status")
+  @@schema("public")
+}
+
+enum PosOpenTicketStatus {
+  DRAFT
+  HELD
+  SENT_TO_KITCHEN
+  PREPARING
+  READY
+  SETTLING
+  COMPLETED
+  CANCELLED
+
+  @@map("pos_open_ticket_status")
+  @@schema("public")
+}
+
+enum PrescriptionVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+
+  @@map("prescription_verification_status")
+  @@schema("public")
+}
+
 /////////////////////////////////////////////////
 // PROFILE (Single User Source)
 /////////////////////////////////////////////////
@@ -286,34 +398,41 @@ model Profile {
 
   posSessions                       PosSession[]
   approvalLogs                      ApprovalLog[]
-  approvalRequests                  ApprovalRequest[]        @relation("RequestedApprovalRequests")
-  approvalDecisions                 ApprovalDecision[]       @relation("DecidedApprovalRequests")
-  rolePermissions                   RolePermission[]         @relation("CreatedRolePermissions")
-  userPermissionOverrides           UserPermissionOverride[] @relation("UserPermissionOverrideTarget")
-  permissionOverridesCreated        UserPermissionOverride[] @relation("CreatedUserPermissionOverrides")
-  expensesCreated                   Expense[]                @relation("ExpenseCreatedBy")
-  expensesApproved                  Expense[]                @relation("ExpenseApprovedBy")
-  nonSalesIncomesCreated            NonSalesIncome[]         @relation("NonSalesIncomeCreatedBy")
-  stockMovementsCreated             StockMovement[]          @relation("StockMovementCreatedBy")
-  stockCountsCreated                StockCountSession[]      @relation("StockCountCreatedBy")
-  stockCountsAssigned               StockCountSession[]      @relation("StockCountAssignedTo")
-  stockCountsSubmitted              StockCountSession[]      @relation("StockCountSubmittedBy")
-  stockCountsApproved               StockCountSession[]      @relation("StockCountApprovedBy")
-  revenueGoalsCreated               RevenueGoal[]            @relation("RevenueGoalCreatedBy")
-  purchaseOrdersCreated             PurchaseOrder[]          @relation("PurchaseOrderCreatedBy")
-  purchaseOrdersApproved            PurchaseOrder[]          @relation("PurchaseOrderApprovedBy")
-  receivingRecordsPosted            ReceivingRecord[]        @relation("ReceivingPostedBy")
-  branchTransfersRequested          BranchTransfer[]         @relation("BranchTransferRequestedBy")
-  branchTransfersApproved           BranchTransfer[]         @relation("BranchTransferApprovedBy")
-  branchTransfersReceived           BranchTransfer[]         @relation("BranchTransferReceivedBy")
-  managedBranches                   Branch[]                 @relation("BranchManager")
-  loyaltyTransactionsCreated        LoyaltyTransaction[]     @relation("LoyaltyTransactionCreatedBy")
-  kitchenTicketsUpdated             KitchenTicket[]          @relation("KitchenTicketUpdatedBy")
-  auditLogs                         AuditLog[]               @relation("ActorAuditLog")
-  requestedTerminalRequests         TerminalRequest[]        @relation("RequestedTerminalRequest")
-  reviewedTerminalRequests          TerminalRequest[]        @relation("ReviewedTerminalRequest")
-  reviewedRegistrationRequests      RegistrationRequest[]    @relation("ReviewedRegistrationRequests")
-  retryUnlockedRegistrationRequests RegistrationRequest[]    @relation("RetryUnlockedRegistrationRequests")
+  approvalRequests                  ApprovalRequest[]          @relation("RequestedApprovalRequests")
+  approvalDecisions                 ApprovalDecision[]         @relation("DecidedApprovalRequests")
+  rolePermissions                   RolePermission[]           @relation("CreatedRolePermissions")
+  userPermissionOverrides           UserPermissionOverride[]   @relation("UserPermissionOverrideTarget")
+  permissionOverridesCreated        UserPermissionOverride[]   @relation("CreatedUserPermissionOverrides")
+  expensesCreated                   Expense[]                  @relation("ExpenseCreatedBy")
+  expensesApproved                  Expense[]                  @relation("ExpenseApprovedBy")
+  nonSalesIncomesCreated            NonSalesIncome[]           @relation("NonSalesIncomeCreatedBy")
+  stockMovementsCreated             StockMovement[]            @relation("StockMovementCreatedBy")
+  stockCountsCreated                StockCountSession[]        @relation("StockCountCreatedBy")
+  stockCountsAssigned               StockCountSession[]        @relation("StockCountAssignedTo")
+  stockCountsSubmitted              StockCountSession[]        @relation("StockCountSubmittedBy")
+  stockCountsApproved               StockCountSession[]        @relation("StockCountApprovedBy")
+  revenueGoalsCreated               RevenueGoal[]              @relation("RevenueGoalCreatedBy")
+  purchaseOrdersCreated             PurchaseOrder[]            @relation("PurchaseOrderCreatedBy")
+  purchaseOrdersApproved            PurchaseOrder[]            @relation("PurchaseOrderApprovedBy")
+  receivingRecordsPosted            ReceivingRecord[]          @relation("ReceivingPostedBy")
+  branchTransfersRequested          BranchTransfer[]           @relation("BranchTransferRequestedBy")
+  branchTransfersApproved           BranchTransfer[]           @relation("BranchTransferApprovedBy")
+  branchTransfersReceived           BranchTransfer[]           @relation("BranchTransferReceivedBy")
+  managedBranches                   Branch[]                   @relation("BranchManager")
+  loyaltyTransactionsCreated        LoyaltyTransaction[]       @relation("LoyaltyTransactionCreatedBy")
+  kitchenTicketsUpdated             KitchenTicket[]            @relation("KitchenTicketUpdatedBy")
+  serviceBookingsAssigned           ServiceBooking[]           @relation("ServiceBookingAssignedStaff")
+  serviceBookingsCreated            ServiceBooking[]           @relation("ServiceBookingCreatedBy")
+  repairJobsAssigned                RepairJob[]                @relation("RepairJobAssignedStaff")
+  repairJobsCreated                 RepairJob[]                @relation("RepairJobCreatedBy")
+  salesOrdersCreated                SalesOrder[]               @relation("SalesOrderCreatedBy")
+  posOpenTicketsCashiered           PosOpenTicket[]            @relation("PosOpenTicketCashier")
+  prescriptionVerifications         PrescriptionVerification[] @relation("PrescriptionVerificationVerifiedBy")
+  auditLogs                         AuditLog[]                 @relation("ActorAuditLog")
+  requestedTerminalRequests         TerminalRequest[]          @relation("RequestedTerminalRequest")
+  reviewedTerminalRequests          TerminalRequest[]          @relation("ReviewedTerminalRequest")
+  reviewedRegistrationRequests      RegistrationRequest[]      @relation("ReviewedRegistrationRequests")
+  retryUnlockedRegistrationRequests RegistrationRequest[]      @relation("RetryUnlockedRegistrationRequests")
   notifications                     UserNotification[]
   aiReportConversations             AiReportConversation[]
 
@@ -416,46 +535,56 @@ model Company {
   phone   String?
   address String?
 
-  logoImageUrl           String?         @map("logo_img_url") @db.VarChar(500)
-  businessMode           BusinessMode    @default(RETAIL) @map("business_mode")
-  defaultFulfillmentType FulfillmentType @default(WALK_IN) @map("default_fulfillment_type")
-  enableFulfillmentTypes Boolean         @default(false) @map("enable_fulfillment_types")
-  enableTableService     Boolean         @default(false) @map("enable_table_service")
-  enableDeliveryDetails  Boolean         @default(false) @map("enable_delivery_details")
-  enableProductModifiers Boolean         @default(false) @map("enable_product_modifiers")
-  enableKitchenTickets   Boolean         @default(false) @map("enable_kitchen_tickets")
+  logoImageUrl           String?            @map("logo_img_url") @db.VarChar(500)
+  businessTypePreset     BusinessTypePreset @default(RETAIL) @map("business_type_preset")
+  businessMode           BusinessMode       @default(RETAIL) @map("business_mode")
+  defaultFulfillmentType FulfillmentType    @default(WALK_IN) @map("default_fulfillment_type")
+  enableFulfillmentTypes Boolean            @default(false) @map("enable_fulfillment_types")
+  enableTableService     Boolean            @default(false) @map("enable_table_service")
+  enableDeliveryDetails  Boolean            @default(false) @map("enable_delivery_details")
+  enableProductModifiers Boolean            @default(false) @map("enable_product_modifiers")
+  enableKitchenTickets   Boolean            @default(false) @map("enable_kitchen_tickets")
 
   //////////////////////////////////////////////////
   // RELATIONS
   //////////////////////////////////////////////////
 
-  users               Profile[]
-  branches            Branch[]
-  images              CompanyImage[]
-  posTerminals        PosTerminalInfo[]
-  terminalRequests    TerminalRequest[]
-  rolePermissions     RolePermission[]
-  permissionOverrides UserPermissionOverride[]
-  approvalRequests    ApprovalRequest[]
-  syncIssues          OfflineSyncIssue[]
-  expenseCategories   ExpenseCategory[]
-  expenses            Expense[]
-  nonSalesIncomes     NonSalesIncome[]
-  stockMovements      StockMovement[]
-  stockLots           StockLot[]
-  stockCountSessions  StockCountSession[]
-  revenueGoals        RevenueGoal[]
-  suppliers           Supplier[]
-  purchaseOrders      PurchaseOrder[]
-  receivingRecords    ReceivingRecord[]
-  branchTransfers     BranchTransfer[]
-  loyaltyTransactions LoyaltyTransaction[]
-  promotions          Promotion[]
-  kitchenTickets      KitchenTicket[]
-  customers           Customer[]
-  customerDebts       CustomerDebt[]
-  debtPayments        CustomerDebtPayment[]
-  invoiceReturns      InvoiceReturn[]
+  users                     Profile[]
+  branches                  Branch[]
+  images                    CompanyImage[]
+  posTerminals              PosTerminalInfo[]
+  terminalRequests          TerminalRequest[]
+  rolePermissions           RolePermission[]
+  permissionOverrides       UserPermissionOverride[]
+  approvalRequests          ApprovalRequest[]
+  syncIssues                OfflineSyncIssue[]
+  expenseCategories         ExpenseCategory[]
+  expenses                  Expense[]
+  nonSalesIncomes           NonSalesIncome[]
+  stockMovements            StockMovement[]
+  stockLots                 StockLot[]
+  stockCountSessions        StockCountSession[]
+  revenueGoals              RevenueGoal[]
+  suppliers                 Supplier[]
+  purchaseOrders            PurchaseOrder[]
+  receivingRecords          ReceivingRecord[]
+  branchTransfers           BranchTransfer[]
+  loyaltyTransactions       LoyaltyTransaction[]
+  promotions                Promotion[]
+  kitchenTickets            KitchenTicket[]
+  serviceBookings           ServiceBooking[]
+  repairJobs                RepairJob[]
+  salesOrders               SalesOrder[]
+  productVariants           ProductVariant[]
+  productUnits              ProductUnit[]
+  productSerials            ProductSerial[]
+  productBundles            ProductBundle[]
+  posOpenTickets            PosOpenTicket[]
+  prescriptionVerifications PrescriptionVerification[]
+  customers                 Customer[]
+  customerDebts             CustomerDebt[]
+  debtPayments              CustomerDebtPayment[]
+  invoiceReturns            InvoiceReturn[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -568,25 +697,26 @@ model PosTerminalInfo {
   validUntil          DateTime @map("valid_until") @db.Date
 
   // Business
-  posName                       String?         @map("pos_name")
-  registeredName                String?         @map("registered_name")
-  operatedBy                    String?         @map("operated_by")
+  posName                       String?             @map("pos_name")
+  registeredName                String?             @map("registered_name")
+  operatedBy                    String?             @map("operated_by")
   address                       String?
-  vatTinNumber                  String?         @map("vat_tin_number")
+  vatTinNumber                  String?             @map("vat_tin_number")
   vat                           Int?
-  discountCapType               DiscountCapType @default(percent) @map("discount_cap_type")
-  discountMax                   Decimal?        @map("discount_max") @db.Decimal(10, 2)
-  allowCashierDebtCreate        Boolean         @default(false) @map("allow_cashier_debt_create")
-  allowCashierDebtCollect       Boolean         @default(false) @map("allow_cashier_debt_collect")
-  requireManagerApprovalForDebt Boolean         @default(false) @map("require_manager_approval_for_debt")
-  defaultDebtDueDays            Int?            @map("default_debt_due_days")
-  businessModeOverride          BusinessMode?   @map("business_mode_override")
-  enableFulfillmentTypes        Boolean         @default(false) @map("enable_fulfillment_types")
-  enableRestaurantFeatures      Boolean         @default(false) @map("enable_restaurant_features")
-  enableTableService            Boolean         @default(false) @map("enable_table_service")
-  enableDeliveryDetails         Boolean         @default(false) @map("enable_delivery_details")
-  enableProductModifiers        Boolean         @default(false) @map("enable_product_modifiers")
-  enableKitchenTickets          Boolean         @default(false) @map("enable_kitchen_tickets")
+  discountCapType               DiscountCapType     @default(percent) @map("discount_cap_type")
+  discountMax                   Decimal?            @map("discount_max") @db.Decimal(10, 2)
+  allowCashierDebtCreate        Boolean             @default(false) @map("allow_cashier_debt_create")
+  allowCashierDebtCollect       Boolean             @default(false) @map("allow_cashier_debt_collect")
+  requireManagerApprovalForDebt Boolean             @default(false) @map("require_manager_approval_for_debt")
+  defaultDebtDueDays            Int?                @map("default_debt_due_days")
+  businessModeOverride          BusinessMode?       @map("business_mode_override")
+  businessTypePresetOverride    BusinessTypePreset? @map("business_type_preset_override")
+  enableFulfillmentTypes        Boolean             @default(false) @map("enable_fulfillment_types")
+  enableRestaurantFeatures      Boolean             @default(false) @map("enable_restaurant_features")
+  enableTableService            Boolean             @default(false) @map("enable_table_service")
+  enableDeliveryDetails         Boolean             @default(false) @map("enable_delivery_details")
+  enableProductModifiers        Boolean             @default(false) @map("enable_product_modifiers")
+  enableKitchenTickets          Boolean             @default(false) @map("enable_kitchen_tickets")
 
   // System
   printerName               String?                @map("printer_name")
@@ -629,23 +759,28 @@ model PosTerminalInfo {
   // AUDIT
   //////////////////////////////////////////////////
 
-  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz
-  invoices             Invoice[]
-  invoiceReturns       InvoiceReturn[]
-  sessions             PosSession[]
-  auditLogs            AuditLog[]
-  approvalRequests     ApprovalRequest[]
-  syncIssues           OfflineSyncIssue[]
-  expenses             Expense[]
-  nonSalesIncomes      NonSalesIncome[]
-  stockMovements       StockMovement[]
-  branchTransfersFrom  BranchTransfer[]      @relation("SourceTerminalTransfers")
-  branchTransfersTo    BranchTransfer[]      @relation("DestinationTerminalTransfers")
-  kitchenTickets       KitchenTicket[]
-  customerDebts        CustomerDebt[]
-  debtPayments         CustomerDebtPayment[]
-  customerDisplayState CustomerDisplayState?
+  createdAt                 DateTime                   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime                   @updatedAt @map("updated_at") @db.Timestamptz
+  invoices                  Invoice[]
+  invoiceReturns            InvoiceReturn[]
+  sessions                  PosSession[]
+  auditLogs                 AuditLog[]
+  approvalRequests          ApprovalRequest[]
+  syncIssues                OfflineSyncIssue[]
+  expenses                  Expense[]
+  nonSalesIncomes           NonSalesIncome[]
+  stockMovements            StockMovement[]
+  branchTransfersFrom       BranchTransfer[]           @relation("SourceTerminalTransfers")
+  branchTransfersTo         BranchTransfer[]           @relation("DestinationTerminalTransfers")
+  kitchenTickets            KitchenTicket[]
+  serviceBookings           ServiceBooking[]
+  repairJobs                RepairJob[]
+  salesOrders               SalesOrder[]
+  posOpenTickets            PosOpenTicket[]
+  prescriptionVerifications PrescriptionVerification[]
+  customerDebts             CustomerDebt[]
+  debtPayments              CustomerDebtPayment[]
+  customerDisplayState      CustomerDisplayState?
 
   @@index([companyId])
   @@index([branchId])
@@ -1097,25 +1232,28 @@ model Category {
 model Product {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_product") @db.Uuid
 
-  name                 String
-  productImageUrl      String?       @map("product_image_url") @db.VarChar(500)
-  barcode              String?       @db.VarChar(100)
-  genericName          String?       @map("generic_name")
-  brandName            String?       @map("brand_name")
-  shelfLocation        String?       @map("shelf_location")
-  prescriptionRequired Boolean       @default(false) @map("prescription_required")
-  posFavorite          Boolean       @default(false) @map("pos_favorite")
-  reorderPoint         Decimal?      @map("reorder_point") @db.Decimal(19, 4)
-  baseUnit             String        @default("") @map("base_unit") @db.VarChar(50)
-  quantity             Decimal?      @db.Decimal(19, 4)
-  cost                 Decimal       @default(0) @db.Decimal(19, 4)
-  price                Decimal       @db.Decimal(19, 4)
-  isAvailable          Boolean       @default(true) @map("is_available")
-  trackInventory       Boolean       @default(false) @map("track_inventory")
-  itemType             ItemType      @default(RESALE) @map("item_type")
-  vatType              VatType       @default(VATABLE) @map("vat_type")
-  isConfigurable       Boolean       @default(false) @map("is_configurable")
-  configurationMode    BusinessMode? @map("configuration_mode")
+  name                   String
+  productImageUrl        String?             @map("product_image_url") @db.VarChar(500)
+  barcode                String?             @db.VarChar(100)
+  genericName            String?             @map("generic_name")
+  brandName              String?             @map("brand_name")
+  shelfLocation          String?             @map("shelf_location")
+  prescriptionRequired   Boolean             @default(false) @map("prescription_required")
+  posFavorite            Boolean             @default(false) @map("pos_favorite")
+  reorderPoint           Decimal?            @map("reorder_point") @db.Decimal(19, 4)
+  baseUnit               String              @default("") @map("base_unit") @db.VarChar(50)
+  quantity               Decimal?            @db.Decimal(19, 4)
+  cost                   Decimal             @default(0) @db.Decimal(19, 4)
+  price                  Decimal             @db.Decimal(19, 4)
+  isAvailable            Boolean             @default(true) @map("is_available")
+  trackInventory         Boolean             @default(false) @map("track_inventory")
+  itemType               ItemType            @default(RESALE) @map("item_type")
+  trackingMode           ProductTrackingMode @default(STANDARD) @map("tracking_mode")
+  serviceDurationMinutes Int?                @map("service_duration_minutes")
+  warrantyDays           Int?                @map("warranty_days")
+  vatType                VatType             @default(VATABLE) @map("vat_type")
+  isConfigurable         Boolean             @default(false) @map("is_configurable")
+  configurationMode      BusinessMode?       @map("configuration_mode")
 
   //////////////////////////////////////////////////
   // RELATIONS
@@ -1130,10 +1268,20 @@ model Product {
   preferredSupplierId String?   @map("preferred_supplier_id") @db.Uuid
   preferredSupplier   Supplier? @relation("ProductPreferredSupplier", fields: [preferredSupplierId], references: [id], onDelete: SetNull)
 
-  images         ProductImage[]
-  inventory      Inventory[]
-  modifierGroups ProductModifierGroup[]
-  returnItems    InvoiceReturnItem[]
+  images                    ProductImage[]
+  inventory                 Inventory[]
+  modifierGroups            ProductModifierGroup[]
+  variants                  ProductVariant[]           @relation("ProductVariants")
+  units                     ProductUnit[]
+  serials                   ProductSerial[]
+  bundleAsParent            ProductBundle[]            @relation("BundleParentProduct")
+  bundleAsComponent         ProductBundle[]            @relation("BundleComponentProduct")
+  serviceBookings           ServiceBooking[]
+  repairLaborJobs           RepairJob[]                @relation("RepairJobLaborProduct")
+  repairPartLines           RepairJobPart[]
+  salesOrderItems           SalesOrderItem[]
+  prescriptionVerifications PrescriptionVerification[]
+  returnItems               InvoiceReturnItem[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -1445,15 +1593,20 @@ model Invoice {
   voidedById String?  @map("voided_by") @db.Uuid
   voidedBy   Profile? @relation("VoidedByInvoice", fields: [voidedById], references: [id])
 
-  items                Item[]
-  ePayments            EPayment[]
-  documents            InvoiceDocument[]
-  returns              InvoiceReturn[]
-  customerDebt         CustomerDebt?
-  customer             Customer?                @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  loyaltyTransactions  LoyaltyTransaction[]
-  promotionRedemptions PromotionRedemptionLog[]
-  kitchenTickets       KitchenTicket[]
+  items                     Item[]
+  ePayments                 EPayment[]
+  documents                 InvoiceDocument[]
+  returns                   InvoiceReturn[]
+  customerDebt              CustomerDebt?
+  customer                  Customer?                  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  loyaltyTransactions       LoyaltyTransaction[]
+  promotionRedemptions      PromotionRedemptionLog[]
+  kitchenTickets            KitchenTicket[]
+  serviceBookings           ServiceBooking[]
+  repairJobs                RepairJob[]
+  salesOrders               SalesOrder[]
+  posOpenTickets            PosOpenTicket[]
+  prescriptionVerifications PrescriptionVerification[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -1493,20 +1646,31 @@ model Customer {
   companyId String  @map("company_id") @db.Uuid
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  name     String
-  phone    String?
-  address  String?
-  notes    String?
-  isActive Boolean @default(true) @map("is_active")
+  name             String
+  phone            String?
+  address          String?
+  notes            String?
+  accountType      CustomerAccountType @default(RETAIL) @map("account_type")
+  priceLevel       String?             @map("price_level")
+  creditLimit      Decimal?            @map("credit_limit") @db.Decimal(15, 2)
+  paymentTermsDays Int?                @map("payment_terms_days")
+  isActive         Boolean             @default(true) @map("is_active")
 
-  debts               CustomerDebt[]
-  loyaltyTransactions LoyaltyTransaction[]
-  invoices            Invoice[]
+  debts                     CustomerDebt[]
+  loyaltyTransactions       LoyaltyTransaction[]
+  invoices                  Invoice[]
+  serviceBookings           ServiceBooking[]
+  repairJobs                RepairJob[]
+  salesOrders               SalesOrder[]
+  posOpenTickets            PosOpenTicket[]
+  productSerials            ProductSerial[]
+  prescriptionVerifications PrescriptionVerification[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([companyId, isActive])
+  @@index([companyId, accountType])
   @@index([companyId, name])
   @@map("customer")
   @@schema("public")
@@ -2388,6 +2552,363 @@ model PromotionRedemptionLog {
   @@index([invoiceId])
   @@index([productId])
   @@map("promotion_redemption_log")
+  @@schema("public")
+}
+
+model ServiceBooking {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_service_booking") @db.Uuid
+
+  bookingNumber    String           @unique @map("booking_number")
+  companyId        String           @map("company_id") @db.Uuid
+  company          Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId       String?          @map("terminal_id") @db.Uuid
+  terminal         PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  customerId       String?          @map("customer_id") @db.Uuid
+  customer         Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  serviceProductId String?          @map("service_product_id") @db.Uuid
+  serviceProduct   Product?         @relation(fields: [serviceProductId], references: [id], onDelete: SetNull)
+  assignedStaffId  String?          @map("assigned_staff_id") @db.Uuid
+  assignedStaff    Profile?         @relation("ServiceBookingAssignedStaff", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  createdById      String?          @map("created_by_id") @db.Uuid
+  createdBy        Profile?         @relation("ServiceBookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  invoiceId        String?          @map("invoice_id") @db.Uuid
+  invoice          Invoice?         @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  scheduledStart DateTime             @map("scheduled_start") @db.Timestamptz
+  scheduledEnd   DateTime?            @map("scheduled_end") @db.Timestamptz
+  status         ServiceBookingStatus @default(SCHEDULED)
+  depositAmount  Decimal              @default(0) @map("deposit_amount") @db.Decimal(15, 2)
+  finalAmount    Decimal?             @map("final_amount") @db.Decimal(15, 2)
+  notes          String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, status, scheduledStart])
+  @@index([terminalId])
+  @@index([customerId])
+  @@index([serviceProductId])
+  @@index([assignedStaffId])
+  @@index([invoiceId])
+  @@map("service_booking")
+  @@schema("public")
+}
+
+model RepairJob {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_repair_job") @db.Uuid
+
+  jobNumber           String           @unique @map("job_number")
+  companyId           String           @map("company_id") @db.Uuid
+  company             Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId          String?          @map("terminal_id") @db.Uuid
+  terminal            PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  customerId          String?          @map("customer_id") @db.Uuid
+  customer            Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  laborProductId      String?          @map("labor_product_id") @db.Uuid
+  laborProduct        Product?         @relation("RepairJobLaborProduct", fields: [laborProductId], references: [id], onDelete: SetNull)
+  assignedStaffId     String?          @map("assigned_staff_id") @db.Uuid
+  assignedStaff       Profile?         @relation("RepairJobAssignedStaff", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  createdById         String?          @map("created_by_id") @db.Uuid
+  createdBy           Profile?         @relation("RepairJobCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  invoiceId           String?          @map("invoice_id") @db.Uuid
+  invoice             Invoice?         @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  warrantySourceJobId String?          @map("warranty_source_job_id") @db.Uuid
+  warrantySourceJob   RepairJob?       @relation("RepairJobWarrantySource", fields: [warrantySourceJobId], references: [id], onDelete: SetNull)
+  warrantyReworks     RepairJob[]      @relation("RepairJobWarrantySource")
+
+  itemLabel       String          @map("item_label")
+  serialReference String?         @map("serial_reference")
+  issueSummary    String          @map("issue_summary")
+  intakeNotes     String?         @map("intake_notes")
+  estimateAmount  Decimal?        @map("estimate_amount") @db.Decimal(15, 2)
+  depositAmount   Decimal         @default(0) @map("deposit_amount") @db.Decimal(15, 2)
+  status          RepairJobStatus @default(INTAKE)
+  dueDate         DateTime?       @map("due_date") @db.Date
+  pickedUpAt      DateTime?       @map("picked_up_at") @db.Timestamptz
+  warrantyUntil   DateTime?       @map("warranty_until") @db.Date
+  notes           String?
+
+  parts RepairJobPart[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, status, dueDate])
+  @@index([terminalId])
+  @@index([customerId])
+  @@index([laborProductId])
+  @@index([assignedStaffId])
+  @@index([invoiceId])
+  @@index([warrantySourceJobId])
+  @@map("repair_job")
+  @@schema("public")
+}
+
+model RepairJobPart {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_repair_job_part") @db.Uuid
+
+  repairJobId String    @map("repair_job_id") @db.Uuid
+  repairJob   RepairJob @relation(fields: [repairJobId], references: [id], onDelete: Cascade)
+  productId   String    @map("product_id") @db.Uuid
+  product     Product   @relation(fields: [productId], references: [id])
+
+  quantity  Decimal   @db.Decimal(19, 4)
+  unitPrice Decimal   @map("unit_price") @db.Decimal(15, 2)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  notes     String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([repairJobId])
+  @@index([productId])
+  @@map("repair_job_part")
+  @@schema("public")
+}
+
+model SalesOrder {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_sales_order") @db.Uuid
+
+  orderNumber String           @unique @map("order_number")
+  companyId   String           @map("company_id") @db.Uuid
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId  String?          @map("terminal_id") @db.Uuid
+  terminal    PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  customerId  String?          @map("customer_id") @db.Uuid
+  customer    Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdById String?          @map("created_by_id") @db.Uuid
+  createdBy   Profile?         @relation("SalesOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  invoiceId   String?          @map("invoice_id") @db.Uuid
+  invoice     Invoice?         @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  status              SalesOrderStatus @default(DRAFT)
+  quoteValidUntil     DateTime?        @map("quote_valid_until") @db.Date
+  paymentTermsDays    Int?             @map("payment_terms_days")
+  creditLimitSnapshot Decimal?         @map("credit_limit_snapshot") @db.Decimal(15, 2)
+  subtotalAmount      Decimal          @default(0) @map("subtotal_amount") @db.Decimal(15, 2)
+  discountAmount      Decimal          @default(0) @map("discount_amount") @db.Decimal(15, 2)
+  totalAmount         Decimal          @default(0) @map("total_amount") @db.Decimal(15, 2)
+  deliveryStatus      String?          @map("delivery_status")
+  deliveryNotes       String?          @map("delivery_notes")
+  notes               String?
+
+  items SalesOrderItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, status, createdAt])
+  @@index([terminalId])
+  @@index([customerId])
+  @@index([createdById])
+  @@index([invoiceId])
+  @@map("sales_order")
+  @@schema("public")
+}
+
+model SalesOrderItem {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_sales_order_item") @db.Uuid
+
+  salesOrderId String     @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  productId    String     @map("product_id") @db.Uuid
+  product      Product    @relation(fields: [productId], references: [id])
+
+  description    String?
+  quantity       Decimal @db.Decimal(19, 4)
+  unitPrice      Decimal @map("unit_price") @db.Decimal(15, 2)
+  discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(15, 2)
+  lineTotal      Decimal @map("line_total") @db.Decimal(15, 2)
+
+  @@index([salesOrderId])
+  @@index([productId])
+  @@map("sales_order_item")
+  @@schema("public")
+}
+
+model ProductVariant {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_product_variant") @db.Uuid
+
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation("ProductVariants", fields: [productId], references: [id], onDelete: Cascade)
+
+  sku         String?  @db.VarChar(100)
+  barcode     String?  @db.VarChar(100)
+  optionName  String   @map("option_name")
+  optionValue String   @map("option_value")
+  priceDelta  Decimal  @default(0) @map("price_delta") @db.Decimal(15, 2)
+  costDelta   Decimal  @default(0) @map("cost_delta") @db.Decimal(15, 2)
+  quantity    Decimal? @db.Decimal(19, 4)
+  isActive    Boolean  @default(true) @map("is_active")
+
+  serials ProductSerial[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([companyId, sku], name: "uk_product_variant_company_sku")
+  @@unique([companyId, barcode], name: "uk_product_variant_company_barcode")
+  @@index([companyId, isActive])
+  @@index([productId])
+  @@map("product_variant")
+  @@schema("public")
+}
+
+model ProductUnit {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_product_unit") @db.Uuid
+
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  unitName          String   @map("unit_name") @db.VarChar(50)
+  unitBarcode       String?  @map("unit_barcode") @db.VarChar(100)
+  baseQuantity      Decimal  @map("base_quantity") @db.Decimal(19, 4)
+  salePrice         Decimal? @map("sale_price") @db.Decimal(15, 2)
+  isDefaultSaleUnit Boolean  @default(false) @map("is_default_sale_unit")
+  isActive          Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([productId, unitName], name: "uk_product_unit_product_name")
+  @@unique([companyId, unitBarcode], name: "uk_product_unit_company_barcode")
+  @@index([companyId, isActive])
+  @@index([productId])
+  @@map("product_unit")
+  @@schema("public")
+}
+
+model ProductSerial {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_product_serial") @db.Uuid
+
+  companyId  String          @map("company_id") @db.Uuid
+  company    Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productId  String          @map("product_id") @db.Uuid
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId  String?         @map("variant_id") @db.Uuid
+  variant    ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  customerId String?         @map("customer_id") @db.Uuid
+  customer   Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  serialNumber  String           @map("serial_number")
+  imei          String?
+  status        SerialItemStatus @default(AVAILABLE)
+  warrantyUntil DateTime?        @map("warranty_until") @db.Date
+  notes         String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([companyId, serialNumber], name: "uk_product_serial_company_serial")
+  @@unique([companyId, imei], name: "uk_product_serial_company_imei")
+  @@index([companyId, status])
+  @@index([productId])
+  @@index([variantId])
+  @@index([customerId])
+  @@map("product_serial")
+  @@schema("public")
+}
+
+model ProductBundle {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_product_bundle") @db.Uuid
+
+  companyId          String  @map("company_id") @db.Uuid
+  company            Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parentProductId    String  @map("parent_product_id") @db.Uuid
+  parentProduct      Product @relation("BundleParentProduct", fields: [parentProductId], references: [id], onDelete: Cascade)
+  componentProductId String  @map("component_product_id") @db.Uuid
+  componentProduct   Product @relation("BundleComponentProduct", fields: [componentProductId], references: [id], onDelete: Restrict)
+
+  componentQuantity Decimal @map("component_quantity") @db.Decimal(19, 4)
+  consumeStock      Boolean @default(true) @map("consume_stock")
+  notes             String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([parentProductId, componentProductId], name: "uk_product_bundle_component")
+  @@index([companyId])
+  @@index([componentProductId])
+  @@map("product_bundle")
+  @@schema("public")
+}
+
+model PosOpenTicket {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_pos_open_ticket") @db.Uuid
+
+  ticketNumber String          @unique @map("ticket_number")
+  companyId    String          @map("company_id") @db.Uuid
+  company      Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId   String          @map("terminal_id") @db.Uuid
+  terminal     PosTerminalInfo @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  cashierId    String?         @map("cashier_id") @db.Uuid
+  cashier      Profile?        @relation("PosOpenTicketCashier", fields: [cashierId], references: [id], onDelete: SetNull)
+  customerId   String?         @map("customer_id") @db.Uuid
+  customer     Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  invoiceId    String?         @map("invoice_id") @db.Uuid
+  invoice      Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  status          PosOpenTicketStatus @default(DRAFT)
+  fulfillmentType FulfillmentType     @default(WALK_IN) @map("fulfillment_type")
+  tableNumber     String?             @map("table_number")
+  guestCount      Int?                @map("guest_count")
+  ticketName      String?             @map("ticket_name")
+  kitchenStation  String?             @map("kitchen_station")
+  cartSnapshot    Json                @map("cart_snapshot")
+  totalsSnapshot  Json?               @map("totals_snapshot")
+  idempotencyKey  String?             @unique @map("idempotency_key")
+  sentToKitchenAt DateTime?           @map("sent_to_kitchen_at") @db.Timestamptz
+  settledAt       DateTime?           @map("settled_at") @db.Timestamptz
+  cancelledAt     DateTime?           @map("cancelled_at") @db.Timestamptz
+  notes           String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, status, createdAt])
+  @@index([terminalId, status])
+  @@index([customerId])
+  @@index([cashierId])
+  @@index([invoiceId])
+  @@map("pos_open_ticket")
+  @@schema("public")
+}
+
+model PrescriptionVerification {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_prescription_verification") @db.Uuid
+
+  companyId    String           @map("company_id") @db.Uuid
+  company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  terminalId   String?          @map("terminal_id") @db.Uuid
+  terminal     PosTerminalInfo? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  customerId   String?          @map("customer_id") @db.Uuid
+  customer     Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  productId    String           @map("product_id") @db.Uuid
+  product      Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  invoiceId    String?          @map("invoice_id") @db.Uuid
+  invoice      Invoice?         @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  verifiedById String?          @map("verified_by_id") @db.Uuid
+  verifiedBy   Profile?         @relation("PrescriptionVerificationVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  prescriptionReference String?                        @map("prescription_reference")
+  status                PrescriptionVerificationStatus @default(PENDING)
+  notes                 String?
+  verifiedAt            DateTime?                      @map("verified_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([companyId, status, createdAt])
+  @@index([terminalId])
+  @@index([customerId])
+  @@index([productId])
+  @@index([invoiceId])
+  @@index([verifiedById])
+  @@map("prescription_verification")
   @@schema("public")
 }
 

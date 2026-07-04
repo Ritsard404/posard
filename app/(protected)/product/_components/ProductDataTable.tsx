@@ -194,6 +194,7 @@ function MobileCard({
           </div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span>{product.itemType}</span>
+            <span>{product.trackingMode}</span>
             <span>{product.vatType}</span>
             {product.barcode ? <span>Barcode {product.barcode}</span> : null}
             {product.posFavorite ? <span>POS Favorite</span> : null}
@@ -421,6 +422,7 @@ export function ProductDataTable({
                         ) : null}
                         <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
                           <span>{product.itemType}</span>
+                          <span>{product.trackingMode}</span>
                           <span>{product.vatType}</span>
                           {product.barcode ? <span>{product.barcode}</span> : null}
                         </div>

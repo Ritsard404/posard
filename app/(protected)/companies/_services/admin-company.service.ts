@@ -16,6 +16,7 @@ function toCompanyDto(company: {
   phone: string | null;
   address: string | null;
   logoImageUrl: string | null;
+  businessTypePreset: CompanyDTO["businessTypePreset"];
   createdAt: Date;
   updatedAt: Date;
 }): CompanyDTO {
@@ -27,6 +28,7 @@ function toCompanyDto(company: {
     phone: company.phone,
     address: company.address,
     logoImageUrl: company.logoImageUrl,
+    businessTypePreset: company.businessTypePreset,
     createdAt: company.createdAt,
     updatedAt: company.updatedAt,
   };
@@ -67,6 +69,7 @@ export const adminCompanyService = {
           phone: true,
           address: true,
           logoImageUrl: true,
+          businessTypePreset: true,
           createdAt: true,
           users: {
             where: {
@@ -132,6 +135,7 @@ export const adminCompanyService = {
         phone: true,
         address: true,
         logoImageUrl: true,
+        businessTypePreset: true,
         createdAt: true,
         updatedAt: true,
       },

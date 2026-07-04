@@ -8,6 +8,7 @@ export function mapAdminCompanyListItem(company: {
   phone: string | null;
   address: string | null;
   logoImageUrl: string | null;
+  businessTypePreset: AdminCompanyListItemDto["businessTypePreset"];
   createdAt: Date;
   users: Array<{ fullName: string | null; email: string }>;
   posTerminals: Array<{ isActive: boolean; subscription: { status: "pending" | "active" | "expired" | "suspended" | "cancelled" } | null }>;
@@ -27,6 +28,7 @@ export function mapAdminCompanyListItem(company: {
     phone: company.phone,
     address: company.address,
     logoImageUrl: company.logoImageUrl,
+    businessTypePreset: company.businessTypePreset,
     ownerManagerName: owner?.fullName ?? null,
     ownerManagerEmail: owner?.email ?? null,
     createdAt: company.createdAt,

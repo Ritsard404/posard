@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageUploadField } from "@/components/storage/ImageUploadField";
 import {
+  businessFitPresetGuides,
+  getBusinessFitPresetGuide,
+} from "@/app/(protected)/_services/business-fit-presets";
+import {
   UpdateCompanySchema,
   type CompanyDetailDTO,
   type UpdateCompanyInput,
@@ -42,9 +46,11 @@ export default function CompanySettingsForm({
       phone: company.phone ?? "",
       address: company.address ?? "",
       logoImageUrl: company.logoImageUrl ?? "",
+      businessTypePreset: company.businessTypePreset,
     },
   });
   const logoImageUrl = watch("logoImageUrl") as string | null | undefined;
+  const selectedGuide = getBusinessFitPresetGuide(watch("businessTypePreset") ?? "RETAIL");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -82,6 +88,29 @@ export default function CompanySettingsForm({
           />
         </FieldGroup>
 
+        <FieldGroup label="Business Type" error={errors.businessTypePreset?.message} className="sm:col-span-2">
+          <select
+            {...register("businessTypePreset")}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            {businessFitPresetGuides.map((guide) => (
+              <option key={guide.preset} value={guide.preset}>
+                {guide.label}
+              </option>
+            ))}
+          </select>
+          {selectedGuide ? (
+            <div className="mt-3 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+              <div className="font-medium text-foreground">{selectedGuide.description}</div>
+              <div className="mt-2 grid gap-2 md:grid-cols-3">
+                <PresetHint title="Setup" items={selectedGuide.setupSteps} />
+                <PresetHint title="Terminal" items={selectedGuide.terminalToggles} />
+                <PresetHint title="Inventory" items={selectedGuide.inventoryDefaults} />
+              </div>
+            </div>
+          ) : null}
+        </FieldGroup>
+
         <div className="sm:col-span-2">
           <input type="hidden" {...register("logoImageUrl")} />
           <ImageUploadField
@@ -106,6 +135,19 @@ export default function CompanySettingsForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function PresetHint({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-foreground">{title}</div>
+      <ul className="mt-1 list-disc space-y-1 pl-4">
+        {items.slice(0, 3).map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

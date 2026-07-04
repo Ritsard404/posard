@@ -178,6 +178,61 @@ const guideGroups: HelpGroup[] = [
           "how it works",
         ],
       },
+      {
+        title: "Use Business Fit workflows",
+        role: "Manager",
+        audience: ["manager", "cashier"],
+        summary:
+          "Choose the right setup path and track service, repair, wholesale, restaurant, and pharmacy work before checkout.",
+        steps: [
+          "Open Business Fit.",
+          "Review the business fit matrix.",
+          "Create the needed workflow record.",
+          "Fill in customer, terminal, staff, date, amount, reference, and notes when they apply.",
+          "Use POS checkout when the work is ready to become a final sale.",
+        ],
+        reminder:
+          "Use POS for immediate checkout. Use Business Fit when work must be held, quoted, verified, repaired, booked, or settled later.",
+        keywords: [
+          "business fit",
+          "business type",
+          "preset",
+          "service booking",
+          "repair job",
+          "wholesale",
+          "sales order",
+          "open ticket",
+          "prescription",
+        ],
+      },
+      {
+        title: "Use variants, units, serials, and bundles",
+        role: "Manager",
+        audience: ["manager", "cashier"],
+        summary:
+          "Track exact product options, unit conversions, warranty items, and grouped products.",
+        steps: [
+          "Open Business Fit to confirm the setup path.",
+          "Open Products & Inventory.",
+          "Choose the product tracking mode that matches the item.",
+          "Add variant, unit, serial, or bundle details where needed.",
+          "Review inventory health and reports after selling.",
+        ],
+        reminder:
+          "Keep pharmacy batch or expiry lots separate from serial-number tracking.",
+        keywords: [
+          "variant",
+          "size",
+          "color",
+          "unit",
+          "uom",
+          "serial",
+          "imei",
+          "warranty",
+          "bundle",
+          "kit",
+        ],
+      },
     ],
   },
   {

@@ -18,6 +18,7 @@ import {
   type FeatureCatalogItem,
 } from "@/lib/feature-catalog";
 import { getCurrentProfile } from "@/lib/auth/current-user";
+import { businessFitPresetGuides } from "@/app/(protected)/_services/business-fit-presets";
 
 export const metadata: Metadata = {
   title: "Feature Guide",
@@ -143,6 +144,68 @@ function FeatureGuideCard({
   );
 }
 
+function BusinessFitMatrix({ companyId }: { companyId?: string | null }) {
+  return (
+    <section id="business-fit-matrix" className="scroll-mt-24 space-y-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+            Business fit
+          </p>
+          <h2 className="text-xl font-bold tracking-tight">Which setup path fits your business?</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+            Ready now means core workflows are already in daily-use pages. Supported with setup means managers should configure the preset, terminal toggles, and records before live use. Advanced setup means records exist and checkout/report drill-down should be reviewed before public claims.
+          </p>
+        </div>
+        <Button asChild size="sm">
+          <Link href="/business-fit">Open Business Fit</Link>
+        </Button>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        {businessFitPresetGuides.map((guide) => (
+          <article key={guide.preset} className="rounded-lg border bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="font-semibold">{guide.label}</h3>
+              <Badge variant={guide.fitStatus === "ready_now" ? "secondary" : "outline"}>
+                {guide.fitStatus.replaceAll("_", " ")}
+              </Badge>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{guide.description}</p>
+            <div className="mt-3 grid gap-3 text-sm">
+              <MatrixMiniList label="Setup" items={guide.setupSteps} />
+              <MatrixMiniList label="Terminal" items={guide.terminalToggles} />
+              <MatrixMiniList label="Inventory" items={guide.inventoryDefaults} />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link href={companyId ? `/companies/${companyId}/settings` : "/companies"}>
+                  Company setup
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="ghost">
+                <Link href={`/help#${guide.helpAnchors[0]}`}>Help</Link>
+              </Button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MatrixMiniList({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <ul className="mt-1 list-disc space-y-1 pl-4 text-muted-foreground">
+        {items.slice(0, 3).map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default async function FeatureGuidePage() {
   const profile = await getCurrentProfile();
 
@@ -182,6 +245,8 @@ export default async function FeatureGuidePage() {
       </Card>
 
       <CategoryIndex />
+
+      <BusinessFitMatrix companyId={profile?.companyId} />
 
       {featureCatalogCategories.map((category) => (
         <section

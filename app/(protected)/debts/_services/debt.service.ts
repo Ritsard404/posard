@@ -74,6 +74,10 @@ export const debtService = {
       phone: row.phone,
       address: row.address,
       notes: row.notes,
+      accountType: row.accountType,
+      priceLevel: row.priceLevel,
+      creditLimit: row.creditLimit === null ? null : toNumber(row.creditLimit),
+      paymentTermsDays: row.paymentTermsDays,
       isActive: row.isActive,
     }));
   },
@@ -88,6 +92,10 @@ export const debtService = {
         phone: input.phone || null,
         address: input.address || null,
         notes: input.notes || null,
+        accountType: input.accountType,
+        priceLevel: input.priceLevel || null,
+        creditLimit: input.creditLimit ?? null,
+        paymentTermsDays: input.paymentTermsDays ?? null,
       },
     });
 
@@ -105,6 +113,10 @@ export const debtService = {
       phone: customer.phone ?? null,
       address: customer.address ?? null,
       notes: customer.notes ?? null,
+      accountType: customer.accountType,
+      priceLevel: customer.priceLevel,
+      creditLimit: customer.creditLimit === null ? null : toNumber(customer.creditLimit),
+      paymentTermsDays: customer.paymentTermsDays,
       isActive: customer.isActive,
     };
   },

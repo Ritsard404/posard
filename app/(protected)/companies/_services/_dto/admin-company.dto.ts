@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PaginationQuerySchema } from "./common.dto";
+import { businessTypePresets } from "@/app/(protected)/_services/business-fit-presets";
 
 export const CompanyAdminListQuerySchema = PaginationQuerySchema;
 
@@ -14,6 +15,7 @@ export interface AdminCompanyListItemDto {
   phone: string | null;
   address: string | null;
   logoImageUrl: string | null;
+  businessTypePreset: (typeof businessTypePresets)[number];
   ownerManagerName: string | null;
   ownerManagerEmail: string | null;
   createdAt: Date;
@@ -35,6 +37,7 @@ export const AdminCompanyUpsertSchema = z.object({
   phone: z.string().trim().optional().transform((value) => value || null),
   address: z.string().trim().optional().transform((value) => value || null),
   logoImageUrl: z.string().trim().optional().transform((value) => value || null),
+  businessTypePreset: z.enum(businessTypePresets).default("RETAIL"),
 });
 
 export type AdminCompanyUpsertInput = z.infer<typeof AdminCompanyUpsertSchema>;

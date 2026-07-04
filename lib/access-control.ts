@@ -222,6 +222,14 @@ const sidebarNavConfig: SidebarNavSectionConfig[] = [
         roles: ["manager"],
       },
       {
+        id: "business-fit",
+        label: "Business Fit",
+        icon: ClipboardList,
+        href: "/business-fit",
+        permission: "view.help",
+        roles: ["manager", "cashier"],
+      },
+      {
         id: "suppliers",
         label: "Suppliers",
         icon: StoreIcon,

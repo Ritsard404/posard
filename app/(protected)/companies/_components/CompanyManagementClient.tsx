@@ -59,6 +59,7 @@ export function CompanyManagementClient({
             phone: company.phone,
             address: company.address,
             logoImageUrl: company.logoImageUrl,
+            businessTypePreset: company.businessTypePreset,
             createdAt: company.createdAt,
             updatedAt: company.createdAt,
           }

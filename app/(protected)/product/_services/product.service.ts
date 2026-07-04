@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 import { auditLogService } from "@/lib/services/audit-log.service";
 import { mutationContextService } from "@/lib/services/mutation-context.service";
-import type { Prisma, BusinessMode, ItemType, VatType } from "@prisma/client";
+import type { Prisma, BusinessMode, ItemType, ProductTrackingMode, VatType } from "@prisma/client";
 import type {
   ProductBatchPreviewDto,
   ProductBatchPreviewRowDto,
@@ -59,6 +59,14 @@ const SORTABLE_FIELDS: Record<string, keyof Prisma.ProductOrderByWithRelationInp
 
 const ITEM_TYPES = new Set<ItemType>(["RESALE", "WHOLESALE"]);
 const VAT_TYPES = new Set<VatType>(["VATABLE", "EXEMPT", "ZERO"]);
+const PRODUCT_TRACKING_MODES = new Set<ProductTrackingMode>([
+  "STANDARD",
+  "SERVICE",
+  "NON_STOCK",
+  "VARIANT_PARENT",
+  "SERIALIZED",
+  "BUNDLE",
+]);
 const CSV_HEADERS = [
   "Product Name",
   "Category Name",
@@ -169,6 +177,9 @@ interface NormalizedProductInput {
   isAvailable: boolean;
   trackInventory: boolean;
   itemType: ItemType;
+  trackingMode: ProductTrackingMode;
+  serviceDurationMinutes: number | null;
+  warrantyDays: number | null;
   vatType: VatType;
   productImageUrl: string | null;
   isConfigurable: boolean;
@@ -228,6 +239,9 @@ function toProductDto(product: ProductWithCategory): ProductDto {
     isAvailable: product.isAvailable,
     trackInventory: product.trackInventory,
     itemType: product.itemType,
+    trackingMode: product.trackingMode,
+    serviceDurationMinutes: product.serviceDurationMinutes,
+    warrantyDays: product.warrantyDays,
     vatType: product.vatType,
     categoryId: product.categoryId,
     categoryName: product.category?.categoryName ?? null,
@@ -286,10 +300,23 @@ function normalizeProductInput(dto: ProductSaveDto): NormalizedProductInput {
     throw new Error("Cost must be zero or greater.");
   }
 
-  const trackInventory = dto.trackInventory ?? false;
+  const trackingMode = dto.trackingMode ?? "STANDARD";
+  if (!PRODUCT_TRACKING_MODES.has(trackingMode)) {
+    throw new Error("Product tracking mode is invalid.");
+  }
+
+  const trackInventory =
+    trackingMode === "SERVICE" || trackingMode === "NON_STOCK"
+      ? false
+      : dto.trackInventory ?? false;
   const parsedQuantity = parseOptionalNumber(dto.quantity);
   const quantity = trackInventory ? parsedQuantity ?? 0 : null;
   const reorderPoint = parseNonNegativeOptionalNumber(dto.reorderPoint, "Reorder point");
+  const serviceDurationMinutes = parseNonNegativeOptionalNumber(
+    dto.serviceDurationMinutes,
+    "Service duration",
+  );
+  const warrantyDays = parseNonNegativeOptionalNumber(dto.warrantyDays, "Warranty days");
 
   if (quantity !== null && quantity < 0) {
     throw new Error("Quantity must be zero or greater.");
@@ -324,6 +351,9 @@ function normalizeProductInput(dto: ProductSaveDto): NormalizedProductInput {
     isAvailable: dto.isAvailable ?? true,
     trackInventory,
     itemType,
+    trackingMode,
+    serviceDurationMinutes,
+    warrantyDays,
     vatType,
     productImageUrl: asOptionalString(dto.productImageUrl),
     isConfigurable: dto.isConfigurable ?? false,
@@ -924,6 +954,9 @@ export const productService = {
           isAvailable: normalized.isAvailable,
           trackInventory: normalized.trackInventory,
           itemType: normalized.itemType,
+          trackingMode: normalized.trackingMode,
+          serviceDurationMinutes: normalized.serviceDurationMinutes,
+          warrantyDays: normalized.warrantyDays,
           vatType: normalized.vatType,
           productImageUrl: normalized.productImageUrl,
           isConfigurable: normalized.isConfigurable,
@@ -1178,6 +1211,9 @@ export const productService = {
           isAvailable: normalized.isAvailable,
           trackInventory: normalized.trackInventory,
           itemType: normalized.itemType,
+          trackingMode: normalized.trackingMode,
+          serviceDurationMinutes: normalized.serviceDurationMinutes,
+          warrantyDays: normalized.warrantyDays,
           vatType: normalized.vatType,
           productImageUrl: normalized.productImageUrl,
           isConfigurable: normalized.isConfigurable,

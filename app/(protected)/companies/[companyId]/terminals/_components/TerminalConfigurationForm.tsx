@@ -18,6 +18,7 @@ import type {
 } from "@/app/(protected)/pos/_services/_dto/print.dto";
 import { printClientService } from "@/app/(protected)/pos/_services/print-client.service";
 import { getPrinterModeLabel } from "@/app/(protected)/pos/_services/printer-mode.service";
+import { businessFitPresetGuides } from "@/app/(protected)/_services/business-fit-presets";
 import {
   TerminalConfigurationSchema,
   type TerminalConfigurationPayload,
@@ -74,6 +75,7 @@ export default function TerminalConfigurationForm({
         requireManagerApprovalForDebt: false,
         defaultDebtDueDays: undefined,
         businessModeOverride: null,
+        businessTypePresetOverride: null,
         enableFulfillmentTypes: false,
         enableRestaurantFeatures: false,
         enableTableService: false,
@@ -97,6 +99,7 @@ export default function TerminalConfigurationForm({
       requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
       defaultDebtDueDays: terminal.defaultDebtDueDays ?? undefined,
       businessModeOverride: terminal.businessModeOverride ?? null,
+      businessTypePresetOverride: terminal.businessTypePresetOverride ?? null,
       enableFulfillmentTypes: terminal.enableFulfillmentTypes,
       enableRestaurantFeatures: terminal.enableRestaurantFeatures,
       enableTableService: terminal.enableTableService,
@@ -349,6 +352,19 @@ export default function TerminalConfigurationForm({
               <option value="RETAIL">Retail</option>
               <option value="RESTAURANT">Restaurant</option>
               <option value="HYBRID">Hybrid</option>
+            </select>
+          </FieldGroup>
+          <FieldGroup label="Business Preset" error={errors.businessTypePresetOverride?.message}>
+            <select
+              {...register("businessTypePresetOverride")}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Inherit company preset</option>
+              {businessFitPresetGuides.map((guide) => (
+                <option key={guide.preset} value={guide.preset}>
+                  {guide.label}
+                </option>
+              ))}
             </select>
           </FieldGroup>
           {[

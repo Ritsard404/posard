@@ -34,6 +34,8 @@ Simple guides for daily POSard work. Start with the section that matches what yo
 - [How to manage subscriptions](how-to-manage-subscriptions.md)
 - [How to manage staff accounts](how-to-manage-staff-accounts.md)
 - [How to use notifications](how-to-use-notifications.md)
+- [How to use Business Fit workflows](how-to-use-business-fit-workflows.md)
+- [How to use variants, units, serials, and bundles](how-to-use-variants-units-serials-and-bundles.md)
 - [How to review the permission matrix](how-to-review-the-permission-matrix.md)
 - [How to set VAT, discounts, and restaurant options](how-to-set-vat-discounts-and-restaurant-options.md)
 - [How to view sales reports](how-to-view-sales-reports.md)

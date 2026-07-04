@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Cable,
+  ClipboardList,
   LayoutGrid,
   LogOut,
   Maximize2,
@@ -285,6 +287,14 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
                     Withdraw cash
                   </DropdownMenuItem>
                   <DropdownMenuItem
+                    asChild
+                  >
+                    <Link href="/business-fit">
+                      <ClipboardList className="mr-2 size-4" />
+                      Business Fit
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
                     onClick={() => setShowCloseSession(true)}
                   >
@@ -356,6 +366,17 @@ export function POSLayout({ children, cart, tender }: POSLayoutProps) {
               >
                 <Wallet className="mr-1.5 size-4" />
                 Withdraw
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="hidden h-9 shrink-0 rounded-lg px-2.5 sm:flex"
+              >
+                <Link href="/business-fit">
+                  <ClipboardList className="mr-1.5 size-4" />
+                  Business Fit
+                </Link>
               </Button>
               <Button
                 variant="destructive"

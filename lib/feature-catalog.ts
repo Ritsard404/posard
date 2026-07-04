@@ -455,6 +455,26 @@ export const featureCatalog: FeatureCatalogItem[] = [
     keywords: ["company", "branch", "receipt", "invoice prefix"],
   },
   {
+    id: "business-fit-workflows",
+    category: "Setup and Support",
+    title: "Business fit presets and workflow queues",
+    summary:
+      "Match POSard setup to retail, pharmacy, restaurant, service, repair, wholesale, apparel, hardware, and serialized-goods workflows.",
+    benefit:
+      "Managers can choose the right setup path and track non-retail work before it becomes a final POS invoice.",
+    howItWorks: [
+      "Set the company business type in Company Settings.",
+      "Override the preset per terminal when a branch or counter works differently.",
+      "Use Business Fit to create and monitor service bookings, repair jobs, B2B orders, open restaurant tickets, and prescription checks.",
+    ],
+    sampleOutcome:
+      "A mixed-use shop keeps retail checkout fast while repair jobs, service bookings, wholesale orders, and prescription checks stay visible in their own queues.",
+    roles: ["Manager", "Cashier"],
+    appPath: "/business-fit",
+    helpAnchor: "getting-started-use-business-fit-workflows",
+    keywords: ["business fit", "preset", "service", "repair", "wholesale", "restaurant", "serial"],
+  },
+  {
     id: "help-center-guides",
     category: "Setup and Support",
     title: "Searchable Help Center",

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { PrinterConfigDto } from "@/app/(protected)/pos/_services/_dto/print.dto";
+import { businessTypePresets } from "@/app/(protected)/_services/business-fit-presets";
 
 export const PrinterConfigSchema = z.object({
   displayName: z.string().nullable(),
@@ -95,6 +96,7 @@ export const TerminalSchema = z.object({
   requireManagerApprovalForDebt: z.boolean().default(false),
   defaultDebtDueDays: z.number().int().min(1).max(365).nullable().optional(),
   businessModeOverride: z.enum(["RETAIL", "RESTAURANT", "HYBRID"]).nullable().optional(),
+  businessTypePresetOverride: z.enum(businessTypePresets).nullable().optional(),
   enableFulfillmentTypes: z.boolean().default(false),
   enableRestaurantFeatures: z.boolean().default(false),
   enableTableService: z.boolean().default(false),
@@ -219,6 +221,7 @@ const TerminalConfigurationBaseSchema = z.object({
     return value;
   }, z.coerce.number().int().min(1).max(365).nullable()),
   businessModeOverride: z.enum(["RETAIL", "RESTAURANT", "HYBRID"]).nullable().optional(),
+  businessTypePresetOverride: z.enum(businessTypePresets).nullable().optional(),
   enableFulfillmentTypes: z.boolean().default(false),
   enableRestaurantFeatures: z.boolean().default(false),
   enableTableService: z.boolean().default(false),

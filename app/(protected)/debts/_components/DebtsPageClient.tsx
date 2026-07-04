@@ -24,6 +24,9 @@ export function DebtsPageClient({
   const [query, setQuery] = useState(initialFilters.query ?? "");
   const [selectedStatus, setSelectedStatus] = useState(initialFilters.status);
   const [customerName, setCustomerName] = useState("");
+  const [customerAccountType, setCustomerAccountType] = useState<CreateCustomerInput["accountType"]>("RETAIL");
+  const [customerCreditLimit, setCustomerCreditLimit] = useState("");
+  const [customerTermsDays, setCustomerTermsDays] = useState("");
   const [paymentState, setPaymentState] = useState<Record<string, { amount: string; method: string; referenceNo: string; notes: string }>>({});
 
   const currency = useMemo(
@@ -43,7 +46,16 @@ export function DebtsPageClient({
   };
 
   const handleCreateCustomer = async () => {
-    const payload: CreateCustomerInput = { name: customerName, phone: null, address: null, notes: null };
+    const payload: CreateCustomerInput = {
+      name: customerName,
+      phone: null,
+      address: null,
+      notes: null,
+      accountType: customerAccountType,
+      priceLevel: null,
+      creditLimit: customerCreditLimit ? Number(customerCreditLimit) : null,
+      paymentTermsDays: customerTermsDays ? Number(customerTermsDays) : null,
+    };
     const result = await createDebtCustomerAction(payload);
     if (!result.success) {
       toast.error(result.error);
@@ -52,6 +64,9 @@ export function DebtsPageClient({
 
     toast.success("Customer created.");
     setCustomerName("");
+    setCustomerAccountType("RETAIL");
+    setCustomerCreditLimit("");
+    setCustomerTermsDays("");
     router.refresh();
   };
 
@@ -107,11 +122,38 @@ export function DebtsPageClient({
         <Button onClick={applyFilters} disabled={isPending}>Apply</Button>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border bg-card p-4 lg:grid-cols-[1fr_auto]">
+      <div className="grid gap-3 rounded-2xl border bg-card p-4 lg:grid-cols-[1fr_180px_160px_160px_auto]">
         <Input
           value={customerName}
           onChange={(event) => setCustomerName(event.target.value)}
           placeholder="Quick add customer"
+        />
+        <select
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          value={customerAccountType}
+          onChange={(event) => setCustomerAccountType(event.target.value as CreateCustomerInput["accountType"])}
+        >
+          <option value="RETAIL">Retail</option>
+          <option value="WHOLESALE">Wholesale</option>
+          <option value="B2B">B2B</option>
+          <option value="VIP">VIP</option>
+          <option value="STAFF">Staff</option>
+        </select>
+        <Input
+          value={customerCreditLimit}
+          onChange={(event) => setCustomerCreditLimit(event.target.value)}
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Credit limit"
+        />
+        <Input
+          value={customerTermsDays}
+          onChange={(event) => setCustomerTermsDays(event.target.value)}
+          type="number"
+          min="0"
+          max="365"
+          placeholder="Terms days"
         />
         <Button onClick={handleCreateCustomer} disabled={!customerName.trim()}>
           Add Customer

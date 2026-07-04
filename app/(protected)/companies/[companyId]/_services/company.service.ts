@@ -15,6 +15,7 @@ function mapCompanyBase(company: {
   phone: string | null;
   address: string | null;
   logoImageUrl: string | null;
+  businessTypePreset: CompanyDTO["businessTypePreset"];
   createdAt: Date;
   updatedAt: Date;
 }): CompanyDTO {
@@ -26,6 +27,7 @@ function mapCompanyBase(company: {
     phone: company.phone,
     address: company.address,
     logoImageUrl: company.logoImageUrl,
+    businessTypePreset: company.businessTypePreset,
     createdAt: company.createdAt,
     updatedAt: company.updatedAt,
   };
@@ -44,6 +46,7 @@ export const companyService = {
             phone: true,
             address: true,
             logoImageUrl: true,
+            businessTypePreset: true,
             createdAt: true,
             updatedAt: true,
             _count: {
@@ -68,6 +71,7 @@ export const companyService = {
           phone: true,
           address: true,
           logoImageUrl: true,
+          businessTypePreset: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -107,6 +111,7 @@ export const companyService = {
         phone: true,
         address: true,
         logoImageUrl: true,
+        businessTypePreset: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -204,6 +209,7 @@ export const companyService = {
       phone: updated.phone,
       address: updated.address,
       logoImageUrl: updated.logoImageUrl,
+      businessTypePreset: updated.businessTypePreset,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
     };

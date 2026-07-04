@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { businessTypePresets } from "@/app/(protected)/_services/business-fit-presets";
 
 const nullableTextInput = z.preprocess((value) => {
   if (typeof value !== "string") {
@@ -35,6 +36,7 @@ export const CompanySchema = z.object({
   phone: z.string().nullable(),
   address: z.string().nullable(),
   logoImageUrl: z.string().nullable(),
+  businessTypePreset: z.enum(businessTypePresets).default("RETAIL"),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -64,6 +66,7 @@ export const UpdateCompanySchema = z.object({
   phone: nullableTextInput.optional(),
   address: nullableTextInput.optional(),
   logoImageUrl: nullableImagePathInput.optional(),
+  businessTypePreset: z.enum(businessTypePresets).optional(),
 });
 
 export type UpdateCompanyInput = z.infer<typeof UpdateCompanySchema>;

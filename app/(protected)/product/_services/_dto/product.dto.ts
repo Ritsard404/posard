@@ -1,4 +1,4 @@
-import type { BusinessMode, ItemType, ModifierGroupType, VatType } from "@prisma/client";
+import type { BusinessMode, ItemType, ModifierGroupType, ProductTrackingMode, VatType } from "@prisma/client";
 
 export interface ModifierOptionDto {
   id: string;
@@ -44,6 +44,9 @@ export interface ProductDto {
   isAvailable: boolean;
   trackInventory: boolean;
   itemType: ItemType;
+  trackingMode: ProductTrackingMode;
+  serviceDurationMinutes: number | null;
+  warrantyDays: number | null;
   vatType: VatType;
   categoryId: string;
   categoryName: string | null;
@@ -76,6 +79,9 @@ export interface ProductSaveDto {
   isAvailable?: boolean;
   trackInventory?: boolean;
   itemType?: ItemType;
+  trackingMode?: ProductTrackingMode;
+  serviceDurationMinutes?: number | null;
+  warrantyDays?: number | null;
   vatType?: VatType;
   productImageUrl?: string;
   isConfigurable?: boolean;

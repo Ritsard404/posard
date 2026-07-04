@@ -50,6 +50,9 @@ const productSchema = z
     vatType: z.enum(["VATABLE", "EXEMPT", "ZERO"]),
     isAvailable: z.boolean(),
     trackInventory: z.boolean(),
+    trackingMode: z.enum(["STANDARD", "SERVICE", "NON_STOCK", "VARIANT_PARENT", "SERIALIZED", "BUNDLE"]),
+    serviceDurationMinutes: z.string().optional(),
+    warrantyDays: z.string().optional(),
     productImageUrl: z.string().nullable().optional(),
     isConfigurable: z.boolean(),
     configurationMode: z.enum(["RETAIL", "RESTAURANT", "HYBRID"]).nullable(),
@@ -83,6 +86,28 @@ const productSchema = z
           code: z.ZodIssueCode.custom,
           path: ["quantity"],
           message: "Quantity must be zero or greater.",
+        });
+      }
+    }
+
+    if (value.serviceDurationMinutes) {
+      const duration = Number(value.serviceDurationMinutes);
+      if (!Number.isFinite(duration) || duration < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["serviceDurationMinutes"],
+          message: "Service duration must be zero or greater.",
+        });
+      }
+    }
+
+    if (value.warrantyDays) {
+      const warrantyDays = Number(value.warrantyDays);
+      if (!Number.isFinite(warrantyDays) || warrantyDays < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["warrantyDays"],
+          message: "Warranty days must be zero or greater.",
         });
       }
     }
@@ -177,6 +202,9 @@ export function ProductFormSheet({
       vatType: "VATABLE",
       isAvailable: true,
       trackInventory: false,
+      trackingMode: "STANDARD",
+      serviceDurationMinutes: "",
+      warrantyDays: "",
       productImageUrl: null,
       isConfigurable: false,
       configurationMode: null,
@@ -198,6 +226,7 @@ export function ProductFormSheet({
   });
 
   const trackInventory = watch("trackInventory");
+  const trackingMode = watch("trackingMode");
   const isAvailable = watch("isAvailable");
   const isConfigurable = watch("isConfigurable");
   const selectedCategoryId = watch("categoryId");
@@ -238,6 +267,9 @@ export function ProductFormSheet({
         vatType: product.vatType,
         isAvailable: product.isAvailable,
         trackInventory: product.trackInventory,
+        trackingMode: product.trackingMode,
+        serviceDurationMinutes: product.serviceDurationMinutes === null ? "" : String(product.serviceDurationMinutes),
+        warrantyDays: product.warrantyDays === null ? "" : String(product.warrantyDays),
         productImageUrl: product.productImageUrl ?? null,
         isConfigurable: product.isConfigurable,
         configurationMode: product.configurationMode,
@@ -290,6 +322,11 @@ export function ProductFormSheet({
       vatType: values.vatType,
       isAvailable: values.isAvailable,
       trackInventory: values.trackInventory,
+      trackingMode: values.trackingMode,
+      serviceDurationMinutes: values.serviceDurationMinutes?.trim()
+        ? Number(values.serviceDurationMinutes)
+        : null,
+      warrantyDays: values.warrantyDays?.trim() ? Number(values.warrantyDays) : null,
       productImageUrl: values.productImageUrl?.trim() || undefined,
       isConfigurable: values.isConfigurable,
       configurationMode: values.configurationMode,
@@ -548,6 +585,30 @@ export function ProductFormSheet({
               </div>
 
               <div className="space-y-1.5">
+                <Label htmlFor="product-tracking-mode">Tracking Mode</Label>
+                <select
+                  id="product-tracking-mode"
+                  {...register("trackingMode")}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring"
+                  onChange={(event) => {
+                    const nextMode = event.currentTarget.value as ProductFormValues["trackingMode"];
+                    setValue("trackingMode", nextMode, { shouldDirty: true, shouldValidate: true });
+                    if (nextMode === "SERVICE" || nextMode === "NON_STOCK") {
+                      setValue("trackInventory", false, { shouldDirty: true, shouldValidate: true });
+                      setValue("quantity", "", { shouldDirty: true, shouldValidate: true });
+                    }
+                  }}
+                >
+                  <option value="STANDARD">Standard product</option>
+                  <option value="SERVICE">Service fee</option>
+                  <option value="NON_STOCK">Non-stock item</option>
+                  <option value="VARIANT_PARENT">Variant parent</option>
+                  <option value="SERIALIZED">Serialized item</option>
+                  <option value="BUNDLE">Bundle or kit</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label htmlFor="product-quantity">Quantity</Label>
                 <Input
                   id="product-quantity"
@@ -578,6 +639,36 @@ export function ProductFormSheet({
                 <Label htmlFor="product-shelf-location">Shelf Location</Label>
                 <Input id="product-shelf-location" placeholder="A1 / Cabinet 2" {...register("shelfLocation")} />
               </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-service-duration">Service Duration Minutes</Label>
+                <Input
+                  id="product-service-duration"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Optional"
+                  {...register("serviceDurationMinutes")}
+                />
+                {errors.serviceDurationMinutes ? (
+                  <p className="text-xs text-destructive">{errors.serviceDurationMinutes.message}</p>
+                ) : null}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-warranty-days">Warranty Days</Label>
+                <Input
+                  id="product-warranty-days"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Optional"
+                  {...register("warrantyDays")}
+                />
+                {errors.warrantyDays ? (
+                  <p className="text-xs text-destructive">{errors.warrantyDays.message}</p>
+                ) : null}
+              </div>
             </div>
 
             <div className="space-y-3 rounded-xl border border-border/70 bg-background px-3 py-3">
@@ -585,6 +676,7 @@ export function ProductFormSheet({
                 <Checkbox
                   id="product-track-inventory"
                   checked={trackInventory}
+                  disabled={trackingMode === "SERVICE" || trackingMode === "NON_STOCK"}
                   onCheckedChange={(checked) => {
                     const next = checked === true;
                     setValue("trackInventory", next);
@@ -598,7 +690,7 @@ export function ProductFormSheet({
                     Track inventory
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Turn this on for packaged or counted products. If it stays off, the saved quantity becomes null.
+                    Turn this on for packaged or counted products. Service and non-stock items keep inventory off.
                   </p>
                 </div>
               </div>
