@@ -73,6 +73,11 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
+  if (pathname === "/auth/logout") {
+    logAuthTiming("logout");
+    return supabaseResponse;
+  }
+
   if (isPublic) {
     if (user && (pathname === "/" || isAuthRoute(pathname))) {
       logAuthTiming("auth-user-to-dashboard");

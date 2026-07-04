@@ -38,7 +38,7 @@ test.describe('auth logout', () => {
     }
   });
 
-  test('clears protected Cache Storage buckets after logout', async ({
+  test('clears protected HTML, RSC, API, and export Cache Storage entries after logout', async ({
     page,
   }) => {
     test.setTimeout(90_000);
@@ -56,9 +56,12 @@ test.describe('auth logout', () => {
         const protectedEntries: Array<[string, string]> = [
           ['apis', '/api/sync/bootstrap?deviceId=cache-test-device'],
           ['others', '/dashboard'],
+          ['others', '/pos'],
           ['next-data', '/_next/data/cache-test/dashboard.json'],
+          ['next-data', '/pos?_rsc=cache-test'],
           ['static-data-assets', '/reports/export?format=xls'],
-          ['posard-network-only', '/data-exchange/backup/export'],
+          ['static-data-assets', '/data-exchange/backup/export'],
+          ['posard-network-only', '/data-exchange/product-catalog/export'],
         ];
 
         await Promise.all(

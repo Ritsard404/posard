@@ -30,7 +30,7 @@ export const cashierCredentials = {
 };
 
 export async function expectLoginPage(page: Page) {
-  await expect(page).toHaveURL(/\/auth\/login(?:\?.*)?$/);
+  await expect(page).toHaveURL(/\/auth\/login(?:\?.*)?$/, { timeout: 30_000 });
   await expect(page.getByText('Login', { exact: true }).first()).toBeVisible();
   await expect(
     page.getByText('Enter your credentials to access your terminal'),

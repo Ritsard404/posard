@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { ChevronDown, LogOut } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
@@ -46,8 +46,7 @@ import {
   type UserRole,
 } from "@/lib/access-control";
 import { BrandLogo } from "@/components/branding/BrandLogo";
-import { createClient } from "@/lib/supabase/client";
-import { clearProtectedBrowserCaches } from "@/lib/security/protected-cache.client";
+import { clearClientSessionForLogout } from "@/lib/auth/client-logout";
 import { cn } from "@/lib/utils";
 
 export interface UserProfile {
@@ -252,7 +251,6 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const params = useParams();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [profile] = useState<UserProfile | null>(initialProfile);
@@ -297,14 +295,11 @@ export function AppSidebar({
     }
 
     setIsLoggingOut(true);
-    const supabase = createClient();
     try {
-      await supabase.auth.signOut();
+      await clearClientSessionForLogout();
     } finally {
-      await clearProtectedBrowserCaches();
       setShowLogoutDialog(false);
-      router.replace("/auth/login");
-      router.refresh();
+      window.location.assign("/auth/logout");
     }
   };
 

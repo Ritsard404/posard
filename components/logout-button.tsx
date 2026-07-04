@@ -1,21 +1,14 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
-import { clearProtectedBrowserCaches } from "@/lib/security/protected-cache.client";
+import { clearClientSessionForLogout } from "@/lib/auth/client-logout";
 
 export function LogoutButton() {
-  const router = useRouter();
-
   const logout = async () => {
-    const supabase = createClient();
     try {
-      await supabase.auth.signOut();
+      await clearClientSessionForLogout();
     } finally {
-      await clearProtectedBrowserCaches();
-      router.replace("/auth/login");
-      router.refresh();
+      window.location.assign("/auth/logout");
     }
   };
 
