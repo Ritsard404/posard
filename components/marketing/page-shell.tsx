@@ -59,6 +59,9 @@ export function PageShell({
               <Button asChild variant="outline">
                 <Link href={publicPages.pricing.path}>View pricing</Link>
               </Button>
+              <Button asChild variant="outline">
+                <Link href={publicPages.download.path}>Download app</Link>
+              </Button>
               <PwaInstallButton label="Install PWA" />
             </div>
           </div>

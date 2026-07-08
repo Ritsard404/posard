@@ -10,6 +10,7 @@ const primaryLinks = [
   { href: publicPages.features.path, label: "Features" },
   { href: publicPages.solutions.path, label: "Solutions" },
   { href: publicPages.pricing.path, label: "Pricing" },
+  { href: publicPages.download.path, label: "Download" },
   { href: publicPages.about.path, label: "About" },
 ];
 

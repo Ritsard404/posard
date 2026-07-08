@@ -136,6 +136,7 @@ export default function Home() {
               <Link href={publicPages.features.path} className="hover:text-accent transition-colors">Features</Link>
               <Link href={publicPages.solutions.path} className="hover:text-accent transition-colors">Solutions</Link>
               <Link href={publicPages.pricing.path} className="hover:text-accent transition-colors">Pricing</Link>
+              <Link href={publicPages.download.path} className="hover:text-accent transition-colors">Download</Link>
             </div>
 
             <div className="flex items-center gap-4">
@@ -182,6 +183,15 @@ export default function Home() {
                     className="h-14 px-8 text-lg font-bold rounded-xl border-2 hover:bg-secondary transition-all"
                   >
                     View Features
+                  </Button>
+                </Link>
+                <Link href={publicPages.download.path}>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-14 px-8 text-lg font-bold rounded-xl border-2 hover:bg-secondary transition-all"
+                  >
+                    Download App
                   </Button>
                 </Link>
                 <PwaInstallButton

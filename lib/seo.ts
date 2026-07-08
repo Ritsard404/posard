@@ -67,6 +67,12 @@ export const publicPages = {
     description:
       "POSard pricing is PHP 250 per terminal per month for businesses that need POS checkout, inventory tracking, purchasing, expenses, reports, permissions, and terminal management without hidden platform fees.",
   },
+  download: {
+    path: "/download",
+    title: "Download POSard App for Android, Web, and Windows",
+    description:
+      "Download the POSard Android APK when available, install POSard from the browser as a web app, and see Windows installer availability without confusing APK and EXE files.",
+  },
   contact: {
     path: "/contact",
     title: "Contact POSard Support and Sales",

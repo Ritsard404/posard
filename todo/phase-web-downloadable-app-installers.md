@@ -10,6 +10,26 @@ Primary outcome: the website should offer clear, safe install downloads for the 
 - Windows desktop/tablet: EXE/MSIX installer only if a Windows desktop wrapper is intentionally built.
 - Web/PWA fallback: install from browser when a native installer is not available.
 
+## Implementation Status - 2026-07-08
+
+Implemented in the repo:
+
+- Public `/download` page with Android, Web/PWA, and Windows cards.
+- Environment-driven installer metadata in `lib/app-downloads.ts`.
+- Android APK checksum helper in `scripts/release-android-installer.ps1`.
+- Marketing navigation and SEO entry for the download page.
+- Capacitor release publishing docs and operator Help Center/user guide updates.
+- Local validation produced `android/app/build/outputs/apk/release/app-release.apk` and `android/app/build/outputs/bundle/release/app-release.aab`.
+- APK signature verification passed with APK Signature Scheme v2 and v3.
+- APK SHA-256 from local validation: `7631810c2879ebc5551f1bd068a2d8be6a6ce0d25603437553a925677a73015c`.
+
+Remaining before this TODO can be deleted:
+
+- Upload the signed APK to controlled HTTPS artifact storage.
+- Set production `POSARD_ANDROID_APK_*` metadata variables to the hosted artifact details.
+- Verify `/download` in the production deployment.
+- Install the hosted APK on a real Android device and confirm login, POS checkout load, and safe printer/scanner fallback.
+
 ## Important File-Type Correction
 
 Do not ship an `.exe` as the mobile app installer. Android phones and tablets install APK/AAB-based Android apps, not Windows EXE files.
@@ -265,4 +285,3 @@ If the user asks for "mobile EXE", treat the intended product outcome as "downlo
 6. Phase 7 - docs/help
 7. Phase 5 - optional Windows installer track
 8. Phase 8 - validation and delete tracker
-

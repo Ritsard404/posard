@@ -69,6 +69,14 @@ Build release AAB:
 npm.cmd run android:bundle:release
 ```
 
+Generate release metadata for the website download page after the APK exists:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/release-android-installer.ps1 -ApkPath "android/app/build/outputs/apk/release/app-release.apk" -Version "1.0.0" -BuildNumber "1"
+```
+
+Use the generated SHA-256 checksum, file name, file size, version, and release date when updating the installer artifact host and website metadata.
+
 These release scripts now change into `android/` before invoking Gradle. Running `android\\gradlew.bat` from the repo root fails because Gradle cannot find the Android project's `settings.gradle`.
 
 If the Android platform ever needs to be recreated:
@@ -239,6 +247,49 @@ Signed outputs are generated under:
 
 - `android/app/build/outputs/apk/release/`
 - `android/app/build/outputs/bundle/release/`
+
+## Website Download Publishing
+
+The public website download page is `/download`.
+
+It reads installer metadata from environment variables and does not store APK, AAB, EXE, MSIX, keystores, or passwords in git. The Android APK should be hosted in controlled object storage such as Vercel Blob, GitHub Releases when public visibility is acceptable, or another HTTPS storage provider.
+
+Android release metadata variables:
+
+- `POSARD_ANDROID_APK_URL`
+- `POSARD_ANDROID_APK_VERSION`
+- `POSARD_ANDROID_APK_BUILD`
+- `POSARD_ANDROID_APK_FILE_NAME`
+- `POSARD_ANDROID_APK_FILE_SIZE`
+- `POSARD_ANDROID_APK_SHA256`
+- `POSARD_ANDROID_APK_RELEASE_DATE`
+- `POSARD_ANDROID_MIN_VERSION`
+- `POSARD_ANDROID_APK_NOTES` using `|` between note items
+
+Optional Windows installer metadata variables:
+
+- `POSARD_WINDOWS_INSTALLER_URL`
+- `POSARD_WINDOWS_INSTALLER_VERSION`
+- `POSARD_WINDOWS_INSTALLER_BUILD`
+- `POSARD_WINDOWS_INSTALLER_FILE_NAME`
+- `POSARD_WINDOWS_INSTALLER_FILE_SIZE`
+- `POSARD_WINDOWS_INSTALLER_SHA256`
+- `POSARD_WINDOWS_INSTALLER_RELEASE_DATE`
+- `POSARD_WINDOWS_MIN_VERSION`
+- `POSARD_WINDOWS_INSTALLER_NOTES` using `|` between note items
+
+Publishing checklist:
+
+1. Remove local development `CAPACITOR_APP_URL` values before release sync.
+2. Run `npm.cmd run cap:sync`.
+3. Run `npm.cmd run android:assemble:release`.
+4. Run `npm.cmd run android:bundle:release` when preparing Play Store upload.
+5. Confirm the release APK is signed and not a debug build.
+6. Generate the SHA-256 checksum with `scripts/release-android-installer.ps1`.
+7. Upload the signed APK to controlled HTTPS storage.
+8. Update the environment variables above with the uploaded artifact metadata.
+9. Open `/download` and confirm the Android card shows the APK link, version, release date, file size, and checksum.
+10. Install the APK on a real Android device and confirm login, POS checkout load, and safe printer/scanner fallback behavior.
 
 ## Known Limitations
 
