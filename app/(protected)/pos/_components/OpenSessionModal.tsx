@@ -24,6 +24,7 @@ import { usePOSStore } from "../_store/pos-store";
 interface OpenSessionModalProps {
   terminalId: string;
   terminalName: string;
+  pinlessModeEnabled: boolean;
   onSuccess: (sessionData: {
     success: true;
     profileId: string;
@@ -45,6 +46,7 @@ interface OpenSessionModalProps {
 export function OpenSessionModal({
   terminalId,
   terminalName,
+  pinlessModeEnabled,
   onSuccess,
   onCancel,
 }: OpenSessionModalProps) {
@@ -63,7 +65,7 @@ export function OpenSessionModal({
       return;
     }
 
-    if (managerPin.length < 4) {
+    if (!pinlessModeEnabled && managerPin.length < 4) {
       setError("Manager PIN must be at least 4 digits.");
       return;
     }
@@ -137,8 +139,9 @@ export function OpenSessionModal({
             Open Session: {terminalName}
           </DialogTitle>
           <DialogDescription>
-            Enter the starting cash and manager approval PIN to open this
-            terminal for your logged-in account.
+            {pinlessModeEnabled
+              ? "Enter the starting cash to open this terminal for your logged-in account."
+              : "Enter the starting cash and manager approval PIN to open this terminal for your logged-in account."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleOpenSession} className="flex flex-col space-y-6 py-4">
@@ -156,6 +159,7 @@ export function OpenSessionModal({
             />
           </div>
 
+          {!pinlessModeEnabled ? (
           <div className="space-y-2">
             <Label htmlFor="managerPin">Approving Manager PIN</Label>
             <Input
@@ -170,6 +174,7 @@ export function OpenSessionModal({
               onChange={(e) => setManagerPin(e.target.value.replace(/\D/g, ""))}
             />
           </div>
+          ) : null}
 
           {error ? (
             <p className="rounded-md bg-destructive/10 p-2 text-sm font-medium text-destructive">
@@ -189,7 +194,11 @@ export function OpenSessionModal({
             </Button>
             <Button
               type="submit"
-              disabled={isLoading || openingCash < 0 || managerPin.length < 4}
+              disabled={
+                isLoading ||
+                openingCash < 0 ||
+                (!pinlessModeEnabled && managerPin.length < 4)
+              }
               className="h-12 flex-1 text-lg"
             >
               {isLoading ? (

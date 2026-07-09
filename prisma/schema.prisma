@@ -727,6 +727,7 @@ model PosTerminalInfo {
   allowCashierDebtCreate        Boolean             @default(false) @map("allow_cashier_debt_create")
   allowCashierDebtCollect       Boolean             @default(false) @map("allow_cashier_debt_collect")
   requireManagerApprovalForDebt Boolean             @default(false) @map("require_manager_approval_for_debt")
+  pinlessModeEnabled            Boolean             @default(false) @map("pinless_mode_enabled")
   defaultDebtDueDays            Int?                @map("default_debt_due_days")
   businessModeOverride          BusinessMode?       @map("business_mode_override")
   businessTypePresetOverride    BusinessTypePreset? @map("business_type_preset_override")

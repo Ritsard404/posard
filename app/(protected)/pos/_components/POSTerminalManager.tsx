@@ -77,6 +77,7 @@ function mapSessionSnapshotToStore(
       allowCashierDebtCollect: sessionSnapshot.allowCashierDebtCollect,
       requireManagerApprovalForDebt:
         sessionSnapshot.requireManagerApprovalForDebt,
+      pinlessModeEnabled: sessionSnapshot.pinlessModeEnabled,
       defaultDebtDueDays: sessionSnapshot.defaultDebtDueDays,
       printerConfig: sessionSnapshot.printerConfig,
       billingLocked: sessionSnapshot.billingLocked,
@@ -107,6 +108,7 @@ export function POSTerminalManager() {
     allowCashierDebtCreate: boolean;
     allowCashierDebtCollect: boolean;
     requireManagerApprovalForDebt: boolean;
+    pinlessModeEnabled: boolean;
     defaultDebtDueDays: number | null;
     printerConfig?: PrinterConfigDto | null;
     billingLocked?: boolean;
@@ -475,6 +477,7 @@ export function POSTerminalManager() {
             allowCashierDebtCreate,
             allowCashierDebtCollect,
             requireManagerApprovalForDebt,
+            pinlessModeEnabled,
             defaultDebtDueDays,
             businessMode,
             enableFulfillmentTypes,
@@ -493,6 +496,7 @@ export function POSTerminalManager() {
               allowCashierDebtCreate,
               allowCashierDebtCollect,
               requireManagerApprovalForDebt,
+              pinlessModeEnabled,
               defaultDebtDueDays,
               printerConfig,
               businessMode,
@@ -509,6 +513,7 @@ export function POSTerminalManager() {
           <OpenSessionModal
             terminalId={selectedTerminal.id}
             terminalName={selectedTerminal.name}
+            pinlessModeEnabled={selectedTerminal.pinlessModeEnabled}
             onSuccess={(data) => {
               setSession({
                 sessionId: data.sessionId,
@@ -527,6 +532,7 @@ export function POSTerminalManager() {
                     selectedTerminal.allowCashierDebtCollect,
                   requireManagerApprovalForDebt:
                     selectedTerminal.requireManagerApprovalForDebt,
+                  pinlessModeEnabled: selectedTerminal.pinlessModeEnabled,
                   defaultDebtDueDays: selectedTerminal.defaultDebtDueDays,
                   printerConfig: selectedTerminal.printerConfig ?? null,
                   billingLocked: false,

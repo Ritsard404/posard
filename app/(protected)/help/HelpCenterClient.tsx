@@ -510,20 +510,23 @@ const guideGroups: HelpGroup[] = [
         role: "Manager / Admin",
         audience: ["manager", "admin"],
         summary:
-          "Review and update terminal details, status, VAT, discount, and restaurant settings.",
+          "Review and update terminal details, status, VAT, discount, pinless session controls, and restaurant settings.",
         steps: [
           "Open Terminal List or Terminal Settings.",
           "Select a terminal.",
           "Review details.",
+          "Update pinless session controls only when cash drawer actions do not need manager PIN sign-off.",
           "Save any changes.",
         ],
         reminder:
-          "Avoid changing terminal settings while a cashier is actively selling unless needed.",
+          "Keep pinless session controls off when manager PIN sign-off is required for cash drawer actions.",
         keywords: [
           "terminal",
           "terminal settings",
           "vat",
           "discount",
+          "pinless",
+          "manager pin",
           "restaurant",
         ],
       },

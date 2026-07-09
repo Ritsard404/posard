@@ -42,8 +42,10 @@ export function CloseSessionModal({
   const activeDeviceId = usePOSStore((state) => state.activeDeviceId);
   const activeCompanyId = usePOSStore((state) => state.activeCompanyId);
   const activeProfileId = usePOSStore((state) => state.activeProfileId);
+  const activeTerminal = usePOSStore((state) => state.activeTerminal);
   const managerVerifiers = usePOSStore((state) => state.managerVerifiers);
   const isOnline = usePOSStore((state) => state.isOnline);
+  const pinlessModeEnabled = activeTerminal?.pinlessModeEnabled === true;
   const [countedCash, setCountedCash] = useState<number>(0);
   const [managerPin, setManagerPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export function CloseSessionModal({
       return;
     }
 
-    if (managerPin.length < 4) {
+    if (!pinlessModeEnabled && managerPin.length < 4) {
       setError("Manager PIN must be at least 4 digits.");
       return;
     }
@@ -87,14 +89,16 @@ export function CloseSessionModal({
           throw new Error("Offline close needs an active synced session.");
         }
 
-        const manager = await verifyManagerPinOffline({
-          companyId: activeCompanyId,
-          deviceId: activeDeviceId,
-          pin: managerPin,
-          verifiers: managerVerifiers,
-        });
+        const manager = pinlessModeEnabled
+          ? null
+          : await verifyManagerPinOffline({
+              companyId: activeCompanyId,
+              deviceId: activeDeviceId,
+              pin: managerPin,
+              verifiers: managerVerifiers,
+            });
 
-        if (!manager) {
+        if (!pinlessModeEnabled && !manager) {
           throw new Error("Invalid Manager PIN");
         }
 
@@ -115,9 +119,13 @@ export function CloseSessionModal({
           payload: {
             sessionId,
             countedCash,
-            managerProfileId: manager.id,
-            managerEmail: manager.email,
-            managerName: manager.name,
+            ...(manager
+              ? {
+                  managerProfileId: manager.id,
+                  managerEmail: manager.email,
+                  managerName: manager.name,
+                }
+              : {}),
           },
         });
 
@@ -173,8 +181,9 @@ export function CloseSessionModal({
                 Close Session
               </DialogTitle>
               <DialogDescription>
-                Enter the final counted cash in drawer and manager PIN to close
-                the register.
+                {pinlessModeEnabled
+                  ? "Enter the final counted cash in drawer to close the register."
+                  : "Enter the final counted cash in drawer and manager PIN to close the register."}
               </DialogDescription>
             </DialogHeader>
 
@@ -197,6 +206,7 @@ export function CloseSessionModal({
                   />
                 </div>
 
+                {!pinlessModeEnabled ? (
                 <div className="grid gap-2">
                   <Label htmlFor="managerPin">Approving Manager PIN</Label>
                   <Input
@@ -214,6 +224,7 @@ export function CloseSessionModal({
                     }
                   />
                 </div>
+                ) : null}
               </div>
 
               {error ? (
@@ -236,7 +247,11 @@ export function CloseSessionModal({
                   type="submit"
                   variant="destructive"
                   className="h-12"
-                  disabled={isLoading || managerPin.length < 4 || countedCash < 0}
+                  disabled={
+                    isLoading ||
+                    (!pinlessModeEnabled && managerPin.length < 4) ||
+                    countedCash < 0
+                  }
                 >
                   {isLoading ? (
                     <>

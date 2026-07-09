@@ -94,6 +94,7 @@ export const TerminalSchema = z.object({
   allowCashierDebtCreate: z.boolean().default(false),
   allowCashierDebtCollect: z.boolean().default(false),
   requireManagerApprovalForDebt: z.boolean().default(false),
+  pinlessModeEnabled: z.boolean().default(false),
   defaultDebtDueDays: z.number().int().min(1).max(365).nullable().optional(),
   businessModeOverride: z.enum(["RETAIL", "RESTAURANT", "HYBRID"]).nullable().optional(),
   businessTypePresetOverride: z.enum(businessTypePresets).nullable().optional(),
@@ -213,6 +214,7 @@ const TerminalConfigurationBaseSchema = z.object({
   allowCashierDebtCreate: z.boolean().default(false),
   allowCashierDebtCollect: z.boolean().default(false),
   requireManagerApprovalForDebt: z.boolean().default(false),
+  pinlessModeEnabled: z.boolean().default(false),
   defaultDebtDueDays: z.preprocess((value) => {
     if (value === "" || value === null || value === undefined) {
       return null;
