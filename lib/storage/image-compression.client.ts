@@ -1,6 +1,6 @@
 "use client";
 
-export type ImageUploadPurpose = "product" | "company-logo";
+export type ImageUploadPurpose = "product" | "company-logo" | "donation";
 
 export interface CompressedImageResult {
   file: File;
@@ -15,6 +15,7 @@ const MAX_OPTIMIZED_IMAGE_SIZE_BYTES = 950 * 1024;
 const TARGETS: Record<ImageUploadPurpose, { maxDimension: number; quality: number }> = {
   product: { maxDimension: 1200, quality: 0.82 },
   "company-logo": { maxDimension: 1000, quality: 0.88 },
+  donation: { maxDimension: 1200, quality: 0.9 },
 };
 
 const RETRY_STEPS = [

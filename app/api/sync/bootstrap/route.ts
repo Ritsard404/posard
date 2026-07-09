@@ -6,6 +6,8 @@ import { productService } from "@/app/(protected)/pos/_services/product.service"
 import { epaymentService } from "@/app/(protected)/pos/_services/epayment.service";
 import { printConfigService } from "@/app/(protected)/pos/_services/print-config.service";
 import {
+  getPlatformBillingMode,
+  isPlatformBillingFree,
   isTerminalPosAccessible,
   TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE,
 } from "@/lib/billing-access";
@@ -93,7 +95,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const [categories, products, epaymentMethods, removedCategories, removedProducts, managers, timestamp] =
+    const [categories, products, epaymentMethods, removedCategories, removedProducts, managers, timestamp, platformBillingMode] =
       await Promise.all([
         categoryService.getCategories(companyId, { changedSince: changedSince ?? undefined }),
         productService.getProducts(companyId, { changedSince: changedSince ?? undefined }),
@@ -167,6 +169,7 @@ export async function GET(request: Request) {
           },
           orderBy: { createdAt: "desc" },
         }),
+        getPlatformBillingMode(),
       ]);
 
     if (timestamp && (!timestamp.deviceId || timestamp.deviceId === deviceId)) {
@@ -212,8 +215,12 @@ export async function GET(request: Request) {
                 deviceId: timestamp.deviceId ?? deviceId,
                 isTrainMode: timestamp.posTerminal.isTrainMode,
                 lastSeenAt: timestamp.lastSeenAt?.toISOString() ?? null,
-                billingLocked: !isTerminalPosAccessible(timestamp.posTerminal),
-                billingMessage: !isTerminalPosAccessible(timestamp.posTerminal)
+                billingLocked:
+                  !isPlatformBillingFree(platformBillingMode) &&
+                  !isTerminalPosAccessible(timestamp.posTerminal),
+                billingMessage:
+                  !isPlatformBillingFree(platformBillingMode) &&
+                  !isTerminalPosAccessible(timestamp.posTerminal)
                   ? TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE
                   : null,
               }

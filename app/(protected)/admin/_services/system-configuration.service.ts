@@ -5,11 +5,38 @@ import type { AccountsViewerDto } from "@/app/(protected)/accounts/_services/_dt
 import type { SystemConfigurationDto } from "./system-configuration.dto";
 
 const CONFIG_ID = "default";
+const SYSTEM_CONFIGURATION_SELECT = {
+  directRegistrationEnabled: true,
+  platformBillingMode: true,
+  donationEnabled: true,
+  donationTitle: true,
+  donationMessage: true,
+  donationImageUrl: true,
+  donationProviderName: true,
+  donationAccountHolder: true,
+  donationAccountDetail: true,
+  donationNotes: true,
+} as const;
 
 function assertAdmin(viewer: AccountsViewerDto) {
   if (viewer.role !== "admin") {
     throw new Error("Forbidden");
   }
+}
+
+function mapSystemConfiguration(config: SystemConfigurationDto): SystemConfigurationDto {
+  return {
+    directRegistrationEnabled: config.directRegistrationEnabled,
+    platformBillingMode: config.platformBillingMode,
+    donationEnabled: config.donationEnabled,
+    donationTitle: config.donationTitle,
+    donationMessage: config.donationMessage,
+    donationImageUrl: config.donationImageUrl,
+    donationProviderName: config.donationProviderName,
+    donationAccountHolder: config.donationAccountHolder,
+    donationAccountDetail: config.donationAccountDetail,
+    donationNotes: config.donationNotes,
+  };
 }
 
 export const systemConfigurationService = {
@@ -18,12 +45,10 @@ export const systemConfigurationService = {
       where: { id: CONFIG_ID },
       update: {},
       create: { id: CONFIG_ID },
-      select: { directRegistrationEnabled: true },
+      select: SYSTEM_CONFIGURATION_SELECT,
     });
 
-    return {
-      directRegistrationEnabled: config.directRegistrationEnabled,
-    };
+    return mapSystemConfiguration(config);
   },
 
   async update(
@@ -36,16 +61,32 @@ export const systemConfigurationService = {
       where: { id: CONFIG_ID },
       update: {
         directRegistrationEnabled: input.directRegistrationEnabled,
+        platformBillingMode: input.platformBillingMode,
+        donationEnabled: input.donationEnabled,
+        donationTitle: input.donationTitle,
+        donationMessage: input.donationMessage,
+        donationImageUrl: input.donationImageUrl,
+        donationProviderName: input.donationProviderName,
+        donationAccountHolder: input.donationAccountHolder,
+        donationAccountDetail: input.donationAccountDetail,
+        donationNotes: input.donationNotes,
       },
       create: {
         id: CONFIG_ID,
         directRegistrationEnabled: input.directRegistrationEnabled,
+        platformBillingMode: input.platformBillingMode,
+        donationEnabled: input.donationEnabled,
+        donationTitle: input.donationTitle,
+        donationMessage: input.donationMessage,
+        donationImageUrl: input.donationImageUrl,
+        donationProviderName: input.donationProviderName,
+        donationAccountHolder: input.donationAccountHolder,
+        donationAccountDetail: input.donationAccountDetail,
+        donationNotes: input.donationNotes,
       },
-      select: { directRegistrationEnabled: true },
+      select: SYSTEM_CONFIGURATION_SELECT,
     });
 
-    return {
-      directRegistrationEnabled: config.directRegistrationEnabled,
-    };
+    return mapSystemConfiguration(config);
   },
 };

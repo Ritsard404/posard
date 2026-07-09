@@ -117,6 +117,14 @@ enum SubscriptionStatus {
   @@schema("public")
 }
 
+enum PlatformBillingMode {
+  FREE
+  PAID
+
+  @@map("platform_billing_mode")
+  @@schema("public")
+}
+
 enum RegistrationRequestStatus {
   pending
   approved
@@ -483,6 +491,16 @@ model SystemConfiguration {
   id String @id @default("default")
 
   directRegistrationEnabled Boolean @default(false) @map("direct_registration_enabled")
+  platformBillingMode       PlatformBillingMode @default(FREE) @map("platform_billing_mode")
+
+  donationEnabled       Boolean @default(false) @map("donation_enabled")
+  donationTitle         String? @map("donation_title") @db.VarChar(120)
+  donationMessage       String? @map("donation_message") @db.VarChar(500)
+  donationImageUrl      String? @map("donation_image_url") @db.VarChar(500)
+  donationProviderName  String? @map("donation_provider_name") @db.VarChar(120)
+  donationAccountHolder String? @map("donation_account_holder") @db.VarChar(160)
+  donationAccountDetail String? @map("donation_account_detail") @db.VarChar(240)
+  donationNotes         String? @map("donation_notes")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz

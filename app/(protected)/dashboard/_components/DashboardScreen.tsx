@@ -589,7 +589,7 @@ function AdminCompanyList({ dashboard }: { dashboard: DashboardDataDto }) {
   return (
     <Section
       title="Company Watchlist"
-      description="Companies with pending work, weak subscription coverage, or low terminal readiness."
+      description="Companies with pending work, terminal readiness needs, or subscription records to review."
     >
       <div className="space-y-3">
         {dashboard.adminCompanies.map((company) => (
@@ -647,7 +647,7 @@ function AdminTerminalWatch({ dashboard }: { dashboard: DashboardDataDto }) {
   return (
     <Section
       title="Terminal and Subscription Validity"
-      description="Terminals that need subscription action, permit renewal, or direct owner attention."
+      description="Terminals that need permit renewal, direct owner attention, or subscription review when paid mode is enabled."
     >
       <div className="space-y-3">
         {dashboard.adminTerminalWatch.map((terminal) => (

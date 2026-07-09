@@ -5,7 +5,10 @@ import {
   assertTerminalBillingAllowsPos,
   TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE,
   TERMINAL_BILLING_RESTRICTION_MESSAGE,
+  getPlatformBillingMode,
   isTerminalPosAccessible,
+  isPlatformBillingFree,
+  type PlatformBillingMode,
 } from "@/lib/billing-access";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
@@ -19,12 +22,21 @@ import { toSafeActionError } from "@/lib/security/safe-action-error";
 function getTerminalBillingSummary(subscription: {
   status: "pending" | "active" | "expired" | "suspended" | "cancelled";
   expiresAt: Date | null;
-} | null, isDefaultTerminal: boolean, validUntil: Date): {
+} | null, isDefaultTerminal: boolean, validUntil: Date, platformBillingMode: PlatformBillingMode): {
   statusLabel: string;
   statusTone: "success" | "warning" | "danger";
   actionLabel: string | null;
   message: string | null;
 } {
+  if (isPlatformBillingFree(platformBillingMode)) {
+    return {
+      statusLabel: "Free mode",
+      statusTone: "success",
+      actionLabel: null,
+      message: "POSard is currently free. Subscription status is informational only.",
+    };
+  }
+
   if (isDefaultTerminal) {
     return {
       statusLabel: "Available",
@@ -170,7 +182,10 @@ export async function getCurrentSessionAction() {
 
     if (!timestamp) return { success: true as const, data: null };
 
-    const billingLocked = !isTerminalPosAccessible(timestamp.posTerminal);
+    const platformBillingMode = await getPlatformBillingMode();
+    const billingLocked =
+      !isPlatformBillingFree(platformBillingMode) &&
+      !isTerminalPosAccessible(timestamp.posTerminal);
 
     return {
       success: true as const,
@@ -275,6 +290,8 @@ export async function getTerminalsAction() {
       orderBy: { posName: "asc" },
     });
 
+    const platformBillingMode = await getPlatformBillingMode();
+
     return {
       success: true as const,
       data: terminals.map((terminal) => {
@@ -282,13 +299,16 @@ export async function getTerminalsAction() {
           terminal.subscription,
           terminal.isDefaultTerminal,
           terminal.validUntil,
+          platformBillingMode,
         );
 
         return {
           id: terminal.id,
           posName: terminal.posName ?? "Unnamed terminal",
           isActive: terminal.timestamps.length > 0,
-          billingLocked: !isTerminalPosAccessible(terminal),
+          billingLocked:
+            !isPlatformBillingFree(platformBillingMode) &&
+            !isTerminalPosAccessible(terminal),
           billingMessage: billing.message,
           statusLabel: billing.statusLabel,
           statusTone: billing.statusTone,

@@ -22,8 +22,9 @@ Admins can see what still needs setup or review.
 
 ## Tips or reminders
 - Fix critical setup issues before allowing live selling.
-- Do not ignore terminal or subscription warnings.
+- In free mode, subscription warnings are informational unless paid mode is enabled.
+- Do not ignore terminal setup warnings that affect live selling.
 
 ## Common questions or issues
 - **A readiness item stays unresolved**  
-  Recheck the related company, terminal, or subscription page.
+  Recheck the related company, terminal, subscription, or system settings page.

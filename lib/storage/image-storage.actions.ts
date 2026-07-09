@@ -31,8 +31,12 @@ export async function uploadPosardImageAction(formData: FormData): Promise<Image
       return { success: false, error: "Select an image to upload." };
     }
 
-    if (kind !== "product" && kind !== "company-logo") {
+    if (kind !== "product" && kind !== "company-logo" && kind !== "donation") {
       return { success: false, error: "Image upload type is invalid." };
+    }
+
+    if (kind === "donation" && profile.role !== "admin") {
+      return { success: false, error: "Only admins can upload donation images." };
     }
 
     if (!ALLOWED_IMAGE_TYPES.has(file.type)) {

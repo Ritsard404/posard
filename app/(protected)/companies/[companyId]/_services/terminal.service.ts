@@ -1,6 +1,12 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { hasCoverageDatePassed, isTerminalPosAccessible } from "@/lib/billing-access";
+import {
+  assertTerminalBillingAllowsPos,
+  getPlatformBillingMode,
+  hasCoverageDatePassed,
+  isPlatformBillingFree,
+  type PlatformBillingMode,
+} from "@/lib/billing-access";
 import {
   type TerminalDTO,
   type CreateTerminalInput,
@@ -30,12 +36,22 @@ function getTerminalBillingSnapshot(
   subscription: TerminalRecord["subscription"],
   isDefaultTerminal: boolean,
   validUntil: Date,
+  platformBillingMode: PlatformBillingMode,
 ): {
   billingStatusLabel: string;
   billingStatusTone: BillingStatusTone;
   billingStatusReason: string;
   billingActionLabel: string;
 } {
+  if (isPlatformBillingFree(platformBillingMode)) {
+    return {
+      billingStatusLabel: "Free mode",
+      billingStatusTone: "success",
+      billingStatusReason: "POSard is currently free. Subscription status is informational only.",
+      billingActionLabel: "No payment required",
+    };
+  }
+
   if (!subscription) {
     if (isDefaultTerminal) {
       return {
@@ -114,12 +130,13 @@ function getTerminalBillingSnapshot(
   };
 }
 
-function mapTerminal(terminal: TerminalRecord): TerminalDTO {
+function mapTerminal(terminal: TerminalRecord, platformBillingMode: PlatformBillingMode): TerminalDTO {
   const activeSession = terminal.sessions?.[0];
   const billingSnapshot = getTerminalBillingSnapshot(
     terminal.subscription,
     terminal.isDefaultTerminal,
     terminal.validUntil,
+    platformBillingMode,
   );
 
   return {
@@ -211,7 +228,9 @@ export const terminalService = {
       orderBy: { createdAt: "desc" },
     });
 
-    return terminals.map(mapTerminal);
+    const platformBillingMode = await getPlatformBillingMode();
+
+    return terminals.map((terminal) => mapTerminal(terminal, platformBillingMode));
   },
 
   async getTerminalById(id: string, companyId: string): Promise<TerminalDTO | null> {
@@ -256,7 +275,9 @@ export const terminalService = {
 
     if (!terminal) return null;
 
-    return mapTerminal(terminal);
+    const platformBillingMode = await getPlatformBillingMode();
+
+    return mapTerminal(terminal, platformBillingMode);
   },
 
   async createTerminal(companyId: string, payload: CreateTerminalInput): Promise<TerminalDTO> {
@@ -458,9 +479,7 @@ export const terminalService = {
     }
 
     if (payload.isActive) {
-      if (!isTerminalPosAccessible(terminal)) {
-        throw new Error("A terminal requires an active subscription before it can be enabled");
-      }
+      await assertTerminalBillingAllowsPos(companyId, id);
     }
 
     await prisma.posTerminalInfo.update({

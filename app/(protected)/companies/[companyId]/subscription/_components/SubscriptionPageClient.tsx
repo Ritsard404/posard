@@ -13,11 +13,13 @@ import type { TerminalDTO } from "../../_services/terminal.dto";
 interface SubscriptionPageClientProps {
   companyId: string;
   canManage: boolean;
+  platformBillingMode: "FREE" | "PAID";
 }
 
 export default function SubscriptionPageClient({
   companyId,
   canManage,
+  platformBillingMode,
 }: SubscriptionPageClientProps) {
   const [terminals, setTerminals] = useState<TerminalDTO[]>([]);
   const [subscriptions, setSubscriptions] = useState<TerminalSubscriptionDTO[]>([]);
@@ -49,6 +51,8 @@ export default function SubscriptionPageClient({
   }, [companyId]);
 
   useEffect(() => {
+    // Existing page load pattern: fetch terminal/subscription records after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadData();
   }, [loadData]);
 
@@ -90,7 +94,9 @@ export default function SubscriptionPageClient({
       <Card className="p-6">
         <h2 className="text-lg font-semibold">Terminal-Based Subscription Management</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Each terminal carries its own billing cycle and subscription state. Configure monthly, quarterly, or annual plans per device.
+          {platformBillingMode === "FREE"
+            ? "POSard is free right now. Subscription records are kept for future planning and do not block checkout."
+            : "Each terminal carries its own billing cycle and subscription state. Configure monthly, quarterly, or annual plans per device."}
         </p>
       </Card>
 
@@ -146,7 +152,9 @@ export default function SubscriptionPageClient({
                       <p className="whitespace-pre-line text-sm text-muted-foreground">{subscription.notes}</p>
                     ) : null}
                     <p className="text-xs text-muted-foreground">
-                      Use billing notes to record the payment channel, collection method, transfer reference, or renewal instructions for this terminal.
+                      {platformBillingMode === "FREE"
+                        ? "No payment is required while free mode is active."
+                        : "Use billing notes to record the payment channel, collection method, transfer reference, or renewal instructions for this terminal."}
                     </p>
                   </div>
 

@@ -25,11 +25,14 @@ type TerminalBillingSnapshot = {
   } | null;
 };
 
+export type PlatformBillingMode = "FREE" | "PAID";
+
 export type CompanyBillingAccess = {
   isRestricted: boolean;
   reason: string | null;
   activeTerminalIds: Set<string>;
   terminals: TerminalBillingSnapshot[];
+  platformBillingMode: PlatformBillingMode;
 };
 
 function getDateOnlyValue(value: Date) {
@@ -51,6 +54,21 @@ function isTerminalSubscriptionActive(subscription: TerminalBillingSnapshot["sub
   );
 }
 
+export async function getPlatformBillingMode(): Promise<PlatformBillingMode> {
+  const config = await prisma.systemConfiguration.upsert({
+    where: { id: "default" },
+    update: {},
+    create: { id: "default" },
+    select: { platformBillingMode: true },
+  });
+
+  return config.platformBillingMode;
+}
+
+export function isPlatformBillingFree(mode: PlatformBillingMode) {
+  return mode === "FREE";
+}
+
 export function isTerminalPosAccessible(
   terminal: Pick<TerminalBillingSnapshot, "isDefaultTerminal" | "validUntil" | "subscription">,
 ) {
@@ -64,9 +82,17 @@ export function isTerminalPosAccessible(
   );
 }
 
+export async function isTerminalPosAccessibleForCurrentMode(
+  terminal: Pick<TerminalBillingSnapshot, "isDefaultTerminal" | "validUntil" | "subscription">,
+) {
+  const mode = await getPlatformBillingMode();
+  return isPlatformBillingFree(mode) || isTerminalPosAccessible(terminal);
+}
+
 export async function getCompanyBillingAccess(
   companyId: string,
 ): Promise<CompanyBillingAccess> {
+  const platformBillingMode = await getPlatformBillingMode();
   const terminals = await prisma.posTerminalInfo.findMany({
     where: { companyId },
     select: {
@@ -84,17 +110,21 @@ export async function getCompanyBillingAccess(
     orderBy: { posName: "asc" },
   });
 
-  const activeTerminalIds = new Set(
-    terminals
-      .filter((terminal) => isTerminalPosAccessible(terminal))
-      .map((terminal) => terminal.id),
-  );
+  const activeTerminalIds = new Set<string>();
+  for (const terminal of terminals) {
+    if (isPlatformBillingFree(platformBillingMode) || isTerminalPosAccessible(terminal)) {
+      activeTerminalIds.add(terminal.id);
+    }
+  }
 
   return {
-    isRestricted: activeTerminalIds.size === 0,
+    isRestricted: !isPlatformBillingFree(platformBillingMode) && activeTerminalIds.size === 0,
     reason:
-      activeTerminalIds.size === 0 ? COMPANY_BILLING_RESTRICTION_MESSAGE : null,
+      !isPlatformBillingFree(platformBillingMode) && activeTerminalIds.size === 0
+        ? COMPANY_BILLING_RESTRICTION_MESSAGE
+        : null,
     activeTerminalIds,
+    platformBillingMode,
     terminals: terminals.map((terminal) => ({
       terminalId: terminal.id,
       posName: terminal.posName,
@@ -119,6 +149,11 @@ export async function assertTerminalBillingAllowsPos(
   companyId: string,
   terminalId: string,
 ) {
+  const platformBillingMode = await getPlatformBillingMode();
+  if (isPlatformBillingFree(platformBillingMode)) {
+    return null;
+  }
+
   const terminal = await prisma.posTerminalInfo.findFirst({
     where: {
       id: terminalId,
@@ -151,6 +186,11 @@ export async function assertTerminalBillingAllowsTransactions(
   companyId: string,
   terminalId: string,
 ) {
+  const platformBillingMode = await getPlatformBillingMode();
+  if (isPlatformBillingFree(platformBillingMode)) {
+    return null;
+  }
+
   const terminal = await prisma.posTerminalInfo.findFirst({
     where: {
       id: terminalId,

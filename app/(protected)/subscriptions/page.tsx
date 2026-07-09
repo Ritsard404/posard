@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { companyAccessService } from "../companies/[companyId]/_services/company-access.service";
 import { AdminSubscriptionListQuerySchema } from "../companies/_services/_dto/admin-subscription.dto";
+import { systemConfigurationService } from "../admin/_services/system-configuration.service";
 import { adminCompanyService } from "../companies/_services/admin-company.service";
 import { adminSubscriptionService } from "../companies/_services/admin-subscription.service";
 import { GlobalSubscriptionsClient } from "./_components/GlobalSubscriptionsClient";
@@ -26,15 +27,17 @@ export default async function SubscriptionsPage({ searchParams }: SubscriptionsP
     billingCycle: rawSearchParams.billingCycle,
   });
 
-  const [pageData, companyOptions] = await Promise.all([
+  const [pageData, companyOptions, config] = await Promise.all([
     adminSubscriptionService.getSubscriptionsPage(query),
     adminCompanyService.getCompanyOptions(),
+    systemConfigurationService.get(),
   ]);
 
   return (
     <GlobalSubscriptionsClient
       pageData={pageData}
       companyOptions={companyOptions}
+      platformBillingMode={config.platformBillingMode}
       keyword={query.keyword}
       status={query.status}
       billingCycle={query.billingCycle}

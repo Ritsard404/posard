@@ -16,6 +16,7 @@ import type { AdminSubscriptionListItemDto } from "@/app/(protected)/companies/_
 interface GlobalSubscriptionsClientProps {
   pageData: PageResult<AdminSubscriptionListItemDto>;
   companyOptions: Array<{ id: string; name: string }>;
+  platformBillingMode: "FREE" | "PAID";
   keyword?: string;
   status?: "pending" | "active" | "expired" | "suspended" | "cancelled";
   billingCycle?: "monthly" | "quarterly" | "annually";
@@ -25,6 +26,7 @@ interface GlobalSubscriptionsClientProps {
 export function GlobalSubscriptionsClient({
   pageData,
   companyOptions,
+  platformBillingMode,
   keyword = "",
   status,
   billingCycle,
@@ -68,7 +70,11 @@ export function GlobalSubscriptionsClient({
       <Card className="p-4">
         <div>
           <h1 className="text-2xl font-bold">Global Subscriptions</h1>
-          <p className="text-sm text-muted-foreground">Assign, renew, change, and cancel terminal plans.</p>
+          <p className="text-sm text-muted-foreground">
+            {platformBillingMode === "FREE"
+              ? "POSard is free right now. Subscription records are informational until paid mode is enabled."
+              : "Assign, renew, change, and cancel terminal plans."}
+          </p>
         </div>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">

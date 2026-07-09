@@ -23,7 +23,7 @@ You will see the pages you can use. Cashiers usually see POS and their profile. 
 
 ## Tips or reminders
 - If your account is still waiting for approval, you cannot use the system yet.
-- If your business billing is paused, POS access may be limited until it is fixed.
+- POSard is free right now. If paid mode is enabled later, paused billing may limit POS access until it is fixed.
 - Always log out on shared counters, tablets, and manager workstations. POSard clears protected browser caches during logout, but any pending offline checkout work still follows the Sync Center rules.
 
 ## Common questions or issues

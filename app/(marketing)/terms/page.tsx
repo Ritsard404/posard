@@ -6,7 +6,7 @@ import {
   JsonLdScript,
   PageShell,
 } from "@/components/marketing/page-shell";
-import { createPublicPageMetadata, siteConfig, webPageJsonLd } from "@/lib/seo";
+import { createPublicPageMetadata, webPageJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = createPublicPageMetadata("terms");
 
@@ -22,9 +22,9 @@ const terms = [
       "Users are responsible for protecting account credentials, PINs, device access, and assigned roles.",
   },
   {
-    title: "Per-terminal billing",
+    title: "Free access and optional billing",
     description:
-      "Subscriptions are billed per terminal. Each active terminal requires its own subscription.",
+      "POSard is currently free. If paid mode is introduced later, subscription terms may apply before enforcement is enabled.",
   },
   {
     title: "Service updates",
@@ -66,12 +66,12 @@ export default function TermsPage() {
     <PageShell
       eyebrow="Terms and conditions"
       title="Terms and conditions for using POSard"
-      description={`By using POSard, you agree to responsible account use, lawful business operations, and the ${siteConfig.price.label} subscription model.`}
+      description="By using POSard, you agree to responsible account use, lawful business operations, current free access terms, and any optional future billing terms when paid mode is enabled."
     >
       <JsonLdScript data={jsonLd} />
       <ContentSection
         title="Usage terms"
-        description="These terms summarize the expected use of POSard for POS checkout, inventory, purchasing, transfers, expenses, customers, promotions, kitchen workflow, reports, receipts, terminal subscriptions, and staff access."
+        description="These terms summarize the expected use of POSard for POS checkout, inventory, purchasing, transfers, expenses, customers, promotions, kitchen workflow, reports, receipts, terminal access, and staff access."
       >
         <BulletGrid items={terms} />
       </ContentSection>

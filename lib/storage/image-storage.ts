@@ -1,9 +1,10 @@
 export const POSARD_IMAGE_BUCKET = "posard-images";
 
-export type PosardImageKind = "product" | "company-logo";
+export type PosardImageKind = "product" | "company-logo" | "donation";
 
 const POSARD_STORAGE_PREFIXES = [
   "companies/",
+  "platform/",
   "draft/",
 ] as const;
 
@@ -60,6 +61,10 @@ export function buildPosardImagePath(params: {
   if (params.kind === "company-logo") {
     const companySegment = params.ownerId || params.companyId || `draft-${uniqueId}`;
     return `companies/${companySegment}/logos/${Date.now()}-${uniqueId}-${safeName}.${extension}`;
+  }
+
+  if (params.kind === "donation") {
+    return `platform/donations/${Date.now()}-${uniqueId}-${safeName}.${extension}`;
   }
 
   const companySegment = params.companyId || "unscoped";

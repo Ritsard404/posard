@@ -16,9 +16,9 @@ export const siteConfig = {
   phone: "+63 XXX XXX XXXX",
   location: "Cebu, Philippines",
   price: {
-    amount: 250,
+    amount: 0,
     currency: "PHP",
-    label: "PHP 250 per terminal per month",
+    label: "Free right now",
   },
   keywords: [
     "POSard",
@@ -63,9 +63,9 @@ export const publicPages = {
   },
   pricing: {
     path: "/pricing",
-    title: "POSard Pricing for Small Business POS Terminals",
+    title: "POSard Free Pricing for Small Business POS",
     description:
-      "POSard pricing is PHP 250 per terminal per month for businesses that need POS checkout, inventory tracking, purchasing, expenses, reports, permissions, and terminal management without hidden platform fees.",
+      "POSard is free right now for businesses that need POS checkout, inventory tracking, purchasing, expenses, reports, permissions, and terminal management without active subscription charges.",
   },
   download: {
     path: "/download",
@@ -89,7 +89,7 @@ export const publicPages = {
     path: "/terms",
     title: "POSard Terms and Conditions",
     description:
-      "Review POSard terms covering lawful use, account security, per-terminal subscription billing, operational data accuracy, service updates, and limitations.",
+      "Review POSard terms covering lawful use, account security, current free access, optional future billing, operational data accuracy, service updates, and limitations.",
   },
 } as const;
 

@@ -33,6 +33,7 @@ Simple guides for daily POSard work. Start with the section that matches what yo
 - [How to set up printers](how-to-set-up-printers.md)
 - [How to manage sales accounts and payment labels](how-to-manage-sales-accounts-and-payment-labels.md)
 - [How to manage subscriptions](how-to-manage-subscriptions.md)
+- [How to manage free mode and donations](how-to-manage-free-mode-and-donations.md)
 - [How to manage staff accounts](how-to-manage-staff-accounts.md)
 - [How to use notifications](how-to-use-notifications.md)
 - [How to use Business Fit workflows](how-to-use-business-fit-workflows.md)

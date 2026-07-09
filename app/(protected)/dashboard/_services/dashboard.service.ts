@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getPlatformBillingMode, isPlatformBillingFree } from "@/lib/billing-access";
 import { REPORT_TIME_ZONE } from "@/lib/report-date-format";
 import { createClient } from "@/lib/supabase/server";
 import { buildRestockRecommendations } from "../../_services/inventory-restock.service";
@@ -367,6 +368,8 @@ async function getViewer(): Promise<DashboardViewerDto> {
 export const dashboardService = {
   async getDashboard(): Promise<DashboardDataDto> {
     const viewer = await getViewer();
+    const platformBillingMode = await getPlatformBillingMode();
+    const billingIsFree = isPlatformBillingFree(platformBillingMode);
     const todayStart = startOfDay();
     const todayEnd = endOfDay();
     const weekStart = daysAgo(6);
@@ -409,19 +412,23 @@ export const dashboardService = {
         prisma.registrationRequest.count({ where: { status: "pending" } }),
         prisma.terminalRequest.count({ where: { status: "pending" } }),
         prisma.terminalSubscription.count({ where: { status: "active" } }),
-        prisma.terminalSubscription.count({
-          where: {
-            status: "active",
-            expiresAt: { gte: todayStart, lte: expiringWindowEnd },
-          },
-        }),
+        billingIsFree
+          ? Promise.resolve(0)
+          : prisma.terminalSubscription.count({
+              where: {
+                status: "active",
+                expiresAt: { gte: todayStart, lte: expiringWindowEnd },
+              },
+            }),
         prisma.posTerminalInfo.count({
           where: {
             validUntil: { gte: todayStart, lte: expiringWindowEnd },
           },
         }),
         prisma.company.count({ where: { posTerminals: { none: {} } } }),
-        prisma.posTerminalInfo.count({ where: { subscription: null } }),
+        billingIsFree
+          ? Promise.resolve(0)
+          : prisma.posTerminalInfo.count({ where: { subscription: null } }),
         prisma.company.count({ where: { createdAt: { gte: monthStart, lte: todayEnd } } }),
         prisma.company.findMany({
           select: {
@@ -461,14 +468,16 @@ export const dashboardService = {
           take: 8,
         }),
         prisma.posTerminalInfo.findMany({
-          where: {
-            OR: [
-              { subscription: null },
-              { subscription: { status: { in: ["pending", "expired", "suspended", "cancelled"] } } },
-              { subscription: { status: "active", expiresAt: { lte: expiringWindowEnd } } },
-              { validUntil: { lte: expiringWindowEnd } },
-            ],
-          },
+          where: billingIsFree
+            ? { validUntil: { lte: expiringWindowEnd } }
+            : {
+                OR: [
+                  { subscription: null },
+                  { subscription: { status: { in: ["pending", "expired", "suspended", "cancelled"] } } },
+                  { subscription: { status: "active", expiresAt: { lte: expiringWindowEnd } } },
+                  { validUntil: { lte: expiringWindowEnd } },
+                ],
+              },
           select: {
             id: true,
             posName: true,
@@ -511,10 +520,11 @@ export const dashboardService = {
           const riskCount =
             company.posTerminals.filter(
               (terminal) =>
-                !terminal.subscription ||
-                terminal.subscription.status !== "active" ||
-                hasDatePassed(terminal.subscription.expiresAt) ||
-                isDateWithinDays(terminal.subscription.expiresAt, 30) ||
+                (!billingIsFree &&
+                  (!terminal.subscription ||
+                    terminal.subscription.status !== "active" ||
+                    hasDatePassed(terminal.subscription.expiresAt) ||
+                    isDateWithinDays(terminal.subscription.expiresAt, 30))) ||
                 isDateWithinDays(terminal.validUntil, 30),
             ).length + company.terminalRequests.length;
 
@@ -544,19 +554,19 @@ export const dashboardService = {
         let attentionLevel: "default" | "warning" | "danger" = "default";
         let attentionReason = "Ready";
 
-        if (!terminal.subscription) {
+        if (!billingIsFree && !terminal.subscription) {
           attentionLevel = "danger";
           attentionReason = "No subscription assigned";
-        } else if (hasExpiredSubscription) {
+        } else if (!billingIsFree && hasExpiredSubscription) {
           attentionLevel = "danger";
           attentionReason = "Subscription expired or inactive";
         } else if (hasExpiredPermit) {
           attentionLevel = "danger";
           attentionReason = "Terminal validity already expired";
-        } else if (terminal.subscription.status === "pending" || terminal.subscription.status === "suspended") {
+        } else if (!billingIsFree && (terminal.subscription?.status === "pending" || terminal.subscription?.status === "suspended")) {
           attentionLevel = "warning";
           attentionReason = "Subscription needs admin review";
-        } else if (isDateWithinDays(terminal.subscription.expiresAt, 30)) {
+        } else if (!billingIsFree && isDateWithinDays(terminal.subscription?.expiresAt, 30)) {
           attentionLevel = "warning";
           attentionReason = "Subscription expires within 30 days";
         } else if (isDateWithinDays(terminal.validUntil, 30)) {
@@ -583,12 +593,19 @@ export const dashboardService = {
         scopeLabel: "System owner overview",
         heroTitle: "System owner command center",
         heroDescription:
-          "Watch company growth, terminal subscription validity, pending approvals, and the latest operational activity across POSard.",
+          billingIsFree
+            ? "Watch company growth, terminal readiness, pending approvals, and the latest operational activity across POSard. Subscriptions are informational in free mode."
+            : "Watch company growth, terminal subscription validity, pending approvals, and the latest operational activity across POSard.",
         summary: [
           { label: "Companies", value: companiesCount, hint: "Registered businesses on the platform" },
           { label: "Active Subscriptions", value: activeSubscriptions, tone: "success", hint: "Terminals with active plans" },
           { label: "Terminals Live", value: activeTerminals, hint: "Terminal records currently enabled" },
-          { label: "Expiring in 30 Days", value: expiringSubscriptions + expiringPermits, tone: "warning", hint: "Subscriptions or permits nearing expiry" },
+          {
+            label: "Expiring in 30 Days",
+            value: expiringSubscriptions + expiringPermits,
+            tone: "warning",
+            hint: billingIsFree ? "Terminal permits nearing expiry" : "Subscriptions or permits nearing expiry",
+          },
           { label: "Pending Registration Requests", value: pendingRegistrations, tone: pendingRegistrations > 0 ? "warning" : "default", hint: "Merchant onboarding requests waiting for approval" },
           { label: "Pending Terminal Requests", value: pendingRequests, tone: pendingRequests > 0 ? "warning" : "default", hint: "Company requests needing review" },
         ],
@@ -601,7 +618,11 @@ export const dashboardService = {
           { label: "Open Sessions", value: openSessions, hint: "Drawers currently open in the field" },
           { label: "New Companies", value: newCompaniesThisMonth, hint: "Companies onboarded in the last 30 days" },
           { label: "No Terminal Yet", value: companiesWithoutTerminals, hint: "Companies still missing their first terminal" },
-          { label: "No Subscription", value: terminalsWithoutSubscription, hint: "Terminals that still need a plan" },
+          {
+            label: billingIsFree ? "Free Mode" : "No Subscription",
+            value: billingIsFree ? 0 : terminalsWithoutSubscription,
+            hint: billingIsFree ? "Subscription issues are informational" : "Terminals that still need a plan",
+          },
         ],
         adminCompanies,
         adminTerminalWatch,
