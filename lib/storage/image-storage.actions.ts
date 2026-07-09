@@ -31,7 +31,12 @@ export async function uploadPosardImageAction(formData: FormData): Promise<Image
       return { success: false, error: "Select an image to upload." };
     }
 
-    if (kind !== "product" && kind !== "company-logo" && kind !== "donation") {
+    if (
+      kind !== "product" &&
+      kind !== "company-logo" &&
+      kind !== "donation" &&
+      kind !== "payment-qr"
+    ) {
       return { success: false, error: "Image upload type is invalid." };
     }
 

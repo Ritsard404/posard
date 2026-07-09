@@ -16,12 +16,13 @@ function normalizePaymentMethodName(name: string | null) {
 
 export const epaymentService = {
   async getEPaymentMethods(
+    companyId: string,
     options: { changedSince?: Date } = {},
   ): Promise<EPaymentMethodDto[]> {
     const existingTypes = await prisma.saleType.findMany({
       where: {
+        companyId,
         type: "EPAYMENT",
-        ...(options.changedSince ? { updatedAt: { gt: options.changedSince } } : {}),
       },
       select: {
         name: true,
@@ -38,6 +39,7 @@ export const epaymentService = {
       try {
         await prisma.saleType.createMany({
           data: missingDefaults.map((name) => ({
+            companyId,
             name,
             account: null,
             type: "EPAYMENT" as const,
@@ -58,22 +60,41 @@ export const epaymentService = {
 
     const types = await prisma.saleType.findMany({
       where: {
+        companyId,
         type: "EPAYMENT",
+        ...(options.changedSince ? { updatedAt: { gt: options.changedSince } } : {}),
       },
       select: {
         id: true,
         name: true,
         account: true,
+        paymentQrImageUrl: true,
+        paymentAccountHolder: true,
+        paymentAccountNumber: true,
+        paymentProviderName: true,
+        paymentInstructions: true,
+        paymentDisplayEnabled: true,
+        paymentDisplayOrder: true,
+        paymentDetailsUpdatedAt: true,
       },
-      orderBy: {
-        name: "asc"
-      }
+      orderBy: [
+        { paymentDisplayOrder: "asc" },
+        { name: "asc" },
+      ],
     });
 
     return types.map((t) => ({
       id: t.id,
       name: t.name,
       account: t.account,
+      paymentQrImageUrl: t.paymentQrImageUrl,
+      paymentAccountHolder: t.paymentAccountHolder,
+      paymentAccountNumber: t.paymentAccountNumber,
+      paymentProviderName: t.paymentProviderName,
+      paymentInstructions: t.paymentInstructions,
+      paymentDisplayEnabled: t.paymentDisplayEnabled,
+      paymentDisplayOrder: t.paymentDisplayOrder,
+      paymentDetailsUpdatedAt: t.paymentDetailsUpdatedAt?.toISOString() ?? null,
     }));
   }
 };

@@ -71,6 +71,14 @@ export interface EPaymentMethodDto {
   id: string;
   name: string | null;
   account: string | null;
+  paymentQrImageUrl: string | null;
+  paymentAccountHolder: string | null;
+  paymentAccountNumber: string | null;
+  paymentProviderName: string | null;
+  paymentInstructions: string | null;
+  paymentDisplayEnabled: boolean;
+  paymentDisplayOrder: number | null;
+  paymentDetailsUpdatedAt: string | null;
 }
 
 export interface POSMetaDataDto {

@@ -490,7 +490,7 @@ model RegistrationRequest {
 model SystemConfiguration {
   id String @id @default("default")
 
-  directRegistrationEnabled Boolean @default(false) @map("direct_registration_enabled")
+  directRegistrationEnabled Boolean             @default(false) @map("direct_registration_enabled")
   platformBillingMode       PlatformBillingMode @default(FREE) @map("platform_billing_mode")
 
   donationEnabled       Boolean @default(false) @map("donation_enabled")
@@ -603,6 +603,7 @@ model Company {
   customerDebts             CustomerDebt[]
   debtPayments              CustomerDebtPayment[]
   invoiceReturns            InvoiceReturn[]
+  saleTypes                 SaleType[]
 
   //////////////////////////////////////////////////
   // AUDIT
@@ -1500,6 +1501,18 @@ model SaleType {
   account String?
   type    SaleTypeEnums @default(EPAYMENT)
 
+  companyId String?  @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  paymentQrImageUrl       String?   @map("payment_qr_image_url") @db.VarChar(500)
+  paymentAccountHolder    String?   @map("payment_account_holder") @db.VarChar(160)
+  paymentAccountNumber    String?   @map("payment_account_number") @db.VarChar(240)
+  paymentProviderName     String?   @map("payment_provider_name") @db.VarChar(120)
+  paymentInstructions     String?   @map("payment_instructions") @db.VarChar(500)
+  paymentDisplayEnabled   Boolean   @default(false) @map("payment_display_enabled")
+  paymentDisplayOrder     Int?      @map("payment_display_order")
+  paymentDetailsUpdatedAt DateTime? @map("payment_details_updated_at") @db.Timestamptz
+
   //////////////////////////////////////////////////
   // RELATIONS
   //////////////////////////////////////////////////
@@ -1513,6 +1526,7 @@ model SaleType {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@index([companyId, type])
   @@index([updatedAt])
   @@map("sale_type")
   @@schema("public")

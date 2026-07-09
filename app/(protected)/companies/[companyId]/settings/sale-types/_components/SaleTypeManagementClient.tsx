@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Pencil, Trash2, CreditCard, Link as LinkIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, CreditCard, Link as LinkIcon, QrCode } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -40,6 +40,7 @@ export default function SaleTypeManagementClient({
     () => ({
       totalMethods: saleTypes.length,
       configuredAccounts: saleTypes.filter((item) => Boolean(item.account)).length,
+      displayEnabled: saleTypes.filter((item) => item.paymentDisplayEnabled).length,
       usedMethods: saleTypes.filter((item) => item.paymentCount > 0).length,
     }),
     [saleTypes],
@@ -128,9 +129,10 @@ export default function SaleTypeManagementClient({
           </div>
         </div>
 
-        <div className="grid gap-4 px-6 py-5 md:grid-cols-3">
+        <div className="grid gap-4 px-6 py-5 md:grid-cols-4">
           <SummaryCard label="Payment Methods" value={summary.totalMethods} helper="Reference payment options available in POS" />
           <SummaryCard label="Mapped Accounts" value={summary.configuredAccounts} helper="Methods with an accounting label filled in" />
+          <SummaryCard label="QR Details On" value={summary.displayEnabled} helper="Methods that show payment instructions in checkout" />
           <SummaryCard label="Methods In Use" value={summary.usedMethods} helper="Methods already referenced by transactions" />
         </div>
       </Card>
@@ -173,12 +175,25 @@ export default function SaleTypeManagementClient({
                     ) : (
                       <Badge variant="outline">Unused</Badge>
                     )}
+                    {saleType.paymentDisplayEnabled ? (
+                      <Badge variant="outline">
+                        <QrCode className="mr-1 size-3" />
+                        QR/details shown
+                      </Badge>
+                    ) : null}
                   </div>
                   <div>
                     <div className="text-base font-semibold text-foreground">{saleType.name}</div>
                     <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                       <LinkIcon className="size-4" />
                       {saleType.account || "No sales account label yet"}
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {saleType.paymentDisplayEnabled
+                        ? saleType.paymentProviderName ||
+                          saleType.paymentAccountNumber ||
+                          "Manual payment display enabled"
+                        : "No checkout payment details shown"}
                     </div>
                   </div>
                 </div>

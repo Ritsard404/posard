@@ -7,6 +7,15 @@ export interface CustomerDisplayItemDTO {
   lineTotal: number;
 }
 
+export interface CustomerDisplayPaymentDetailsDTO {
+  methodName: string | null;
+  qrImageUrl: string | null;
+  accountHolder: string | null;
+  accountNumber: string | null;
+  providerName: string | null;
+  instructions: string | null;
+}
+
 export interface CustomerDisplayDTO {
   terminalId: string;
   status: CustomerDisplayStatus;
@@ -16,6 +25,7 @@ export interface CustomerDisplayDTO {
   taxTotal: number;
   totalDue: number;
   paymentMethod?: string | null;
+  paymentDetails?: CustomerDisplayPaymentDetailsDTO | null;
   cashReceived?: number | null;
   change?: number | null;
   message?: string | null;
@@ -38,6 +48,23 @@ function sanitizeString(value: unknown, fallback = "") {
 function sanitizeNullableString(value: unknown) {
   const text = sanitizeString(value);
   return text ? text : null;
+}
+
+function sanitizePaymentDetails(value: unknown): CustomerDisplayPaymentDetailsDTO | null {
+  const source =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+  if (!source) return null;
+
+  const details = {
+    methodName: sanitizeNullableString(source.methodName),
+    qrImageUrl: sanitizeNullableString(source.qrImageUrl),
+    accountHolder: sanitizeNullableString(source.accountHolder),
+    accountNumber: sanitizeNullableString(source.accountNumber),
+    providerName: sanitizeNullableString(source.providerName),
+    instructions: sanitizeNullableString(source.instructions),
+  };
+
+  return Object.values(details).some(Boolean) ? details : null;
 }
 
 function sanitizeNumber(value: unknown) {
@@ -66,6 +93,7 @@ export function buildIdleCustomerDisplayDTO(
     taxTotal: 0,
     totalDue: 0,
     paymentMethod: null,
+    paymentDetails: null,
     cashReceived: null,
     change: null,
     message: "Ready for next customer",
@@ -101,6 +129,7 @@ export function sanitizeCustomerDisplayDTO(
     taxTotal: sanitizeNumber(source.taxTotal),
     totalDue: sanitizeNumber(source.totalDue),
     paymentMethod: sanitizeNullableString(source.paymentMethod),
+    paymentDetails: sanitizePaymentDetails(source.paymentDetails),
     cashReceived:
       source.cashReceived === null || source.cashReceived === undefined
         ? null

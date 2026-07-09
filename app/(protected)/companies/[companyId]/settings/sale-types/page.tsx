@@ -16,7 +16,7 @@ export default async function SaleTypeManagementPage({
   const { companyId } = await params;
 
   await companyAccessService.assertCompanyAccess(companyId);
-  const saleTypes = await saleTypeService.listReferencePaymentMethods();
+  const saleTypes = await saleTypeService.listReferencePaymentMethods(companyId);
 
   return (
     <div className="space-y-6">

@@ -6,8 +6,10 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  Copy,
   FileText,
   Plus,
+  QrCode,
   Receipt,
   Trash2,
 } from "lucide-react";
@@ -37,6 +39,8 @@ import { payOrderAction } from "../_actions/order.action";
 import type { OrderDto } from "../_services/_dto/order.dto";
 import type { ReceiptDto } from "../_services/_dto/receipt.dto";
 import type { QueuedSaleAction } from "../_services/_dto/offline.dto";
+import type { EPaymentMethodDto } from "../_services/_dto/pos.dto";
+import { StorageImage } from "@/components/storage/StorageImage";
 import { calculatePayment } from "../_services/payment-calculation.service";
 import { formatInvoiceNumber } from "../_services/print-format.service";
 import { receiptPrintService } from "../_services/receipt-print.service";
@@ -901,7 +905,7 @@ interface POSTenderFormProps {
   selectedEPaymentMethodId: string | null;
   paymentReference: string;
   referencePayments: POSReferencePayment[];
-  epaymentMethods: Array<{ id: string; name: string | null }>;
+  epaymentMethods: EPaymentMethodDto[];
   amountTendered: number;
   referencePaymentTotal: number;
   totalTendered: number;
@@ -2121,6 +2125,120 @@ function SummaryMetric({
   );
 }
 
+function hasPaymentDisplayDetails(method: EPaymentMethodDto | null | undefined) {
+  return Boolean(
+    method?.paymentDisplayEnabled &&
+      (method.paymentQrImageUrl ||
+        method.paymentAccountHolder ||
+        method.paymentAccountNumber ||
+        method.paymentProviderName ||
+        method.paymentInstructions),
+  );
+}
+
+function copyPaymentDetail(label: string, value: string | null | undefined) {
+  const text = value?.trim();
+  if (!text) return;
+
+  const write = navigator.clipboard?.writeText(text);
+  if (!write) {
+    toast.error("Clipboard is not available on this device");
+    return;
+  }
+
+  void write
+    .then(() => toast.success(`${label} copied`))
+    .catch(() => toast.error("Unable to copy payment detail"));
+}
+
+function ManualPaymentDetailsPanel({
+  method,
+  compact = false,
+}: {
+  method: EPaymentMethodDto | null | undefined;
+  compact?: boolean;
+}) {
+  if (!hasPaymentDisplayDetails(method)) {
+    return null;
+  }
+
+  const title =
+    method?.paymentProviderName?.trim() ||
+    method?.name?.trim() ||
+    "Reference payment";
+  const detailRows = [
+    { label: "Account holder", value: method?.paymentAccountHolder },
+    { label: "Account / mobile", value: method?.paymentAccountNumber },
+  ].filter((item) => item.value?.trim());
+
+  return (
+    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+      <div className="flex items-start gap-3">
+        <div
+          className={
+            compact
+              ? "relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-background"
+              : "relative flex size-36 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-background"
+          }
+        >
+          <StorageImage
+            src={method?.paymentQrImageUrl}
+            alt={`${title} QR`}
+            fill
+            sizes={compact ? "96px" : "144px"}
+            className="object-contain"
+            fallback={<QrCode className="size-9 text-muted-foreground/40" />}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1 space-y-2">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-emerald-700">
+              Manual Payment Details
+            </p>
+            <p className="break-words text-sm font-bold text-foreground">
+              {title}
+            </p>
+          </div>
+
+          {detailRows.map((row) => (
+            <div
+              key={row.label}
+              className="flex flex-col gap-1 rounded-xl bg-background/80 p-2 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground">
+                  {row.label}
+                </p>
+                <p className="break-words text-sm font-semibold">{row.value}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10 w-full rounded-xl sm:w-auto"
+                onClick={() => copyPaymentDetail(row.label, row.value)}
+              >
+                <Copy className="size-4" />
+                Copy
+              </Button>
+            </div>
+          ))}
+
+          {method?.paymentInstructions ? (
+            <p className="rounded-xl bg-background/80 p-2 text-xs font-medium text-muted-foreground">
+              {method.paymentInstructions}
+            </p>
+          ) : null}
+          <p className="text-[11px] font-semibold text-muted-foreground">
+            POSard only displays these details. Enter the customer payment reference after they pay.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SplitPaymentEditor({
   variant,
   totalAmount,
@@ -2144,7 +2262,7 @@ function SplitPaymentEditor({
   amountTendered: number;
   setAmountTendered: (amount: number) => void;
   referencePayments: POSReferencePayment[];
-  epaymentMethods: Array<{ id: string; name: string | null }>;
+  epaymentMethods: EPaymentMethodDto[];
   referencePaymentTotal: number;
   totalTendered: number;
   remainingDue: number;
@@ -2268,82 +2386,91 @@ function SplitPaymentEditor({
 
         {referencePayments.length > 0 ? (
           <div className="space-y-2 border-t pt-3">
-            {referencePayments.map((payment, index) => (
-              <div
-                key={payment.id}
-                className="grid gap-2 rounded-2xl border bg-background p-2 md:grid-cols-[minmax(130px,0.8fr)_minmax(120px,0.7fr)_minmax(160px,1fr)_auto]"
-              >
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                    Method
-                  </Label>
-                  <select
-                    value={payment.saleTypeId}
-                    disabled={disabled}
-                    onChange={(event) =>
-                      updateReferencePayment(payment.id, {
-                        saleTypeId: event.target.value,
-                      })
-                    }
-                    className="h-10 w-full rounded-2xl border border-input bg-background px-3 text-sm"
-                  >
-                    {epaymentMethods.map((method) => (
-                      <option key={method.id} value={method.id}>
-                        {getPaymentMethodLabel(method.name)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                    Amount
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={payment.amount || ""}
-                    disabled={disabled}
-                    onChange={(event) =>
-                      updateReferencePayment(payment.id, {
-                        amount: parseFloat(event.target.value) || 0,
-                      })
-                    }
-                    className="h-10 rounded-2xl text-sm"
-                    placeholder="0.00"
+            {referencePayments.map((payment, index) => {
+              const selectedMethod = epaymentMethods.find(
+                (method) => method.id === payment.saleTypeId,
+              );
+
+              return (
+                <div key={payment.id} className="space-y-2">
+                  <div className="grid gap-2 rounded-2xl border bg-background p-2 md:grid-cols-[minmax(130px,0.8fr)_minmax(120px,0.7fr)_minmax(160px,1fr)_auto]">
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                        Method
+                      </Label>
+                      <select
+                        value={payment.saleTypeId}
+                        disabled={disabled}
+                        onChange={(event) =>
+                          updateReferencePayment(payment.id, {
+                            saleTypeId: event.target.value,
+                          })
+                        }
+                        className="h-10 w-full rounded-2xl border border-input bg-background px-3 text-sm"
+                      >
+                        {epaymentMethods.map((method) => (
+                          <option key={method.id} value={method.id}>
+                            {getPaymentMethodLabel(method.name)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                        Amount
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={payment.amount || ""}
+                        disabled={disabled}
+                        onChange={(event) =>
+                          updateReferencePayment(payment.id, {
+                            amount: parseFloat(event.target.value) || 0,
+                          })
+                        }
+                        className="h-10 rounded-2xl text-sm"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                        Reference #{index + 1}
+                      </Label>
+                      <Input
+                        value={payment.reference}
+                        disabled={disabled}
+                        onChange={(event) =>
+                          updateReferencePayment(payment.id, {
+                            reference: event.target.value,
+                          })
+                        }
+                        className="h-10 rounded-2xl text-sm"
+                        placeholder="Transaction reference"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 rounded-2xl border text-destructive hover:text-destructive"
+                        disabled={disabled}
+                        onClick={() => removeReferencePayment(payment.id)}
+                      >
+                        <Trash2 className="size-4" />
+                        <span className="sr-only">Remove reference payment</span>
+                      </Button>
+                    </div>
+                  </div>
+                  <ManualPaymentDetailsPanel
+                    method={selectedMethod}
+                    compact={isMobileVariant}
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                    Reference #{index + 1}
-                  </Label>
-                  <Input
-                    value={payment.reference}
-                    disabled={disabled}
-                    onChange={(event) =>
-                      updateReferencePayment(payment.id, {
-                        reference: event.target.value,
-                      })
-                    }
-                    className="h-10 rounded-2xl text-sm"
-                    placeholder="Transaction reference"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 rounded-2xl border text-destructive hover:text-destructive"
-                    disabled={disabled}
-                    onClick={() => removeReferencePayment(payment.id)}
-                  >
-                    <Trash2 className="size-4" />
-                    <span className="sr-only">Remove reference payment</span>
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : null}
 

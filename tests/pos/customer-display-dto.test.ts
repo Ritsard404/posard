@@ -25,6 +25,15 @@ const sanitized = sanitizeCustomerDisplayDTO(
     taxTotal: 10.555,
     totalDue: 100,
     paymentMethod: " Cash ",
+    paymentDetails: {
+      methodName: " Maya ",
+      qrImageUrl: " companies/company-a/payment-qr/maya/qr.webp ",
+      accountHolder: " Store Owner ",
+      accountNumber: " 09171234567 ",
+      providerName: " Maya ",
+      instructions: " Pay exact amount only. ",
+      internalNote: "must-not-survive",
+    },
     cashReceived: 200,
     change: 100,
     message: " Thanks ",
@@ -45,6 +54,14 @@ assert.equal(sanitized.discountTotal, 20.13);
 assert.equal(sanitized.taxTotal, 10.56);
 assert.equal(sanitized.totalDue, 100);
 assert.equal(sanitized.paymentMethod, "Cash");
+assert.deepEqual(sanitized.paymentDetails, {
+  methodName: "Maya",
+  qrImageUrl: "companies/company-a/payment-qr/maya/qr.webp",
+  accountHolder: "Store Owner",
+  accountNumber: "09171234567",
+  providerName: "Maya",
+  instructions: "Pay exact amount only.",
+});
 assert.equal(sanitized.cashReceived, 200);
 assert.equal(sanitized.change, 100);
 assert.equal(sanitized.message, "Thanks");

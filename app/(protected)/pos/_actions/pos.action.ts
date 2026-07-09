@@ -53,12 +53,16 @@ async function getCurrentProfile() {
 export async function fetchPOSMetaDataAction(): Promise<{ success: true; data: POSMetaDataDto } | { success: false; error: string }> {
   try {
     const profile = await getCurrentProfile();
-    const companyId = profile.companyId ?? undefined;
+    const companyId = profile.companyId;
+
+    if (!companyId) {
+      return { success: false, error: "No company associated with user." };
+    }
 
     const [categories, products, epaymentMethods] = await Promise.all([
       categoryService.getCategories(companyId),
       productService.getProducts(companyId),
-      epaymentService.getEPaymentMethods(),
+      epaymentService.getEPaymentMethods(companyId),
     ]);
 
     return {

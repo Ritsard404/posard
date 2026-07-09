@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef } from "react";
 import { publishCustomerDisplayAction } from "../_actions/customer-display.action";
 import { usePOSStore } from "../_store/pos-store";
 import type { CustomerDisplayDTO } from "../_services/_dto/customer-display.dto";
+import type { EPaymentMethodDto } from "../_services/_dto/pos.dto";
 import { usePOSPaymentSummary } from "./checkout-shared";
 
 function getPaymentMethodLabel(
   paymentMethod: "cash" | "reference",
   referencePayments: Array<{ saleTypeId: string; amount: number }>,
-  epaymentMethods: Array<{ id: string; name: string | null }>,
+  epaymentMethods: EPaymentMethodDto[],
   amountTendered: number,
 ) {
   if (referencePayments.length > 0 && amountTendered > 0) {
@@ -29,6 +30,41 @@ function getPaymentMethodLabel(
   );
 
   return method?.name?.trim() || "Reference Payment";
+}
+
+function getCustomerPaymentDetails(
+  referencePayments: Array<{ saleTypeId: string; amount: number }>,
+  epaymentMethods: EPaymentMethodDto[],
+) {
+  if (referencePayments.length !== 1) {
+    return null;
+  }
+
+  const method = epaymentMethods.find(
+    (item) => item.id === referencePayments[0]?.saleTypeId,
+  );
+
+  if (
+    !method?.paymentDisplayEnabled ||
+    !(
+      method.paymentQrImageUrl ||
+      method.paymentAccountHolder ||
+      method.paymentAccountNumber ||
+      method.paymentProviderName ||
+      method.paymentInstructions
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    methodName: method.name?.trim() || "Reference Payment",
+    qrImageUrl: method.paymentQrImageUrl,
+    accountHolder: method.paymentAccountHolder,
+    accountNumber: method.paymentAccountNumber,
+    providerName: method.paymentProviderName,
+    instructions: method.paymentInstructions,
+  };
 }
 
 export function CustomerDisplayPublisher() {
@@ -99,6 +135,10 @@ export function CustomerDisplayPublisher() {
               epaymentMethods,
               amountTendered,
             )
+          : null,
+      paymentDetails:
+        status === "payment"
+          ? getCustomerPaymentDetails(referencePayments, epaymentMethods)
           : null,
       cashReceived:
         status === "payment" || status === "completed" ? amountTendered : null,

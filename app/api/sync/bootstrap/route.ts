@@ -99,7 +99,7 @@ export async function GET(request: Request) {
       await Promise.all([
         categoryService.getCategories(companyId, { changedSince: changedSince ?? undefined }),
         productService.getProducts(companyId, { changedSince: changedSince ?? undefined }),
-        epaymentService.getEPaymentMethods({ changedSince: changedSince ?? undefined }),
+        epaymentService.getEPaymentMethods(companyId, { changedSince: changedSince ?? undefined }),
         changedSince
           ? prisma.category.findMany({
               where: {

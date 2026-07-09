@@ -7,9 +7,10 @@ function normalizeName(value: string) {
   return value.trim().toLowerCase();
 }
 
-async function ensureUniqueName(name: string, excludeId?: string) {
+async function ensureUniqueName(companyId: string, name: string, excludeId?: string) {
   const saleTypes = await prisma.saleType.findMany({
     where: {
+      companyId,
       type: "EPAYMENT",
       ...(excludeId ? { NOT: { id: excludeId } } : {}),
     },
@@ -29,15 +30,24 @@ async function ensureUniqueName(name: string, excludeId?: string) {
 }
 
 export const saleTypeService = {
-  async listReferencePaymentMethods(): Promise<SaleTypeListItemDTO[]> {
+  async listReferencePaymentMethods(companyId: string): Promise<SaleTypeListItemDTO[]> {
     const saleTypes = await prisma.saleType.findMany({
       where: {
+        companyId,
         type: "EPAYMENT",
       },
       select: {
         id: true,
         name: true,
         account: true,
+        paymentQrImageUrl: true,
+        paymentAccountHolder: true,
+        paymentAccountNumber: true,
+        paymentProviderName: true,
+        paymentInstructions: true,
+        paymentDisplayEnabled: true,
+        paymentDisplayOrder: true,
+        paymentDetailsUpdatedAt: true,
         _count: {
           select: {
             ePayments: true,
@@ -53,23 +63,48 @@ export const saleTypeService = {
       id: saleType.id,
       name: saleType.name?.trim() || "Unlabeled payment method",
       account: saleType.account?.trim() || null,
+      paymentQrImageUrl: saleType.paymentQrImageUrl?.trim() || null,
+      paymentAccountHolder: saleType.paymentAccountHolder?.trim() || null,
+      paymentAccountNumber: saleType.paymentAccountNumber?.trim() || null,
+      paymentProviderName: saleType.paymentProviderName?.trim() || null,
+      paymentInstructions: saleType.paymentInstructions?.trim() || null,
+      paymentDisplayEnabled: saleType.paymentDisplayEnabled,
+      paymentDisplayOrder: saleType.paymentDisplayOrder,
+      paymentDetailsUpdatedAt: saleType.paymentDetailsUpdatedAt?.toISOString() ?? null,
       paymentCount: saleType._count.ePayments,
     }));
   },
 
-  async createReferencePaymentMethod(input: SaleTypeFormInput) {
-    await ensureUniqueName(input.name);
+  async createReferencePaymentMethod(companyId: string, input: SaleTypeFormInput) {
+    await ensureUniqueName(companyId, input.name);
 
     return prisma.saleType.create({
       data: {
+        companyId,
         name: input.name,
         account: input.account || null,
         type: "EPAYMENT",
+        paymentQrImageUrl: input.paymentQrImageUrl || null,
+        paymentAccountHolder: input.paymentAccountHolder || null,
+        paymentAccountNumber: input.paymentAccountNumber || null,
+        paymentProviderName: input.paymentProviderName || null,
+        paymentInstructions: input.paymentInstructions || null,
+        paymentDisplayEnabled: input.paymentDisplayEnabled,
+        paymentDisplayOrder: input.paymentDisplayOrder,
+        paymentDetailsUpdatedAt: new Date(),
       },
       select: {
         id: true,
         name: true,
         account: true,
+        paymentQrImageUrl: true,
+        paymentAccountHolder: true,
+        paymentAccountNumber: true,
+        paymentProviderName: true,
+        paymentInstructions: true,
+        paymentDisplayEnabled: true,
+        paymentDisplayOrder: true,
+        paymentDetailsUpdatedAt: true,
         _count: {
           select: {
             ePayments: true,
@@ -79,19 +114,43 @@ export const saleTypeService = {
     });
   },
 
-  async updateReferencePaymentMethod(id: string, input: SaleTypeFormInput) {
-    await ensureUniqueName(input.name, id);
+  async updateReferencePaymentMethod(companyId: string, id: string, input: SaleTypeFormInput) {
+    await ensureUniqueName(companyId, input.name, id);
+    const existing = await prisma.saleType.findFirst({
+      where: { id, companyId, type: "EPAYMENT" },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new Error("Payment method not found");
+    }
 
     return prisma.saleType.update({
       where: { id },
       data: {
         name: input.name,
         account: input.account || null,
+        paymentQrImageUrl: input.paymentQrImageUrl || null,
+        paymentAccountHolder: input.paymentAccountHolder || null,
+        paymentAccountNumber: input.paymentAccountNumber || null,
+        paymentProviderName: input.paymentProviderName || null,
+        paymentInstructions: input.paymentInstructions || null,
+        paymentDisplayEnabled: input.paymentDisplayEnabled,
+        paymentDisplayOrder: input.paymentDisplayOrder,
+        paymentDetailsUpdatedAt: new Date(),
       },
       select: {
         id: true,
         name: true,
         account: true,
+        paymentQrImageUrl: true,
+        paymentAccountHolder: true,
+        paymentAccountNumber: true,
+        paymentProviderName: true,
+        paymentInstructions: true,
+        paymentDisplayEnabled: true,
+        paymentDisplayOrder: true,
+        paymentDetailsUpdatedAt: true,
         _count: {
           select: {
             ePayments: true,
@@ -101,9 +160,9 @@ export const saleTypeService = {
     });
   },
 
-  async deleteReferencePaymentMethod(id: string) {
-    const saleType = await prisma.saleType.findUnique({
-      where: { id },
+  async deleteReferencePaymentMethod(companyId: string, id: string) {
+    const saleType = await prisma.saleType.findFirst({
+      where: { id, companyId, type: "EPAYMENT" },
       select: {
         _count: {
           select: {

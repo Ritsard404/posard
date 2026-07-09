@@ -1,6 +1,6 @@
 "use client";
 
-export type ImageUploadPurpose = "product" | "company-logo" | "donation";
+export type ImageUploadPurpose = "product" | "company-logo" | "donation" | "payment-qr";
 
 export interface CompressedImageResult {
   file: File;
@@ -16,6 +16,7 @@ const TARGETS: Record<ImageUploadPurpose, { maxDimension: number; quality: numbe
   product: { maxDimension: 1200, quality: 0.82 },
   "company-logo": { maxDimension: 1000, quality: 0.88 },
   donation: { maxDimension: 1200, quality: 0.9 },
+  "payment-qr": { maxDimension: 1200, quality: 0.92 },
 };
 
 const RETRY_STEPS = [

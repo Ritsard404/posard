@@ -13,12 +13,28 @@ function toListItem(data: {
   id: string;
   name: string | null;
   account: string | null;
+  paymentQrImageUrl: string | null;
+  paymentAccountHolder: string | null;
+  paymentAccountNumber: string | null;
+  paymentProviderName: string | null;
+  paymentInstructions: string | null;
+  paymentDisplayEnabled: boolean;
+  paymentDisplayOrder: number | null;
+  paymentDetailsUpdatedAt: Date | null;
   _count: { ePayments: number };
 }): SaleTypeListItemDTO {
   return {
     id: data.id,
     name: data.name?.trim() || "Unlabeled payment method",
     account: data.account?.trim() || null,
+    paymentQrImageUrl: data.paymentQrImageUrl?.trim() || null,
+    paymentAccountHolder: data.paymentAccountHolder?.trim() || null,
+    paymentAccountNumber: data.paymentAccountNumber?.trim() || null,
+    paymentProviderName: data.paymentProviderName?.trim() || null,
+    paymentInstructions: data.paymentInstructions?.trim() || null,
+    paymentDisplayEnabled: data.paymentDisplayEnabled,
+    paymentDisplayOrder: data.paymentDisplayOrder,
+    paymentDetailsUpdatedAt: data.paymentDetailsUpdatedAt?.toISOString() ?? null,
     paymentCount: data._count.ePayments,
   };
 }
@@ -37,7 +53,7 @@ export async function createSaleTypeAction(
     await companyAccessService.assertCompanyAccess(companyId);
 
     const validated = SaleTypeFormSchema.parse(payload);
-    const data = await saleTypeService.createReferencePaymentMethod(validated);
+    const data = await saleTypeService.createReferencePaymentMethod(companyId, validated);
 
     revalidateSaleTypePaths(companyId);
 
@@ -59,7 +75,7 @@ export async function updateSaleTypeAction(
     await companyAccessService.assertCompanyAccess(companyId);
 
     const validated = SaleTypeFormSchema.parse(payload);
-    const data = await saleTypeService.updateReferencePaymentMethod(saleTypeId, validated);
+    const data = await saleTypeService.updateReferencePaymentMethod(companyId, saleTypeId, validated);
 
     revalidateSaleTypePaths(companyId);
 
@@ -79,7 +95,7 @@ export async function deleteSaleTypeAction(
   try {
     await companyAccessService.assertCompanyAccess(companyId);
 
-    await saleTypeService.deleteReferencePaymentMethod(saleTypeId);
+    await saleTypeService.deleteReferencePaymentMethod(companyId, saleTypeId);
 
     revalidateSaleTypePaths(companyId);
 
