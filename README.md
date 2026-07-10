@@ -107,6 +107,11 @@ EMAIL_PROVIDER=noop
 EMAIL_FROM=
 EMAIL_REPLY_TO=
 RESEND_API_KEY=
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
 AI_REPORT_ENABLED=true
 AI_PROVIDER=mock
 OPENAI_API_KEY=
@@ -125,16 +130,41 @@ Variable usage:
 | `NEXT_PUBLIC_SITE_URL` | SEO canonical URL and public metadata base |
 | `APP_URL` | Server-side base URL for provider-ready email links |
 | `EMAIL_ENABLED` | Enables outbound email attempts when provider config is complete |
-| `EMAIL_PROVIDER` | Email provider selector: `noop` or `resend` |
+| `EMAIL_PROVIDER` | Email provider selector: `noop`, `resend`, or `smtp` |
 | `EMAIL_FROM` | Verified sender address used by the email provider |
 | `EMAIL_REPLY_TO` | Optional reply-to address for transactional email |
 | `RESEND_API_KEY` | Server-only Resend API key |
+| `SMTP_HOST` | SMTP server host, for Gmail use `smtp.gmail.com` |
+| `SMTP_PORT` | SMTP port, for Gmail use `587` with STARTTLS or `465` with SSL |
+| `SMTP_SECURE` | Use `true` only for SSL port `465`; use `false` for Gmail port `587` |
+| `SMTP_USER` | Full mailbox address used for SMTP authentication |
+| `SMTP_PASSWORD` | Server-only SMTP password or Gmail app password |
 | `AI_REPORT_ENABLED` | Enables the report assistant route and server action |
 | `AI_PROVIDER` | Report assistant provider selector: `mock` or `openai` |
 | `OPENAI_API_KEY` | Server-only OpenAI API key for live report answers |
 | `AI_REPORT_USE_MOCK_WHEN_MISSING_KEY` | Keeps report assistant usable in mock mode while live keys are absent |
 
-Do not expose `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `DIRECT_URL`, `RESEND_API_KEY`, or `OPENAI_API_KEY` to client-side code.
+Do not expose `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `DIRECT_URL`, `RESEND_API_KEY`, `SMTP_PASSWORD`, or `OPENAI_API_KEY` to client-side code.
+
+Gmail sender setup:
+
+1. Turn on 2-Step Verification for the POSard Gmail or Google Workspace mailbox.
+2. Create a Google app password for POSard.
+3. Set these server-only variables:
+
+```env
+EMAIL_ENABLED=true
+EMAIL_PROVIDER=smtp
+EMAIL_FROM="POSard Support <your-posard-email@gmail.com>"
+EMAIL_REPLY_TO=your-posard-email@gmail.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-posard-email@gmail.com
+SMTP_PASSWORD=your-16-character-google-app-password
+```
+
+Incoming replies go to `EMAIL_REPLY_TO`, so the Gmail inbox is the receiver. Reading incoming Gmail messages inside POSard would require a separate Gmail API or IMAP integration.
 
 ## Development Commands
 

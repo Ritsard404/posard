@@ -9,6 +9,7 @@ Simple guides for daily POSard work. Start with the section that matches what yo
 - [How to select a terminal](how-to-select-a-terminal.md)
 - [How to start a cashier session](how-to-start-a-cashier-session.md)
 - [How to use the dashboard](how-to-use-the-dashboard.md)
+- [How to report a problem or error](how-to-report-a-problem-or-error.md)
 
 ## Sales and Checkout
 - [How to create a sale](how-to-create-a-sale.md)

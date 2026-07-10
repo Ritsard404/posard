@@ -74,6 +74,28 @@ function getHelpScrollContainer(root: HTMLElement | null) {
   return container instanceof HTMLElement ? container : null;
 }
 
+function problemReportMailto(supportEmail: string) {
+  const subject = encodeURIComponent("POSard problem report");
+  const body = encodeURIComponent(
+    [
+      "Please fill in what happened so POSard support can check and fix it.",
+      "",
+      "Store or branch:",
+      "User role:",
+      "Page or screen:",
+      "What you were trying to do:",
+      "Exact error message:",
+      "Steps before the error:",
+      "Device and browser:",
+      "Date and time:",
+      "Receipt, invoice, terminal, or customer reference:",
+      "Screenshot attached: Yes / No",
+    ].join("\n"),
+  );
+
+  return `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+}
+
 const guideGroups: HelpGroup[] = [
   {
     title: "Getting Started",
@@ -179,6 +201,40 @@ const guideGroups: HelpGroup[] = [
         ],
         reminder: "Use reports when you need exact totals for a date range.",
         keywords: ["dashboard", "summary", "warning", "overview", "live status", "sync", "printer", "approval", "restock", "variance", "cash short", "cash over"],
+      },
+      {
+        title: "Report a problem or error",
+        role: "Everyone",
+        audience: ["everyone"],
+        summary:
+          "Send the details needed to understand a bug, error message, missing record, or device issue.",
+        steps: [
+          "Stay on the page where the problem happened if it is safe to do so.",
+          "Copy the exact error message or take a screenshot.",
+          "Write what you were trying to do, such as checkout, print, sync, import, or open a report.",
+          "Write the steps before the problem happened.",
+          "Include the store, branch, terminal, cashier, time, device, and browser.",
+          "Send the report through Contact Support in the Help Center.",
+        ],
+        reminder:
+          "Do not send passwords, manager PINs, card numbers, or private customer payment details. Send receipt, invoice, terminal, or customer references only when they help identify the issue.",
+        keywords: [
+          "bug",
+          "bugs",
+          "error",
+          "problem",
+          "issue",
+          "report",
+          "support",
+          "screenshot",
+          "failed",
+          "not working",
+          "crash",
+          "missing record",
+          "wrong total",
+          "printer error",
+          "sync error",
+        ],
       },
       {
         title: "Open the feature guide",
@@ -1113,14 +1169,14 @@ function SupportCard({ supportEmail }: { supportEmail: string }) {
           <Mail className="size-4" />
         </div>
         <div>
-          <h2 className="font-semibold">Need more help?</h2>
+          <h2 className="font-semibold">Need more help or found a problem?</h2>
           <p className="text-sm text-muted-foreground">
-            Contact support if you cannot find the guide you need.
+            Contact support with the page, error message, steps, device, and time.
           </p>
         </div>
       </div>
       <Button asChild className="shrink-0">
-        <a href={`mailto:${supportEmail}`}>Contact Support</a>
+        <a href={problemReportMailto(supportEmail)}>Contact Support</a>
       </Button>
     </Card>
   );
