@@ -38,7 +38,7 @@ export function UpdatePasswordForm({
       return;
     }
 
-    setFeedback({ kind: "pending", message: "Saving your new password..." });
+    setFeedback({ kind: "idle" });
 
     startTransition(async () => {
       const supabase = createClient();

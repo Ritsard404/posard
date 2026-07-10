@@ -15,11 +15,11 @@ Use this when POSard shows an error, a page does not load, checkout does not fin
 1. Open **Help Center**.
 2. Search for **report**, **bug**, **error**, or **problem**.
 3. Open **Report a problem or error**.
-4. Select **Contact Support**.
-5. Fill in the store, branch, role, page, error message, steps, device, browser, and time.
-6. Add receipt, invoice, terminal, or customer references only when they help identify the issue.
-7. Attach a screenshot when available.
-8. Send the report.
+4. Find **Need more help or found a problem?** near the top of the page.
+5. Write what happened, what you were trying to do, and any exact error message.
+6. Add receipt, invoice, terminal, customer, or payment references only when they help identify the issue.
+7. Add a reply email if support should contact a different address.
+8. Select **Send Feedback**.
 
 ## What happens next
 Support can compare the reported page, action, time, and reference against POSard records. Clear reports make it easier to reproduce the problem and decide whether the fix is a setup change, user guidance, or code update.
@@ -27,6 +27,7 @@ Support can compare the reported page, action, time, and reference against POSar
 ## Tips or reminders
 - Write the exact error message, not only "it failed."
 - Include what you expected to happen.
+- POSard includes the current page and device details automatically.
 - Mention whether the device was online, offline, slow, or recently refreshed.
 - For printer issues, include the printer mode and device model.
 - For sync issues, include the Sync Center message and terminal.

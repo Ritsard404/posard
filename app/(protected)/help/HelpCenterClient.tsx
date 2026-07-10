@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, BookOpen, ListTree, Mail, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { ArrowUp, BookOpen, ListTree, Mail, Search, Send, X } from "lucide-react";
+import { toast } from "sonner";
 import { HeaderActions } from "@/components/layout/HeaderActions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { sendSupportFeedbackAction } from "./_actions/support-feedback.action";
 
 type HelpAudience = "everyone" | "cashier" | "manager" | "admin";
 
@@ -72,28 +74,6 @@ function scrollToSection(id: string) {
 function getHelpScrollContainer(root: HTMLElement | null) {
   const container = root?.closest("main");
   return container instanceof HTMLElement ? container : null;
-}
-
-function problemReportMailto(supportEmail: string) {
-  const subject = encodeURIComponent("POSard problem report");
-  const body = encodeURIComponent(
-    [
-      "Please fill in what happened so POSard support can check and fix it.",
-      "",
-      "Store or branch:",
-      "User role:",
-      "Page or screen:",
-      "What you were trying to do:",
-      "Exact error message:",
-      "Steps before the error:",
-      "Device and browser:",
-      "Date and time:",
-      "Receipt, invoice, terminal, or customer reference:",
-      "Screenshot attached: Yes / No",
-    ].join("\n"),
-  );
-
-  return `mailto:${supportEmail}?subject=${subject}&body=${body}`;
 }
 
 const guideGroups: HelpGroup[] = [
@@ -213,11 +193,11 @@ const guideGroups: HelpGroup[] = [
           "Copy the exact error message or take a screenshot.",
           "Write what you were trying to do, such as checkout, print, sync, import, or open a report.",
           "Write the steps before the problem happened.",
-          "Include the store, branch, terminal, cashier, time, device, and browser.",
-          "Send the report through Contact Support in the Help Center.",
+          "Include the store, branch, terminal, cashier, time, and useful references.",
+          "Use Send Feedback near the top of the Help Center.",
         ],
         reminder:
-          "Do not send passwords, manager PINs, card numbers, or private customer payment details. Send receipt, invoice, terminal, or customer references only when they help identify the issue.",
+          "Do not send passwords, manager PINs, card numbers, or private customer payment details. POSard includes the current page and device details automatically.",
         keywords: [
           "bug",
           "bugs",
@@ -1159,11 +1139,51 @@ function HelpHeaderSearch({
   );
 }
 
-function SupportCard({ supportEmail }: { supportEmail: string }) {
-  if (!supportEmail) return null;
+function SupportCard({
+  supportEmail,
+  supportReady,
+}: {
+  supportEmail: string;
+  supportReady: boolean;
+}) {
+  const [message, setMessage] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const trimmedMessage = message.trim();
+  const canSend = supportReady && trimmedMessage.length >= 10 && !isPending;
+
+  function submitFeedback() {
+    if (!supportReady) {
+      toast.error("Support email is not ready yet.");
+      return;
+    }
+
+    if (trimmedMessage.length < 10) {
+      toast.error("Write a few details before sending feedback.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await sendSupportFeedbackAction({
+        message: trimmedMessage,
+        contactEmail: contactEmail.trim(),
+        pageUrl: window.location.href,
+        deviceInfo: navigator.userAgent,
+      });
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      setMessage("");
+      setContactEmail("");
+      toast.success("Feedback sent to POSard support.");
+    });
+  }
 
   return (
-    <Card className="flex flex-col gap-3 border-border/80 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <Card className="grid gap-4 border-border/80 p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="flex items-start gap-3">
         <div className="rounded-md bg-emerald-500/10 p-2 text-emerald-700">
           <Mail className="size-4" />
@@ -1171,13 +1191,57 @@ function SupportCard({ supportEmail }: { supportEmail: string }) {
         <div>
           <h2 className="font-semibold">Need more help or found a problem?</h2>
           <p className="text-sm text-muted-foreground">
-            Contact support with the page, error message, steps, device, and time.
+            Send feedback directly from POSard. Include what you were doing,
+            what happened, and any receipt, terminal, or error message.
           </p>
+          {supportEmail ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Replies go to <span className="font-medium text-foreground">{supportEmail}</span>.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs font-medium text-destructive">
+              Support email is not configured yet.
+            </p>
+          )}
         </div>
       </div>
-      <Button asChild className="shrink-0">
-        <a href={problemReportMailto(supportEmail)}>Contact Support</a>
-      </Button>
+      <div className="grid gap-2">
+        <textarea
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          rows={4}
+          maxLength={3000}
+          placeholder="Example: Checkout froze after selecting Maya payment on Terminal 1. Error said..."
+          className="min-h-28 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            value={contactEmail}
+            onChange={(event) => setContactEmail(event.target.value)}
+            type="email"
+            placeholder="Reply email (optional)"
+            className="min-w-0"
+          />
+          <Button
+            type="button"
+            onClick={submitFeedback}
+            disabled={!canSend}
+            className="shrink-0"
+          >
+            <Send className="size-4" />
+            {isPending ? "Sending..." : "Send Feedback"}
+          </Button>
+        </div>
+        {!supportReady ? (
+          <p className="text-xs text-destructive">
+            Feedback sending is disabled until email settings are ready.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            The current page and device details are included automatically.
+          </p>
+        )}
+      </div>
     </Card>
   );
 }
@@ -1378,9 +1442,11 @@ function BackToTopButton({
 
 export function HelpCenterClient({
   currentRole,
+  supportReady,
   supportEmail,
 }: {
   currentRole: CurrentRole;
+  supportReady: boolean;
   supportEmail: string;
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
@@ -1541,7 +1607,7 @@ export function HelpCenterClient({
         visibleGuides={visibleGuides}
         totalGuides={totalGuides}
       />
-      <SupportCard supportEmail={supportEmail} />
+      <SupportCard supportEmail={supportEmail} supportReady={supportReady} />
 
       {filteredGroups.length === 0 ? (
         <Card className="border-border/80 p-8 text-center shadow-sm">

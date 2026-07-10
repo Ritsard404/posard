@@ -7,13 +7,12 @@ export default async function HelpPage() {
     getCurrentProfile(),
     Promise.resolve(getAppConfig()),
   ]);
-  const supportEmail = config.email.ready
-    ? config.email.replyTo || config.email.from
-    : "";
+  const supportEmail = config.email.replyTo || config.email.from;
 
   return (
     <HelpCenterClient
       currentRole={profile?.role ?? "cashier"}
+      supportReady={config.email.ready && Boolean(supportEmail)}
       supportEmail={supportEmail}
     />
   );
