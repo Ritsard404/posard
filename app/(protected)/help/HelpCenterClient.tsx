@@ -672,13 +672,14 @@ const guideGroups: HelpGroup[] = [
         role: "Admin",
         audience: ["admin"],
         summary:
-          "Control whether POSard is free or paid, and update optional donation QR or bank details.",
+          "Control whether POSard is free or paid, and update optional donation QR, wallet, or bank details.",
         steps: [
           "Open Admin.",
           "Open System Settings.",
           "Choose Free mode or Paid mode.",
           "Enable optional donations if needed.",
-          "Upload the QR or bank info image and save.",
+          "Add one donation account for each bank, wallet, or QR code.",
+          "Upload each QR or bank info image and save.",
         ],
         reminder: "Donations are optional and do not automatically unlock features.",
         keywords: [
@@ -688,6 +689,8 @@ const guideGroups: HelpGroup[] = [
           "donation",
           "qr donation",
           "bank info",
+          "multiple donation accounts",
+          "wallet donation",
           "system settings",
         ],
       },

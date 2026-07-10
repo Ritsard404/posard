@@ -1,3 +1,15 @@
+export interface DonationAccountDto {
+  id: string;
+  label: string | null;
+  providerName: string | null;
+  accountHolder: string | null;
+  accountDetail: string | null;
+  imageUrl: string | null;
+  notes: string | null;
+  enabled: boolean;
+  displayOrder: number;
+}
+
 export interface SystemConfigurationDto {
   directRegistrationEnabled: boolean;
   platformBillingMode: "FREE" | "PAID";
@@ -9,4 +21,5 @@ export interface SystemConfigurationDto {
   donationAccountHolder: string | null;
   donationAccountDetail: string | null;
   donationNotes: string | null;
+  donationAccounts: DonationAccountDto[];
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { Check, Gift, Loader2, ShieldCheck, WalletCards } from "lucide-react";
+import { Check, Gift, Loader2, Plus, ShieldCheck, Trash2, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,39 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ImageUploadField } from "@/components/storage/ImageUploadField";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { SystemConfigurationDto } from "../_services/system-configuration.dto";
+import type { DonationAccountDto, SystemConfigurationDto } from "../_services/system-configuration.dto";
 import { updateSystemConfigurationAction } from "../_actions/system-configuration.actions";
 
 function normalizeText(value: string | null | undefined) {
   const next = value?.trim();
   return next ? next : null;
+}
+
+function createDonationAccount(displayOrder: number): DonationAccountDto {
+  return {
+    id: `new-${Date.now()}-${displayOrder}`,
+    label: null,
+    providerName: null,
+    accountHolder: null,
+    accountDetail: null,
+    imageUrl: null,
+    notes: null,
+    enabled: true,
+    displayOrder,
+  };
+}
+
+function normalizeDonationAccount(account: DonationAccountDto, index: number): DonationAccountDto {
+  return {
+    ...account,
+    label: normalizeText(account.label),
+    providerName: normalizeText(account.providerName),
+    accountHolder: normalizeText(account.accountHolder),
+    accountDetail: normalizeText(account.accountDetail),
+    imageUrl: normalizeText(account.imageUrl),
+    notes: normalizeText(account.notes),
+    displayOrder: index,
+  };
 }
 
 export function SystemSettingsClient({
@@ -39,12 +66,16 @@ export function SystemSettingsClient({
       ...config,
       donationTitle: normalizeText(config.donationTitle),
       donationMessage: normalizeText(config.donationMessage),
-      donationImageUrl: normalizeText(config.donationImageUrl),
-      donationProviderName: normalizeText(config.donationProviderName),
-      donationAccountHolder: normalizeText(config.donationAccountHolder),
-      donationAccountDetail: normalizeText(config.donationAccountDetail),
       donationNotes: normalizeText(config.donationNotes),
+      donationAccounts: config.donationAccounts.map(normalizeDonationAccount),
     };
+    const primaryAccount =
+      payload.donationAccounts.find((account) => account.enabled) ??
+      payload.donationAccounts[0];
+    payload.donationImageUrl = primaryAccount?.imageUrl ?? null;
+    payload.donationProviderName = primaryAccount?.providerName ?? primaryAccount?.label ?? null;
+    payload.donationAccountHolder = primaryAccount?.accountHolder ?? null;
+    payload.donationAccountDetail = primaryAccount?.accountDetail ?? null;
 
     startTransition(() => {
       void updateSystemConfigurationAction(payload).then((result) => {
@@ -208,46 +239,6 @@ export function SystemSettingsClient({
                 placeholder="Support POSard"
               />
             </Field>
-            <Field label="Provider or Bank" id="donation-provider">
-              <Input
-                id="donation-provider"
-                value={config.donationProviderName ?? ""}
-                disabled={isPending}
-                onChange={(event) =>
-                  setConfig((current) => ({
-                    ...current,
-                    donationProviderName: event.target.value,
-                  }))
-                }
-                placeholder="Bank, Maya, GCash"
-              />
-            </Field>
-            <Field label="Account Holder" id="donation-holder">
-              <Input
-                id="donation-holder"
-                value={config.donationAccountHolder ?? ""}
-                disabled={isPending}
-                onChange={(event) =>
-                  setConfig((current) => ({
-                    ...current,
-                    donationAccountHolder: event.target.value,
-                  }))
-                }
-              />
-            </Field>
-            <Field label="Account Details" id="donation-detail">
-              <Input
-                id="donation-detail"
-                value={config.donationAccountDetail ?? ""}
-                disabled={isPending}
-                onChange={(event) =>
-                  setConfig((current) => ({
-                    ...current,
-                    donationAccountDetail: event.target.value,
-                  }))
-                }
-              />
-            </Field>
           </div>
 
           <Field label="Message" id="donation-message">
@@ -266,21 +257,65 @@ export function SystemSettingsClient({
             />
           </Field>
 
-          <ImageUploadField
-            id="donation-image"
-            label="Donation QR or Bank Info Image"
-            purpose="donation"
-            value={config.donationImageUrl}
-            disabled={isPending}
-            previewClassName="aspect-square max-w-52"
-            description="Optional JPG, PNG, or WEBP QR/bank info image."
-            onChange={(value) =>
-              setConfig((current) => ({
-                ...current,
-                donationImageUrl: value,
-              }))
-            }
-          />
+          <div className="space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold">Donation accounts</h3>
+                <p className="text-sm text-muted-foreground">
+                  Add separate QR codes or bank details for each account you accept.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending || config.donationAccounts.length >= 12}
+                onClick={() =>
+                  setConfig((current) => ({
+                    ...current,
+                    donationAccounts: [
+                      ...current.donationAccounts,
+                      createDonationAccount(current.donationAccounts.length),
+                    ],
+                  }))
+                }
+                className="w-full gap-2 sm:w-auto"
+              >
+                <Plus className="size-4" />
+                Add account
+              </Button>
+            </div>
+
+            {config.donationAccounts.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                No donation accounts yet. Add an account for each bank, wallet, or QR code you want to show.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {config.donationAccounts.map((account, index) => (
+                  <DonationAccountEditor
+                    key={account.id}
+                    account={account}
+                    index={index}
+                    disabled={isPending}
+                    onChange={(nextAccount) =>
+                      setConfig((current) => ({
+                        ...current,
+                        donationAccounts: current.donationAccounts.map((item, itemIndex) =>
+                          itemIndex === index ? nextAccount : item,
+                        ),
+                      }))
+                    }
+                    onRemove={() =>
+                      setConfig((current) => ({
+                        ...current,
+                        donationAccounts: current.donationAccounts.filter((_, itemIndex) => itemIndex !== index),
+                      }))
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
 
           <Field label="Private Notes" id="donation-notes">
             <textarea
@@ -313,6 +348,115 @@ export function SystemSettingsClient({
         )}
         {isPending ? "Saving..." : "Save settings"}
       </Button>
+    </div>
+  );
+}
+
+function DonationAccountEditor({
+  account,
+  index,
+  disabled,
+  onChange,
+  onRemove,
+}: {
+  account: DonationAccountDto;
+  index: number;
+  disabled: boolean;
+  onChange: (account: DonationAccountDto) => void;
+  onRemove: () => void;
+}) {
+  const update = (patch: Partial<DonationAccountDto>) =>
+    onChange({ ...account, ...patch });
+
+  return (
+    <div className="space-y-4 rounded-lg border p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold">Account {index + 1}</p>
+          <p className="text-xs text-muted-foreground">
+            This account can use its own QR image and public details.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="flex min-h-11 items-center gap-2 rounded-md border px-3 text-sm font-medium">
+            <Checkbox
+              checked={account.enabled}
+              disabled={disabled}
+              onCheckedChange={(checked) => update({ enabled: checked === true })}
+            />
+            Show this account
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            onClick={onRemove}
+            className="w-full gap-2 text-destructive hover:text-destructive sm:w-auto"
+          >
+            <Trash2 className="size-4" />
+            Remove
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Label" id={`donation-account-label-${account.id}`}>
+          <Input
+            id={`donation-account-label-${account.id}`}
+            value={account.label ?? ""}
+            disabled={disabled}
+            onChange={(event) => update({ label: event.target.value })}
+            placeholder="BDO, BPI, GCash, Maya"
+          />
+        </Field>
+        <Field label="Provider or Bank" id={`donation-account-provider-${account.id}`}>
+          <Input
+            id={`donation-account-provider-${account.id}`}
+            value={account.providerName ?? ""}
+            disabled={disabled}
+            onChange={(event) => update({ providerName: event.target.value })}
+            placeholder="Bank, Maya, GCash"
+          />
+        </Field>
+        <Field label="Account Holder" id={`donation-account-holder-${account.id}`}>
+          <Input
+            id={`donation-account-holder-${account.id}`}
+            value={account.accountHolder ?? ""}
+            disabled={disabled}
+            onChange={(event) => update({ accountHolder: event.target.value })}
+          />
+        </Field>
+        <Field label="Account Details" id={`donation-account-detail-${account.id}`}>
+          <Input
+            id={`donation-account-detail-${account.id}`}
+            value={account.accountDetail ?? ""}
+            disabled={disabled}
+            onChange={(event) => update({ accountDetail: event.target.value })}
+          />
+        </Field>
+      </div>
+
+      <ImageUploadField
+        id={`donation-account-image-${account.id}`}
+        label="QR or Bank Info Image"
+        purpose="donation"
+        value={account.imageUrl}
+        disabled={disabled}
+        previewClassName="aspect-square max-w-52"
+        description="Optional JPG, PNG, or WEBP QR/bank info image."
+        onChange={(value) => update({ imageUrl: value })}
+      />
+
+      <Field label="Public note" id={`donation-account-notes-${account.id}`}>
+        <textarea
+          id={`donation-account-notes-${account.id}`}
+          value={account.notes ?? ""}
+          disabled={disabled}
+          onChange={(event) => update({ notes: event.target.value })}
+          className="min-h-16 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder="Optional note for this account."
+        />
+      </Field>
     </div>
   );
 }
