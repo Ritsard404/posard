@@ -8,9 +8,9 @@ export const siteUrl = (
 export const siteConfig = {
   name: "POSard",
   url: siteUrl,
-  title: "POSard - Modern POS System",
+  title: "POSard POS System Philippines | Free Small Business POS",
   description:
-    "POSard is a modern point-of-sale system for small businesses, restaurants, and retail stores.",
+    "Free POS system for Philippine retail stores, restaurants, cafes, and service businesses with checkout, inventory, offline sync, expenses, and reports.",
   creator: "POSard",
   email: "support@posard.com",
   phone: "+63 XXX XXX XXXX",
@@ -232,7 +232,7 @@ export function softwareJsonLd() {
     name: siteConfig.name,
     alternateName: "POSard POS System",
     applicationCategory: "BusinessApplication",
-    operatingSystem: "Web",
+    operatingSystem: "Web, Android, Windows",
     url: siteConfig.url,
     description: siteConfig.description,
     areaServed: "Philippines",
@@ -248,6 +248,23 @@ export function softwareJsonLd() {
     publisher: {
       "@id": `${siteConfig.url}/#organization`,
     },
+  };
+}
+
+export function faqJsonLd(
+  questions: ReadonlyArray<{ question: string; answer: string }>,
+) {
+  return {
+    "@type": "FAQPage",
+    "@id": `${siteConfig.url}/#faq`,
+    mainEntity: questions.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
   };
 }
 

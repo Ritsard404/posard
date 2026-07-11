@@ -15,6 +15,7 @@ import { PwaInstallButton } from "@/components/pwa-install-button";
 import { Button } from "@/components/ui/button";
 import {
   absoluteUrl,
+  faqJsonLd,
   jsonLdScript,
   organizationJsonLd,
   publicPages,
@@ -105,12 +106,36 @@ const features = [
   },
 ];
 
+const frequentlyAskedQuestions = [
+  {
+    question: "Is POSard a free POS system in the Philippines?",
+    answer:
+      "Yes. POSard is currently free for Philippine small businesses, with checkout, inventory, reports, permissions, and terminal management included.",
+  },
+  {
+    question: "What businesses can use POSard?",
+    answer:
+      "POSard supports retail stores, restaurants, cafes, service businesses, startups, and growing branch operations.",
+  },
+  {
+    question: "Can POSard work when the internet is unstable?",
+    answer:
+      "POSard includes offline-ready checkout support and sync review tools so daily counter work can recover from temporary connection problems.",
+  },
+  {
+    question: "Does POSard include inventory and sales reports?",
+    answer:
+      "Yes. POSard connects product stock, inventory movements, suppliers, purchases, expenses, cashier activity, and sales reporting in one workspace.",
+  },
+] as const;
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
     organizationJsonLd(),
     websiteJsonLd(),
     softwareJsonLd(),
+    faqJsonLd(frequentlyAskedQuestions),
   ],
 };
 
@@ -221,7 +246,7 @@ export default function Home() {
               <div className="relative overflow-hidden rounded-[2.5rem] border border-white/20 glass-card p-4 translate-y-0 group-hover:-translate-y-4 transition-transform duration-700">
                 <Image
                   src="/images/pos-hero.png"
-                  alt="POSard Interface"
+                  alt="POSard point of sale dashboard for Philippine small businesses"
                   width={800}
                   height={600}
                   className="rounded-[1.5rem] shadow-2xl"
@@ -266,6 +291,33 @@ export default function Home() {
                 </Card>
               );
             })}
+          </div>
+        </section>
+
+        <section className="w-full max-w-7xl border-t border-white/5 px-6 py-24">
+          <div className="mx-auto max-w-4xl">
+            <div className="text-center">
+              <h2 className="text-3xl font-heading font-bold tracking-tight md:text-5xl">
+                Philippine POS system questions
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-muted-foreground">
+                Quick answers for owners comparing POS software for retail, restaurants,
+                cafes, and service businesses.
+              </p>
+            </div>
+            <div className="mt-10 grid gap-4">
+              {frequentlyAskedQuestions.map((item) => (
+                <details
+                  key={item.question}
+                  className="glass-card rounded-2xl border border-white/10 bg-white/55 p-5"
+                >
+                  <summary className="cursor-pointer font-heading text-lg font-bold">
+                    {item.question}
+                  </summary>
+                  <p className="mt-3 leading-7 text-muted-foreground">{item.answer}</p>
+                </details>
+              ))}
+            </div>
           </div>
         </section>
 

@@ -138,14 +138,15 @@ function sectionHasActiveItem(
 function filterAppModeItems(
   items: SidebarNavItem[],
   appMode: PosardAppMode,
+  role: UserRole,
 ): SidebarNavItem[] {
   const filteredItems: SidebarNavItem[] = [];
 
   for (const item of items) {
     const children = item.children
-      ? filterAppModeItems(item.children, appMode)
+      ? filterAppModeItems(item.children, appMode, role)
       : undefined;
-    const hrefAllowed = isMobileAppHrefAllowed(item.href, appMode);
+    const hrefAllowed = isMobileAppHrefAllowed(item.href, appMode, role);
 
     if (!hrefAllowed && (!children || children.length === 0)) {
       continue;
@@ -164,11 +165,12 @@ function filterAppModeItems(
 function filterAppModeSections(
   sections: SidebarNavSection[],
   appMode: PosardAppMode,
+  role: UserRole,
 ) {
   return sections
     .map((section) => ({
       ...section,
-      items: filterAppModeItems(section.items, appMode),
+      items: filterAppModeItems(section.items, appMode, role),
     }))
     .filter((section) => section.items.length > 0);
 }
@@ -329,6 +331,7 @@ export function AppSidebar({
         ? filterAppModeSections(
             getSidebarSections(profile.role, navContext),
             appMode,
+            profile.role,
           )
         : [],
     [appMode, navContext, profile],

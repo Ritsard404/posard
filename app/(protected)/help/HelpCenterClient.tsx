@@ -144,16 +144,16 @@ const guideGroups: HelpGroup[] = [
         role: "Cashier / Manager",
         audience: ["cashier", "manager"],
         summary:
-          "Keep phone, tablet, and Android app devices focused on checkout work.",
+          "Keep cashier devices focused on checkout while managers retain their authorized setup and management access.",
         steps: [
           "Open POSard on the phone, tablet, or Android app.",
           "Use Point of Sale for menu, cart, and tender.",
           "Use the compact printer, sync, and session actions when needed.",
           "Open Sync Center for queued offline work.",
-          "Use a desktop or admin device for reports, imports, and deep setup.",
+          "Managers can use the normal navigation to finish onboarding, add cashiers and products, and manage the company.",
         ],
         reminder:
-          "Restricted mobile pages show links back to POS, Sync Center, and printer setup.",
+          "Managers keep their role-based access on mobile. Restricted cashier pages show links back to POS, Sync Center, and printer setup.",
         keywords: [
           "mobile app",
           "tablet",
@@ -163,6 +163,10 @@ const guideGroups: HelpGroup[] = [
           "checkout",
           "sync",
           "printer",
+          "onboarding",
+          "add cashier",
+          "add product",
+          "manager access",
         ],
       },
       {

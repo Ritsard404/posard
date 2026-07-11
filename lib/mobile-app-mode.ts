@@ -13,6 +13,8 @@ export interface MobileRestrictionResult {
   reason: string;
 }
 
+type MobileAppAccessRole = "admin" | "manager" | "cashier";
+
 const appModes: PosardAppMode[] = [
   "desktop-browser",
   "tablet-browser",
@@ -120,8 +122,9 @@ export function getClientViewportAppMode(width: number): PosardAppMode {
 export function isMobileAppHrefAllowed(
   href: string | undefined,
   mode: PosardAppMode | null,
+  role?: MobileAppAccessRole | null,
 ) {
-  if (!href || !isRestrictedMobileAppMode(mode)) {
+  if (!href || !isRestrictedMobileAppMode(mode) || role === "manager") {
     return true;
   }
 
@@ -141,8 +144,9 @@ export function getMobileAppRouteRestriction(input: {
   pathname: string;
   search?: string | URLSearchParams | null;
   mode: PosardAppMode | null;
+  role?: MobileAppAccessRole | null;
 }): MobileRestrictionResult {
-  if (!isRestrictedMobileAppMode(input.mode)) {
+  if (!isRestrictedMobileAppMode(input.mode) || input.role === "manager") {
     return { restricted: false, title: "", reason: "" };
   }
 

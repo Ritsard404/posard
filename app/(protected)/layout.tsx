@@ -104,7 +104,7 @@ export default async function DashboardLayout({
     notifications: NotificationListDto,
   ) => (
     <SidebarProvider>
-      <MobileAppModeBridge initialMode={appMode} />
+      <MobileAppModeBridge initialMode={appMode} role={initialProfile.role} />
       <AppSidebar initialProfile={initialProfile} initialMode={appMode} />
       <SidebarInset className="h-svh min-w-0 overflow-hidden">
         {/* Sticky Header */}
@@ -153,6 +153,7 @@ export default async function DashboardLayout({
     pathname,
     search,
     mode: appMode,
+    role: profile.role,
   });
 
   if (mobileRestriction.restricted) {

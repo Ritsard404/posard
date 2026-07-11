@@ -8,11 +8,14 @@ import {
   type PosardAppMode,
 } from "@/lib/mobile-app-mode";
 import { useMobileAppMode } from "@/hooks/use-mobile-app-mode";
+import type { UserRole } from "@/lib/access-control";
 
 export function MobileAppModeBridge({
   initialMode,
+  role,
 }: {
   initialMode: PosardAppMode;
+  role: UserRole;
 }) {
   const mode = useMobileAppMode(initialMode);
   const pathname = usePathname();
@@ -25,6 +28,7 @@ export function MobileAppModeBridge({
       pathname,
       search: searchParams,
       mode,
+      role,
     });
     const refreshKey = `${mode}:${pathname}?${searchParams.toString()}`;
 
@@ -36,7 +40,7 @@ export function MobileAppModeBridge({
       lastRefreshKey.current = refreshKey;
       router.refresh();
     }
-  }, [mode, pathname, router, searchParams]);
+  }, [mode, pathname, role, router, searchParams]);
 
   return null;
 }

@@ -6,6 +6,7 @@ const publicRoutes = [
   { path: publicPages.features.path, priority: 0.9 },
   { path: publicPages.pricing.path, priority: 0.9 },
   { path: publicPages.solutions.path, priority: 0.85 },
+  { path: publicPages.download.path, priority: 0.8 },
   { path: publicPages.about.path, priority: 0.8 },
   { path: publicPages.contact.path, priority: 0.7 },
   { path: publicPages.privacy.path, priority: 0.5 },
@@ -15,7 +16,6 @@ const publicRoutes = [
 export default function sitemap(): MetadataRoute.Sitemap {
   return publicRoutes.map((route) => ({
     url: absoluteUrl(route.path),
-    lastModified: new Date("2026-06-06"),
     changeFrequency: "monthly",
     priority: route.priority,
   }));
