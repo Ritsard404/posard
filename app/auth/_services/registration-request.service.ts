@@ -91,17 +91,24 @@ export const registrationRequestService = {
       }
 
       const adminClient = createAdminClient();
-      const createUserResult = await adminClient.auth.admin.createUser({
+      const appConfig = getAppConfig();
+      const createUserResult = await adminClient.auth.admin.generateLink({
+        type: "signup",
         email,
         password: input.password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: input.fullName.trim(),
+        options: {
+          data: {
+            full_name: input.fullName.trim(),
+          },
+          redirectTo: appConfig.appUrl
+            ? `${appConfig.appUrl}/auth/callback`
+            : undefined,
         },
       });
       const user = createUserResult.data.user;
+      const confirmationUrl = createUserResult.data.properties?.action_link;
 
-      if (createUserResult.error || !user?.id || !user.email) {
+      if (createUserResult.error || !user?.id || !user.email || !confirmationUrl) {
         throw new Error(
           createUserResult.error?.message ?? "Failed to create account.",
         );
@@ -137,9 +144,19 @@ export const registrationRequestService = {
         relatedEntityType: "profile",
         relatedEntityId: profileId,
       });
-      await sendWelcomeEmail(email, input.fullName.trim(), "direct_registration");
+      const emailResult = await sendEmailConfirmation({
+        email,
+        fullName: input.fullName.trim(),
+        confirmationUrl,
+      });
 
-      return { mode: "direct", email };
+      if (emailResult.status !== "sent") {
+        await prisma.profile.delete({ where: { id: profileId } });
+        await adminClient.auth.admin.deleteUser(user.id);
+        throw new Error("Unable to send the verification email. Please try again.");
+      }
+
+      return { mode: "email_confirmation", email };
     }
 
     const request = await prisma.registrationRequest.create({
@@ -152,7 +169,12 @@ export const registrationRequestService = {
         status: "pending",
       },
     });
-    await notifyAdminsOfRegistrationRequest(request.id, input.fullName.trim());
+    await notifyAdminsOfRegistrationRequest({
+      requestId: request.id,
+      fullName: input.fullName.trim(),
+      email,
+      companyName: input.companyName,
+    });
     await sendPendingReviewEmail(email, request.id);
 
     return { mode: "pending_approval" };
@@ -246,7 +268,12 @@ export const registrationRequestService = {
         status: "pending",
       },
     });
-    await notifyAdminsOfRegistrationRequest(request.id, fullName);
+    await notifyAdminsOfRegistrationRequest({
+      requestId: request.id,
+      fullName,
+      email,
+      companyName: null,
+    });
     await sendPendingReviewEmail(email, request.id);
 
     return { mode: "pending_approval" };
@@ -314,6 +341,24 @@ async function sendWelcomeEmail(email: string, fullName: string, flow: string) {
   });
 }
 
+async function sendEmailConfirmation(input: {
+  email: string;
+  fullName: string;
+  confirmationUrl: string;
+}) {
+  const template = emailTemplates.accountEmailConfirmation({
+    name: input.fullName,
+    confirmationUrl: input.confirmationUrl,
+  });
+
+  return messagingService.sendEmail({
+    to: input.email,
+    category: "auth",
+    metadata: { flow: "email_confirmation_required" },
+    ...template,
+  });
+}
+
 async function sendPendingReviewEmail(email: string, requestId: string) {
   await messagingService.sendEmail({
     to: email,
@@ -325,22 +370,44 @@ async function sendPendingReviewEmail(email: string, requestId: string) {
   });
 }
 
-async function notifyAdminsOfRegistrationRequest(requestId: string, fullName: string) {
+async function notifyAdminsOfRegistrationRequest(input: {
+  requestId: string;
+  fullName: string;
+  email: string;
+  companyName: string | null;
+}) {
   const admins = await prisma.profile.findMany({
     where: { role: "admin", status: "active" },
-    select: { id: true },
+    select: { id: true, email: true },
   });
 
-  await notificationService.createMany(
-    admins.map((admin) => ({
+  const appConfig = getAppConfig();
+  const template = emailTemplates.registrationApprovalRequested({
+    name: input.fullName,
+    email: input.email,
+    companyName: input.companyName,
+    approvalUrl: appConfig.appUrl ? `${appConfig.appUrl}/approvals` : undefined,
+  });
+
+  await Promise.all([
+    notificationService.createMany(admins.map((admin) => ({
       profileId: admin.id,
       category: "REGISTRATION" as const,
       type: "manager_registration_pending",
       title: "Registration pending approval",
-      body: `${fullName} submitted a manager registration request.`,
+      body: `${input.fullName} submitted a manager registration request.`,
       href: "/approvals",
       relatedEntityType: "registration_request",
-      relatedEntityId: requestId,
+      relatedEntityId: input.requestId,
+    }))),
+    ...admins.map((admin) => messagingService.sendEmail({
+      to: admin.email,
+      category: "registration",
+      metadata: {
+        requestId: input.requestId,
+        flow: "admin_approval_requested",
+      },
+      ...template,
     })),
-  );
+  ]);
 }

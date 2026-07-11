@@ -490,7 +490,7 @@ model RegistrationRequest {
 model SystemConfiguration {
   id String @id @default("default")
 
-  directRegistrationEnabled Boolean             @default(false) @map("direct_registration_enabled")
+  directRegistrationEnabled Boolean             @default(true) @map("direct_registration_enabled")
   platformBillingMode       PlatformBillingMode @default(FREE) @map("platform_billing_mode")
 
   donationEnabled       Boolean @default(false) @map("donation_enabled")

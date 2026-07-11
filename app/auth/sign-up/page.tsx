@@ -47,7 +47,7 @@ export default async function Page() {
       title="Create your POSard merchant account."
       description={
         config.directRegistrationEnabled
-          ? "Create an active POSard manager account and continue to company setup."
+          ? "Create your POSard manager account, confirm your email, then continue to company setup. No admin approval is required."
           : "Start with a branded POS workflow for orders, checkout, receipts, inventory, purchasing, expenses, permissions, and sales reporting, then wait for admin approval to activate access."
       }
     >

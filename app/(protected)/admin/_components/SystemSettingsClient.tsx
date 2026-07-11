@@ -132,7 +132,7 @@ export function SystemSettingsClient({
                 Allow direct registration without admin approval
               </Label>
               <p className="text-sm text-muted-foreground">
-                When enabled, public manager sign-ups create an active account immediately.
+                When enabled, public manager sign-ups activate after email verification.
                 When disabled, sign-ups stay in the existing admin approval queue.
               </p>
             </div>

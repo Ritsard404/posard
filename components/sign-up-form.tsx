@@ -132,6 +132,11 @@ export function SignUpForm({
 
         if (!result.success) throw new Error(result.error);
 
+        if (result.data.mode === "email_confirmation") {
+          router.push("/auth/sign-up-success");
+          return;
+        }
+
         if (result.data.mode === "direct") {
           const supabase = createClient();
           const { error } = await supabase.auth.signInWithPassword({
@@ -207,7 +212,7 @@ export function SignUpForm({
           </CardTitle>
           <CardDescription className="font-medium text-muted-foreground">
             {directRegistrationEnabled
-              ? "Create your active merchant account"
+              ? "Create your account, then confirm your email to sign in"
               : "Submit your merchant onboarding request for admin approval"}
           </CardDescription>
         </CardHeader>

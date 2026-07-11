@@ -10,7 +10,10 @@ import {
 type SubmitRegistrationResult =
   | {
       success: true;
-      data: { mode: "pending_approval" } | { mode: "direct"; email: string };
+      data:
+        | { mode: "pending_approval" }
+        | { mode: "email_confirmation"; email: string }
+        | { mode: "direct"; email: string };
     }
   | { success: false; error: string };
 

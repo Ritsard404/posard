@@ -86,6 +86,7 @@ const guideGroups: HelpGroup[] = [
         audience: ["everyone"],
         summary: "Open your account and reach the pages allowed for your role.",
         steps: [
+          "For a new public account, select Confirm email in the POSard verification message.",
           "Open the login page.",
           "Enter your email and password.",
           "Select Log in.",
@@ -93,8 +94,8 @@ const guideGroups: HelpGroup[] = [
           "Log out when you finish on a shared device.",
         ],
         reminder:
-          "Ask a manager if your account is still waiting for approval. Logging out clears protected browser caches, while pending offline checkout work still follows Sync Center rules.",
-        keywords: ["login", "sign in", "access", "password", "account", "mobile", "navigation", "logout", "shared device", "cache"],
+          "Direct registration does not need admin approval, but email verification is required before the first login. Logging out clears protected browser caches, while pending offline checkout work still follows Sync Center rules.",
+        keywords: ["login", "sign in", "access", "password", "account", "email verification", "confirm email", "registration", "mobile", "navigation", "logout", "shared device", "cache"],
       },
       {
         title: "Select a terminal",
@@ -858,10 +859,10 @@ const guideGroups: HelpGroup[] = [
           "Open Approvals.",
           "Read the request.",
           "Add a note if needed.",
-          "Approve or Reject.",
+          "Approve to email the user a secure password setup link, or reject the request.",
         ],
-        reminder: "Approve only when the reason is clear.",
-        keywords: ["approval", "approve", "reject", "request"],
+        reminder: "Never create or send a user's password. The user chooses it through the secure email link.",
+        keywords: ["approval", "approve", "reject", "request", "set password", "setup email", "registration"],
       },
       {
         title: "Use AI Report Assistant",

@@ -17,4 +17,5 @@ export interface RegistrationRequestLoginStatusDto {
 
 export type SubmitRegistrationResultDto =
   | { mode: "pending_approval" }
+  | { mode: "email_confirmation"; email: string }
   | { mode: "direct"; email: string };

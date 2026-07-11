@@ -12,27 +12,27 @@ import {
 export default function Page() {
   return (
     <AuthShell
-      eyebrow="Request submitted"
-      title="Your registration request is waiting for review."
-      description="An admin must approve your request before a Supabase Auth account is created for you."
+      eyebrow="Check your email"
+      title="Confirm your email to finish registration."
+      description="No admin approval is required. Open the verification message sent to your email before logging in."
     >
       <div className="w-full max-w-md">
         <Card className="rounded-[2rem] border border-white/10 bg-white/80 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
           <CardHeader className="space-y-3 text-center">
             <div className="mx-auto inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-600">
-              Pending approval
+              Email verification required
             </div>
             <CardTitle className="text-3xl font-heading font-extrabold tracking-tight md:text-4xl">
-              Request Submitted
+              Account Created
             </CardTitle>
             <CardDescription className="font-medium text-muted-foreground">
-              Waiting for admin approval
+              Check your inbox
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-center">
             <p className="text-sm leading-7 text-muted-foreground">
-              Registration request submitted. Please wait for admin approval.
-              Once approved, your admin can give you the login password directly so you can sign in even without a working email inbox.
+              Select <strong>Confirm email</strong> in the message from POSard.
+              After verification, log in using the email and password you registered.
             </p>
             <Link
               href="/auth/login"
