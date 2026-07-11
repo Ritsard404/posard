@@ -85,7 +85,7 @@ test("restricts heavy routes in mobile/tablet app mode but not desktop", () => {
   );
 });
 
-test("keeps full manager access available during mobile onboarding and setup", () => {
+test("keeps full manager and admin access available on mobile", () => {
   for (const pathname of [
     "/dashboard",
     "/product",
@@ -109,6 +109,18 @@ test("keeps full manager access available during mobile onboarding and setup", (
   );
   assert.equal(
     isMobileAppHrefAllowed("/accounts", "tablet-browser", "manager"),
+    true,
+  );
+  assert.equal(
+    getMobileAppRouteRestriction({
+      pathname: "/admin/settings",
+      mode: "capacitor-android",
+      role: "admin",
+    }).restricted,
+    false,
+  );
+  assert.equal(
+    isMobileAppHrefAllowed("/approvals", "phone-browser", "admin"),
     true,
   );
   assert.equal(

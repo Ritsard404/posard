@@ -141,19 +141,19 @@ const guideGroups: HelpGroup[] = [
       },
       {
         title: "Use mobile and tablet app mode",
-        role: "Cashier / Manager",
-        audience: ["cashier", "manager"],
+        role: "Cashier / Manager / Admin",
+        audience: ["cashier", "manager", "admin"],
         summary:
-          "Keep cashier devices focused on checkout while managers retain their authorized setup and management access.",
+          "Keep cashier devices focused on checkout while managers and administrators retain their authorized management access.",
         steps: [
           "Open POSard on the phone, tablet, or Android app.",
           "Use Point of Sale for menu, cart, and tender.",
           "Use the compact printer, sync, and session actions when needed.",
           "Open Sync Center for queued offline work.",
-          "Managers can use the normal navigation to finish onboarding, add cashiers and products, and manage the company.",
+          "Managers and administrators can use normal navigation to finish setup, add users and products, and manage the areas allowed for their role.",
         ],
         reminder:
-          "Managers keep their role-based access on mobile. Restricted cashier pages show links back to POS, Sync Center, and printer setup.",
+          "Managers and administrators keep their role-based access on mobile. Restricted cashier pages show links back to POS, Sync Center, and printer setup.",
         keywords: [
           "mobile app",
           "tablet",
@@ -167,6 +167,7 @@ const guideGroups: HelpGroup[] = [
           "add cashier",
           "add product",
           "manager access",
+          "admin access",
         ],
       },
       {
