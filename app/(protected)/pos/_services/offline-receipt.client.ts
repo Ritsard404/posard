@@ -96,6 +96,8 @@ export function buildProvisionalReceipt(input: {
     address: null,
     vatTinNumber: null,
     minNumber: null,
+    receiptLogoImageUrl: null,
+    receiptFooter: null,
     terminalVat: input.terminalVat,
     cashierName: input.cashierName ?? "Unknown",
     isTrainMode: false,

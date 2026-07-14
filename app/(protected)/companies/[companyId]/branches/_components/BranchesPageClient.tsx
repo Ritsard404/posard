@@ -3,12 +3,14 @@
 import { useState, useTransition } from "react";
 import type React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { toast } from "sonner";
-import { Building2, Pencil, Plus, Power } from "lucide-react";
+import { Building2, ImageIcon, Pencil, Plus, Power, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ImageUploadField } from "@/components/storage/ImageUploadField";
+import { StorageImage } from "@/components/storage/StorageImage";
 import {
   Dialog,
   DialogContent,
@@ -257,6 +259,15 @@ function BranchDialog({
       isActive: state?.mode === "edit" ? state.branch.isActive : true,
     },
   });
+  const logoImageUrl = useWatch({ control: form.control, name: "logoImageUrl" }) as string | null | undefined;
+  const receiptFooter = useWatch({ control: form.control, name: "receiptFooter" }) as string | null | undefined;
+  const watchedBranchName = useWatch({ control: form.control, name: "name" });
+  const branchAddressValue = useWatch({ control: form.control, name: "address" });
+  const branchName = String(watchedBranchName || "Branch");
+  const branchAddress =
+    typeof branchAddressValue === "string" && branchAddressValue.trim()
+      ? branchAddressValue
+      : null;
 
   if (!state) {
     return null;
@@ -368,9 +379,32 @@ function BranchDialog({
           <BranchField label="Receipt Footer" id="branch-receipt-footer" error={form.formState.errors.receiptFooter?.message}>
             <Input id="branch-receipt-footer" disabled={isPending} {...form.register("receiptFooter")} />
           </BranchField>
-          <BranchField label="Logo Override" id="branch-logo" error={form.formState.errors.logoImageUrl?.message}>
-            <Input id="branch-logo" disabled={isPending} {...form.register("logoImageUrl")} />
-          </BranchField>
+          <div>
+            <input type="hidden" {...form.register("logoImageUrl")} />
+            <ImageUploadField
+              id="branch-receipt-logo"
+              label="Receipt Logo"
+              purpose="company-logo"
+              ownerId={state.mode === "edit" ? state.branch.id : companyId}
+              value={logoImageUrl}
+              disabled={isPending}
+              error={form.formState.errors.logoImageUrl?.message}
+              description="Upload a simple high-contrast logo for receipt preview and browser printing."
+              previewClassName="aspect-[3/2] max-w-36 bg-white"
+              onChange={(value) => {
+                form.setValue("logoImageUrl", value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }}
+            />
+          </div>
+          <ReceiptDesignPreview
+            branchName={branchName}
+            branchAddress={branchAddress}
+            logoImageUrl={logoImageUrl}
+            receiptFooter={receiptFooter}
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
@@ -383,6 +417,54 @@ function BranchDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ReceiptDesignPreview({
+  branchName,
+  branchAddress,
+  logoImageUrl,
+  receiptFooter,
+}: {
+  branchName: string;
+  branchAddress: string | null;
+  logoImageUrl: string | null | undefined;
+  receiptFooter: string | null | undefined;
+}) {
+  return (
+    <div className="rounded-md border bg-muted/20 p-3">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
+        <Receipt className="size-3.5" />
+        Receipt Preview
+      </div>
+      <div className="mx-auto w-full max-w-56 rounded-sm border bg-white p-3 text-center font-mono text-[11px] leading-4 text-zinc-900 shadow-sm">
+        {logoImageUrl ? (
+          <div className="relative mx-auto mb-2 h-14 w-36 overflow-hidden">
+            <StorageImage
+              src={logoImageUrl}
+              alt="Receipt logo preview"
+              fill
+              sizes="144px"
+              className="object-contain grayscale contrast-125"
+              fallback={<ImageIcon className="mx-auto mt-3 size-6 text-zinc-300" />}
+            />
+          </div>
+        ) : null}
+        <div className="font-semibold uppercase">{branchName || "Branch"}</div>
+        <div className="text-[10px]">{branchAddress || "Store address"}</div>
+        <div className="my-2 border-t border-dashed border-zinc-400" />
+        <div className="flex justify-between">
+          <span>2 x Sample Item</span>
+          <span>100.00</span>
+        </div>
+        <div className="mt-1 flex justify-between font-semibold">
+          <span>TOTAL</span>
+          <span>100.00</span>
+        </div>
+        <div className="my-2 border-t border-dashed border-zinc-400" />
+        <div>{receiptFooter?.trim() || "Thank you"}</div>
+      </div>
+    </div>
   );
 }
 

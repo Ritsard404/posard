@@ -68,6 +68,7 @@ export interface PrintJobDto {
   title: string;
   intent: PrintIntent;
   previewContent: string;
+  logoImageUrl?: string | null;
   printSegments?: string[];
   printerConfig: PrinterConfigDto | null;
 }

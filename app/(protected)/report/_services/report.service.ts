@@ -4039,6 +4039,17 @@ export const reportService = {
             vatTinNumber: true,
             minNumber: true,
             vat: true,
+            company: {
+              select: {
+                logoImageUrl: true,
+              },
+            },
+          },
+        },
+        branch: {
+          select: {
+            receiptFooter: true,
+            logoImageUrl: true,
           },
         },
         cashier: {
@@ -4100,6 +4111,9 @@ export const reportService = {
       address: invoice.posTerminal.address,
       vatTinNumber: invoice.posTerminal.vatTinNumber,
       minNumber: invoice.posTerminal.minNumber,
+      receiptLogoImageUrl:
+        invoice.branch?.logoImageUrl ?? invoice.posTerminal.company.logoImageUrl,
+      receiptFooter: invoice.branch?.receiptFooter ?? null,
       terminalVat: invoice.posTerminal.vat ?? 0,
       cashierName: invoice.cashier.fullName ?? "Unknown",
       isTrainMode: invoice.isTrainMode,

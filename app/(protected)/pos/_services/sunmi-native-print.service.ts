@@ -9,6 +9,7 @@ import {
   isCapacitorPluginAvailable,
   isNativePlatform,
 } from "@/src/lib/capacitor/platform";
+import { getReceiptLogoBase64Png } from "./receipt-logo-raster.client";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -36,7 +37,7 @@ interface SunmiPrinterPlugin {
     connected: boolean;
     model: string;
   }>;
-  printReceipt(options: { segments: string[] }): Promise<{
+  printReceipt(options: { segments: string[]; logoBase64Png?: string | null }): Promise<{
     success?: boolean;
     segmentsPrinted?: number;
   }>;
@@ -213,7 +214,15 @@ export const sunmiNativePrintService = {
     await bridge.printText(content);
   },
 
-  async printReceipt(segments: string[]) {
+  async printReceipt(segments: string[], logoImageUrl?: string | null) {
+    let logoBase64Png: string | null = null;
+
+    try {
+      logoBase64Png = logoImageUrl ? await getReceiptLogoBase64Png(logoImageUrl) : null;
+    } catch (error) {
+      console.warn("Receipt logo could not be prepared for SUNMI printing.", error);
+    }
+
     const sunmiPrinterPlugin = await getSunmiPrinterPlugin();
 
     if (sunmiPrinterPlugin) {
@@ -227,6 +236,7 @@ export const sunmiNativePrintService = {
 
       await sunmiPrinterPlugin.printReceipt({
         segments: segments.filter((segment) => segment.trim().length > 0),
+        logoBase64Png,
       });
       return;
     }

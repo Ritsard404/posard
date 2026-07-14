@@ -31,6 +31,7 @@ Simple guides for daily POSard work. Start with the section that matches what yo
 - [How to manage branches](how-to-manage-branches.md)
 - [How to manage terminals](how-to-manage-terminals.md)
 - [How to set up printers](how-to-set-up-printers.md)
+- [How to edit receipt design and logo](how-to-edit-receipt-design-and-logo.md)
 - [How to manage sales accounts and payment labels](how-to-manage-sales-accounts-and-payment-labels.md)
 - [How to manage subscriptions](how-to-manage-subscriptions.md)
 - [How to manage free mode and donations](how-to-manage-free-mode-and-donations.md)

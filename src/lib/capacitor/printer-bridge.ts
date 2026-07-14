@@ -25,6 +25,7 @@ function buildReceiptJob(
     title: "Receipt",
     intent: "receipt",
     previewContent: payload.previewContent,
+    logoImageUrl: payload.logoImageUrl,
     printSegments: payload.printSegments,
     printerConfig,
   };
@@ -54,6 +55,7 @@ async function tryNativeReceiptPrint(
   try {
     await sunmiNativePrintService.printReceipt(
       job.printSegments?.length ? job.printSegments : [job.previewContent],
+      job.logoImageUrl,
     );
 
     return {

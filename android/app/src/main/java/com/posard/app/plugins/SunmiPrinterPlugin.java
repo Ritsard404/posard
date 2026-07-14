@@ -1,7 +1,10 @@
 package com.posard.app.plugins;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.RemoteException;
+import android.util.Base64;
 import android.util.Log;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -19,6 +22,8 @@ import org.json.JSONArray;
 @CapacitorPlugin(name = "SunmiPrinter")
 public class SunmiPrinterPlugin extends Plugin {
     private static final String TAG = "SunmiPrinterPlugin";
+    private static final int MAX_LOGO_WIDTH_PX = 384;
+    private static final int MAX_LOGO_HEIGHT_PX = 180;
     private SunmiPrinterService printerService;
     private boolean bindAttempted;
 
@@ -123,6 +128,7 @@ public class SunmiPrinterPlugin extends Plugin {
 
         try {
             printerService.printerInit(null);
+            Bitmap receiptLogo = decodeReceiptLogo(call.getString("logoBase64Png"));
 
             int printedCount = 0;
             for (int index = 0; index < segments.length(); index += 1) {
@@ -133,6 +139,12 @@ public class SunmiPrinterPlugin extends Plugin {
                 }
 
                 String suffix = index < segments.length() - 1 ? "\n\n\n\n" : "\n\n\n";
+                if (index == 0 && receiptLogo != null) {
+                    printerService.setAlignment(1, null);
+                    printerService.printBitmap(receiptLogo, null);
+                    printerService.lineWrap(1, null);
+                    printerService.setAlignment(0, null);
+                }
                 printerService.printOriginalText(normalizeSegment(segment) + suffix, null);
                 printedCount += 1;
             }
@@ -226,6 +238,43 @@ public class SunmiPrinterPlugin extends Plugin {
 
     private String ensureTrailingFeed(String value) {
         return normalizeSegment(value) + "\n\n\n";
+    }
+
+    private Bitmap decodeReceiptLogo(String base64Png) {
+        if (base64Png == null || base64Png.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            byte[] bytes = Base64.decode(base64Png, Base64.DEFAULT);
+            Bitmap decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+
+            if (decoded == null) {
+                return null;
+            }
+
+            int width = decoded.getWidth();
+            int height = decoded.getHeight();
+            if (width <= 0 || height <= 0) {
+                return null;
+            }
+
+            float scale = Math.min(
+                1f,
+                Math.min((float) MAX_LOGO_WIDTH_PX / width, (float) MAX_LOGO_HEIGHT_PX / height)
+            );
+
+            if (scale >= 1f) {
+                return decoded;
+            }
+
+            int nextWidth = Math.max(1, Math.round(width * scale));
+            int nextHeight = Math.max(1, Math.round(height * scale));
+            return Bitmap.createScaledBitmap(decoded, nextWidth, nextHeight, true);
+        } catch (IllegalArgumentException error) {
+            Log.w(TAG, "Receipt logo could not be decoded.", error);
+            return null;
+        }
     }
 
     private String normalizePaperWidth(int code) {

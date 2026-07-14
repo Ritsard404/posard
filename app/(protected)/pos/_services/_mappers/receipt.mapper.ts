@@ -52,6 +52,17 @@ type InvoiceReceiptRecord = Prisma.InvoiceGetPayload<{
         vatTinNumber: true;
         minNumber: true;
         vat: true;
+        company: {
+          select: {
+            logoImageUrl: true;
+          };
+        };
+      };
+    };
+    branch: {
+      select: {
+        receiptFooter: true;
+        logoImageUrl: true;
       };
     };
     cashier: {
@@ -137,6 +148,9 @@ export function mapInvoiceToReceipt(invoice: InvoiceReceiptRecord): ReceiptDto {
     address: invoice.posTerminal.address,
     vatTinNumber: terminalVat > 0 ? invoice.posTerminal.vatTinNumber : null,
     minNumber: invoice.posTerminal.minNumber,
+    receiptLogoImageUrl:
+      invoice.branch?.logoImageUrl ?? invoice.posTerminal.company.logoImageUrl,
+    receiptFooter: invoice.branch?.receiptFooter ?? null,
     terminalVat,
     cashierName: invoice.cashier.fullName ?? "Unknown",
     isTrainMode: invoice.isTrainMode,

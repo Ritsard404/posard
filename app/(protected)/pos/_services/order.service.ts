@@ -105,6 +105,17 @@ async function getActiveTimestampForOrder(
           address: true,
           vatTinNumber: true,
           minNumber: true,
+          company: {
+            select: {
+              logoImageUrl: true,
+            },
+          },
+        },
+      },
+      branch: {
+        select: {
+          receiptFooter: true,
+          logoImageUrl: true,
         },
       },
     },
@@ -173,6 +184,17 @@ async function findInvoiceByIdempotencyKey(
           vatTinNumber: true,
           minNumber: true,
           vat: true,
+          company: {
+            select: {
+              logoImageUrl: true,
+            },
+          },
+        },
+      },
+      branch: {
+        select: {
+          receiptFooter: true,
+          logoImageUrl: true,
         },
       },
       cashier: {
@@ -532,6 +554,10 @@ function buildReceiptFromOrder(input: {
   terminal: Awaited<
     ReturnType<typeof getActiveTimestampForOrder>
   >["posTerminal"];
+  receiptDesign: {
+    logoImageUrl: string | null;
+    footer: string | null;
+  };
   cashierName: string | null;
   calc: ReturnType<typeof calculatePayment>;
   discount?: DiscountDto;
@@ -558,6 +584,8 @@ function buildReceiptFromOrder(input: {
     address: input.terminal.address,
     vatTinNumber: terminalVat > 0 ? input.terminal.vatTinNumber : null,
     minNumber: input.terminal.minNumber,
+    receiptLogoImageUrl: input.receiptDesign.logoImageUrl,
+    receiptFooter: input.receiptDesign.footer,
     terminalVat,
     cashierName: input.cashierName ?? "Unknown",
     isTrainMode: input.invoice.isTrainMode,
@@ -1398,6 +1426,12 @@ export const orderService = {
           const receipt = buildReceiptFromOrder({
             invoice,
             terminal,
+            receiptDesign: {
+              logoImageUrl:
+                activeTimestamp.branch?.logoImageUrl ??
+                terminal.company.logoImageUrl,
+              footer: activeTimestamp.branch?.receiptFooter ?? null,
+            },
             cashierName: activeTimestamp.cashier.fullName,
             calc: {
               ...calc,
@@ -1589,6 +1623,11 @@ export const orderService = {
         const receipt = buildReceiptFromOrder({
           invoice,
           terminal,
+          receiptDesign: {
+            logoImageUrl:
+              activeTimestamp.branch?.logoImageUrl ?? terminal.company.logoImageUrl,
+            footer: activeTimestamp.branch?.receiptFooter ?? null,
+          },
           cashierName: activeTimestamp.cashier.fullName,
           calc,
           discount,
