@@ -141,6 +141,7 @@ export async function GET(request: Request) {
                 allowCashierDebtCreate: true,
                 allowCashierDebtCollect: true,
                 requireManagerApprovalForDebt: true,
+                pinlessModeEnabled: true,
                 defaultDebtDueDays: true,
                 printerName: true,
                 printerDisplayName: true,
@@ -203,6 +204,8 @@ export async function GET(request: Request) {
                   timestamp.posTerminal.allowCashierDebtCollect,
                 requireManagerApprovalForDebt:
                   timestamp.posTerminal.requireManagerApprovalForDebt,
+                pinlessModeEnabled:
+                  timestamp.posTerminal.pinlessModeEnabled,
                 defaultDebtDueDays:
                   timestamp.posTerminal.defaultDebtDueDays ?? null,
                 printerConfig: printConfigService.mapPrinterConfig(

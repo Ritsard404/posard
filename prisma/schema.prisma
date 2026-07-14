@@ -490,7 +490,7 @@ model RegistrationRequest {
 model SystemConfiguration {
   id String @id @default("default")
 
-  directRegistrationEnabled Boolean             @default(false) @map("direct_registration_enabled")
+  directRegistrationEnabled Boolean             @default(true) @map("direct_registration_enabled")
   platformBillingMode       PlatformBillingMode @default(FREE) @map("platform_billing_mode")
 
   donationEnabled       Boolean @default(false) @map("donation_enabled")
@@ -502,10 +502,35 @@ model SystemConfiguration {
   donationAccountDetail String? @map("donation_account_detail") @db.VarChar(240)
   donationNotes         String? @map("donation_notes")
 
+  donationAccounts DonationAccount[]
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("system_configuration")
+  @@schema("public")
+}
+
+model DonationAccount {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  systemConfigurationId String              @map("system_configuration_id")
+  systemConfiguration   SystemConfiguration @relation(fields: [systemConfigurationId], references: [id], onDelete: Cascade)
+
+  label         String? @db.VarChar(120)
+  providerName  String? @map("provider_name") @db.VarChar(120)
+  accountHolder String? @map("account_holder") @db.VarChar(160)
+  accountDetail String? @map("account_detail") @db.VarChar(240)
+  imageUrl      String? @map("image_url") @db.VarChar(500)
+  notes         String? @db.VarChar(500)
+  enabled       Boolean @default(true)
+  displayOrder  Int     @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([systemConfigurationId, enabled, displayOrder])
+  @@map("donation_accounts")
   @@schema("public")
 }
 
@@ -727,6 +752,7 @@ model PosTerminalInfo {
   allowCashierDebtCreate        Boolean             @default(false) @map("allow_cashier_debt_create")
   allowCashierDebtCollect       Boolean             @default(false) @map("allow_cashier_debt_collect")
   requireManagerApprovalForDebt Boolean             @default(false) @map("require_manager_approval_for_debt")
+  pinlessModeEnabled            Boolean             @default(false) @map("pinless_mode_enabled")
   defaultDebtDueDays            Int?                @map("default_debt_due_days")
   businessModeOverride          BusinessMode?       @map("business_mode_override")
   businessTypePresetOverride    BusinessTypePreset? @map("business_type_preset_override")

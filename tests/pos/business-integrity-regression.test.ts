@@ -55,6 +55,22 @@ test("offline replay preserves local invoice traceability and does not trust off
   assert.doesNotMatch(read("app/(protected)/pos/_services/_dto/offline.dto.ts"), /pinVerifier/);
 });
 
+test("terminal pinless mode stays terminal-scoped and defaults to PIN-required", () => {
+  const schema = read("prisma/schema.prisma");
+  const migration = read("prisma/migrations/20260709143000_terminal_pinless_mode/migration.sql");
+  const terminalDto = read("app/(protected)/companies/[companyId]/_services/terminal.dto.ts");
+  const terminalForm = read("app/(protected)/companies/[companyId]/terminals/_components/TerminalConfigurationForm.tsx");
+  const sessionAction = read("app/(protected)/pos/_actions/session.action.ts");
+  const openSessionModal = read("app/(protected)/pos/_components/OpenSessionModal.tsx");
+
+  assert.match(schema, /pinlessModeEnabled\s+Boolean\s+@default\(false\)\s+@map\("pinless_mode_enabled"\)/);
+  assert.match(migration, /pinless_mode_enabled"\s+BOOLEAN\s+NOT NULL\s+DEFAULT false/);
+  assert.match(terminalDto, /pinlessModeEnabled:\s+z\.boolean\(\)\.default\(false\)/);
+  assert.match(terminalForm, /Enable pinless session controls/);
+  assert.match(sessionAction, /if \(!terminal\.pinlessModeEnabled\)/);
+  assert.match(openSessionModal, /!pinlessModeEnabled && managerPin\.length < 4/);
+});
+
 test("offline replay persists failed and review actions for Sync Center recovery", () => {
   const syncRoute = read("app/api/sync/actions/route.ts");
   const syncPage = read("app/(protected)/sync/page.tsx");

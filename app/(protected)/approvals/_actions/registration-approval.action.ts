@@ -5,7 +5,6 @@ import { accountsAccessService } from "@/app/(protected)/accounts/_services/acco
 import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
 import { registrationApprovalService } from "../_services/registration-approval.service";
 import {
-  ApproveRegistrationRequestSchema,
   RegistrationRequestIdSchema,
   RejectRegistrationRequestSchema,
 } from "../_services/_validators/registration-approval.validator";
@@ -42,7 +41,6 @@ export async function getPendingRegistrationRequestsAction(): Promise<
 
 export async function approveRegistrationRequestAction(
   requestId: string,
-  input: unknown,
 ): Promise<VoidResult> {
   try {
     const viewer = await accountsAccessService.getProfileViewer();
@@ -56,8 +54,7 @@ export async function approveRegistrationRequestAction(
       companyId: viewer.companyId,
     });
     const validatedId = RegistrationRequestIdSchema.parse(requestId);
-    const validated = ApproveRegistrationRequestSchema.parse(input);
-    await registrationApprovalService.approveRequest(viewer, validatedId, validated);
+    await registrationApprovalService.approveRequest(viewer, validatedId);
     revalidateApprovalPaths();
     return { success: true };
   } catch (error) {

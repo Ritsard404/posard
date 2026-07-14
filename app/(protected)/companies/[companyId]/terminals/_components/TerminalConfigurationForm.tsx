@@ -73,6 +73,7 @@ export default function TerminalConfigurationForm({
         allowCashierDebtCreate: false,
         allowCashierDebtCollect: false,
         requireManagerApprovalForDebt: false,
+        pinlessModeEnabled: false,
         defaultDebtDueDays: undefined,
         businessModeOverride: null,
         businessTypePresetOverride: null,
@@ -97,6 +98,7 @@ export default function TerminalConfigurationForm({
       allowCashierDebtCreate: terminal.allowCashierDebtCreate,
       allowCashierDebtCollect: terminal.allowCashierDebtCollect,
       requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
+      pinlessModeEnabled: terminal.pinlessModeEnabled,
       defaultDebtDueDays: terminal.defaultDebtDueDays ?? undefined,
       businessModeOverride: terminal.businessModeOverride ?? null,
       businessTypePresetOverride: terminal.businessTypePresetOverride ?? null,
@@ -390,8 +392,8 @@ export default function TerminalConfigurationForm({
       </SectionCard>
 
       <SectionCard
-        title="Debt Controls"
-        description="Control who can create or collect utang and whether a manager PIN is required during debt issuance."
+        title="Approval Controls"
+        description="Control debt access and whether POS session controls can run without a manager PIN."
       >
         <div className="grid gap-4 md:grid-cols-2">
           <label className="flex items-start gap-3 rounded-xl border p-3">
@@ -418,6 +420,15 @@ export default function TerminalConfigurationForm({
               <span className="block text-sm font-medium text-foreground">Require manager approval for debt</span>
               <span className="block text-xs text-muted-foreground">
                 Reuse the existing manager PIN approval flow before an utang invoice can be issued.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 rounded-xl border p-3 md:col-span-2">
+            <input type="checkbox" className="mt-1" {...register("pinlessModeEnabled")} />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium text-foreground">Enable pinless session controls</span>
+              <span className="block text-xs text-muted-foreground">
+                Cashiers can open sessions, withdraw cash, and close sessions on this terminal without entering a manager PIN.
               </span>
             </span>
           </label>

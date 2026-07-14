@@ -85,6 +85,50 @@ test("restricts heavy routes in mobile/tablet app mode but not desktop", () => {
   );
 });
 
+test("keeps full manager and admin access available on mobile", () => {
+  for (const pathname of [
+    "/dashboard",
+    "/product",
+    "/accounts",
+    "/companies/company-1/terminals",
+    "/companies/company-1/settings",
+  ]) {
+    assert.equal(
+      getMobileAppRouteRestriction({
+        pathname,
+        mode: "phone-browser",
+        role: "manager",
+      }).restricted,
+      false,
+    );
+  }
+
+  assert.equal(
+    isMobileAppHrefAllowed("/product", "capacitor-android", "manager"),
+    true,
+  );
+  assert.equal(
+    isMobileAppHrefAllowed("/accounts", "tablet-browser", "manager"),
+    true,
+  );
+  assert.equal(
+    getMobileAppRouteRestriction({
+      pathname: "/admin/settings",
+      mode: "capacitor-android",
+      role: "admin",
+    }).restricted,
+    false,
+  );
+  assert.equal(
+    isMobileAppHrefAllowed("/approvals", "phone-browser", "admin"),
+    true,
+  );
+  assert.equal(
+    isMobileAppHrefAllowed("/product", "phone-browser", "cashier"),
+    false,
+  );
+});
+
 test("filters mobile app shell links to allowed routes", () => {
   assert.equal(
     isMobileAppHrefAllowed("/companies/company-1/terminals?view=printer", "tablet-browser"),

@@ -1,5 +1,6 @@
 import "server-only";
 
+import nodemailer from "nodemailer";
 import { getAppConfig } from "@/lib/app-config";
 import type { EmailPayload, EmailProvider, EmailResult } from "./email.types";
 
@@ -71,6 +72,54 @@ class ResendEmailProvider implements EmailProvider {
   }
 }
 
+class SmtpEmailProvider implements EmailProvider {
+  readonly name = "smtp";
+
+  constructor(
+    private readonly options: {
+      host: string;
+      port: number;
+      secure: boolean;
+      user: string;
+      password: string;
+      from: string;
+      replyTo?: string;
+    },
+  ) {}
+
+  async send(payload: EmailPayload): Promise<EmailResult> {
+    try {
+      const transport = nodemailer.createTransport({
+        host: this.options.host,
+        port: this.options.port,
+        secure: this.options.secure,
+        auth: {
+          user: this.options.user,
+          pass: this.options.password,
+        },
+      });
+
+      const info = await transport.sendMail({
+        from: this.options.from,
+        to: Array.isArray(payload.to) ? payload.to : [payload.to],
+        subject: payload.subject,
+        html: payload.html,
+        text: payload.text,
+        replyTo: this.options.replyTo || undefined,
+      });
+
+      return { status: "sent", provider: this.name, messageId: info.messageId };
+    } catch (error) {
+      console.error("POSard SMTP email send failed", error);
+      return {
+        status: "failed",
+        provider: this.name,
+        reason: "SMTP email provider request failed.",
+      };
+    }
+  }
+}
+
 function resolveProvider(): EmailProvider {
   const config = getAppConfig();
 
@@ -85,6 +134,25 @@ function resolveProvider(): EmailProvider {
       config.email.from,
       config.email.replyTo,
     );
+  }
+
+  if (
+    config.email.enabled &&
+    config.email.provider === "smtp" &&
+    config.email.smtpHost &&
+    config.email.smtpUser &&
+    config.email.smtpPassword &&
+    config.email.from
+  ) {
+    return new SmtpEmailProvider({
+      host: config.email.smtpHost,
+      port: config.email.smtpPort,
+      secure: config.email.smtpSecure,
+      user: config.email.smtpUser,
+      password: config.email.smtpPassword,
+      from: config.email.from,
+      replyTo: config.email.replyTo,
+    });
   }
 
   return new NoopEmailProvider();

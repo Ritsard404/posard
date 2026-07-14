@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Chrome } from "lucide-react";
+import { Chrome, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { getRegistrationRequestLoginStatusAction } from "@/app/auth/_actions/registration-request.action";
@@ -66,6 +66,7 @@ export function LoginForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"password" | "google" | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -83,6 +84,7 @@ export function LoginForm({
     if (isPending) return;
 
     setError(null);
+    setPendingAction("password");
 
     startTransition(async () => {
       const supabase = createClient();
@@ -149,6 +151,7 @@ export function LoginForm({
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "An error occurred");
+        setPendingAction(null);
       }
     });
   };
@@ -157,6 +160,7 @@ export function LoginForm({
     if (isPending) return;
 
     setError(null);
+    setPendingAction("google");
 
     startTransition(async () => {
       const supabase = createClient();
@@ -171,6 +175,7 @@ export function LoginForm({
 
       if (error) {
         setError(error.message);
+        setPendingAction(null);
       }
     });
   };
@@ -249,7 +254,8 @@ export function LoginForm({
               )}
               <AuthSubmitButton
                 className="h-12 w-full rounded-xl font-bold shadow-lg shadow-primary/20"
-                isPending={isPending}
+                isPending={isPending && pendingAction === "password"}
+                disabled={isPending}
                 idleLabel="Login"
                 pendingLabel="Signing you in..."
               />
@@ -270,8 +276,12 @@ export function LoginForm({
                 disabled={isPending}
                 onClick={handleGoogleLogin}
               >
-                <Chrome className="mr-2 h-4 w-4" aria-hidden="true" />
-                Continue with Google
+                {isPending && pendingAction === "google" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Chrome className="mr-2 h-4 w-4" aria-hidden="true" />
+                )}
+                {isPending && pendingAction === "google" ? "Opening Google..." : "Continue with Google"}
               </Button>
             </div>
             <div className="mt-6 text-center text-sm font-medium text-muted-foreground">

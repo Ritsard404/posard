@@ -44,6 +44,7 @@ export function WithdrawModal({
   const activeTerminal = usePOSStore((state) => state.activeTerminal);
   const isOnline = usePOSStore((state) => state.isOnline);
   const managerVerifiers = usePOSStore((state) => state.managerVerifiers);
+  const pinlessModeEnabled = activeTerminal?.pinlessModeEnabled === true;
   const [amount, setAmount] = useState<number>(0);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +75,7 @@ export function WithdrawModal({
       return;
     }
 
-    if (pin.length < 4) {
+    if (!pinlessModeEnabled && pin.length < 4) {
       setError("Manager PIN is required (min 4 digits)");
       return;
     }
@@ -87,14 +88,16 @@ export function WithdrawModal({
           throw new Error("Offline withdrawal needs an active synced session.");
         }
 
-        const manager = await verifyManagerPinOffline({
-          companyId: activeCompanyId,
-          deviceId: activeDeviceId,
-          pin,
-          verifiers: managerVerifiers,
-        });
+        const manager = pinlessModeEnabled
+          ? null
+          : await verifyManagerPinOffline({
+              companyId: activeCompanyId,
+              deviceId: activeDeviceId,
+              pin,
+              verifiers: managerVerifiers,
+            });
 
-        if (!manager) {
+        if (!pinlessModeEnabled && !manager) {
           throw new Error("Invalid Manager PIN");
         }
 
@@ -114,9 +117,13 @@ export function WithdrawModal({
           syncedAt: null,
           payload: {
             amount,
-            managerProfileId: manager.id,
-            managerEmail: manager.email,
-            managerName: manager.name,
+            ...(manager
+              ? {
+                  managerProfileId: manager.id,
+                  managerEmail: manager.email,
+                  managerName: manager.name,
+                }
+              : {}),
           },
         });
 
@@ -234,6 +241,7 @@ export function WithdrawModal({
             </div>
           </div>
 
+          {!pinlessModeEnabled ? (
           <div className="space-y-4">
             <Label
               htmlFor="pin"
@@ -257,6 +265,7 @@ export function WithdrawModal({
               />
             </div>
           </div>
+          ) : null}
 
           {error ? (
             <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-xs font-bold uppercase tracking-widest text-red-500">
@@ -277,7 +286,7 @@ export function WithdrawModal({
             <Button
               type="submit"
               className="flex h-14 flex-1 items-center justify-center gap-3 rounded-2xl bg-amber-600 font-heading text-lg font-black uppercase tracking-widest text-white shadow-2xl shadow-amber-600/20 transition-all hover:bg-amber-500 active:scale-95 disabled:opacity-20"
-              disabled={isLoading || amount <= 0 || pin.length < 4}
+              disabled={isLoading || amount <= 0 || (!pinlessModeEnabled && pin.length < 4)}
             >
               {isLoading ? (
                 <>

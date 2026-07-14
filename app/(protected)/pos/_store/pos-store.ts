@@ -89,6 +89,7 @@ interface ActiveTerminalState {
   allowCashierDebtCreate: boolean;
   allowCashierDebtCollect: boolean;
   requireManagerApprovalForDebt: boolean;
+  pinlessModeEnabled: boolean;
   defaultDebtDueDays: number | null;
   printerConfig?: PrinterConfigDto | null;
   billingLocked?: boolean;

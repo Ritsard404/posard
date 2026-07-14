@@ -76,23 +76,33 @@ export const sessionMutationService = {
   ) {
     await assertTerminalBillingAllowsPos(actor.companyId, terminalId);
 
-    const approver = await findProfileByPin({
-      companyId: actor.companyId,
-      pin: managerPin,
-      roles: ["manager", "admin"],
-      select: { id: true, status: true },
-    });
-
-    if (!approver || approver.status !== "active") {
-      throw new Error("Invalid Manager PIN");
-    }
-
     const terminal = await prisma.posTerminalInfo.findUnique({
       where: { id: terminalId },
     });
 
     if (!terminal || terminal.companyId !== actor.companyId) {
       throw new Error("Invalid terminal");
+    }
+
+    let approverProfileId: string | null = null;
+
+    if (!terminal.pinlessModeEnabled) {
+      if (!managerPin.trim()) {
+        throw new Error("Manager PIN is required.");
+      }
+
+      const approver = await findProfileByPin({
+        companyId: actor.companyId,
+        pin: managerPin,
+        roles: ["manager", "admin"],
+        select: { id: true, status: true },
+      });
+
+      if (!approver || approver.status !== "active") {
+        throw new Error("Invalid Manager PIN");
+      }
+
+      approverProfileId = approver.id as string;
     }
 
     if (actor.role === "cashier") {
@@ -131,7 +141,7 @@ export const sessionMutationService = {
           posTerminalId: terminal.id,
           branchId: terminal.branchId,
           cashierId: actor.profileId,
-          managerInId: approver.id as string,
+          managerInId: approverProfileId,
           timestampIn: new Date(),
           cashInDrawerAmount: openingCash,
           deviceId,
@@ -146,7 +156,7 @@ export const sessionMutationService = {
 
       await auditLogService.create(tx, {
         companyId: actor.companyId,
-        actorProfileId: approver.id as string,
+        actorProfileId: approverProfileId ?? actor.profileId,
         posTerminalId: terminal.id,
         actionType: "OPEN_SESSION",
         referenceId: timestamp.id,
@@ -176,6 +186,7 @@ export const sessionMutationService = {
           allowCashierDebtCreate: terminal.allowCashierDebtCreate,
           allowCashierDebtCollect: terminal.allowCashierDebtCollect,
           requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
+          pinlessModeEnabled: terminal.pinlessModeEnabled,
           defaultDebtDueDays: terminal.defaultDebtDueDays ?? null,
           businessMode: terminal.businessModeOverride ?? "RETAIL",
           enableFulfillmentTypes: terminal.enableFulfillmentTypes,
@@ -192,7 +203,7 @@ export const sessionMutationService = {
     actor: SessionActorContext,
     timestampId: string,
     amount: number,
-    approverProfileId: string,
+    approverProfileId: string | null,
   ) {
     const timestampForBilling = await prisma.timestamp.findUnique({
       where: { id: timestampId },
@@ -207,17 +218,19 @@ export const sessionMutationService = {
       throw new Error("Amount must be greater than 0");
     }
 
-    const approver = await prisma.profile.findFirst({
-      where: {
-        id: approverProfileId,
-        companyId: actor.companyId,
-        role: { in: ["manager", "admin"] },
-      },
-      select: { id: true },
-    });
+    if (approverProfileId) {
+      const approver = await prisma.profile.findFirst({
+        where: {
+          id: approverProfileId,
+          companyId: actor.companyId,
+          role: { in: ["manager", "admin"] },
+        },
+        select: { id: true },
+      });
 
-    if (!approver) {
-      throw new Error("Manager approval is no longer valid.");
+      if (!approver) {
+        throw new Error("Manager approval is no longer valid.");
+      }
     }
 
     const timestamp = await prisma.timestamp.findUnique({
@@ -247,7 +260,7 @@ export const sessionMutationService = {
 
       await auditLogService.create(tx, {
         companyId: actor.companyId,
-        actorProfileId: approver.id,
+        actorProfileId: approverProfileId ?? actor.profileId,
         posTerminalId: timestamp.posTerminalId,
         actionType: "CASH_WITHDRAWAL",
         referenceId: timestamp.id,
@@ -265,7 +278,7 @@ export const sessionMutationService = {
     sessionId: string,
     timestampId: string,
     countedCash: number,
-    approverProfileId: string,
+    approverProfileId: string | null,
   ) {
     const timestampForBilling = await prisma.timestamp.findUnique({
       where: { id: timestampId },
@@ -276,17 +289,19 @@ export const sessionMutationService = {
       throw new Error("Session is not active or does not exist.");
     }
 
-    const approver = await prisma.profile.findFirst({
-      where: {
-        id: approverProfileId,
-        companyId: actor.companyId,
-        role: { in: ["manager", "admin"] },
-      },
-      select: { id: true },
-    });
+    if (approverProfileId) {
+      const approver = await prisma.profile.findFirst({
+        where: {
+          id: approverProfileId,
+          companyId: actor.companyId,
+          role: { in: ["manager", "admin"] },
+        },
+        select: { id: true },
+      });
 
-    if (!approver) {
-      throw new Error("Manager approval is no longer valid.");
+      if (!approver) {
+        throw new Error("Manager approval is no longer valid.");
+      }
     }
 
     const timestamp = await prisma.timestamp.findUnique({
@@ -307,7 +322,7 @@ export const sessionMutationService = {
         data: {
           timestampOut: new Date(),
           cashOutDrawerAmount: countedCash,
-          managerOutId: approver.id,
+          managerOutId: approverProfileId,
           lastSeenAt: new Date(),
         },
       });
@@ -319,7 +334,7 @@ export const sessionMutationService = {
 
       await auditLogService.create(tx, {
         companyId: actor.companyId,
-        actorProfileId: approver.id,
+        actorProfileId: approverProfileId ?? actor.profileId,
         posTerminalId: timestamp.posTerminalId,
         actionType: "CLOSE_SESSION",
         referenceId: timestamp.id,

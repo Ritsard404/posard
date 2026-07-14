@@ -105,9 +105,9 @@ export const queuedPosActionSchema = z.discriminatedUnion("type", [
     type: z.literal("WITHDRAW_CASH"),
     payload: z.object({
       amount: z.number().positive(),
-      managerProfileId: z.string().min(1),
-      managerEmail: z.string().email(),
-      managerName: z.string().min(1),
+      managerProfileId: z.string().min(1).optional(),
+      managerEmail: z.string().email().optional(),
+      managerName: z.string().min(1).optional(),
     }),
   }),
   queuedActionBaseSchema.extend({
@@ -115,9 +115,9 @@ export const queuedPosActionSchema = z.discriminatedUnion("type", [
     payload: z.object({
       sessionId: z.string().min(1),
       countedCash: z.number().nonnegative(),
-      managerProfileId: z.string().min(1),
-      managerEmail: z.string().email(),
-      managerName: z.string().min(1),
+      managerProfileId: z.string().min(1).optional(),
+      managerEmail: z.string().email().optional(),
+      managerName: z.string().min(1).optional(),
     }),
   }),
 ]);

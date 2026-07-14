@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   creator: siteConfig.creator,
   publisher: siteConfig.name,
   category: "business",
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+  },
   alternates: {
     canonical: "/",
   },
@@ -98,7 +101,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en-PH" suppressHydrationWarning>
       <body
         suppressHydrationWarning
         className={`${nunitoSans.variable} ${rubik.variable} font-sans antialiased`}

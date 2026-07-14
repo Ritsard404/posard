@@ -56,17 +56,17 @@ export interface QueuedVoidPayload {
 
 export interface QueuedWithdrawPayload {
   amount: number;
-  managerProfileId: string;
-  managerEmail: string;
-  managerName: string;
+  managerProfileId?: string;
+  managerEmail?: string;
+  managerName?: string;
 }
 
 export interface QueuedCloseSessionPayload {
   sessionId: string;
   countedCash: number;
-  managerProfileId: string;
-  managerEmail: string;
-  managerName: string;
+  managerProfileId?: string;
+  managerEmail?: string;
+  managerName?: string;
 }
 
 export interface QueuedSaleAction extends QueuedActionBase {
@@ -112,6 +112,7 @@ export interface SessionSnapshotDto {
   allowCashierDebtCreate: boolean;
   allowCashierDebtCollect: boolean;
   requireManagerApprovalForDebt: boolean;
+  pinlessModeEnabled: boolean;
   defaultDebtDueDays: number | null;
   printerConfig: PrinterConfigDto | null;
   cashierId: string;

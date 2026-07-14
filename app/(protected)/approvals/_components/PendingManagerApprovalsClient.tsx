@@ -48,7 +48,6 @@ export function PendingManagerApprovalsClient({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
-  const [approvalPassword, setApprovalPassword] = useState("");
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
 
@@ -161,7 +160,6 @@ export function PendingManagerApprovalsClient({
                               disabled={isPending}
                               onClick={() => {
                                 setApproveTargetId(account.id);
-                                setApprovalPassword("");
                               }}
                             >
                               Approve
@@ -215,7 +213,6 @@ export function PendingManagerApprovalsClient({
                           disabled={isPending}
                           onClick={() => {
                             setApproveTargetId(account.id);
-                            setApprovalPassword("");
                           }}
                         >
                           Approve
@@ -379,7 +376,6 @@ export function PendingManagerApprovalsClient({
         onOpenChange={(open) => {
           if (!open) {
             setApproveTargetId(null);
-            setApprovalPassword("");
           }
         }}
       >
@@ -388,30 +384,19 @@ export function PendingManagerApprovalsClient({
             <DialogTitle>Approve Registration Request</DialogTitle>
             <DialogDescription>
               {approveTarget
-                ? `Create ${approveTarget.fullName}'s initial login password now. Share the credentials manually after approval.`
-                : "Create the initial login password for this request."}
+                ? `Approve ${approveTarget.fullName} and email them a secure password setup link.`
+                : "Approve this request and email a secure password setup link."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="approval-password">Initial Password</Label>
-            <Input
-              id="approval-password"
-              type="password"
-              value={approvalPassword}
-              onChange={(event) => setApprovalPassword(event.target.value)}
-              placeholder="Enter initial password"
-            />
-            <p className="text-xs text-muted-foreground">
-              The user will log in with the registered email/login identifier and this password, then can change it later inside the app.
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            The user will choose their own password. No password is created or shared by the admin.
+          </p>
           <DialogFooter className="gap-2 sm:justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={() => {
                 setApproveTargetId(null);
-                setApprovalPassword("");
               }}
             >
               Cancel
@@ -425,14 +410,10 @@ export function PendingManagerApprovalsClient({
                 }
 
                 runMutation(
-                  () =>
-                    approveRegistrationRequestAction(approveTarget.id, {
-                      password: approvalPassword,
-                    }),
+                  () => approveRegistrationRequestAction(approveTarget.id),
                   "Registration request approved",
                 );
                 setApproveTargetId(null);
-                setApprovalPassword("");
               }}
             >
               Approve Request

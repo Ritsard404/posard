@@ -27,11 +27,41 @@ function baseTemplate(title: string, body: string, action?: { label: string; hre
 }
 
 export const emailTemplates = {
+  accountEmailConfirmation(input: { name: string; confirmationUrl: string }) {
+    return baseTemplate(
+      "Confirm your POSard email",
+      `Hi ${input.name}, confirm this email address to activate your POSard sign-in. No admin approval is required.`,
+      { label: "Confirm email", href: input.confirmationUrl },
+    );
+  },
+  registrationApprovalRequested(input: {
+    name: string;
+    email: string;
+    companyName?: string | null;
+    approvalUrl?: string;
+  }) {
+    const company = input.companyName ? ` for ${input.companyName}` : "";
+
+    return baseTemplate(
+      "New POSard registration needs approval",
+      `${input.name} (${input.email}) submitted a manager registration request${company}. Review it now to approve or reject access.`,
+      input.approvalUrl
+        ? { label: "Review registration", href: input.approvalUrl }
+        : undefined,
+    );
+  },
   accountApproved(input: { name: string; appUrl?: string }) {
     return baseTemplate(
       "Your POSard account is approved",
       `Hi ${input.name}, your POSard account is ready. You can sign in and continue setup.`,
       input.appUrl ? { label: "Open POSard", href: input.appUrl } : undefined,
+    );
+  },
+  accountPasswordSetup(input: { name: string; setupUrl: string }) {
+    return baseTemplate(
+      "Your POSard account is approved",
+      `Hi ${input.name}, your POSard account is approved. Set your private password using the secure link below. POSard will never send your password by email.`,
+      { label: "Set my password", href: input.setupUrl },
     );
   },
   managerApprovalResult(input: { approved: boolean; reason?: string | null }) {

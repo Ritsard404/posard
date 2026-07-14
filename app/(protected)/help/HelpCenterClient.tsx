@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, BookOpen, ListTree, Mail, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { ArrowUp, BookOpen, ListTree, Mail, Search, Send, X } from "lucide-react";
+import { toast } from "sonner";
 import { HeaderActions } from "@/components/layout/HeaderActions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { sendSupportFeedbackAction } from "./_actions/support-feedback.action";
 
 type HelpAudience = "everyone" | "cashier" | "manager" | "admin";
 
@@ -84,6 +86,7 @@ const guideGroups: HelpGroup[] = [
         audience: ["everyone"],
         summary: "Open your account and reach the pages allowed for your role.",
         steps: [
+          "For a new public account, select Confirm email in the POSard verification message.",
           "Open the login page.",
           "Enter your email and password.",
           "Select Log in.",
@@ -91,8 +94,8 @@ const guideGroups: HelpGroup[] = [
           "Log out when you finish on a shared device.",
         ],
         reminder:
-          "Ask a manager if your account is still waiting for approval. Logging out clears protected browser caches, while pending offline checkout work still follows Sync Center rules.",
-        keywords: ["login", "sign in", "access", "password", "account", "mobile", "navigation", "logout", "shared device", "cache"],
+          "Direct registration does not need admin approval, but email verification is required before the first login. Logging out clears protected browser caches, while pending offline checkout work still follows Sync Center rules.",
+        keywords: ["login", "sign in", "access", "password", "account", "email verification", "confirm email", "registration", "mobile", "navigation", "logout", "shared device", "cache"],
       },
       {
         title: "Select a terminal",
@@ -138,19 +141,19 @@ const guideGroups: HelpGroup[] = [
       },
       {
         title: "Use mobile and tablet app mode",
-        role: "Cashier / Manager",
-        audience: ["cashier", "manager"],
+        role: "Cashier / Manager / Admin",
+        audience: ["cashier", "manager", "admin"],
         summary:
-          "Keep phone, tablet, and Android app devices focused on checkout work.",
+          "Keep cashier devices focused on checkout while managers and administrators retain their authorized management access.",
         steps: [
           "Open POSard on the phone, tablet, or Android app.",
           "Use Point of Sale for menu, cart, and tender.",
           "Use the compact printer, sync, and session actions when needed.",
           "Open Sync Center for queued offline work.",
-          "Use a desktop or admin device for reports, imports, and deep setup.",
+          "Managers and administrators can use normal navigation to finish setup, add users and products, and manage the areas allowed for their role.",
         ],
         reminder:
-          "Restricted mobile pages show links back to POS, Sync Center, and printer setup.",
+          "Managers and administrators keep their role-based access on mobile. Restricted cashier pages show links back to POS, Sync Center, and printer setup.",
         keywords: [
           "mobile app",
           "tablet",
@@ -160,6 +163,11 @@ const guideGroups: HelpGroup[] = [
           "checkout",
           "sync",
           "printer",
+          "onboarding",
+          "add cashier",
+          "add product",
+          "manager access",
+          "admin access",
         ],
       },
       {
@@ -179,6 +187,40 @@ const guideGroups: HelpGroup[] = [
         ],
         reminder: "Use reports when you need exact totals for a date range.",
         keywords: ["dashboard", "summary", "warning", "overview", "live status", "sync", "printer", "approval", "restock", "variance", "cash short", "cash over"],
+      },
+      {
+        title: "Report a problem or error",
+        role: "Everyone",
+        audience: ["everyone"],
+        summary:
+          "Send the details needed to understand a bug, error message, missing record, or device issue.",
+        steps: [
+          "Stay on the page where the problem happened if it is safe to do so.",
+          "Copy the exact error message or take a screenshot.",
+          "Write what you were trying to do, such as checkout, print, sync, import, or open a report.",
+          "Write the steps before the problem happened.",
+          "Include the store, branch, terminal, cashier, time, and useful references.",
+          "Use Send Feedback near the top of the Help Center.",
+        ],
+        reminder:
+          "Do not send passwords, manager PINs, card numbers, or private customer payment details. POSard includes the current page and device details automatically.",
+        keywords: [
+          "bug",
+          "bugs",
+          "error",
+          "problem",
+          "issue",
+          "report",
+          "support",
+          "screenshot",
+          "failed",
+          "not working",
+          "crash",
+          "missing record",
+          "wrong total",
+          "printer error",
+          "sync error",
+        ],
       },
       {
         title: "Open the feature guide",
@@ -536,20 +578,23 @@ const guideGroups: HelpGroup[] = [
         role: "Manager / Admin",
         audience: ["manager", "admin"],
         summary:
-          "Review and update terminal details, status, VAT, discount, and restaurant settings.",
+          "Review and update terminal details, status, VAT, discount, pinless session controls, and restaurant settings.",
         steps: [
           "Open Terminal List or Terminal Settings.",
           "Select a terminal.",
           "Review details.",
+          "Update pinless session controls only when cash drawer actions do not need manager PIN sign-off.",
           "Save any changes.",
         ],
         reminder:
-          "Avoid changing terminal settings while a cashier is actively selling unless needed.",
+          "Keep pinless session controls off when manager PIN sign-off is required for cash drawer actions.",
         keywords: [
           "terminal",
           "terminal settings",
           "vat",
           "discount",
+          "pinless",
+          "manager pin",
           "restaurant",
         ],
       },
@@ -659,13 +704,14 @@ const guideGroups: HelpGroup[] = [
         role: "Admin",
         audience: ["admin"],
         summary:
-          "Control whether POSard is free or paid, and update optional donation QR or bank details.",
+          "Control whether POSard is free or paid, and update optional donation QR, wallet, or bank details.",
         steps: [
           "Open Admin.",
           "Open System Settings.",
           "Choose Free mode or Paid mode.",
           "Enable optional donations if needed.",
-          "Upload the QR or bank info image and save.",
+          "Add one donation account for each bank, wallet, or QR code.",
+          "Upload each QR or bank info image and save.",
         ],
         reminder: "Donations are optional and do not automatically unlock features.",
         keywords: [
@@ -675,6 +721,8 @@ const guideGroups: HelpGroup[] = [
           "donation",
           "qr donation",
           "bank info",
+          "multiple donation accounts",
+          "wallet donation",
           "system settings",
         ],
       },
@@ -842,10 +890,10 @@ const guideGroups: HelpGroup[] = [
           "Open Approvals.",
           "Read the request.",
           "Add a note if needed.",
-          "Approve or Reject.",
+          "Approve to email the user a secure password setup link, or reject the request.",
         ],
-        reminder: "Approve only when the reason is clear.",
-        keywords: ["approval", "approve", "reject", "request"],
+        reminder: "Never create or send a user's password. The user chooses it through the secure email link.",
+        keywords: ["approval", "approve", "reject", "request", "set password", "setup email", "registration"],
       },
       {
         title: "Use AI Report Assistant",
@@ -1126,25 +1174,109 @@ function HelpHeaderSearch({
   );
 }
 
-function SupportCard({ supportEmail }: { supportEmail: string }) {
-  if (!supportEmail) return null;
+function SupportCard({
+  supportEmail,
+  supportReady,
+}: {
+  supportEmail: string;
+  supportReady: boolean;
+}) {
+  const [message, setMessage] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const trimmedMessage = message.trim();
+  const canSend = supportReady && trimmedMessage.length >= 10 && !isPending;
+
+  function submitFeedback() {
+    if (!supportReady) {
+      toast.error("Support email is not ready yet.");
+      return;
+    }
+
+    if (trimmedMessage.length < 10) {
+      toast.error("Write a few details before sending feedback.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await sendSupportFeedbackAction({
+        message: trimmedMessage,
+        contactEmail: contactEmail.trim(),
+        pageUrl: window.location.href,
+        deviceInfo: navigator.userAgent,
+      });
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      setMessage("");
+      setContactEmail("");
+      toast.success("Feedback sent to POSard support.");
+    });
+  }
 
   return (
-    <Card className="flex flex-col gap-3 border-border/80 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <Card className="grid gap-4 border-border/80 p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="flex items-start gap-3">
         <div className="rounded-md bg-emerald-500/10 p-2 text-emerald-700">
           <Mail className="size-4" />
         </div>
         <div>
-          <h2 className="font-semibold">Need more help?</h2>
+          <h2 className="font-semibold">Need more help or found a problem?</h2>
           <p className="text-sm text-muted-foreground">
-            Contact support if you cannot find the guide you need.
+            Send feedback directly from POSard. Include what you were doing,
+            what happened, and any receipt, terminal, or error message.
           </p>
+          {supportEmail ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Replies go to <span className="font-medium text-foreground">{supportEmail}</span>.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs font-medium text-destructive">
+              Support email is not configured yet.
+            </p>
+          )}
         </div>
       </div>
-      <Button asChild className="shrink-0">
-        <a href={`mailto:${supportEmail}`}>Contact Support</a>
-      </Button>
+      <div className="grid gap-2">
+        <textarea
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          rows={4}
+          maxLength={3000}
+          placeholder="Example: Checkout froze after selecting Maya payment on Terminal 1. Error said..."
+          className="min-h-28 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            value={contactEmail}
+            onChange={(event) => setContactEmail(event.target.value)}
+            type="email"
+            placeholder="Reply email (optional)"
+            className="min-w-0"
+          />
+          <Button
+            type="button"
+            onClick={submitFeedback}
+            disabled={!canSend}
+            className="shrink-0"
+          >
+            <Send className="size-4" />
+            {isPending ? "Sending..." : "Send Feedback"}
+          </Button>
+        </div>
+        {!supportReady ? (
+          <p className="text-xs text-destructive">
+            Feedback sending is disabled until email settings are ready.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            The current page and device details are included automatically.
+          </p>
+        )}
+      </div>
     </Card>
   );
 }
@@ -1345,9 +1477,11 @@ function BackToTopButton({
 
 export function HelpCenterClient({
   currentRole,
+  supportReady,
   supportEmail,
 }: {
   currentRole: CurrentRole;
+  supportReady: boolean;
   supportEmail: string;
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
@@ -1508,7 +1642,7 @@ export function HelpCenterClient({
         visibleGuides={visibleGuides}
         totalGuides={totalGuides}
       />
-      <SupportCard supportEmail={supportEmail} />
+      <SupportCard supportEmail={supportEmail} supportReady={supportReady} />
 
       {filteredGroups.length === 0 ? (
         <Card className="border-border/80 p-8 text-center shadow-sm">

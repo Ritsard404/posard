@@ -65,12 +65,18 @@ const jsonLd = {
 
 export default async function PricingPage() {
   const config = await systemConfigurationService.get();
+  const donationAccounts = config.donationAccounts.filter(
+    (account) =>
+      account.enabled &&
+      (account.imageUrl ||
+        account.providerName ||
+        account.accountHolder ||
+        account.accountDetail ||
+        account.notes),
+  );
   const showDonation =
     config.donationEnabled &&
-    (config.donationImageUrl ||
-      config.donationProviderName ||
-      config.donationAccountHolder ||
-      config.donationAccountDetail ||
+    (donationAccounts.length > 0 ||
       config.donationMessage);
 
   return (
@@ -111,31 +117,39 @@ export default async function PricingPage() {
           title={config.donationTitle ?? "Support POSard"}
           description={config.donationMessage ?? "Donations are optional and help support ongoing POSard improvements."}
         >
-          <div className="grid max-w-4xl gap-5 rounded-md border bg-background p-5 md:grid-cols-[16rem_minmax(0,1fr)]">
-            <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-muted/20">
-              <StorageImage
-                src={config.donationImageUrl}
-                alt="POSard optional donation QR"
-                fill
-                sizes="256px"
-                className="object-contain p-2"
-                fallback={<ImageIcon className="size-10 text-muted-foreground/40" />}
-              />
-            </div>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              {config.donationProviderName ? (
-                <DonationField label="Provider" value={config.donationProviderName} />
-              ) : null}
-              {config.donationAccountHolder ? (
-                <DonationField label="Account holder" value={config.donationAccountHolder} />
-              ) : null}
-              {config.donationAccountDetail ? (
-                <DonationField label="Account details" value={config.donationAccountDetail} />
-              ) : null}
-              <p className="leading-6">
-                Donations are optional. Sending a donation does not automatically change account status or unlock features.
-              </p>
-            </div>
+          <div className="grid max-w-5xl gap-4 md:grid-cols-2">
+            {donationAccounts.map((account) => (
+              <div key={account.id} className="grid gap-5 rounded-md border bg-background p-5 sm:grid-cols-[12rem_minmax(0,1fr)]">
+                <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-muted/20">
+                  <StorageImage
+                    src={account.imageUrl}
+                    alt={`${account.label ?? account.providerName ?? "POSard optional donation"} QR`}
+                    fill
+                    sizes="192px"
+                    className="object-contain p-2"
+                    fallback={<ImageIcon className="size-10 text-muted-foreground/40" />}
+                  />
+                </div>
+                <div className="min-w-0 space-y-3 text-sm text-muted-foreground">
+                  {account.label ? (
+                    <p className="text-base font-semibold text-foreground">{account.label}</p>
+                  ) : null}
+                  {account.providerName ? (
+                    <DonationField label="Provider" value={account.providerName} />
+                  ) : null}
+                  {account.accountHolder ? (
+                    <DonationField label="Account holder" value={account.accountHolder} />
+                  ) : null}
+                  {account.accountDetail ? (
+                    <DonationField label="Account details" value={account.accountDetail} />
+                  ) : null}
+                  {account.notes ? <p className="leading-6">{account.notes}</p> : null}
+                </div>
+              </div>
+            ))}
+            <p className="text-sm leading-6 text-muted-foreground md:col-span-2">
+              Donations are optional. Sending a donation does not automatically change account status or unlock features.
+            </p>
           </div>
         </ContentSection>
       ) : null}

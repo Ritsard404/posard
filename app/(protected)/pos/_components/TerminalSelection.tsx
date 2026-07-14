@@ -22,6 +22,7 @@ interface Terminal {
   allowCashierDebtCreate: boolean;
   allowCashierDebtCollect: boolean;
   requireManagerApprovalForDebt: boolean;
+  pinlessModeEnabled: boolean;
   defaultDebtDueDays: number | null;
   businessMode: "RETAIL" | "RESTAURANT" | "HYBRID";
   enableFulfillmentTypes: boolean;
@@ -67,6 +68,7 @@ interface TerminalSelectionProps {
     allowCashierDebtCreate: boolean,
     allowCashierDebtCollect: boolean,
     requireManagerApprovalForDebt: boolean,
+    pinlessModeEnabled: boolean,
     defaultDebtDueDays: number | null,
     businessMode: "RETAIL" | "RESTAURANT" | "HYBRID",
     enableFulfillmentTypes: boolean,
@@ -149,6 +151,7 @@ export function TerminalSelection({ onSelectTerminal }: TerminalSelectionProps) 
                     t.allowCashierDebtCreate,
                     t.allowCashierDebtCollect,
                     t.requireManagerApprovalForDebt,
+                    t.pinlessModeEnabled,
                     t.defaultDebtDueDays,
                     t.businessMode,
                     t.enableFulfillmentTypes,

@@ -147,6 +147,7 @@ export async function getCurrentSessionAction() {
             allowCashierDebtCreate: true,
             allowCashierDebtCollect: true,
             requireManagerApprovalForDebt: true,
+            pinlessModeEnabled: true,
             defaultDebtDueDays: true,
             businessModeOverride: true,
             enableFulfillmentTypes: true,
@@ -206,6 +207,7 @@ export async function getCurrentSessionAction() {
           allowCashierDebtCollect: timestamp.posTerminal.allowCashierDebtCollect,
           requireManagerApprovalForDebt:
             timestamp.posTerminal.requireManagerApprovalForDebt,
+          pinlessModeEnabled: timestamp.posTerminal.pinlessModeEnabled,
           defaultDebtDueDays: timestamp.posTerminal.defaultDebtDueDays ?? null,
           businessMode: timestamp.posTerminal.businessModeOverride ?? "RETAIL",
           enableFulfillmentTypes: timestamp.posTerminal.enableFulfillmentTypes,
@@ -251,6 +253,7 @@ export async function getTerminalsAction() {
         allowCashierDebtCreate: true,
         allowCashierDebtCollect: true,
         requireManagerApprovalForDebt: true,
+        pinlessModeEnabled: true,
         defaultDebtDueDays: true,
         businessModeOverride: true,
         enableFulfillmentTypes: true,
@@ -319,6 +322,7 @@ export async function getTerminalsAction() {
           allowCashierDebtCreate: terminal.allowCashierDebtCreate,
           allowCashierDebtCollect: terminal.allowCashierDebtCollect,
           requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
+          pinlessModeEnabled: terminal.pinlessModeEnabled,
           defaultDebtDueDays: terminal.defaultDebtDueDays ?? null,
           businessMode: terminal.businessModeOverride ?? "RETAIL",
           enableFulfillmentTypes: terminal.enableFulfillmentTypes,
@@ -359,19 +363,31 @@ export async function openSessionAction(
     }
     await assertTerminalBillingAllowsPos(profile.companyId, terminalId);
 
-    if (!managerPin.trim()) {
-      return { success: false as const, error: "Manager PIN is required." };
-    }
-    await enforceRateLimit({
-      bucket: "managerPin",
-      route: "/pos",
-      action: "OPEN_SESSION_PIN",
-      profileId: profile.id,
-      userId: profile.id,
-      role: profile.role,
-      companyId: profile.companyId,
-      terminalId,
+    const terminal = await prisma.posTerminalInfo.findFirst({
+      where: { id: terminalId, companyId: profile.companyId },
+      select: { pinlessModeEnabled: true },
     });
+
+    if (!terminal) {
+      return { success: false as const, error: "Terminal not found." };
+    }
+
+    if (!terminal.pinlessModeEnabled) {
+      if (!managerPin.trim()) {
+        return { success: false as const, error: "Manager PIN is required." };
+      }
+
+      await enforceRateLimit({
+        bucket: "managerPin",
+        route: "/pos",
+        action: "OPEN_SESSION_PIN",
+        profileId: profile.id,
+        userId: profile.id,
+        role: profile.role,
+        companyId: profile.companyId,
+        terminalId,
+      });
+    }
 
     return await sessionMutationService.openSession(
       {
@@ -418,26 +434,42 @@ export async function withdrawCashAction(
       return { success: false, error: "Amount must be greater than 0" };
     }
 
-    await enforceRateLimit({
-      bucket: "managerPin",
-      route: "/pos",
-      action: "WITHDRAW_CASH_PIN",
-      profileId: profile.id,
-      userId: profile.id,
-      role: profile.role,
-      companyId: profile.companyId,
-      terminalId: timestampId,
+    const timestamp = await prisma.timestamp.findFirst({
+      where: { id: timestampId, cashierId: profile.id },
+      select: {
+        posTerminal: {
+          select: { pinlessModeEnabled: true },
+        },
+      },
     });
+    const pinlessModeEnabled = timestamp?.posTerminal.pinlessModeEnabled === true;
 
-    const approver = await findProfileByPin({
-      companyId: profile.companyId,
-      pin: managerPin,
-      roles: ["manager", "admin"],
-      select: { id: true, status: true },
-    });
+    let approverProfileId: string | null = null;
 
-    if (!approver || approver.status !== "active") {
-      return { success: false, error: "Invalid Manager PIN" };
+    if (!pinlessModeEnabled) {
+      await enforceRateLimit({
+        bucket: "managerPin",
+        route: "/pos",
+        action: "WITHDRAW_CASH_PIN",
+        profileId: profile.id,
+        userId: profile.id,
+        role: profile.role,
+        companyId: profile.companyId,
+        terminalId: timestampId,
+      });
+
+      const approver = await findProfileByPin({
+        companyId: profile.companyId,
+        pin: managerPin,
+        roles: ["manager", "admin"],
+        select: { id: true, status: true },
+      });
+
+      if (!approver || approver.status !== "active") {
+        return { success: false, error: "Invalid Manager PIN" };
+      }
+
+      approverProfileId = approver.id as string;
     }
 
     await sessionMutationService.withdrawCashAuthorized(
@@ -450,7 +482,7 @@ export async function withdrawCashAction(
       },
       timestampId,
       amount,
-      approver.id as string,
+      approverProfileId,
     );
 
     return { success: true };
@@ -483,26 +515,42 @@ export async function closeSessionAction(
       companyId: profile.companyId,
     });
 
-    await enforceRateLimit({
-      bucket: "managerPin",
-      route: "/pos",
-      action: "CLOSE_SESSION_PIN",
-      profileId: profile.id,
-      userId: profile.id,
-      role: profile.role,
-      companyId: profile.companyId,
-      terminalId: timestampId,
+    const timestamp = await prisma.timestamp.findFirst({
+      where: { id: timestampId, cashierId: profile.id },
+      select: {
+        posTerminal: {
+          select: { pinlessModeEnabled: true },
+        },
+      },
     });
+    const pinlessModeEnabled = timestamp?.posTerminal.pinlessModeEnabled === true;
 
-    const approver = await findProfileByPin({
-      companyId: profile.companyId,
-      pin: managerPin,
-      roles: ["manager", "admin"],
-      select: { id: true, status: true },
-    });
+    let approverProfileId: string | null = null;
 
-    if (!approver || approver.status !== "active") {
-      return { success: false as const, error: "Invalid Manager PIN" };
+    if (!pinlessModeEnabled) {
+      await enforceRateLimit({
+        bucket: "managerPin",
+        route: "/pos",
+        action: "CLOSE_SESSION_PIN",
+        profileId: profile.id,
+        userId: profile.id,
+        role: profile.role,
+        companyId: profile.companyId,
+        terminalId: timestampId,
+      });
+
+      const approver = await findProfileByPin({
+        companyId: profile.companyId,
+        pin: managerPin,
+        roles: ["manager", "admin"],
+        select: { id: true, status: true },
+      });
+
+      if (!approver || approver.status !== "active") {
+        return { success: false as const, error: "Invalid Manager PIN" };
+      }
+
+      approverProfileId = approver.id as string;
     }
 
     const data = await sessionMutationService.closeSessionAuthorized(
@@ -516,7 +564,7 @@ export async function closeSessionAction(
       sessionId,
       timestampId,
       countedCash,
-      approver.id as string,
+      approverProfileId,
     );
 
     return { success: true as const, data };

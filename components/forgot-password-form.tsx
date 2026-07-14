@@ -40,7 +40,7 @@ export function ForgotPasswordForm({
       return;
     }
 
-    setFeedback({ kind: "pending", message: "Sending reset link..." });
+    setFeedback({ kind: "idle" });
 
     startTransition(async () => {
       const supabase = createClient();
@@ -91,7 +91,6 @@ export function ForgotPasswordForm({
               <span className="font-semibold text-foreground">{email}</span>.
               Open the email and follow the link to set a new password.
             </p>
-            <AuthFeedback state={feedback} />
             <Link href="/auth/login">
               <Button className="h-11 w-full rounded-xl font-bold shadow-lg shadow-primary/20">
                 Proceed to Login

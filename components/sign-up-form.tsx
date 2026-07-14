@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Chrome } from "lucide-react";
+import { Chrome, Loader2 } from "lucide-react";
 
 import { submitRegistrationRequestAction } from "@/app/auth/_actions/registration-request.action";
 import {
@@ -83,6 +83,7 @@ export function SignUpForm({
   const [companyName, setCompanyName] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [feedback, setFeedback] = useState<AuthFeedbackState>({ kind: "idle" });
+  const [pendingAction, setPendingAction] = useState<"registration" | "google" | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -115,12 +116,8 @@ export function SignUpForm({
       return;
     }
 
-    setFeedback({
-      kind: "pending",
-      message: directRegistrationEnabled
-        ? "Creating your account..."
-        : "Submitting your registration request...",
-    });
+    setFeedback({ kind: "idle" });
+    setPendingAction("registration");
 
     startTransition(async () => {
       try {
@@ -134,6 +131,11 @@ export function SignUpForm({
         });
 
         if (!result.success) throw new Error(result.error);
+
+        if (result.data.mode === "email_confirmation") {
+          router.push("/auth/sign-up-success");
+          return;
+        }
 
         if (result.data.mode === "direct") {
           const supabase = createClient();
@@ -153,6 +155,7 @@ export function SignUpForm({
 
         router.push("/auth/sign-up-success");
       } catch (error: unknown) {
+        setPendingAction(null);
         setFeedback({
           kind: "error",
           message:
@@ -173,10 +176,8 @@ export function SignUpForm({
       return;
     }
 
-    setFeedback({
-      kind: "pending",
-      message: "Redirecting to Google...",
-    });
+    setFeedback({ kind: "idle" });
+    setPendingAction("google");
 
     startTransition(async () => {
       const supabase = createClient();
@@ -190,6 +191,7 @@ export function SignUpForm({
       });
 
       if (error) {
+        setPendingAction(null);
         setFeedback({
           kind: "error",
           message: error.message,
@@ -210,7 +212,7 @@ export function SignUpForm({
           </CardTitle>
           <CardDescription className="font-medium text-muted-foreground">
             {directRegistrationEnabled
-              ? "Create your active merchant account"
+              ? "Create your account, then confirm your email to sign in"
               : "Submit your merchant onboarding request for admin approval"}
           </CardDescription>
         </CardHeader>
@@ -315,7 +317,8 @@ export function SignUpForm({
               <AuthFeedback state={feedback} />
               <AuthSubmitButton
                 className="h-12 w-full rounded-xl font-bold shadow-lg shadow-primary/20"
-                isPending={isPending}
+                isPending={isPending && pendingAction === "registration"}
+                disabled={isPending}
                 idleLabel={
                   directRegistrationEnabled
                     ? "Create Account"
@@ -344,8 +347,12 @@ export function SignUpForm({
                 disabled={isPending}
                 onClick={handleGoogleSignUp}
               >
-                <Chrome className="mr-2 h-4 w-4" aria-hidden="true" />
-                Continue with Google
+                {isPending && pendingAction === "google" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Chrome className="mr-2 h-4 w-4" aria-hidden="true" />
+                )}
+                {isPending && pendingAction === "google" ? "Opening Google..." : "Continue with Google"}
               </Button>
             </div>
             <div className="mt-6 text-center text-sm font-medium text-muted-foreground">

@@ -98,7 +98,7 @@ export function MobileBottomNav({
         (item) =>
           item.href &&
           !item.disabled &&
-          isMobileAppHrefAllowed(item.href, appMode),
+          isMobileAppHrefAllowed(item.href, appMode, initialProfile.role),
       )
       .forEach((item) => {
         const key = item.href ?? item.id;

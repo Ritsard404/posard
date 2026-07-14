@@ -11,7 +11,6 @@ import {
   mapRegistrationRequestToListItem,
 } from "./_mappers/registration-approval.mapper";
 import type {
-  ApproveRegistrationRequestInputDto,
   RegistrationApprovalListItemDto,
   RejectRegistrationRequestInputDto,
 } from "./_dto/registration-approval.dto";
@@ -93,7 +92,6 @@ export const registrationApprovalService = {
   async approveRequest(
     viewer: AccountsViewerDto,
     requestId: string,
-    input: ApproveRegistrationRequestInputDto,
   ): Promise<void> {
     assertAdmin(viewer);
 
@@ -127,18 +125,27 @@ export const registrationApprovalService = {
     }
 
     const adminClient = createAdminClient();
-    const createUserResult = await adminClient.auth.admin.createUser({
+    const config = getAppConfig();
+
+    if (!config.appUrl) {
+      throw new Error("The POSard app URL must be configured before approving registrations.");
+    }
+
+    const createUserResult = await adminClient.auth.admin.generateLink({
+      type: "invite",
       email,
-      password: input.password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: request.fullName,
+      options: {
+        data: {
+          full_name: request.fullName,
+        },
+        redirectTo: `${config.appUrl}/auth/update-password`,
       },
     });
 
     const invitedUser = createUserResult.data.user;
+    const setupToken = createUserResult.data.properties?.hashed_token;
 
-    if (createUserResult.error || !invitedUser?.id || !invitedUser.email) {
+    if (createUserResult.error || !invitedUser?.id || !invitedUser.email || !setupToken) {
       throw new Error(
         normalizeAuthError(
           createUserResult.error?.message ?? "Failed to create the Supabase Auth user.",
@@ -179,6 +186,36 @@ export const registrationApprovalService = {
       throw error;
     }
 
+    const setupUrl = `${config.appUrl}/auth/confirm?token_hash=${encodeURIComponent(setupToken)}&type=invite&next=/auth/update-password`;
+    const template = emailTemplates.accountPasswordSetup({
+      name: request.fullName,
+      setupUrl,
+    });
+    const emailResult = await messagingService.sendEmail({
+      to: invitedEmail,
+      category: "registration",
+      metadata: { requestId: request.id, flow: "approved_password_setup" },
+      ...template,
+    });
+
+    if (emailResult.status !== "sent") {
+      await prisma.$transaction(async (tx) => {
+        if (createdProfileId) {
+          await tx.profile.delete({ where: { id: createdProfileId } });
+        }
+        await tx.registrationRequest.update({
+          where: { id: request.id },
+          data: {
+            status: "pending",
+            reviewedById: null,
+            reviewedAt: null,
+          },
+        });
+      });
+      await adminClient.auth.admin.deleteUser(invitedUser.id);
+      throw new Error("Unable to send the password setup email. Please try again.");
+    }
+
     if (createdProfileId) {
       await notificationService.create({
         profileId: createdProfileId,
@@ -192,17 +229,6 @@ export const registrationApprovalService = {
       });
     }
 
-    const config = getAppConfig();
-    const template = emailTemplates.accountApproved({
-      name: request.fullName,
-      appUrl: config.appUrl ? `${config.appUrl}/auth/login` : undefined,
-    });
-    await messagingService.sendEmail({
-      to: invitedEmail,
-      category: "registration",
-      metadata: { requestId: request.id },
-      ...template,
-    });
   },
 
   async rejectRequest(
