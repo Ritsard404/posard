@@ -51,12 +51,12 @@ export const RepairJobCreateSchema = z.object({
   itemLabel: z.string().min(1, "Item or device is required"),
   serialReference: nullableTextInput,
   issueSummary: z.string().min(1, "Issue summary is required"),
-  intakeNotes: nullableTextInput,
+  intakeNotes: nullableTextInput.optional(),
   estimateAmount: optionalMoneyInput.optional(),
   depositAmount: optionalMoneyInput,
   dueDate: nullableDateInput,
-  warrantyUntil: nullableDateInput,
-  notes: nullableTextInput,
+  warrantyUntil: nullableDateInput.optional(),
+  notes: nullableTextInput.optional(),
 });
 
 export type RepairJobCreateInput = z.infer<typeof RepairJobCreateSchema>;
@@ -74,7 +74,7 @@ export const SalesOrderCreateSchema = z.object({
   unitPrice: optionalMoneyInput,
   discountAmount: optionalMoneyInput,
   deliveryStatus: nullableTextInput,
-  deliveryNotes: nullableTextInput,
+  deliveryNotes: nullableTextInput.optional(),
   notes: nullableTextInput,
 });
 

@@ -7,7 +7,7 @@ import {
   managerCredentials,
 } from '../fixtures/auth.fixture';
 
-test.describe('auth logout', () => {
+test.describe('auth logout @smoke', () => {
   test.describe.configure({ mode: 'serial' });
 
   test('logs out from the protected app shell and returns to login', async ({

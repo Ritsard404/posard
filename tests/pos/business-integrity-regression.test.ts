@@ -43,6 +43,12 @@ test("returns keep invoice, item, manager approval, and stock reversal paths", (
   assert.match(orderService, /returnedAmount/);
 });
 
+test("void approval cannot use a manager from another company", () => {
+  const orderService = read("app/(protected)/pos/_services/order.service.ts");
+
+  assert.match(orderService, /where:\s*\{\s*email:\s*dto\.managerIdentifier,\s*companyId\s*\}/);
+});
+
 test("offline replay preserves local invoice traceability and does not trust offline manager approvals", () => {
   const syncRoute = read("app/api/sync/actions/route.ts");
   const bootstrapRoute = read("app/api/sync/bootstrap/route.ts");
@@ -71,6 +77,13 @@ test("terminal pinless mode stays terminal-scoped and defaults to PIN-required",
   assert.match(openSessionModal, /!pinlessModeEnabled && managerPin\.length < 4/);
 });
 
+test("session close rejects an already closed timestamp before writing", () => {
+  const sessionService = read("app/(protected)/pos/_services/session-mutation.service.ts");
+
+  assert.match(sessionService, /!timestamp \|\| timestamp\.timestampOut !== null/);
+  assert.match(sessionService, /Session is not active or does not exist/);
+});
+
 test("offline replay persists failed and review actions for Sync Center recovery", () => {
   const syncRoute = read("app/api/sync/actions/route.ts");
   const syncPage = read("app/(protected)/sync/page.tsx");
@@ -93,6 +106,18 @@ test("inventory movements cannot create invalid or negative tracked stock", () =
   assert.match(inventoryService, /Inventory movement cannot make stock negative/);
   assert.match(workflowService, /Inventory movement quantity must be a non-zero number/);
   assert.match(workflowService, /Inventory movement cannot make stock negative/);
+});
+
+test("procurement and transfers validate every selected entity in the viewer company", () => {
+  const workflowService = read("app/(protected)/_services/management-workflow.service.ts");
+
+  assert.match(workflowService, /Supplier or product is not available in this company/);
+  assert.match(workflowService, /Source and destination terminals must be different/);
+  assert.match(workflowService, /Transfer terminals or product are not available in this company/);
+  assert.match(workflowService, /companyId:\s*viewer\.companyId/);
+  assert.match(workflowService, /Expense category or terminal is not available in this company/);
+  assert.match(workflowService, /Income terminal is not available in this company/);
+  assert.match(workflowService, /id:\s*input\.supplierId,\s*companyId:\s*viewer\.companyId/);
 });
 
 test("pharmacy batch expiry and FEFO paths stay wired", () => {
@@ -119,6 +144,25 @@ test("pharmacy batch expiry and FEFO paths stay wired", () => {
   assert.match(inventoryPage, /Batch & Expiry Monitor/);
   assert.match(purchaseOrdersPage, /name="batchNumber"/);
   assert.match(purchaseOrdersPage, /name="expiryDate"/);
+});
+
+test("inventory controls keep terminals and stock-count assignees company-scoped", () => {
+  const workflowService = read("app/(protected)/_services/management-workflow.service.ts");
+
+  assert.match(workflowService, /id: input\.terminalId, companyId: input\.companyId/);
+  assert.match(workflowService, /id: input\.terminalId, companyId: viewer\.companyId/);
+  assert.match(workflowService, /id: input\.assignedToId, companyId: viewer\.companyId/);
+  assert.match(workflowService, /Selected stock-count assignee was not found/);
+});
+
+test("business-fit workflows scope references and globally unique numbers by company", () => {
+  const service = read("app/(protected)/business-fit/_services/business-fit.service.ts");
+
+  assert.match(service, /companyId\.slice\(0, 8\)/);
+  assert.match(service, /id: input\.terminalId, companyId: input\.companyId/);
+  assert.match(service, /id: input\.customerId, companyId: input\.companyId/);
+  assert.match(service, /id: input\.productId, companyId: input\.companyId/);
+  assert.match(service, /id: input\.staffId, companyId: input\.companyId/);
 });
 
 test("report and sync recovery indexes cover common POS report filters", () => {

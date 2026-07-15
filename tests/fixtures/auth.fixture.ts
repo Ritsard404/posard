@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '../../lib/prisma';
+import { hashPin } from '../../lib/security/pin';
+import { assertE2EDatabaseWritesAllowed } from './e2e-environment';
 
 type AuthCredentials = {
   email: string;
@@ -180,6 +182,7 @@ export async function authenticatePageWithCredentials(
 }
 
 export async function ensureAuthUserForProfile(credentials: AuthCredentials) {
+  assertE2EDatabaseWritesAllowed();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -267,6 +270,7 @@ export async function ensureAuthUserForProfile(credentials: AuthCredentials) {
 }
 
 export async function ensurePosResponsiveProfiles() {
+  assertE2EDatabaseWritesAllowed();
   const testId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const company = await prisma.company.create({
     data: { name: `E2E POS Responsive ${testId}` },
@@ -334,8 +338,23 @@ export async function ensurePosResponsiveProfiles() {
 
   await ensureProfile(managerCredentials, 'manager');
   await ensureProfile(cashierCredentials, 'cashier');
+  const returnApprover = await prisma.profile.create({
+    data: {
+      userId: randomUUID(),
+      email: `e2e-return-approver-${testId}@example.com`,
+      fullName: 'E2E Return Approver',
+      role: 'manager',
+      status: 'active',
+      approvedAt: new Date(),
+      companyId: company.id,
+      pin: hashPin('2468'),
+    },
+    select: { id: true },
+  });
+  createdProfileIds.push(returnApprover.id);
 
   return {
+    companyId: company.id,
     async cleanup() {
       for (const profile of existingProfiles) {
         await prisma.profile.update({
@@ -353,6 +372,9 @@ export async function ensurePosResponsiveProfiles() {
       }
 
       if (createdProfileIds.length > 0) {
+        await prisma.auditLog.deleteMany({
+          where: { actorProfileId: { in: createdProfileIds } },
+        });
         await prisma.profile.deleteMany({
           where: { id: { in: createdProfileIds } },
         });
@@ -364,6 +386,7 @@ export async function ensurePosResponsiveProfiles() {
 }
 
 export async function createOnboardingAdminAccount() {
+  assertE2EDatabaseWritesAllowed();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

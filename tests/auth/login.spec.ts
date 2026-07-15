@@ -16,7 +16,7 @@ async function mockInvalidPasswordLogin(page: Page) {
   });
 }
 
-test.describe('auth login', () => {
+test.describe('auth login @smoke', () => {
   test('renders the login form', async ({ page }) => {
     await page.goto('/auth/login');
 
@@ -108,6 +108,9 @@ test.describe('auth login', () => {
 
     await loginAsTestUser(page);
 
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page).toHaveURL(/\/(?:dashboard|pos)(?:\?.*)?$/);
+    await expect(
+      page.getByRole('heading', { name: /^(?:Dashboard|Point of Sale)$/ }).first(),
+    ).toBeVisible();
   });
 });

@@ -301,12 +301,14 @@ export const reportPageService = {
       to: getParam(searchParams, "to"),
       companyId: viewer.companyId,
     });
-    const workspace = await reportService.getWorkspace(viewer);
-    const overview = await reportService.getOverview(viewer, {
-      companyId: viewer.companyId,
-      from: range.from,
-      to: range.to,
-    });
+    const [workspace, overview] = await Promise.all([
+      reportService.getWorkspace(viewer),
+      reportService.getOverview(viewer, {
+        companyId: viewer.companyId,
+        from: range.from,
+        to: range.to,
+      }),
+    ]);
 
     return {
       viewer,

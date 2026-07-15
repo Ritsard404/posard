@@ -22,13 +22,16 @@ export function AuthSubmitButton({
     <Button
       type="submit"
       aria-busy={isPending}
+      aria-label={isPending ? pendingLabel : undefined}
       disabled={disabled || isPending}
       {...props}
     >
       {isPending ? (
         <>
           <Loader2 className="size-4 animate-spin" />
-          <span>{pendingLabel}</span>
+          <span role="status" aria-live="polite">
+            {pendingLabel}
+          </span>
         </>
       ) : (
         children ?? idleLabel

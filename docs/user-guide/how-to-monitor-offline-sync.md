@@ -24,6 +24,8 @@ Use this when a cashier reports offline sales, failed updates, or records that n
 You can see which actions still need attention instead of losing them silently. Successful retries are marked recovered. Items that need manager review stay visible until handled.
 
 ## Tips or reminders
+
+- Incremental refreshes keep products already saved on the device while applying changed or removed catalog records.
 - Do not ignore needs-review items.
 - Compare the receipt and report if a sale looks duplicated or missing.
 - Cashiers can keep selling with saved product data when the product refresh fails.

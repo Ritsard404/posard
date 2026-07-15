@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
+  authCredentials,
+  authenticatePageWithCredentials,
   createOnboardingAdminAccount,
   expectLoginPage,
   loginAsTestUser,
@@ -40,7 +42,7 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-test.describe('auth redirects', () => {
+test.describe('auth redirects @smoke @permissions', () => {
   test('allows unauthenticated users to visit public marketing pages', async ({
     page,
   }) => {
@@ -74,7 +76,7 @@ test.describe('auth redirects', () => {
   }) => {
     test.setTimeout(60_000);
 
-    await loginAsTestUser(page);
+    await authenticatePageWithCredentials(page, authCredentials);
 
     await page.goto('/auth/login');
 

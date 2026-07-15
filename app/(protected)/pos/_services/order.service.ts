@@ -786,6 +786,7 @@ async function createInvoiceItems(
   invoiceId: string,
   items: ItemRequestDto[],
   isTrainMode: boolean,
+  invoiceStatus: InvoiceStatusType,
 ) {
   const missingPrescriptionConfirmation = items.find(
     (item) =>
@@ -813,7 +814,7 @@ async function createInvoiceItems(
         price: item.price,
         basePrice: item.basePrice ?? item.price,
         subTotal: item.status === "VOID" ? 0 : item.subTotal,
-        status: item.status || ("PAID" satisfies InvoiceStatusType),
+        status: item.status === "VOID" ? "VOID" : invoiceStatus,
         isTrainingMode: isTrainMode,
         prescriptionRequired: item.prescriptionRequired ?? false,
         prescriptionConfirmed: item.prescriptionConfirmed ?? false,
@@ -832,7 +833,7 @@ async function createInvoiceItems(
       price: item.price,
       basePrice: item.basePrice ?? item.price,
       subTotal: item.status === "VOID" ? 0 : item.subTotal,
-      status: item.status || ("PAID" satisfies InvoiceStatusType),
+      status: item.status === "VOID" ? "VOID" : invoiceStatus,
       isTrainingMode: isTrainMode,
       prescriptionRequired: item.prescriptionRequired ?? false,
       prescriptionConfirmed: item.prescriptionConfirmed ?? false,
@@ -1263,6 +1264,7 @@ export const orderService = {
             invoice.id,
             dto.items,
             terminal.isTrainMode,
+            debtStatus === DebtStatus.PAID ? "PAID" : "PENDING",
           );
           if (terminal.enableKitchenTickets && !terminal.isTrainMode) {
             await createKitchenTicketForInvoice({
@@ -1524,6 +1526,7 @@ export const orderService = {
           invoice.id,
           dto.items,
           terminal.isTrainMode,
+          "PAID",
         );
         if (terminal.enableKitchenTickets && !terminal.isTrainMode) {
           await createKitchenTicketForInvoice({
@@ -1916,8 +1919,11 @@ export const orderService = {
   },
 
   async cancelOrder(dto: CancelOrderDto): Promise<void> {
+    const profile = await getCurrentProfile();
+    if (!profile.companyId) throw new Error("User has no assigned company");
+    const companyId = profile.companyId;
     const manager = await prisma.profile.findFirst({
-      where: { email: dto.managerIdentifier },
+      where: { email: dto.managerIdentifier, companyId },
       select: { id: true, role: true },
     });
 
@@ -1927,9 +1933,6 @@ export const orderService = {
       throw new Error("User does not have manager privileges");
     }
 
-    const profile = await getCurrentProfile();
-    if (!profile.companyId) throw new Error("User has no assigned company");
-    const companyId = profile.companyId;
     const activeTimestamp = await getActiveTimestampForOrder(
       companyId,
       dto.order.timestampId,
