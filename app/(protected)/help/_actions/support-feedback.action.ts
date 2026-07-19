@@ -4,25 +4,19 @@ import { z } from "zod";
 import { getAppConfig } from "@/lib/app-config";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 import { messagingService } from "@/lib/messaging/email.service";
+import { emailTemplates } from "@/lib/messaging/email-templates";
+
+const feedbackTopics = ["Bug or error", "Feature request", "Account help", "Billing or subscription", "Other"] as const;
+const feedbackPriorities = ["Normal", "High", "Urgent"] as const;
 
 const supportFeedbackSchema = z.object({
   message: z.string().trim().min(10).max(3000),
+  topic: z.enum(feedbackTopics),
+  priority: z.enum(feedbackPriorities),
   pageUrl: z.string().trim().max(500).optional(),
   contactEmail: z.string().trim().email().max(320).optional().or(z.literal("")),
   deviceInfo: z.string().trim().max(500).optional(),
 });
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function formatLine(label: string, value: string | null | undefined) {
-  return `${label}: ${value?.trim() || "Not provided"}`;
-}
 
 export async function sendSupportFeedbackAction(input: unknown) {
   try {
@@ -50,40 +44,34 @@ export async function sendSupportFeedbackAction(input: unknown) {
 
     const reporterName = profile.fullName || profile.email || "POSard user";
     const reporterEmail = parsed.contactEmail || profile.email || "";
-    const subject = `POSard feedback from ${reporterName}`;
-    const details = [
-      formatLine("Reporter", reporterName),
-      formatLine("Login email", profile.email),
-      formatLine("Reply contact", reporterEmail),
-      formatLine("Role", profile.role),
-      formatLine("Company ID", profile.companyId),
-      formatLine("Branch ID", profile.branchId),
-      formatLine("Page", parsed.pageUrl),
-      formatLine("Device", parsed.deviceInfo),
-      "",
-      "Message:",
-      parsed.message,
-    ].join("\n");
-
-    const html = `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
-        <h1 style="font-size:20px;">${escapeHtml(subject)}</h1>
-        <pre style="white-space:pre-wrap;font-family:Arial,sans-serif;">${escapeHtml(details)}</pre>
-        <p style="font-size:12px;color:#6b7280;">Sent from POSard Help Center</p>
-      </div>
-    `;
+    const template = emailTemplates.supportFeedback({
+      reporterName,
+      topic: parsed.topic,
+      priority: parsed.priority,
+      message: parsed.message,
+      details: [
+        { label: "Reporter", value: reporterName },
+        { label: "Login email", value: profile.email || "Not provided" },
+        { label: "Reply contact", value: reporterEmail || "Not provided" },
+        { label: "Role", value: profile.role },
+        { label: "Company ID", value: profile.companyId || "Not provided" },
+        { label: "Branch ID", value: profile.branchId || "Not provided" },
+        { label: "Page", value: parsed.pageUrl || "Not provided" },
+        { label: "Device", value: parsed.deviceInfo || "Not provided" },
+      ],
+    });
 
     const result = await messagingService.sendEmail({
       to: supportEmail,
-      subject,
-      html,
-      text: details,
+      replyTo: reporterEmail || undefined,
       category: "system",
       metadata: {
         source: "help-center-feedback",
+        flow: "support_feedback",
         profileId: profile.id,
         companyId: profile.companyId,
       },
+      ...template,
     });
 
     if (result.status !== "sent") {

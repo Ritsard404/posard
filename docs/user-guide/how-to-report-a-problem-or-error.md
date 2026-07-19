@@ -16,18 +16,21 @@ Use this when POSard shows an error, a page does not load, checkout does not fin
 2. Search for **report**, **bug**, **error**, or **problem**.
 3. Open **Report a problem or error**.
 4. Find **Need more help or found a problem?** near the top of the page.
-5. Write what happened, what you were trying to do, and any exact error message.
-6. Add receipt, invoice, terminal, customer, or payment references only when they help identify the issue.
-7. Add a reply email if support should contact a different address.
-8. Select **Send Feedback**.
+5. Choose the topic that best matches the message.
+6. Choose **Normal**, **High**, or **Urgent** priority. Use **Urgent** only when store operations are blocked or data may be at risk.
+7. Write what happened, what you were trying to do, and any exact error message.
+8. Add receipt, invoice, terminal, customer, or payment references only when they help identify the issue.
+9. Add a reply email if support should contact a different address.
+10. Select **Send Feedback**.
 
 ## What happens next
-Support can compare the reported page, action, time, and reference against POSard records. Clear reports make it easier to reproduce the problem and decide whether the fix is a setup change, user guidance, or code update.
+Support receives a structured message with the topic, priority, reporter, current page, device, and description. When a reply email is available, support can reply directly in the same email thread. Clear reports make it easier to reproduce the problem and decide whether the fix is a setup change, user guidance, or code update.
 
 ## Tips or reminders
 - Write the exact error message, not only "it failed."
 - Include what you expected to happen.
 - POSard includes the current page and device details automatically.
+- Use **High** when work can continue with difficulty. Use **Urgent** only when checkout or another critical operation cannot continue.
 - Mention whether the device was online, offline, slow, or recently refreshed.
 - For printer issues, include the printer mode and device model.
 - For sync issues, include the Sync Center message and terminal.

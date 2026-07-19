@@ -175,7 +175,7 @@ export const registrationRequestService = {
       email,
       companyName: input.companyName,
     });
-    await sendPendingReviewEmail(email, request.id);
+    await sendPendingReviewEmail(email, input.fullName.trim(), request.id);
 
     return { mode: "pending_approval" };
   },
@@ -274,7 +274,7 @@ export const registrationRequestService = {
       email,
       companyName: null,
     });
-    await sendPendingReviewEmail(email, request.id);
+    await sendPendingReviewEmail(email, fullName, request.id);
 
     return { mode: "pending_approval" };
   },
@@ -359,14 +359,15 @@ async function sendEmailConfirmation(input: {
   });
 }
 
-async function sendPendingReviewEmail(email: string, requestId: string) {
+async function sendPendingReviewEmail(email: string, fullName: string, requestId: string) {
+  const template = emailTemplates.registrationPendingReview({ name: fullName });
+
   await messagingService.sendEmail({
     to: email,
-    subject: "Your POSard registration is pending review",
-    html: "<p>Your POSard registration request was received and is waiting for admin review.</p>",
-    text: "Your POSard registration request was received and is waiting for admin review.",
     category: "registration",
+    idempotencyKey: `registration/${requestId}/pending-review`,
     metadata: { requestId, flow: "approval_required" },
+    ...template,
   });
 }
 
@@ -403,6 +404,7 @@ async function notifyAdminsOfRegistrationRequest(input: {
     ...admins.map((admin) => messagingService.sendEmail({
       to: admin.email,
       category: "registration",
+      idempotencyKey: `registration/${input.requestId}/admin/${admin.id}`,
       metadata: {
         requestId: input.requestId,
         flow: "admin_approval_requested",

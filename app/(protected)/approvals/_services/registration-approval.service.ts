@@ -240,7 +240,7 @@ export const registrationApprovalService = {
 
     const request = await prisma.registrationRequest.findUnique({
       where: { id: requestId },
-      select: { id: true, status: true, email: true },
+      select: { id: true, status: true, email: true, fullName: true },
     });
 
     if (!request) {
@@ -264,6 +264,7 @@ export const registrationApprovalService = {
       });
 
     const template = emailTemplates.managerApprovalResult({
+      name: request.fullName,
       approved: false,
       reason: input.rejectionReason,
     });

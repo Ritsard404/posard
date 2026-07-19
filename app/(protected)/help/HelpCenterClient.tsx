@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { sendSupportFeedbackAction } from "./_actions/support-feedback.action";
 
@@ -200,7 +201,8 @@ const guideGroups: HelpGroup[] = [
           "Write what you were trying to do, such as checkout, print, sync, import, or open a report.",
           "Write the steps before the problem happened.",
           "Include the store, branch, terminal, cashier, time, and useful references.",
-          "Use Send Feedback near the top of the Help Center.",
+          "Choose a topic and priority, then use Send Feedback near the top of the Help Center.",
+          "Add a reply email so support can answer the same email thread.",
         ],
         reminder:
           "Do not send passwords, manager PINs, card numbers, or private customer payment details. POSard includes the current page and device details automatically.",
@@ -1157,9 +1159,18 @@ function SupportCard({
 }) {
   const [message, setMessage] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [topic, setTopic] = useState("Bug or error");
+  const [priority, setPriority] = useState("Normal");
   const [isPending, startTransition] = useTransition();
   const trimmedMessage = message.trim();
-  const canSend = supportReady && trimmedMessage.length >= 10 && !isPending;
+  const trimmedContactEmail = contactEmail.trim();
+  const contactEmailValid =
+    !trimmedContactEmail || /^\S+@\S+\.\S+$/.test(trimmedContactEmail);
+  const canSend =
+    supportReady &&
+    trimmedMessage.length >= 10 &&
+    contactEmailValid &&
+    !isPending;
 
   function submitFeedback() {
     if (!supportReady) {
@@ -1172,10 +1183,17 @@ function SupportCard({
       return;
     }
 
+    if (!contactEmailValid) {
+      toast.error("Enter a valid reply email or leave it blank.");
+      return;
+    }
+
     startTransition(async () => {
       const result = await sendSupportFeedbackAction({
         message: trimmedMessage,
-        contactEmail: contactEmail.trim(),
+        topic,
+        priority,
+        contactEmail: trimmedContactEmail,
         pageUrl: window.location.href,
         deviceInfo: navigator.userAgent,
       });
@@ -1187,7 +1205,9 @@ function SupportCard({
 
       setMessage("");
       setContactEmail("");
-      toast.success("Feedback sent to POSard support.");
+      setTopic("Bug or error");
+      setPriority("Normal");
+      toast.success("Feedback sent. Support can reply directly to your email.");
     });
   }
 
@@ -1214,8 +1234,40 @@ function SupportCard({
           )}
         </div>
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="support-topic">Topic</Label>
+            <select
+              id="support-topic"
+              value={topic}
+              onChange={(event) => setTopic(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <option>Bug or error</option>
+              <option>Feature request</option>
+              <option>Account help</option>
+              <option>Billing or subscription</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="support-priority">Priority</Label>
+            <select
+              id="support-priority"
+              value={priority}
+              onChange={(event) => setPriority(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <option>Normal</option>
+              <option>High</option>
+              <option>Urgent</option>
+            </select>
+          </div>
+        </div>
+        <Label htmlFor="support-message" className="sr-only">Feedback details</Label>
         <textarea
+          id="support-message"
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           rows={4}
@@ -1223,24 +1275,35 @@ function SupportCard({
           placeholder="Example: Checkout froze after selecting Maya payment on Terminal 1. Error said..."
           className="min-h-28 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
         />
+        <p className="text-right text-xs text-muted-foreground">
+          {message.length.toLocaleString()} / 3,000 characters
+        </p>
         <div className="flex flex-col gap-2 sm:flex-row">
+          <Label htmlFor="support-contact-email" className="sr-only">Reply email</Label>
           <Input
+            id="support-contact-email"
             value={contactEmail}
             onChange={(event) => setContactEmail(event.target.value)}
             type="email"
             placeholder="Reply email (optional)"
             className="min-w-0"
+            aria-invalid={!contactEmailValid}
           />
           <Button
             type="button"
             onClick={submitFeedback}
             disabled={!canSend}
-            className="shrink-0"
+            className="min-h-12 w-full shrink-0 sm:w-auto"
           >
             <Send className="size-4" />
             {isPending ? "Sending..." : "Send Feedback"}
           </Button>
         </div>
+        {!contactEmailValid ? (
+          <p className="text-xs font-medium text-destructive">
+            Enter a valid reply email or leave this field blank.
+          </p>
+        ) : null}
         {!supportReady ? (
           <p className="text-xs text-destructive">
             Feedback sending is disabled until email settings are ready.

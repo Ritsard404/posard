@@ -33,11 +33,15 @@ class ResendEmailProvider implements EmailProvider {
 
   async send(payload: EmailPayload): Promise<EmailResult> {
     try {
+      const flow = payload.metadata?.flow;
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
+          ...(payload.idempotencyKey
+            ? { "Idempotency-Key": payload.idempotencyKey }
+            : {}),
         },
         body: JSON.stringify({
           from: this.from,
@@ -45,7 +49,13 @@ class ResendEmailProvider implements EmailProvider {
           subject: payload.subject,
           html: payload.html,
           text: payload.text,
-          reply_to: this.replyTo || undefined,
+          reply_to: payload.replyTo || this.replyTo || undefined,
+          tags: [
+            { name: "category", value: payload.category },
+            ...(typeof flow === "string"
+              ? [{ name: "flow", value: flow.slice(0, 256) }]
+              : []),
+          ],
         }),
       });
       const data = (await response.json().catch(() => null)) as
@@ -105,7 +115,10 @@ class SmtpEmailProvider implements EmailProvider {
         subject: payload.subject,
         html: payload.html,
         text: payload.text,
-        replyTo: this.options.replyTo || undefined,
+        replyTo: payload.replyTo || this.options.replyTo || undefined,
+        headers: {
+          "X-POSard-Category": payload.category,
+        },
       });
 
       return { status: "sent", provider: this.name, messageId: info.messageId };

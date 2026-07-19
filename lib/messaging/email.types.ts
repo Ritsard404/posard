@@ -12,6 +12,8 @@ export interface EmailPayload {
   html: string;
   text: string;
   category: EmailCategory;
+  replyTo?: string;
+  idempotencyKey?: string;
   metadata?: Record<string, string | number | boolean | null>;
 }
 
