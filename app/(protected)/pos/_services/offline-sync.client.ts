@@ -51,7 +51,11 @@ async function notifyServiceWorkerToSync() {
 }
 
 export async function registerPOSServiceWorker() {
-  if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+  if (
+    process.env.NODE_ENV !== "production" ||
+    typeof window === "undefined" ||
+    !("serviceWorker" in navigator)
+  ) {
     return;
   }
 
@@ -84,8 +88,7 @@ export async function fetchOfflineBootstrap(deviceId: string) {
       throw new Error(payload.error || "Unable to refresh offline bootstrap.");
     }
 
-    await saveOfflineBootstrap(payload.data);
-    return payload.data;
+    return saveOfflineBootstrap(payload.data);
   } catch (error) {
     const classified = toFetchRecoveryError(error);
     const fallback = await getOfflineBootstrapFallback(classified.safeMessage);

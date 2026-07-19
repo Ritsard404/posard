@@ -124,15 +124,20 @@ export function calculatePayment(
   const vatAmount = hasStatutoryDiscount
     ? 0
     : round2(vatableTotal - statutoryVatExemptAmount);
-  const discountAmount = calculateDiscountAmount(
-    input.discount,
-    grossTotal,
-    vatableTotal,
-    vatExemptTotal,
-    vatZeroTotal,
-    input.vatRate,
-    input.discountCapType,
-    input.discountCapValue,
+  const discountAmount = round2(
+    Math.min(
+      calculateDiscountAmount(
+        input.discount,
+        grossTotal,
+        vatableTotal,
+        vatExemptTotal,
+        vatZeroTotal,
+        input.vatRate,
+        input.discountCapType,
+        input.discountCapValue,
+      ),
+      grossTotal,
+    ),
   );
   const totalAmount = round2(Math.max(grossTotal - discountAmount, 0));
   const dueAmount = totalAmount;

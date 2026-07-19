@@ -34,13 +34,40 @@ function toNumber(value: { toNumber: () => number } | number | null | undefined)
   return typeof value === "number" ? value : value.toNumber();
 }
 
-function buildNumber(prefix: string, count: number) {
+function buildNumber(prefix: string, companyId: string, count: number) {
   const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  return `${prefix}-${stamp}-${String(count + 1).padStart(4, "0")}`;
+  return `${prefix}-${companyId.slice(0, 8).toUpperCase()}-${stamp}-${String(count + 1).padStart(4, "0")}`;
 }
 
 function companyWhere(companyId: string | null) {
   return companyId ? { companyId } : {};
+}
+
+async function validateCompanyReferences(input: {
+  companyId: string;
+  terminalId?: string | null;
+  customerId?: string | null;
+  productId?: string | null;
+  staffId?: string | null;
+}) {
+  const [terminal, customer, product, staff] = await Promise.all([
+    input.terminalId
+      ? prisma.posTerminalInfo.findFirst({ where: { id: input.terminalId, companyId: input.companyId }, select: { id: true } })
+      : null,
+    input.customerId
+      ? prisma.customer.findFirst({ where: { id: input.customerId, companyId: input.companyId }, select: { id: true } })
+      : null,
+    input.productId
+      ? prisma.product.findFirst({ where: { id: input.productId, companyId: input.companyId, isDeleted: false }, select: { id: true } })
+      : null,
+    input.staffId
+      ? prisma.profile.findFirst({ where: { id: input.staffId, companyId: input.companyId }, select: { id: true } })
+      : null,
+  ]);
+  if (input.terminalId && !terminal) throw new Error("Selected terminal was not found.");
+  if (input.customerId && !customer) throw new Error("Selected customer was not found.");
+  if (input.productId && !product) throw new Error("Selected product was not found.");
+  if (input.staffId && !staff) throw new Error("Selected staff member was not found.");
 }
 
 function buildMatrix(): BusinessFitMatrixRowDTO[] {
@@ -328,11 +355,18 @@ export const businessFitService = {
   async createServiceBooking(input: ServiceBookingCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    await validateCompanyReferences({
+      companyId: viewer.companyId,
+      terminalId: input.terminalId,
+      customerId: input.customerId,
+      productId: input.serviceProductId,
+      staffId: input.assignedStaffId,
+    });
     const count = await prisma.serviceBooking.count({ where: { companyId: viewer.companyId } });
 
     await prisma.serviceBooking.create({
       data: {
-        bookingNumber: buildNumber("SB", count),
+        bookingNumber: buildNumber("SB", viewer.companyId, count),
         companyId: viewer.companyId,
         terminalId: input.terminalId,
         customerId: input.customerId,
@@ -351,11 +385,18 @@ export const businessFitService = {
   async createRepairJob(input: RepairJobCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    await validateCompanyReferences({
+      companyId: viewer.companyId,
+      terminalId: input.terminalId,
+      customerId: input.customerId,
+      productId: input.laborProductId,
+      staffId: input.assignedStaffId,
+    });
     const count = await prisma.repairJob.count({ where: { companyId: viewer.companyId } });
 
     await prisma.repairJob.create({
       data: {
-        jobNumber: buildNumber("RJ", count),
+        jobNumber: buildNumber("RJ", viewer.companyId, count),
         companyId: viewer.companyId,
         terminalId: input.terminalId,
         customerId: input.customerId,
@@ -378,13 +419,19 @@ export const businessFitService = {
   async createSalesOrder(input: SalesOrderCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    await validateCompanyReferences({
+      companyId: viewer.companyId,
+      terminalId: input.terminalId,
+      customerId: input.customerId,
+      productId: input.productId,
+    });
     const count = await prisma.salesOrder.count({ where: { companyId: viewer.companyId } });
     const quantity = input.quantity ?? 0;
     const lineTotal = Math.max(0, quantity * input.unitPrice - input.discountAmount);
 
     await prisma.salesOrder.create({
       data: {
-        orderNumber: buildNumber("SO", count),
+        orderNumber: buildNumber("SO", viewer.companyId, count),
         companyId: viewer.companyId,
         terminalId: input.terminalId,
         customerId: input.customerId,
@@ -417,11 +464,16 @@ export const businessFitService = {
   async createOpenTicket(input: PosOpenTicketCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    await validateCompanyReferences({
+      companyId: viewer.companyId,
+      terminalId: input.terminalId,
+      customerId: input.customerId,
+    });
     const count = await prisma.posOpenTicket.count({ where: { companyId: viewer.companyId } });
 
     await prisma.posOpenTicket.create({
       data: {
-        ticketNumber: buildNumber("OT", count),
+        ticketNumber: buildNumber("OT", viewer.companyId, count),
         companyId: viewer.companyId,
         terminalId: input.terminalId,
         cashierId: viewer.profileId,
@@ -446,6 +498,12 @@ export const businessFitService = {
   async createPrescriptionVerification(input: PrescriptionVerificationCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    await validateCompanyReferences({
+      companyId: viewer.companyId,
+      terminalId: input.terminalId,
+      customerId: input.customerId,
+      productId: input.productId,
+    });
 
     await prisma.prescriptionVerification.create({
       data: {

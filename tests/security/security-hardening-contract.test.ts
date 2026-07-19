@@ -118,7 +118,7 @@ test("POS bootstrap uses delta cursors, no-store fetches, payload metrics, and s
   assert.match(route, /changedSince = parseSinceCursor/);
   assert.match(route, /categoryService\.getCategories\(companyId,\s*\{ changedSince/);
   assert.match(route, /productService\.getProducts\(companyId,\s*\{ changedSince/);
-  assert.match(route, /epaymentService\.getEPaymentMethods\(\{ changedSince/);
+  assert.match(route, /epaymentService\.getEPaymentMethods\(companyId,\s*\{ changedSince/);
   assert.match(route, /removedCategories/);
   assert.match(route, /removedProducts/);
   assert.match(route, /mode:\s*changedSince \? "delta" : "snapshot"/);

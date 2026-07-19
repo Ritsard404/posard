@@ -172,7 +172,12 @@ function setupInstallListeners() {
         : false,
   });
 
-  if ("serviceWorker" in navigator) {
+  if (process.env.NODE_ENV !== "production") {
+    setInstallState({
+      status: "manual",
+      fallbackReason: "browser",
+    });
+  } else if ("serviceWorker" in navigator) {
     navigator.serviceWorker
       .register("/sw.js", { scope: "/", updateViaCache: "none" })
       .then((registration) => {

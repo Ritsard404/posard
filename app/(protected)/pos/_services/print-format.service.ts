@@ -353,6 +353,10 @@ function buildInvoiceContent(receipt: ReceiptDto, copyLabel?: string) {
     );
   }
 
+  if (receipt.receiptFooter?.trim()) {
+    content.push(separator(), centerText(receipt.receiptFooter.trim()), "");
+  }
+
   return content.join("\n");
 }
 

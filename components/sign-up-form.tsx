@@ -153,7 +153,7 @@ export function SignUpForm({
           return;
         }
 
-        router.push("/auth/sign-up-success");
+        router.push("/auth/sign-up-success?mode=pending");
       } catch (error: unknown) {
         setPendingAction(null);
         setFeedback({

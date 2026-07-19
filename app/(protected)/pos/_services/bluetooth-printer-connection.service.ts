@@ -637,7 +637,7 @@ export const bluetoothPrinterConnectionService = {
     });
   },
 
-  async print(data: string | string[], config: PrinterConfigDto) {
+  async print(data: string | string[] | Uint8Array | Uint8Array[], config: PrinterConfigDto) {
     if (config.driver !== "webbluetooth") {
       throw new Error("This printer is not configured for Web Bluetooth.");
     }
@@ -657,9 +657,13 @@ export const bluetoothPrinterConnectionService = {
 
     try {
       for (const segment of segments) {
+        const payload =
+          typeof segment === "string"
+            ? TEXT_ENCODER.encode(`${segment}\n\n\n`)
+            : segment;
         await writeCharacteristic(
           characteristic,
-          TEXT_ENCODER.encode(`${segment}\n\n\n`),
+          payload,
         );
       }
     } catch (error) {

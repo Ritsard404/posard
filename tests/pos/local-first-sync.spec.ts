@@ -54,7 +54,7 @@ function buildQueuedSale(overrides: Record<string, unknown> = {}) {
   };
 }
 
-test.describe("local-first POS sync payload", () => {
+test.describe("local-first POS sync payload @offline", () => {
   test("accepts a queued local sale with a client transaction id and receipt snapshot", () => {
     const parsed = syncActionsRequestSchema.safeParse({
       actions: [buildQueuedSale()],

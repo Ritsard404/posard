@@ -57,6 +57,8 @@ export interface ReceiptDto {
   address: string | null;
   vatTinNumber: string | null;
   minNumber: string | null;
+  receiptLogoImageUrl?: string | null;
+  receiptFooter?: string | null;
   terminalVat: number;
   cashierName: string;
   isTrainMode: boolean;

@@ -550,6 +550,32 @@ const guideGroups: HelpGroup[] = [
         ],
       },
       {
+        title: "Edit receipt design and logo",
+        role: "Manager / Admin",
+        audience: ["manager", "admin"],
+        summary:
+          "Upload a branch receipt logo, set the footer message, and preview the thermal receipt layout.",
+        steps: [
+          "Open Company.",
+          "Select Branches.",
+          "Add or edit the branch.",
+          "Upload, replace, or remove the receipt logo.",
+          "Update the receipt footer.",
+          "Review the receipt preview.",
+          "Save the branch.",
+        ],
+        reminder:
+          "Use a simple high-contrast logo and test print before using the design at the counter.",
+        keywords: [
+          "receipt logo",
+          "print logo",
+          "thermal printer",
+          "receipt design",
+          "receipt footer",
+          "branch logo",
+        ],
+      },
+      {
         title: "Manage terminals",
         role: "Manager / Admin",
         audience: ["manager", "admin"],

@@ -304,19 +304,27 @@ export const sessionMutationService = {
       }
     }
 
-    const timestamp = await prisma.timestamp.findUnique({
-      where: { id: timestampId },
-    });
-
-    if (!timestamp || timestamp.timestampOut !== null) {
-      throw new Error("Session is not active or does not exist.");
-    }
-
     if (countedCash < 0) {
       throw new Error("Counted cash cannot be negative.");
     }
 
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT uuid_timestamp
+        FROM public."timestamp"
+        WHERE uuid_timestamp = ${timestampId}::uuid
+        FOR UPDATE
+      `;
+      const timestamp = await tx.timestamp.findFirst({
+        where: {
+          id: timestampId,
+          cashierId: actor.profileId,
+          posTerminal: { companyId: actor.companyId },
+        },
+      });
+      if (!timestamp || timestamp.timestampOut !== null) {
+        throw new Error("Session is not active or does not exist.");
+      }
       await tx.timestamp.update({
         where: { id: timestampId },
         data: {

@@ -166,6 +166,15 @@ export async function saveOfflineBootstrap(bootstrap: OfflineBootstrapDto) {
     value: syncCursor,
     updatedAt,
   });
+
+  return {
+    ...bootstrap,
+    metadata: {
+      categories,
+      products,
+      epaymentMethods,
+    },
+  };
 }
 
 export async function getOfflineSessionSnapshot() {

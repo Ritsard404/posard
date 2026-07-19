@@ -18,6 +18,15 @@ const nullableEmailInput = z.preprocess((value) => {
   return trimmed.length > 0 ? trimmed : null;
 }, z.string().email("Invalid email").nullable());
 
+const nullableImagePathInput = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value ?? null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}, z.string().max(500, "Logo path is too long").nullable());
+
 export const BranchSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -77,7 +86,7 @@ export const BranchUpsertSchema = z.object({
     return value;
   }, z.coerce.number().min(0).max(100).nullable()),
   receiptFooter: nullableTextInput,
-  logoImageUrl: nullableTextInput,
+  logoImageUrl: nullableImagePathInput,
   openingDate: z.preprocess((value) => {
     if (value === "" || value === null || value === undefined) {
       return null;

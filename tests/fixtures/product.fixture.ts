@@ -2,6 +2,7 @@ import 'dotenv/config';
 
 import { prisma } from '../../lib/prisma';
 import { managerCredentials } from './auth.fixture';
+import { assertE2EDatabaseWritesAllowed } from './e2e-environment';
 
 export type SeededProduct = {
   id: string;
@@ -45,6 +46,7 @@ export async function seedManagerProduct(params?: {
   quantity?: number;
   trackInventory?: boolean;
 }) {
+  assertE2EDatabaseWritesAllowed();
   const testId = makeProductTestId();
   const companyId = await getManagerCompanyId();
   const categoryName =

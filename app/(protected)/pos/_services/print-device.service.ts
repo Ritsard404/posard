@@ -8,6 +8,10 @@ import type {
 } from "./_dto/print.dto";
 import { bluetoothPrinterConnectionService } from "./bluetooth-printer-connection.service";
 import { getPrinterModeMeta } from "./printer-mode.service";
+import {
+  buildReceiptLogoEscPosRaster,
+  concatPrinterBytes,
+} from "./receipt-logo-raster.client";
 import { sunmiNativePrintService } from "./sunmi-native-print.service";
 import { getPlatform, isNativePlatform } from "@/src/lib/capacitor/platform";
 
@@ -115,6 +119,29 @@ function getNavigator() {
 type UsbDeviceWithTransfer = UsbDeviceLike & {
   transferOut(endpointNumber: number, data: ArrayBuffer | Uint8Array): Promise<unknown>;
 };
+
+async function buildThermalPayloads(job: PrintJobDto) {
+  const printSegments = job.printSegments?.length
+    ? job.printSegments
+    : [job.previewContent];
+  let logoRaster: Uint8Array | null = null;
+
+  try {
+    logoRaster = await buildReceiptLogoEscPosRaster(job.logoImageUrl);
+  } catch (error) {
+    console.warn("Receipt logo could not be prepared for thermal printing.", error);
+  }
+
+  return printSegments.map((segment, index) => {
+    const textPayload = TEXT_ENCODER.encode(`${segment}\n\n\n`);
+
+    if (index === 0 && logoRaster) {
+      return concatPrinterBytes([logoRaster, textPayload]);
+    }
+
+    return textPayload;
+  });
+}
 
 function isUsbSupported() {
   if (isNativePlatform() && getPlatform() === "android") {
@@ -274,12 +301,9 @@ async function printUsb(job: PrintJobDto, config: PrinterConfigDto): Promise<Pri
 
   try {
     const { endpointNumber, interfaceNumber } = await resolveUsbEndpoint(device);
-    const printSegments = job.printSegments?.length
-      ? job.printSegments
-      : [job.previewContent];
+    const payloads = await buildThermalPayloads(job);
 
-    for (const segment of printSegments) {
-      const payload = TEXT_ENCODER.encode(`${segment}\n\n\n`);
+    for (const payload of payloads) {
       await (device as UsbDeviceWithTransfer).transferOut(endpointNumber, payload);
     }
 
@@ -443,12 +467,10 @@ async function printSerial(
   await openSerialPort(port);
 
   try {
-    const printSegments = job.printSegments?.length
-      ? job.printSegments
-      : [job.previewContent];
+    const payloads = await buildThermalPayloads(job);
 
-    for (const segment of printSegments) {
-      await writeSerialPort(port, TEXT_ENCODER.encode(`${segment}\n\n\n`));
+    for (const payload of payloads) {
+      await writeSerialPort(port, payload);
     }
 
     return {
@@ -501,7 +523,7 @@ async function printBluetooth(
   config: PrinterConfigDto,
 ): Promise<PrintJobResultDto> {
   return bluetoothPrinterConnectionService.print(
-    job.printSegments?.length ? job.printSegments : job.previewContent,
+    await buildThermalPayloads(job),
     config,
   );
 }
@@ -606,7 +628,10 @@ export const printDeviceService = {
     }
 
     if (config.driver === "sunmi-native") {
-      await sunmiNativePrintService.printText(job.printSegments?.join("\n\n\n") || job.previewContent);
+      await sunmiNativePrintService.printReceipt(
+        job.printSegments?.length ? job.printSegments : [job.previewContent],
+        job.logoImageUrl,
+      );
       return {
         status: "printed",
         message: `Printed to ${config.displayName ?? "Built-in Sunmi printer"}.`,

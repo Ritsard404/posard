@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bluetooth, Cable, Monitor, Printer, ScanSearch, Smartphone, Usb } from "lucide-react";
+import { Bluetooth, Cable, ImageIcon, Monitor, Printer, ScanSearch, Smartphone, Usb } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StorageImage } from "@/components/storage/StorageImage";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ function buildJob(
     title: "Receipt",
     intent: "receipt",
     previewContent: payload.previewContent,
+    logoImageUrl: payload.logoImageUrl,
     printSegments: payload.printSegments,
     printerConfig,
   };
@@ -54,6 +56,7 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
   const autoPrintKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPrinterConfig(payload.printerConfig);
     setAutoPrintNotice(null);
   }, [payload.printerConfig]);
@@ -228,6 +231,11 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
           <div className="space-y-3 rounded-2xl border bg-muted/30 p-4 text-sm text-muted-foreground">
             <div>Printer: {printerName ?? "Not configured"}</div>
             <div>Mode: {getPrinterModeLabel(printerConfig?.mode)}</div>
+            {payload.logoImageUrl ? (
+              <div>
+                Receipt logo prints when the selected thermal printer supports image output. If the printer rejects the image, POSard continues with the text receipt.
+              </div>
+            ) : null}
             <div>
               Bluetooth is for BLE printers only. For Bluetooth Classic/SPP printers, use Pair Serial when supported by this browser.
             </div>
@@ -288,6 +296,18 @@ export function ReceiptPrintControls({ payload }: ReceiptPrintControlsProps) {
             <DialogDescription>Thermal layout based on the invoice printer format.</DialogDescription>
           </DialogHeader>
           <div className="rounded-2xl border bg-muted/20 p-4">
+            {payload.logoImageUrl ? (
+              <div className="relative mx-auto mb-3 flex h-20 w-48 items-center justify-center overflow-hidden rounded-md border bg-white p-2">
+                <StorageImage
+                  src={payload.logoImageUrl}
+                  alt="Receipt logo"
+                  fill
+                  sizes="192px"
+                  className="object-contain grayscale contrast-125"
+                  fallback={<ImageIcon className="size-7 text-muted-foreground/40" />}
+                />
+              </div>
+            ) : null}
             <pre className="max-h-[58vh] overflow-auto whitespace-pre-wrap font-mono text-xs leading-5 text-foreground">
               {payload.previewContent}
             </pre>

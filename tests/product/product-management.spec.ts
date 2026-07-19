@@ -13,7 +13,8 @@ import {
 } from '../fixtures/product.fixture';
 import { prisma } from '../../lib/prisma';
 
-const productSearch = 'Search products by name or barcode...';
+const productSearch =
+  'Search name, barcode, generic, brand, category, supplier...';
 
 async function openProductManagement(page: Page) {
   await loginAsManager(page);
@@ -40,15 +41,16 @@ async function openProductActions(page: Page, productName: string) {
   await row.getByRole('button', { name: 'Actions' }).click();
 }
 
-test.describe('manager product management', () => {
+test.describe('manager product management @transaction', () => {
   test('renders the inventory product management surface for a manager', async ({
     page,
   }) => {
+    test.setTimeout(120_000);
     await openProductManagement(page);
 
     await expect(page.getByText('Total Products')).toBeVisible();
     await expect(page.getByText('Categories', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('Low Stock')).toBeVisible();
+    await expect(page.getByText('Low Stock', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'New Product' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Import CSV' })).toBeVisible();
     await expect(

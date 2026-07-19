@@ -1,13 +1,17 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('public app smoke', () => {
+test.describe('public app smoke @smoke', () => {
   test('landing page renders the marketing hero', async ({ page }) => {
     await page.goto('/');
 
     await expect(
-      page.getByRole('button', { name: 'Start Free Trial' }),
+      page.getByRole('link', { name: 'Start with POSard' }),
     ).toBeVisible();
-    await expect(page.getByText('Trusted by 2,000+ businesses worldwide')).toBeVisible();
+    await expect(
+      page.getByRole('heading', {
+        name: 'POSard POS system for any daily checkout.',
+      }),
+    ).toBeVisible();
   });
 
   test('login page renders the authentication form', async ({ page }) => {

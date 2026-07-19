@@ -285,46 +285,46 @@ export const debtService = {
   async recordPayment(input: RecordDebtPaymentInput) {
     const viewer = await getViewer();
     const companyId = viewer.companyId!;
-    const debt = await prisma.customerDebt.findFirst({
-      where: { id: input.debtId, companyId },
-      include: {
-        terminal: {
-          select: {
-            id: true,
-            allowCashierDebtCollect: true,
-          },
-        },
-      },
-    });
-
-    if (!debt) {
-      throw new Error("Debt record not found.");
-    }
-
-    if (!canCollectDebt(viewer.role, debt.terminal?.allowCashierDebtCollect ?? false)) {
-      throw new Error("You are not allowed to collect debt payments on this terminal.");
-    }
-
-    if (debt.status === DebtStatus.CANCELLED) {
-      throw new Error("Cancelled debts cannot accept payments.");
-    }
-
-    if (debt.status === DebtStatus.PAID || toNumber(debt.remainingAmount) <= 0) {
-      throw new Error("This debt is already fully paid.");
-    }
-
-    const amount = toNumber(input.amount);
-    const remaining = toNumber(debt.remainingAmount);
-    if (amount > remaining) {
-      throw new Error("Payment amount cannot exceed the remaining balance.");
-    }
-
-    const nextPaid = toNumber(debt.paidAmount) + amount;
-    const nextRemaining = Math.max(0, remaining - amount);
-    const nextStatus =
-      nextRemaining <= 0 ? DebtStatus.PAID : DebtStatus.PARTIAL;
 
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT id
+        FROM public.customer_debt
+        WHERE id = ${input.debtId}::uuid
+        FOR UPDATE
+      `;
+      const debt = await tx.customerDebt.findFirst({
+        where: { id: input.debtId, companyId },
+        include: {
+          terminal: {
+            select: {
+              id: true,
+              allowCashierDebtCollect: true,
+            },
+          },
+        },
+      });
+
+      if (!debt) throw new Error("Debt record not found.");
+      if (!canCollectDebt(viewer.role, debt.terminal?.allowCashierDebtCollect ?? false)) {
+        throw new Error("You are not allowed to collect debt payments on this terminal.");
+      }
+      if (debt.status === DebtStatus.CANCELLED) {
+        throw new Error("Cancelled debts cannot accept payments.");
+      }
+      if (debt.status === DebtStatus.PAID || toNumber(debt.remainingAmount) <= 0) {
+        throw new Error("This debt is already fully paid.");
+      }
+
+      const amount = toNumber(input.amount);
+      const remaining = toNumber(debt.remainingAmount);
+      if (amount > remaining) {
+        throw new Error("Payment amount cannot exceed the remaining balance.");
+      }
+      const nextPaid = toNumber(debt.paidAmount) + amount;
+      const nextRemaining = Math.max(0, remaining - amount);
+      const nextStatus = nextRemaining <= 0 ? DebtStatus.PAID : DebtStatus.PARTIAL;
+
       await tx.customerDebtPayment.create({
         data: {
           debtId: debt.id,

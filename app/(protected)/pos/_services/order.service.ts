@@ -105,6 +105,17 @@ async function getActiveTimestampForOrder(
           address: true,
           vatTinNumber: true,
           minNumber: true,
+          company: {
+            select: {
+              logoImageUrl: true,
+            },
+          },
+        },
+      },
+      branch: {
+        select: {
+          receiptFooter: true,
+          logoImageUrl: true,
         },
       },
     },
@@ -173,6 +184,17 @@ async function findInvoiceByIdempotencyKey(
           vatTinNumber: true,
           minNumber: true,
           vat: true,
+          company: {
+            select: {
+              logoImageUrl: true,
+            },
+          },
+        },
+      },
+      branch: {
+        select: {
+          receiptFooter: true,
+          logoImageUrl: true,
         },
       },
       cashier: {
@@ -532,6 +554,10 @@ function buildReceiptFromOrder(input: {
   terminal: Awaited<
     ReturnType<typeof getActiveTimestampForOrder>
   >["posTerminal"];
+  receiptDesign: {
+    logoImageUrl: string | null;
+    footer: string | null;
+  };
   cashierName: string | null;
   calc: ReturnType<typeof calculatePayment>;
   discount?: DiscountDto;
@@ -558,6 +584,8 @@ function buildReceiptFromOrder(input: {
     address: input.terminal.address,
     vatTinNumber: terminalVat > 0 ? input.terminal.vatTinNumber : null,
     minNumber: input.terminal.minNumber,
+    receiptLogoImageUrl: input.receiptDesign.logoImageUrl,
+    receiptFooter: input.receiptDesign.footer,
     terminalVat,
     cashierName: input.cashierName ?? "Unknown",
     isTrainMode: input.invoice.isTrainMode,
@@ -758,6 +786,7 @@ async function createInvoiceItems(
   invoiceId: string,
   items: ItemRequestDto[],
   isTrainMode: boolean,
+  invoiceStatus: InvoiceStatusType,
 ) {
   const missingPrescriptionConfirmation = items.find(
     (item) =>
@@ -785,7 +814,7 @@ async function createInvoiceItems(
         price: item.price,
         basePrice: item.basePrice ?? item.price,
         subTotal: item.status === "VOID" ? 0 : item.subTotal,
-        status: item.status || ("PAID" satisfies InvoiceStatusType),
+        status: item.status === "VOID" ? "VOID" : invoiceStatus,
         isTrainingMode: isTrainMode,
         prescriptionRequired: item.prescriptionRequired ?? false,
         prescriptionConfirmed: item.prescriptionConfirmed ?? false,
@@ -804,7 +833,7 @@ async function createInvoiceItems(
       price: item.price,
       basePrice: item.basePrice ?? item.price,
       subTotal: item.status === "VOID" ? 0 : item.subTotal,
-      status: item.status || ("PAID" satisfies InvoiceStatusType),
+      status: item.status === "VOID" ? "VOID" : invoiceStatus,
       isTrainingMode: isTrainMode,
       prescriptionRequired: item.prescriptionRequired ?? false,
       prescriptionConfirmed: item.prescriptionConfirmed ?? false,
@@ -1235,6 +1264,7 @@ export const orderService = {
             invoice.id,
             dto.items,
             terminal.isTrainMode,
+            debtStatus === DebtStatus.PAID ? "PAID" : "PENDING",
           );
           if (terminal.enableKitchenTickets && !terminal.isTrainMode) {
             await createKitchenTicketForInvoice({
@@ -1398,6 +1428,12 @@ export const orderService = {
           const receipt = buildReceiptFromOrder({
             invoice,
             terminal,
+            receiptDesign: {
+              logoImageUrl:
+                activeTimestamp.branch?.logoImageUrl ??
+                terminal.company.logoImageUrl,
+              footer: activeTimestamp.branch?.receiptFooter ?? null,
+            },
             cashierName: activeTimestamp.cashier.fullName,
             calc: {
               ...calc,
@@ -1490,6 +1526,7 @@ export const orderService = {
           invoice.id,
           dto.items,
           terminal.isTrainMode,
+          "PAID",
         );
         if (terminal.enableKitchenTickets && !terminal.isTrainMode) {
           await createKitchenTicketForInvoice({
@@ -1589,6 +1626,11 @@ export const orderService = {
         const receipt = buildReceiptFromOrder({
           invoice,
           terminal,
+          receiptDesign: {
+            logoImageUrl:
+              activeTimestamp.branch?.logoImageUrl ?? terminal.company.logoImageUrl,
+            footer: activeTimestamp.branch?.receiptFooter ?? null,
+          },
           cashierName: activeTimestamp.cashier.fullName,
           calc,
           discount,
@@ -1877,8 +1919,11 @@ export const orderService = {
   },
 
   async cancelOrder(dto: CancelOrderDto): Promise<void> {
+    const profile = await getCurrentProfile();
+    if (!profile.companyId) throw new Error("User has no assigned company");
+    const companyId = profile.companyId;
     const manager = await prisma.profile.findFirst({
-      where: { email: dto.managerIdentifier },
+      where: { email: dto.managerIdentifier, companyId },
       select: { id: true, role: true },
     });
 
@@ -1888,9 +1933,6 @@ export const orderService = {
       throw new Error("User does not have manager privileges");
     }
 
-    const profile = await getCurrentProfile();
-    if (!profile.companyId) throw new Error("User has no assigned company");
-    const companyId = profile.companyId;
     const activeTimestamp = await getActiveTimestampForOrder(
       companyId,
       dto.order.timestampId,

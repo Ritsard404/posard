@@ -160,6 +160,16 @@ async function createStockMovement(
     throw new Error("Inventory movement quantity must be a non-zero number.");
   }
 
+  if (input.terminalId) {
+    const terminal = await tx.posTerminalInfo.findFirst({
+      where: { id: input.terminalId, companyId: input.companyId },
+      select: { id: true },
+    });
+    if (!terminal) {
+      throw new Error("Selected terminal was not found.");
+    }
+  }
+
   const product = await tx.product.findFirst({
     where: {
       id: input.productId,
@@ -516,6 +526,20 @@ export const managementWorkflowService = {
     );
 
     await prisma.$transaction(async (tx) => {
+      if (input.terminalId) {
+        const terminal = await tx.posTerminalInfo.findFirst({
+          where: { id: input.terminalId, companyId: viewer.companyId },
+          select: { id: true },
+        });
+        if (!terminal) throw new Error("Selected terminal was not found.");
+      }
+      if (input.assignedToId) {
+        const assignee = await tx.profile.findFirst({
+          where: { id: input.assignedToId, companyId: viewer.companyId },
+          select: { id: true },
+        });
+        if (!assignee) throw new Error("Selected stock-count assignee was not found.");
+      }
       const target = await resolveTrackedInventoryTarget(tx, {
         companyId: viewer.companyId,
         productId: input.productId,
@@ -794,6 +818,22 @@ export const managementWorkflowService = {
         : "approved";
 
     await prisma.$transaction(async (tx) => {
+      const [category, terminal] = await Promise.all([
+        tx.expenseCategory.findFirst({
+          where: { id: input.categoryId, companyId: viewer.companyId },
+          select: { id: true },
+        }),
+        input.terminalId
+          ? tx.posTerminalInfo.findFirst({
+              where: { id: input.terminalId, companyId: viewer.companyId },
+              select: { id: true },
+            })
+          : Promise.resolve(null),
+      ]);
+      if (!category || (input.terminalId && !terminal)) {
+        throw new Error("Expense category or terminal is not available in this company.");
+      }
+
       const expense = await tx.expense.create({
         data: {
           referenceNumber,
@@ -850,6 +890,16 @@ export const managementWorkflowService = {
     );
 
     await prisma.$transaction(async (tx) => {
+      if (input.terminalId) {
+        const terminal = await tx.posTerminalInfo.findFirst({
+          where: { id: input.terminalId, companyId: viewer.companyId },
+          select: { id: true },
+        });
+        if (!terminal) {
+          throw new Error("Income terminal is not available in this company.");
+        }
+      }
+
       const income = await tx.nonSalesIncome.create({
         data: {
           referenceNumber,
@@ -943,7 +993,14 @@ export const managementWorkflowService = {
     await prisma.$transaction(async (tx) => {
       const supplier = input.supplierId
         ? await tx.supplier.update({
-            where: { id: input.supplierId },
+            where: {
+              id: (
+                await tx.supplier.findFirstOrThrow({
+                  where: { id: input.supplierId, companyId: viewer.companyId },
+                  select: { id: true },
+                })
+              ).id,
+            },
             data: {
               name: input.name,
               contactName: input.contactName,
@@ -985,8 +1042,12 @@ export const managementWorkflowService = {
     assertManager(viewer);
 
     await prisma.$transaction(async (tx) => {
+      const scopedSupplier = await tx.supplier.findFirstOrThrow({
+        where: { id: input.supplierId, companyId: viewer.companyId },
+        select: { id: true },
+      });
       const supplier = await tx.supplier.update({
-        where: { id: input.supplierId },
+        where: { id: scopedSupplier.id },
         data: { status: "inactive" },
       });
 
@@ -1010,6 +1071,24 @@ export const managementWorkflowService = {
     );
 
     await prisma.$transaction(async (tx) => {
+      const [supplier, product] = await Promise.all([
+        tx.supplier.findFirst({
+          where: { id: input.supplierId, companyId: viewer.companyId },
+          select: { id: true },
+        }),
+        tx.product.findFirst({
+          where: {
+            id: input.productId,
+            companyId: viewer.companyId,
+            isDeleted: false,
+          },
+          select: { id: true },
+        }),
+      ]);
+      if (!supplier || !product) {
+        throw new Error("Supplier or product is not available in this company.");
+      }
+
       const order = await tx.purchaseOrder.create({
         data: {
           poNumber,
@@ -1101,20 +1180,20 @@ export const managementWorkflowService = {
   ) {
     const viewer = await requireViewer();
     assertManager(viewer);
-    const receivingNumber = await nextReference(
-      "RCV",
-      viewer.companyId,
-      "receivingRecord",
-    );
 
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT id
+        FROM public.purchase_order_item
+        WHERE id = ${input.purchaseOrderItemId}::uuid
+        FOR UPDATE
+      `;
       const item = await tx.purchaseOrderItem.findFirstOrThrow({
         where: {
           id: input.purchaseOrderItemId,
           purchaseOrderId: input.purchaseOrderId,
           purchaseOrder: {
             companyId: viewer.companyId,
-            status: { in: ["approved", "ordered", "partially_received"] },
           },
         },
         include: {
@@ -1122,6 +1201,10 @@ export const managementWorkflowService = {
           product: { select: { shelfLocation: true } },
         },
       });
+      if (item.purchaseOrder.status === "fully_received") return;
+      if (!["approved", "ordered", "partially_received"].includes(item.purchaseOrder.status)) {
+        throw new Error("Purchase order is not available for receiving.");
+      }
 
       const ordered = Number(item.quantity);
       const previouslyReceived = Number(item.receivedQuantity);
@@ -1130,6 +1213,10 @@ export const managementWorkflowService = {
         Math.max(0, ordered - previouslyReceived),
       );
       if (receiveQty <= 0) throw new Error("No quantity remains to receive.");
+      const receivingCount = await tx.receivingRecord.count({
+        where: { companyId: viewer.companyId },
+      });
+      const receivingNumber = `RCV-${new Date().getFullYear()}-${String(receivingCount + 1).padStart(6, "0")}`;
 
       const receivedAt = new Date();
       const shelfLocation = input.shelfLocation ?? item.product.shelfLocation ?? null;
@@ -1254,6 +1341,29 @@ export const managementWorkflowService = {
     );
 
     await prisma.$transaction(async (tx) => {
+      if (input.sourceTerminalId === input.destinationTerminalId) {
+        throw new Error("Source and destination terminals must be different.");
+      }
+      const [terminalCount, product] = await Promise.all([
+        tx.posTerminalInfo.count({
+          where: {
+            id: { in: [input.sourceTerminalId, input.destinationTerminalId] },
+            companyId: viewer.companyId,
+          },
+        }),
+        tx.product.findFirst({
+          where: {
+            id: input.productId,
+            companyId: viewer.companyId,
+            isDeleted: false,
+          },
+          select: { id: true },
+        }),
+      ]);
+      if (terminalCount !== 2 || !product) {
+        throw new Error("Transfer terminals or product are not available in this company.");
+      }
+
       const transfer = await tx.branchTransfer.create({
         data: {
           transferNumber,
@@ -1305,12 +1415,26 @@ export const managementWorkflowService = {
     assertManager(viewer);
 
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT id
+        FROM public.branch_transfer
+        WHERE id = ${input.transferId}::uuid
+        FOR UPDATE
+      `;
       const transfer = await tx.branchTransfer.findFirstOrThrow({
         where: { id: input.transferId, companyId: viewer.companyId },
         include: { items: true },
       });
       const firstItem = transfer.items[0];
       if (!firstItem) throw new Error("Transfer item is required.");
+      if (
+        (input.action === "approve" && transfer.status === "approved") ||
+        (input.action === "dispatch" && transfer.status === "in_transit") ||
+        (input.action === "receive" && transfer.status === "received") ||
+        (input.action === "cancel" && transfer.status === "cancelled")
+      ) {
+        return;
+      }
 
       let status = transfer.status;
       if (input.action === "submit" && transfer.status === "draft")

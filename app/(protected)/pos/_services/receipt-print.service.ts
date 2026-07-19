@@ -7,6 +7,7 @@ export interface ReceiptPrintPayloadDto {
   printerName: string | null;
   printerConfig: PrinterConfigDto | null;
   message: string;
+  logoImageUrl: string | null;
   previewContent: string;
   printSegments: string[];
   archiveContent: string;
@@ -32,6 +33,7 @@ export const receiptPrintService = {
       message: printerName
         ? `Printer configured (${printerName}). Printing will be attempted on this device first.`
         : "No paired printer found. Showing printable preview instead.",
+      logoImageUrl: receipt.receiptLogoImageUrl ?? null,
       previewContent: packageData.previewContent,
       printSegments: packageData.printSegments,
       archiveContent: packageData.archiveContent,
