@@ -3,15 +3,15 @@
 import { useState, useEffect } from "react";
 import { usePOSStore } from "@/app/(protected)/pos/_store/pos-store";
 import { getSessionCashTrackAction } from "@/app/(protected)/pos/_actions/session.action";
+import type { CashTrackReportDto } from "@/app/(protected)/pos/_services/_dto/pos.dto";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Coins } from "lucide-react";
-import { Decimal } from "@prisma/client/runtime/client";
 
 export function CashTrackTrigger() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<CashTrackReportDto | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const activeTimestampId = usePOSStore((state) => state.activeTimestampId);
@@ -37,7 +37,7 @@ export function CashTrackTrigger() {
     setLoading(false);
   };
 
-  const formatMoney = (val: string | number | Decimal | undefined | null) => {
+  const formatMoney = (val: string | number | undefined | null) => {
     if (val === undefined || val === null) return "₱0.00";
     return `₱${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };

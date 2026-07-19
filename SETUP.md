@@ -78,7 +78,7 @@ POSard uses Supabase Auth for sign-in, password reset, user invites, and admin-m
 
 ## 3. Configure Environment Variables
 
-Create `.env.local` in the project root:
+Copy `.env.example` to `.env.local`, then replace only the values required for your environment:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
@@ -94,6 +94,11 @@ EMAIL_PROVIDER=noop
 EMAIL_FROM=
 EMAIL_REPLY_TO=
 RESEND_API_KEY=
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
 AI_REPORT_ENABLED=true
 AI_PROVIDER=mock
 OPENAI_API_KEY=
@@ -113,10 +118,15 @@ Variable usage:
 | `NEXT_PUBLIC_APP_URL` | Base URL used for account invite redirects |
 | `APP_URL` | Server-side base URL for email links |
 | `EMAIL_ENABLED` | Enables outbound provider email when all required values are set |
-| `EMAIL_PROVIDER` | Email provider selector: `noop` or `resend` |
+| `EMAIL_PROVIDER` | Email provider selector: `noop`, `resend`, or `smtp` |
 | `EMAIL_FROM` | Verified transactional sender address |
 | `EMAIL_REPLY_TO` | Optional reply-to address |
 | `RESEND_API_KEY` | Server-only Resend API key |
+| `SMTP_HOST` | SMTP host; Gmail uses `smtp.gmail.com` |
+| `SMTP_PORT` | SMTP port; Gmail commonly uses `587` |
+| `SMTP_SECURE` | `false` for STARTTLS port 587; `true` for implicit TLS port 465 |
+| `SMTP_USER` | Server-only SMTP mailbox username |
+| `SMTP_PASSWORD` | Server-only SMTP password or Google App Password |
 | `AI_REPORT_ENABLED` | Enables AI report assistant behavior |
 | `AI_PROVIDER` | AI provider selector: `mock` or `openai` |
 | `OPENAI_API_KEY` | Server-only OpenAI API key |

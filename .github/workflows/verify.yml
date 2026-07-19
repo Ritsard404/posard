@@ -1,0 +1,37 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: test-publishable-key
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/posard
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/posard
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      APP_URL: http://localhost:3000
+      EMAIL_ENABLED: "false"
+      EMAIL_PROVIDER: noop
+      AI_REPORT_ENABLED: "true"
+      AI_PROVIDER: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run verify:ci

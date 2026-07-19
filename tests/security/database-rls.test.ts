@@ -8,6 +8,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const allowDatabaseIntegration =
+  process.env.ALLOW_DATABASE_INTEGRATION_TESTS === "true";
 const migrationsRoot = path.join(process.cwd(), "prisma", "migrations");
 
 function createPrismaClient() {
@@ -53,7 +55,7 @@ test("RLS policy migrations use optimized auth helper calls", () => {
 
 test(
   "is_admin is a search-path-safe security definer function",
-  { skip: !connectionString },
+  { skip: !allowDatabaseIntegration },
   async () => {
     const prisma = createPrismaClient();
 
@@ -84,7 +86,7 @@ test(
 
 test(
   "browser roles do not have table grants without RLS enabled",
-  { skip: !connectionString },
+  { skip: !allowDatabaseIntegration },
   async () => {
     const prisma = createPrismaClient();
 

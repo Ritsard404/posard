@@ -173,10 +173,14 @@ npm run dev
 npm run build
 npm run start
 npm run lint
+npm run typecheck
+npm run test:unit
 npm run test:e2e
 npm run test:e2e:ui
 npm run test:e2e:headed
 npm run test:e2e:debug
+npm run verify:quick
+npm run verify
 ```
 
 The production build script runs Prisma generation before building Next.js:
@@ -184,6 +188,8 @@ The production build script runs Prisma generation before building Next.js:
 ```bash
 prisma generate && next build
 ```
+
+`npm run verify:quick` is the normal change-level gate: workspace invariants, Prisma validation, TypeScript, lint, and Node contract tests. `npm run verify` adds the production build and is the authoritative pre-completion command for structural or release work. Database integration checks are intentionally opt-in; see `AGENTS.md` before running them.
 
 ## Application Structure
 
