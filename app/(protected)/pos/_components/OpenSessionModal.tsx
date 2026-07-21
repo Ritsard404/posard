@@ -37,7 +37,8 @@ interface OpenSessionModalProps {
       vat: number;
       discountCapType: "amount" | "percent";
       discountMax: number;
-      printerConfig: import("../_services/_dto/print.dto").PrinterConfigDto | null;
+      printerConfig:
+        import("../_services/_dto/print.dto").PrinterConfigDto | null;
     };
   }) => void;
   onCancel: () => void;
@@ -80,38 +81,6 @@ export function OpenSessionModal({
     setIsLoading(false);
 
     if (result.success && result.user) {
-      try {
-        const reportResult = await getSessionCashTrackAction(result.timestampId);
-        if (reportResult.success && reportResult.data) {
-          const payload = cashTrackPrintService.buildPayload(
-            reportResult.data,
-            "cash-in",
-          );
-
-          const printResult = await printClientService.print(
-            {
-              title: payload.title,
-              intent: "cash-in",
-              previewContent: payload.previewContent,
-              printerConfig: payload.printerConfig,
-            },
-            {
-              fallbackToPreview: false,
-            },
-          );
-
-          if (printResult.status === "printed") {
-            toast.success("Cash-in slip sent to printer.", {
-              description: printResult.message,
-            });
-          } else if (printResult.status !== "unsupported") {
-            toast.error(printResult.message);
-          }
-        }
-      } catch {
-        // Keep session flow moving even if printing fails.
-      }
-
       onSuccess({
         success: true,
         profileId: result.profileId,
@@ -120,6 +89,42 @@ export function OpenSessionModal({
         timestampId: result.timestampId,
         terminal: result.terminal,
       });
+
+      void (async () => {
+        try {
+          const reportResult = await getSessionCashTrackAction(
+            result.timestampId,
+          );
+          if (reportResult.success && reportResult.data) {
+            const payload = cashTrackPrintService.buildPayload(
+              reportResult.data,
+              "cash-in",
+            );
+
+            const printResult = await printClientService.print(
+              {
+                title: payload.title,
+                intent: "cash-in",
+                previewContent: payload.previewContent,
+                printerConfig: payload.printerConfig,
+              },
+              {
+                fallbackToPreview: false,
+              },
+            );
+
+            if (printResult.status === "printed") {
+              toast.success("Cash-in slip sent to printer.", {
+                description: printResult.message,
+              });
+            } else if (printResult.status !== "unsupported") {
+              toast.error(printResult.message);
+            }
+          }
+        } catch {
+          // The session is already open; printing remains best-effort.
+        }
+      })();
       return;
     }
 
@@ -144,7 +149,10 @@ export function OpenSessionModal({
               : "Enter the starting cash and manager approval PIN to open this terminal for your logged-in account."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleOpenSession} className="flex flex-col space-y-6 py-4">
+        <form
+          onSubmit={handleOpenSession}
+          className="flex flex-col space-y-6 py-4"
+        >
           <div className="space-y-2">
             <Label htmlFor="cash">Opening Cash Amount</Label>
             <Input
@@ -160,20 +168,22 @@ export function OpenSessionModal({
           </div>
 
           {!pinlessModeEnabled ? (
-          <div className="space-y-2">
-            <Label htmlFor="managerPin">Approving Manager PIN</Label>
-            <Input
-              id="managerPin"
-              type="password"
-              maxLength={6}
-              autoFocus
-              inputMode="numeric"
-              placeholder="••••••"
-              className="h-12 text-center text-xl tracking-widest"
-              value={managerPin}
-              onChange={(e) => setManagerPin(e.target.value.replace(/\D/g, ""))}
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="managerPin">Approving Manager PIN</Label>
+              <Input
+                id="managerPin"
+                type="password"
+                maxLength={6}
+                autoFocus
+                inputMode="numeric"
+                placeholder="••••••"
+                className="h-12 text-center text-xl tracking-widest"
+                value={managerPin}
+                onChange={(e) =>
+                  setManagerPin(e.target.value.replace(/\D/g, ""))
+                }
+              />
+            </div>
           ) : null}
 
           {error ? (

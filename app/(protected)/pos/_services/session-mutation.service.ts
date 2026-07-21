@@ -50,7 +50,8 @@ async function buildSessionXReadingPrintPayload(
     return null;
   }
 
-  const detail = await reportFeatureService.getXReadingByTimestampId(timestampId);
+  const detail =
+    await reportFeatureService.getXReadingByTimestampId(timestampId);
 
   return reportPrintService.buildPayload({
     view: "x-reading",
@@ -171,32 +172,32 @@ export const sessionMutationService = {
       return { timestamp };
     });
 
-      return {
-        success: true as const,
-        profileId: actor.profileId,
-        user: { name: actor.fullName, role: actor.role },
-        sessionId: result.timestamp.id,
-        timestampId: result.timestamp.id,
-        terminal: {
-          id: terminal.id,
-          name: terminal.posName ?? "Unnamed terminal",
-          vat: terminal.vat ?? 0,
-          discountCapType: terminal.discountCapType,
-          discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
-          allowCashierDebtCreate: terminal.allowCashierDebtCreate,
-          allowCashierDebtCollect: terminal.allowCashierDebtCollect,
-          requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
-          pinlessModeEnabled: terminal.pinlessModeEnabled,
-          defaultDebtDueDays: terminal.defaultDebtDueDays ?? null,
-          businessMode: terminal.businessModeOverride ?? "RETAIL",
-          enableFulfillmentTypes: terminal.enableFulfillmentTypes,
-          enableRestaurantFeatures: terminal.enableRestaurantFeatures,
-          enableTableService: terminal.enableTableService,
-          enableDeliveryDetails: terminal.enableDeliveryDetails,
-          enableProductModifiers: terminal.enableProductModifiers,
-          printerConfig: printConfigService.mapPrinterConfig(terminal),
-        },
-      };
+    return {
+      success: true as const,
+      profileId: actor.profileId,
+      user: { name: actor.fullName, role: actor.role },
+      sessionId: result.timestamp.id,
+      timestampId: result.timestamp.id,
+      terminal: {
+        id: terminal.id,
+        name: terminal.posName ?? "Unnamed terminal",
+        vat: terminal.vat ?? 0,
+        discountCapType: terminal.discountCapType,
+        discountMax: terminal.discountMax ? Number(terminal.discountMax) : 0,
+        allowCashierDebtCreate: terminal.allowCashierDebtCreate,
+        allowCashierDebtCollect: terminal.allowCashierDebtCollect,
+        requireManagerApprovalForDebt: terminal.requireManagerApprovalForDebt,
+        pinlessModeEnabled: terminal.pinlessModeEnabled,
+        defaultDebtDueDays: terminal.defaultDebtDueDays ?? null,
+        businessMode: terminal.businessModeOverride ?? "RETAIL",
+        enableFulfillmentTypes: terminal.enableFulfillmentTypes,
+        enableRestaurantFeatures: terminal.enableRestaurantFeatures,
+        enableTableService: terminal.enableTableService,
+        enableDeliveryDetails: terminal.enableDeliveryDetails,
+        enableProductModifiers: terminal.enableProductModifiers,
+        printerConfig: printConfigService.mapPrinterConfig(terminal),
+      },
+    };
   },
 
   async withdrawCashAuthorized(
@@ -242,7 +243,8 @@ export const sessionMutationService = {
     }
 
     await prisma.$transaction(async (tx) => {
-      const reportData = await posReportService.getTimestampCashTrack(timestampId);
+      const reportData =
+        await posReportService.getTimestampCashTrack(timestampId);
       if (amount > reportData.expectedDrawerAmount) {
         throw new Error(
           `Insufficient cash in drawer. Available: PHP ${reportData.expectedDrawerAmount.toFixed(2)}`,
@@ -308,6 +310,10 @@ export const sessionMutationService = {
       throw new Error("Counted cash cannot be negative.");
     }
 
+    const cashTrack = await posReportService.getTimestampCashTrack(timestampId);
+    const expectedCash = cashTrack.expectedDrawerAmount;
+    const variance = countedCash - expectedCash;
+
     await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`
         SELECT uuid_timestamp
@@ -348,7 +354,9 @@ export const sessionMutationService = {
         referenceId: timestamp.id,
         changes: JSON.stringify({
           cashierId: actor.profileId,
+          expectedCash,
           countedCash,
+          variance,
         }),
         amount: countedCash,
       });

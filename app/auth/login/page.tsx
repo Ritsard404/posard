@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
 import { LoginForm } from "@/components/login-form";
@@ -45,7 +46,9 @@ export default function Page() {
       description="Sign in to continue to your terminal dashboard, inventory controls, purchasing and expense tools, cashier tools, help guides, and daily sales reporting."
     >
       <div className="w-full max-w-md">
-        <LoginForm />
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
       </div>
     </AuthShell>
   );

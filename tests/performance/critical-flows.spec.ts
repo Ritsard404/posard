@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
 
+import { prisma } from '../../lib/prisma';
 import {
   authenticatePageWithCredentials,
   ensureAuthUserForProfile,
   ensurePosResponsiveProfiles,
   managerCredentials,
 } from '../fixtures/auth.fixture';
+import { assertE2EDatabaseWritesAllowed } from '../fixtures/e2e-environment';
 
 type RouteMetrics = {
   path: string;
@@ -75,7 +77,14 @@ test('records warm critical-route performance baselines @performance', async ({ 
         page.on('response', onResponse);
         await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 60_000 });
         await page.waitForLoadState('load', { timeout: 30_000 }).catch(() => undefined);
-        await page.waitForTimeout(1_000);
+        await page.waitForFunction(
+          () => performance.getEntriesByName('first-contentful-paint').length > 0,
+          undefined,
+          { timeout: 15_000 },
+        ).catch(() => undefined);
+        await page.evaluate(() => new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ));
         page.off('response', onResponse);
 
         const browserMetrics = await page.evaluate(() => {
@@ -116,6 +125,243 @@ test('records warm critical-route performance baselines @performance', async ({ 
     });
     console.info(`PERFORMANCE_BASELINE ${JSON.stringify(results)}`);
   } finally {
+    if (authUser) await authUser.cleanup();
+    await profiles.cleanup();
+  }
+});
+
+test('keeps a 1,000-product POS responsive through a 20-sale loop @performance @destructive', async ({
+  page,
+}) => {
+  test.setTimeout(600_000);
+  assertE2EDatabaseWritesAllowed();
+  const profiles = await ensurePosResponsiveProfiles();
+  let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null = null;
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  let categoryId: string | null = null;
+  let terminalId: string | null = null;
+  let timestampId: string | null = null;
+
+  try {
+    authUser = await ensureAuthUserForProfile(managerCredentials);
+    const manager = await prisma.profile.findUniqueOrThrow({
+      where: { email: managerCredentials.email },
+      select: { id: true },
+    });
+    const category = await prisma.category.create({
+      data: {
+        companyId: profiles.companyId,
+        categoryName: `E2E PERF ${suffix}`,
+      },
+      select: { id: true },
+    });
+    categoryId = category.id;
+    const productPrefix = `E2E PERF PRODUCT ${suffix}`;
+    await prisma.product.createMany({
+      data: Array.from({ length: 1_000 }, (_, index) => ({
+        companyId: profiles.companyId,
+        categoryId: category.id,
+        name: `${productPrefix} ${String(index + 1).padStart(4, '0')}`,
+        barcode: `PERF-${suffix}-${String(index + 1).padStart(4, '0')}`,
+        baseUnit: 'PCS',
+        quantity: 0,
+        cost: 5,
+        price: 10,
+        trackInventory: false,
+        isAvailable: true,
+        itemType: 'RESALE',
+        vatType: 'VATABLE',
+      })),
+    });
+    const terminal = await prisma.posTerminalInfo.create({
+      data: {
+        companyId: profiles.companyId,
+        minNumber: `MIN-PERF-${suffix}`,
+        accreditationNumber: `ACC-PERF-${suffix}`,
+        ptuNumber: `PTU-PERF-${suffix}`,
+        dateIssued: new Date('2024-01-01'),
+        validUntil: new Date('2035-01-01'),
+        posName: `E2E Performance Terminal ${suffix}`,
+        registeredName: 'E2E Performance',
+        operatedBy: 'E2E Performance',
+        address: 'E2E Test Address',
+        vatTinNumber: `TIN-PERF-${suffix}`,
+        vat: 12,
+        isActive: true,
+        isDefaultTerminal: true,
+      },
+      select: { id: true },
+    });
+    terminalId = terminal.id;
+    const timestamp = await prisma.timestamp.create({
+      data: {
+        posTerminalId: terminal.id,
+        cashierId: manager.id,
+        managerInId: manager.id,
+        timestampIn: new Date(),
+        cashInDrawerAmount: 1_000,
+      },
+      select: { id: true },
+    });
+    timestampId = timestamp.id;
+
+    await authenticatePageWithCredentials(page, managerCredentials);
+    let requestCount = 0;
+    let transferredBytes = 0;
+    const onResponse = async (response: import('@playwright/test').Response) => {
+      requestCount += 1;
+      const headerBytes = Number(response.headers()['content-length'] ?? 0);
+      if (headerBytes > 0) transferredBytes += headerBytes;
+    };
+    page.on('response', onResponse);
+    const interactiveStartedAt = Date.now();
+    const bootstrapFinished = page.waitForResponse(
+      (response) => response.url().includes('/api/sync/bootstrap') && response.ok(),
+      { timeout: 60_000 },
+    );
+    await page.goto('/pos', { waitUntil: 'domcontentloaded' });
+    const bootstrapResponse = await bootstrapFinished;
+    const bootstrapBody = await bootstrapResponse.body();
+    transferredBytes = Math.max(transferredBytes, bootstrapBody.byteLength);
+    const search = page.getByPlaceholder('Search name, barcode, generic, brand...');
+    await expect(search).toBeVisible({ timeout: 60_000 });
+    const interactiveMs = Date.now() - interactiveStartedAt;
+    page.off('response', onResponse);
+
+    const targetName = `${productPrefix} 1000`;
+    const searchStartedAt = await page.evaluate(() => performance.now());
+    await search.fill(targetName);
+    const target = page.getByText(targetName, { exact: true }).first();
+    await expect(target).toBeVisible();
+    const searchMs = await page.evaluate((startedAt) => performance.now() - startedAt, searchStartedAt);
+
+    const addStartedAt = await page.evaluate(() => performance.now());
+    await target.click();
+    await expect(page.getByTestId('pos-cart-items')).toContainText(targetName);
+    const addToCartMs = await page.evaluate((startedAt) => performance.now() - startedAt, addStartedAt);
+
+    const heapBefore = await page.evaluate(() => {
+      const memory = (performance as Performance & {
+        memory?: { usedJSHeapSize: number };
+      }).memory;
+      return memory?.usedJSHeapSize ?? null;
+    });
+    const saleTimesMs: number[] = [];
+    for (let sale = 0; sale < 20; sale += 1) {
+      if (sale > 0) {
+        await search.fill(targetName);
+        await page.getByText(targetName, { exact: true }).first().click();
+        await expect(page.getByTestId('pos-cart-items')).toContainText(targetName);
+      }
+      await page.getByRole('button', { name: 'Checkout', exact: true }).click();
+      await page.getByRole('button', { name: 'Exact' }).click();
+      const checkoutStartedAt = await page.evaluate(() => performance.now());
+      await page.getByRole('button', { name: 'Complete Sale' }).click();
+      await expect(page.getByText('Transaction Done')).toBeVisible({ timeout: 15_000 });
+      saleTimesMs.push(
+        await page.evaluate((startedAt) => performance.now() - startedAt, checkoutStartedAt),
+      );
+      if (sale < 19) {
+        await page.getByRole('button', { name: /New Checkout/i }).click();
+        await expect(page.getByTestId('pos-shell')).toBeVisible();
+      }
+    }
+    const heapAfter = await page.evaluate(() => {
+      const memory = (performance as Performance & {
+        memory?: { usedJSHeapSize: number };
+      }).memory;
+      return memory?.usedJSHeapSize ?? null;
+    });
+    const domNodeCount = await page.locator('*').count();
+
+    await page
+      .getByText('Queue clear', { exact: true })
+      .waitFor({ state: 'visible', timeout: 90_000 })
+      .catch(() => undefined);
+    const queuedActions = await page.evaluate(async () => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('posard-offline-pos');
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      try {
+        return await new Promise<Array<{
+          localId: string;
+          idempotencyKey: string;
+          syncStatus: string;
+          retryCount?: number;
+          nextRetryAt?: string | null;
+          lastError?: string | null;
+        }>>((resolve, reject) => {
+          const transaction = database.transaction('queuedActions', 'readonly');
+          const request = transaction.objectStore('queuedActions').getAll();
+          request.onsuccess = () =>
+            resolve(
+              request.result.map((action) => ({
+                localId: action.localId,
+                idempotencyKey: action.idempotencyKey,
+                syncStatus: action.syncStatus,
+                retryCount: action.retryCount,
+                nextRetryAt: action.nextRetryAt,
+                lastError: action.lastError,
+              })),
+            );
+          request.onerror = () => reject(request.error);
+        });
+      } finally {
+        database.close();
+      }
+    });
+    await test.info().attach('pos-volume-queue.json', {
+      body: Buffer.from(JSON.stringify(queuedActions, null, 2)),
+      contentType: 'application/json',
+    });
+
+    expect(queuedActions.filter((action) => action.syncStatus !== 'synced')).toEqual([]);
+    expect(
+      await prisma.invoice.count({ where: { posTerminalId: terminal.id } }),
+    ).toBe(20);
+    expect(interactiveMs, '1,000-product POS interactivity').toBeLessThanOrEqual(15_000);
+    expect(searchMs, 'settled product search').toBeLessThanOrEqual(300);
+    expect(addToCartMs, 'add-to-cart feedback').toBeLessThanOrEqual(500);
+    expect(Math.max(...saleTimesMs), 'local checkout submission').toBeLessThanOrEqual(2_000);
+    expect(saleTimesMs.at(-1)!, 'last checkout degradation').toBeLessThanOrEqual(
+      Math.max(2_000, saleTimesMs[0] * 2),
+    );
+    expect(requestCount, 'POS bootstrap request count').toBeLessThan(100);
+    expect(transferredBytes, 'POS bootstrap transferred bytes').toBeLessThan(10 * 1024 * 1024);
+    expect(domNodeCount, 'post-loop DOM nodes').toBeLessThan(10_000);
+    if (heapBefore !== null && heapAfter !== null) {
+      expect(heapAfter - heapBefore, '20-sale JS heap growth').toBeLessThan(50 * 1024 * 1024);
+    }
+
+    await test.info().attach('pos-volume-performance.json', {
+      body: Buffer.from(JSON.stringify({
+        productCount: 1_000,
+        interactiveMs,
+        searchMs,
+        addToCartMs,
+        saleTimesMs,
+        requestCount,
+        transferredBytes,
+        domNodeCount,
+        heapBefore,
+        heapAfter,
+      }, null, 2)),
+      contentType: 'application/json',
+    });
+  } finally {
+    await prisma.auditLog.deleteMany({ where: { companyId: profiles.companyId } });
+    await prisma.stockMovement.deleteMany({ where: { companyId: profiles.companyId } });
+    if (terminalId) {
+      await prisma.invoice.deleteMany({ where: { posTerminalId: terminalId } });
+    }
+    if (timestampId) await prisma.timestamp.deleteMany({ where: { id: timestampId } });
+    await prisma.product.deleteMany({
+      where: { companyId: profiles.companyId, name: { startsWith: `E2E PERF PRODUCT ${suffix}` } },
+    });
+    if (categoryId) await prisma.category.deleteMany({ where: { id: categoryId } });
+    if (terminalId) await prisma.posTerminalInfo.deleteMany({ where: { id: terminalId } });
     if (authUser) await authUser.cleanup();
     await profiles.cleanup();
   }

@@ -2,10 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { randomUUID } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
-import {
-  isAuthRoute,
-  isPublicRoute,
-} from "@/lib/access-control-core";
+import { isAuthRoute, isPublicRoute } from "@/lib/access-control-core";
 import {
   detectRequestAppMode,
   POSARD_APP_MODE_COOKIE,
@@ -67,8 +64,15 @@ export async function updateSession(request: NextRequest) {
   );
 
   const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  let user = data?.claims;
   const isPublic = isPublicRoute(pathname);
+
+  if (user && isPublic && (pathname === "/" || isAuthRoute(pathname))) {
+    const freshUser = await supabase.auth.getUser();
+    if (freshUser.error || !freshUser.data.user) {
+      user = undefined;
+    }
+  }
 
   const logAuthTiming = (reason: string) => {
     if (process.env.NODE_ENV !== "production") {
@@ -95,7 +99,31 @@ export async function updateSession(request: NextRequest) {
   if (isPublic) {
     if (user && (pathname === "/" || isAuthRoute(pathname))) {
       logAuthTiming("auth-user-to-dashboard");
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      const referer = request.headers.get("referer");
+      let refererCallbackUrl: string | null = null;
+      if (referer) {
+        try {
+          const refererUrl = new URL(referer);
+          if (
+            refererUrl.origin === request.nextUrl.origin &&
+            refererUrl.pathname === "/auth/login"
+          ) {
+            refererCallbackUrl = refererUrl.searchParams.get("callbackUrl");
+          }
+        } catch {
+          refererCallbackUrl = null;
+        }
+      }
+      const callbackUrl =
+        request.nextUrl.searchParams.get("callbackUrl") ?? refererCallbackUrl;
+      const safeCallbackUrl =
+        pathname === "/auth/login" &&
+        callbackUrl?.startsWith("/") &&
+        !callbackUrl.startsWith("//") &&
+        !callbackUrl.startsWith("/auth/")
+          ? callbackUrl
+          : "/dashboard";
+      return NextResponse.redirect(new URL(safeCallbackUrl, request.url));
     }
     logAuthTiming("public");
     return supabaseResponse;
@@ -103,7 +131,7 @@ export async function updateSession(request: NextRequest) {
 
   if (!user) {
     const url = new URL("/auth/login", request.url);
-    url.searchParams.set("callbackUrl", pathname);
+    url.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search}`);
     logAuthTiming("missing-session");
     return NextResponse.redirect(url);
   }

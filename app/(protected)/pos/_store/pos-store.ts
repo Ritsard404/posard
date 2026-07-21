@@ -389,6 +389,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
     const willGoNegative =
       product.trackInventory && activeQuantityForProduct + 1 > availableQuantity;
 
+    if (willGoNegative) {
+      return { success: false, reason: "OUT_OF_STOCK" };
+    }
+
     const existingActive = cart.find(
       (item) => item.id === product.id && item.itemStatus !== "VOID",
     );
@@ -416,10 +420,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       });
     }
 
-    return {
-      success: true,
-      warning: willGoNegative ? "NEGATIVE_STOCK" : undefined,
-    };
+    return { success: true };
   },
 
   addConfiguredItemToCart: (product, data) => {
@@ -488,6 +489,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
       sourceProduct.trackInventory &&
       quantity + otherActiveQuantity > availableQuantity;
 
+    if (willGoNegative) {
+      return { success: false, reason: "OUT_OF_STOCK" };
+    }
+
     set({
       cart: cart.map((item) =>
         item.cartItemId === cartItemId
@@ -497,10 +502,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       customerDisplayMode: null,
     });
 
-    return {
-      success: true,
-      warning: willGoNegative ? "NEGATIVE_STOCK" : undefined,
-    };
+    return { success: true };
   },
 
   updateItemSubtotal: (cartItemId, subtotal) => {

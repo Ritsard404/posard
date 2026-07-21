@@ -221,7 +221,9 @@ function SidebarNavLink({
         <span className="flex-1 text-[14px] group-data-[collapsible=icon]:hidden">
           {item.label}
         </span>
-        {item.badge ? <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge> : null}
+        {item.badge ? (
+          <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge>
+        ) : null}
       </SidebarMenuButton>
     );
   }
@@ -249,7 +251,9 @@ function SidebarNavLink({
         <span className="flex-1 text-[14px] group-data-[collapsible=icon]:hidden">
           {item.label}
         </span>
-        {item.badge ? <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge> : null}
+        {item.badge ? (
+          <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge>
+        ) : null}
       </Link>
     </SidebarMenuButton>
   );
@@ -268,11 +272,17 @@ function SidebarNavSubLink({
 
   if (!item.href || item.disabled) {
     return (
-      <SidebarMenuSubButton asChild={false} isActive={false} className="opacity-70">
+      <SidebarMenuSubButton
+        asChild={false}
+        isActive={false}
+        className="opacity-70"
+      >
         <span className="flex w-full items-center gap-2">
           <item.icon className="size-4" />
           <span className="flex-1">{item.label}</span>
-          {item.badge ? <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge> : null}
+          {item.badge ? (
+            <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge>
+          ) : null}
         </span>
       </SidebarMenuSubButton>
     );
@@ -283,7 +293,9 @@ function SidebarNavSubLink({
       <Link href={item.href} prefetch className="flex items-center gap-2">
         <item.icon className="size-4" />
         <span className="flex-1">{item.label}</span>
-        {item.badge ? <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge> : null}
+        {item.badge ? (
+          <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge>
+        ) : null}
       </Link>
     </SidebarMenuSubButton>
   );
@@ -301,7 +313,9 @@ export function AppSidebar({
   const params = useParams();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [profile] = useState<UserProfile | null>(initialProfile);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const appMode = useMobileAppMode(initialMode);
 
@@ -309,7 +323,7 @@ export function AppSidebar({
     () => ({
       companyId:
         profile?.role === "manager"
-          ? profile.company_id ?? null
+          ? (profile.company_id ?? null)
           : (params?.companyId as string) || profile?.company_id || null,
       profileId: profile?.id || null,
       posStatus: profile?.pos_status ?? "available",
@@ -354,7 +368,7 @@ export function AppSidebar({
       await clearClientSessionForLogout();
     } finally {
       setShowLogoutDialog(false);
-      window.location.assign("/auth/logout");
+      window.location.replace("/auth/logout");
     }
   };
 
@@ -367,7 +381,11 @@ export function AppSidebar({
 
   const renderSection = (section: SidebarNavSection) => {
     if (section.variant === "accordion") {
-      const hasActiveItem = sectionHasActiveItem(pathname, searchParams, section.items);
+      const hasActiveItem = sectionHasActiveItem(
+        pathname,
+        searchParams,
+        section.items,
+      );
       const isExpanded = expandedSections[section.id] ?? hasActiveItem;
 
       return (
@@ -401,7 +419,11 @@ export function AppSidebar({
                   <SidebarMenuSub className="mt-1">
                     {section.items.map((item) => (
                       <li key={item.id}>
-                        <SidebarNavSubLink item={item} pathname={pathname} searchParams={searchParams} />
+                        <SidebarNavSubLink
+                          item={item}
+                          pathname={pathname}
+                          searchParams={searchParams}
+                        />
                       </li>
                     ))}
                   </SidebarMenuSub>
@@ -414,7 +436,11 @@ export function AppSidebar({
     }
 
     if (section.variant === "dropdown") {
-      const hasActiveItem = sectionHasActiveItem(pathname, searchParams, section.items);
+      const hasActiveItem = sectionHasActiveItem(
+        pathname,
+        searchParams,
+        section.items,
+      );
 
       return (
         <SidebarGroup key={section.id} className="px-0">
@@ -436,16 +462,25 @@ export function AppSidebar({
                           : "font-medium hover:bg-muted",
                       )}
                     >
-                      {section.icon ? <section.icon className="size-4" /> : null}
+                      {section.icon ? (
+                        <section.icon className="size-4" />
+                      ) : null}
                       <span className="flex-1 text-[14px] group-data-[collapsible=icon]:hidden">
                         {section.label}
                       </span>
                       <ChevronDown className="size-4 group-data-[collapsible=icon]:hidden" />
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-64 rounded-xl">
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-64 rounded-xl"
+                  >
                     {section.items.map((item) => {
-                      const isActive = isActivePath(pathname, searchParams, item.href);
+                      const isActive = isActivePath(
+                        pathname,
+                        searchParams,
+                        item.href,
+                      );
 
                       if (!item.href || item.disabled) {
                         return (
@@ -457,15 +492,25 @@ export function AppSidebar({
                             <item.icon className="size-4" />
                             <span className="flex-1">{item.label}</span>
                             {item.badge ? (
-                              <NavBadge tone={item.badgeTone}>{item.badge}</NavBadge>
+                              <NavBadge tone={item.badgeTone}>
+                                {item.badge}
+                              </NavBadge>
                             ) : null}
                           </DropdownMenuItem>
                         );
                       }
 
                       return (
-                        <DropdownMenuItem key={item.id} asChild className="rounded-lg">
-                          <Link href={item.href} prefetch className="flex items-center gap-2">
+                        <DropdownMenuItem
+                          key={item.id}
+                          asChild
+                          className="rounded-lg"
+                        >
+                          <Link
+                            href={item.href}
+                            prefetch
+                            className="flex items-center gap-2"
+                          >
                             <item.icon className="size-4" />
                             <span className="flex-1">{item.label}</span>
                             {isActive ? <NavBadge>Open</NavBadge> : null}
@@ -491,7 +536,11 @@ export function AppSidebar({
           <SidebarMenu className="gap-1.5">
             {section.items.map((item) => (
               <SidebarMenuItem key={item.id}>
-                <SidebarNavLink item={item} pathname={pathname} searchParams={searchParams} />
+                <SidebarNavLink
+                  item={item}
+                  pathname={pathname}
+                  searchParams={searchParams}
+                />
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
@@ -561,7 +610,11 @@ export function AppSidebar({
           <SidebarMenu key={section.id} className="gap-1.5">
             {section.items.map((item) => (
               <SidebarMenuItem key={item.id}>
-                <SidebarNavLink item={item} pathname={pathname} searchParams={searchParams} />
+                <SidebarNavLink
+                  item={item}
+                  pathname={pathname}
+                  searchParams={searchParams}
+                />
               </SidebarMenuItem>
             ))}
           </SidebarMenu>

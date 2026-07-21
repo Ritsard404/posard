@@ -108,6 +108,22 @@ test.describe('finance and management workflows @transaction', () => {
       seeded = await seedFinanceFixture(profiles.companyId);
       await openAsManager(page, '/expenses');
 
+      const expenseCountBeforeInvalid = await prisma.expense.count({
+        where: { companyId: seeded.companyId },
+      });
+      const invalidForm = page.locator('form').filter({
+        has: page.getByRole('button', { name: 'Record Expense' }),
+      });
+      await invalidForm.locator('select[name="categoryId"]').selectOption(seeded.expenseCategoryId);
+      await invalidForm.locator('input[name="amount"]').fill('-1');
+      await invalidForm.getByRole('button', { name: 'Record Expense' }).click();
+      await expect(invalidForm.locator('input[name="amount"]')).toHaveJSProperty(
+        'validity.rangeUnderflow',
+        true,
+      );
+      expect(await prisma.expense.count({ where: { companyId: seeded.companyId } }))
+        .toBe(expenseCountBeforeInvalid);
+
       const postedExpense = await createExpense(page, seeded, 1200, 'E2E approve and post');
       expect(postedExpense.status).toBe('pending_approval');
       await page.reload();
@@ -169,6 +185,20 @@ test.describe('finance and management workflows @transaction', () => {
       expect(await prisma.auditLog.count({
         where: { referenceId: income.id, actionType: 'non_sales_income_created' },
       })).toBe(1);
+
+      await page.goto(`/expenses?search=${encodeURIComponent('E2E approve and post')}&status=posted`);
+      await expect(page.getByRole('cell', { name: postedExpense.referenceNumber })).toBeVisible();
+      await expect(page.getByRole('cell', { name: rejectedExpense.referenceNumber })).toHaveCount(0);
+      await page.goto('/expenses?status=rejected');
+      await expect(page.getByRole('cell', { name: rejectedExpense.referenceNumber })).toBeVisible();
+      await expect(page.getByRole('cell', { name: postedExpense.referenceNumber })).toHaveCount(0);
+
+      await page.goto('/reports');
+      const pendingExpenseCard = page
+        .getByText('Pending Expenses', { exact: true })
+        .locator('..');
+      await expect(pendingExpenseCard).toContainText('0');
+      await expect(pendingExpenseCard).toContainText(/(?:₱|â‚±)1,200 posted/);
     } finally {
       try {
         await seeded?.cleanup();

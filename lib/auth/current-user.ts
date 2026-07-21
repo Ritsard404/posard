@@ -9,7 +9,7 @@ export const getCurrentAuthUser = cache(async () => {
   const { data, error } = await supabase.auth.getUser();
 
   if (error) {
-    throw error;
+    return null;
   }
 
   return data.user ?? null;

@@ -19,20 +19,28 @@ export async function createCompany(data: SetupCompanyInput) {
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
   const currentUserId = userData.user?.id;
-
-  const profile = await prisma.profile.findUnique({
-    where: { userId: currentUserId! },
-    select: { id: true },
-  });
-
-  if (!profile) throw new Error("Profile not found");
+  if (!currentUserId) throw new Error("Authentication required");
 
   const today = new Date();
   const threeYearsOut = new Date(today);
   threeYearsOut.setFullYear(threeYearsOut.getFullYear() + 3);
 
-  const [company] = await prisma.$transaction([
-    prisma.company.create({
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id
+      FROM public.profiles
+      WHERE user_id = ${currentUserId}::uuid
+      FOR UPDATE
+    `;
+    const profile = await tx.profile.findUnique({
+      where: { userId: currentUserId },
+      select: { id: true, companyId: true },
+    });
+
+    if (!profile) throw new Error("Profile not found");
+    if (profile.companyId) throw new Error("Company setup is already complete");
+
+    const company = await tx.company.create({
       data: {
         name: data.name,
         code: data.code,
@@ -40,24 +48,18 @@ export async function createCompany(data: SetupCompanyInput) {
         phone: data.phone,
         address: data.address,
         logoImageUrl: data.logoImageUrl || null,
-        users: {
-          connect: { userId: currentUserId! },
-        },
       },
-    }),
-  ]);
+    });
 
-  // Create default terminal after we have the company id
-  await prisma.$transaction([
-    prisma.profile.update({
-      where: { userId: currentUserId! },
-      data: { 
+    await tx.profile.update({
+      where: { userId: currentUserId },
+      data: {
         companyId: company.id,
         pin: hashPin(data.managerPin),
-        role: "manager" // Explicitly mark as manager just in case
+        role: "manager",
       },
-    }),
-    prisma.posTerminalInfo.create({
+    });
+    await tx.posTerminalInfo.create({
       data: {
         companyId: company.id,
         operatedBy: profile.id,
@@ -89,9 +91,8 @@ export async function createCompany(data: SetupCompanyInput) {
           },
         },
       },
-    }),
-  ]);
+    });
+  });
 
   redirect("/dashboard");
-  // return company;
 }

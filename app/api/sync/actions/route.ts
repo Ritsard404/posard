@@ -178,10 +178,16 @@ async function pushSyncResult(
       actorProfileId: profile.id,
       posTerminalId: action.terminalId,
       actionType,
-      referenceId: action.localId,
-      changes:
-        result.error ??
-        `${action.type.replaceAll("_", " ").toLowerCase()} replay ${result.syncStatus}.`,
+      referenceId: null,
+      changes: JSON.stringify({
+        localId: action.localId,
+        idempotencyKey: action.idempotencyKey,
+        actionType: action.type,
+        syncStatus: result.syncStatus,
+        message:
+          result.error ??
+          `${action.type.replaceAll("_", " ").toLowerCase()} replay ${result.syncStatus}.`,
+      }),
     });
   }
 

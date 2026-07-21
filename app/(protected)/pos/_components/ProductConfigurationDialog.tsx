@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -143,6 +144,9 @@ export function ProductConfigurationDialog({
       <DialogContent className="flex max-h-[90vh] flex-col p-0 sm:max-w-lg">
         <DialogHeader className="border-b px-4 py-3 text-left">
           <DialogTitle className="text-base">{product.name}</DialogTitle>
+          <DialogDescription>
+            Choose the quantity and required options for this item.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">

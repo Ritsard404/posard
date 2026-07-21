@@ -52,6 +52,24 @@ Implemented in this phase:
 - Added exact sales-report UI reconciliation plus authenticated CSV and Spreadsheet XML export content/security-audit coverage.
 - Transaction directory passes 8/8 together in 8.7 minutes with zero leaked E2E tenant records; the report/export scenario also passes independently.
 - Full Chromium run reached 35/38 in 28.2 minutes. The three failures were stale landing-page or load-sensitive timing assertions; documented login, debt lifecycle, and product surface all pass in focused reruns after corrections.
+- Added real authenticated offline replay coverage for idempotent sales, stale stock, manager approval, and closed-session recovery, with persisted Sync Center conflict rows and exact invoice/stock assertions.
+- Fixed offline audit logging so client-local IDs are retained as JSON metadata instead of being written into a UUID reference column.
+- Fixed concurrent checkout integrity by serializing terminal invoice-number reservation and product deductions, re-reading tenant-scoped stock under a row lock, and rejecting guarded decrements that would oversell.
+- Verified two simultaneous last-unit sales produce exactly one invoice and one inventory conflict; simultaneous debt collection, PO receiving, transfer receiving, and session close tests also pass without double writes.
+- Complete serialized Chromium gate reached 39/40 in 36.2 minutes; the only failure was an incorrect invalid-PIN feedback locator, and the corrected sale/return/void lifecycle passes independently in 2.1 minutes.
+- Fixed the kitchen route to tolerate an unavailable legacy invoice relation; the complete 37-route protected manager matrix passes in 6.1 minutes after the fix.
+- Added a permanent read-only E2E fixture leak audit and verified it after both complete suite passes.
+- Used the configured direct session pooler after the transaction pooler refused backend connections; no environment file or production database was changed.
+- Added manager/cashier backup and product-catalog export coverage for JSON, XLS, and PDF, including full-backup denial, sensitive download headers, exact security audits, and cross-company content isolation.
+- Hardened procurement/transfer navigation against bounded Next.js development-mode `ERR_ABORTED` refresh races and corrected foreign-company export teardown where the disposable schema did not cascade child deletion.
+- Complete Chromium suite passes twice consecutively, 42/42 in 33.9 minutes and 42/42 in 32.7 minutes, with zero temporary E2E records after each pass.
+- Added real-login role coverage for active admin/manager/cashier accounts plus pending, disabled, and unassigned identities; protected route boundaries and inactive-account messaging pass with full auth/profile cleanup.
+- Extended cashier controls through rejected over-withdrawal, a PHP 200 withdrawal, concurrent session close, visible expected cash, a PHP -10 variance, and an exact expected/counted/variance audit payload.
+- Added checkout payment-row coverage: underpayment and blank references are blocked, while PHP 10 cash + PHP 15 reference and PHP 26 full-reference sales reconcile exactly in invoice and `e_payment` rows.
+- Fixed authenticated-login redirect races so protected deep links retain safe path/query callbacks even when destination resolution times out; external callbacks fall back to a local role destination.
+- Replaced logout navigation history entries so browser Back cannot restore the protected app shell; direct protected re-entry still redirects to login.
+- Normalized deleted/revoked Supabase users to an unauthenticated redirect and added fresh-user validation on auth routes to prevent stale-claims redirect loops.
+- Made first-company setup atomic and idempotent with a locked profile row; a two-tab race leaves exactly one company, terminal, and subscription.
 
 Defects found during the destructive run:
 
@@ -68,15 +86,15 @@ Next priority: partial/invalid return and item-void negative cases, report matri
 
 ## Test Rules
 
-- [ ] Run destructive E2E tests only against a dedicated test database and Supabase project; fail fast if the environment is not explicitly marked as E2E.
-- [ ] Never run transaction tests against production or a shared staging database.
-- [ ] Give every seeded record a unique E2E run ID and delete it in `finally`/fixture teardown.
-- [ ] Prefer role, label, placeholder, and test-id locators; do not depend on CSS structure or generated classes.
-- [ ] Verify important writes through both the UI and Prisma/database state.
-- [ ] Assert exact totals, VAT, discounts, tender, change, inventory deltas, ledger entries, and statuses.
-- [ ] Avoid fixed sleeps; wait on visible state, responses, or database conditions.
-- [ ] Save traces, screenshots, and video only on failure.
-- [ ] Keep tests independent, repeatable, and safe to retry.
+- [x] Run destructive E2E tests only against a dedicated test database and Supabase project; fail fast if the environment is not explicitly marked as E2E.
+- [x] Never run transaction tests against production or a shared staging database.
+- [x] Give every seeded record a unique E2E run ID and delete it in `finally`/fixture teardown.
+- [x] Prefer role, label, placeholder, and test-id locators; do not depend on CSS structure or generated classes.
+- [x] Verify important writes through both the UI and Prisma/database state.
+- [x] Assert exact totals, VAT, discounts, tender, change, inventory deltas, ledger entries, and statuses.
+- [x] Avoid fixed browser sleeps; wait on visible state, responses, database conditions, navigation completion, or animation frames. The leak audit retains bounded connection-retry backoff only.
+- [x] Save traces, screenshots, and video only on failure.
+- [x] Keep tests independent, repeatable, and safe to retry.
 
 ## Phase 0 - Test Safety and Foundation (P0)
 
@@ -84,7 +102,7 @@ Next priority: partial/invalid return and item-void negative cases, report matri
 
 - [x] Add a test-environment guard that requires a dedicated E2E flag and rejects known production URLs.
 - [x] Add project setup that validates required environment variables without printing their values.
-- [ ] Extend auth fixtures for admin, manager, cashier, pending, disabled, and unassigned users.
+- [x] Extend auth fixtures for admin, manager, cashier, pending, disabled, and unassigned users.
 - [ ] Create reusable company, branch, terminal, session, customer, supplier, and transaction fixtures.
 - [ ] Add deterministic money helpers using decimal-safe comparisons.
 - [ ] Add cleanup helpers that remove seeded records in dependency order.
@@ -94,67 +112,67 @@ Next priority: partial/invalid return and item-void negative cases, report matri
 
 ### Acceptance Criteria
 
-- [ ] The suite aborts before mutation when pointed at an unsafe environment.
-- [ ] A failed test leaves no E2E invoices, inventory, customers, sessions, or payments behind.
-- [ ] Tests can run twice consecutively with the same result.
+- [x] The suite aborts before mutation when pointed at an unsafe environment.
+- [x] A failed test leaves no E2E invoices, inventory, customers, sessions, or payments behind.
+- [x] Tests can run twice consecutively with the same result.
 
 ## Phase 1 - Authentication, Onboarding, and Access (P0)
 
 Suggested files: extend `tests/auth/` and add `tests/access/role-access.spec.ts`.
 
-- [ ] Valid admin, manager, and cashier login reaches the correct destination.
-- [ ] Invalid, empty, pending, disabled, and unapproved accounts are rejected safely.
-- [ ] Logout clears the session; browser Back cannot reopen protected data.
-- [ ] Expired/revoked sessions redirect to login without exposing protected content.
-- [ ] Unauthenticated deep links preserve a safe return destination after login.
-- [ ] Open-redirect attempts are rejected.
-- [ ] First-time company setup creates the company and assigns the user once only.
-- [ ] Terminal selection and cashier-session requirements are enforced before POS use.
-- [ ] Admin, manager, and cashier route access matches the permission matrix.
-- [ ] Direct URL navigation and server actions reject unauthorized roles, even when UI controls are hidden.
-- [ ] Rate-limited login and server failures show safe, recoverable messages.
+- [x] Valid admin, manager, and cashier login reaches the correct destination.
+- [x] Invalid, empty, pending, disabled, and unapproved accounts are rejected safely.
+- [x] Logout clears the session; browser Back cannot reopen protected data.
+- [x] Expired/revoked sessions redirect to login without exposing protected content.
+- [x] Unauthenticated deep links preserve a safe return destination after login.
+- [x] Open-redirect attempts are rejected.
+- [x] First-time company setup creates the company and assigns the user once only.
+- [x] Terminal selection and cashier-session requirements are enforced before POS use.
+- [x] Admin, manager, and cashier route access matches the permission matrix.
+- [x] Direct URL navigation and server actions reject unauthorized roles, even when UI controls are hidden.
+- [x] Rate-limited login and server failures show safe, recoverable messages.
 
 ## Phase 2 - POS Sale and Checkout (P0)
 
 Suggested file: `tests/transactions/pos-sale.spec.ts`.
 
-- [ ] Open a cashier session with a known opening cash amount.
-- [ ] Find products by name and barcode; category filtering returns the correct products.
-- [ ] Add, remove, and edit item quantities without negative or zero invalid quantities.
-- [ ] Validate tracked, untracked, out-of-stock, variant, unit, serial, bundle, and modifier items.
+- [x] Open a cashier session with a known opening cash amount.
+- [x] Find products by name and barcode; category filtering returns the correct products.
+- [x] Add, remove, and edit item quantities without negative or zero invalid quantities.
+- [x] Validate tracked, untracked, out-of-stock, and modifier items through POS browser checkout with exact invoice, selection, and stock assertions. Variant/unit/serial/bundle records are currently schema/readiness metadata only and have no enabled POS transaction workflow to exercise.
 - [ ] Validate line discount, order discount, percentage/fixed discount, discount caps, VAT-inclusive/exclusive/exempt totals, and rounding.
-- [ ] Verify manager approval is required where configured and invalid PINs do not mutate data.
-- [ ] Complete exact-cash, over-tendered cash, card/e-payment, reference, split, and mixed payment sales.
-- [ ] Reject underpayment, invalid reference details, repeated submit clicks, and stale stock.
-- [ ] Confirm one invoice, correct items/payments, one inventory deduction, audit data, and a printable receipt. (Invoice, items, inventory, audit, and idempotency covered; payment-row and print assertions remain.)
+- [x] Verify manager approval is required where configured and invalid PINs do not mutate data.
+- [x] Complete exact-cash, over-tendered cash, card/e-payment, reference, split, and mixed payment sales.
+- [x] Reject underpayment, invalid reference details, repeated submit clicks, and stale stock.
+- [x] Confirm one invoice, correct items/payments, one inventory deduction, audit data, and a printable receipt.
 - [ ] Verify double-click, page refresh, browser retry, and request retry cannot create duplicate invoices.
-- [ ] Verify customer display progresses through cart, payment, completed, and idle states.
-- [ ] Reprint a receipt without creating a new financial transaction.
+- [x] Verify customer display progresses through cart, payment, completed, and idle states.
+- [x] Reprint a receipt without creating a new financial transaction.
 
 ### Core Sale Invariant
 
 For every completed sale:
 
-- [ ] `subtotal - discounts + tax = grand total`.
-- [ ] `payments = grand total` unless the approved debt workflow is used.
-- [ ] tracked inventory decreases exactly once.
-- [ ] invoice number/idempotency key is unique.
-- [ ] reports and cashier totals reflect the same transaction.
+- [x] `subtotal - discounts + tax = grand total`.
+- [x] `payments = grand total` unless the approved debt workflow is used.
+- [x] tracked inventory decreases exactly once.
+- [x] invoice number/idempotency key is unique.
+- [x] reports and cashier totals reflect the same transaction.
 
 ## Phase 3 - Corrections, Returns, Debt, and Cash (P0)
 
 Suggested files: `tests/transactions/void-return.spec.ts`, `debt.spec.ts`, and `cash-session.spec.ts`.
 
-- [ ] Void one cart item and a whole order with a reason and required manager approval.
-- [ ] Reject unauthorized, already-voided, or invalid-state void attempts.
-- [ ] Perform partial and full returns; prevent returns above the sold quantity.
-- [ ] Verify return totals, stock restoration, return documents, audit trail, and report changes.
+- [x] Void one cart item and a whole order with a reason and required manager approval.
+- [x] Reject unauthorized or invalid-state void attempts; repeated cart removal is idempotent because the item remains `VOID`, and completed invoice returns reject excess/repeated quantities.
+- [x] Perform partial and full returns; prevent returns above the sold quantity.
+- [x] Verify return totals, stock restoration, return documents, audit trail, and report changes.
 - [x] Create an unpaid/debt sale for an eligible customer and enforce configured permissions/limits.
-- [ ] Record partial and final debt collection; prevent overpayment and duplicate collection. (Partial/final happy path covered; negative cases remain.)
+- [x] Record partial and final debt collection; prevent overpayment and duplicate collection.
 - [x] Verify customer balance and debt status after each payment.
 - [ ] Record cash-in and cash-out with reasons; reject invalid amounts.
-- [ ] Close a cashier session with expected and counted cash and verify variance. (Exact counted cash, approval, terminal state, and audit covered; non-zero variance remains.)
-- [ ] Prevent new POS writes on a closed session and prevent closing the same session twice. (Closed UI state and service guard covered; direct duplicate submission remains.)
+- [x] Close a cashier session with expected and counted cash and verify variance.
+- [x] Prevent new POS writes on a closed session and prevent closing the same session twice.
 
 ## Phase 4 - Inventory and Procurement Transactions (P1)
 
@@ -166,15 +184,15 @@ Suggested files under `tests/transactions/`.
 - [x] Create, dispatch, receive, and cancel a branch transfer. (`reject` is not an enabled transfer action in the current schema/UI.)
 - [x] Verify source and destination inventory deltas and prevent duplicate receiving.
 - [x] Run stock count with matching, shortage, and overage results; verify ledger adjustments. (Also covers rejection, audit events, and damaged-stock disposition.)
-- [ ] Validate lot expiry, serial uniqueness, and insufficient-stock protections.
+- [x] Validate lot expiry and insufficient-stock protections through POS browser rejection with unchanged cart/inventory, plus persisted batch/expiry receiving. Product serial uniqueness is enforced by company-scoped database constraints but has no enabled serial mutation UI.
 - [x] Confirm inventory ledger entries reconcile to product inventory after every workflow covered by the procurement, transfer, count, adjustment, and disposition suites.
 
 ## Phase 5 - Other Business Transactions (P1)
 
-- [ ] Create, edit, approve/void, and filter expenses; verify status and reports. (Create, approve/post, reject, cancel, and audit covered; edit/filter/report reconciliation remain.)
+- [x] Create, validate, approve/post, reject/cancel, search, and status-filter expenses; reconcile pending count and posted total in reports. Expense editing is not an enabled UI/service action.
 - [x] Create and record non-sales income if enabled.
 - [ ] Create/edit customers; earn and redeem loyalty; prevent negative or duplicate balances. (Customer/loyalty reporting, tenant-scoped search, pagination, earn/redeem history, and net balance are covered; no enabled customer-edit or loyalty-mutation UI currently exists, and negative/duplicate mutation guards remain.)
-- [ ] Create promotions and verify eligibility, date range, usage limits, stacking, and redemption log. (Management lifecycle covered; checkout eligibility/redemption remain.)
+- [x] Create promotions and verify active/date eligibility, best-rule non-stacking behavior, exact discount, redemption log, and audit at browser checkout. Usage-limit and advanced item/bundle rule enforcement are not enabled by the current promotion model/POS resolver.
 - [x] Exercise supplier lifecycle and prevent unsafe deletion when referenced. (Create/archive UI and company-scoped update/archive service boundaries covered.)
 - [x] Cover service booking, repair job, sales order, open ticket, prescription verification, and kitchen ticket flows when their business presets are enabled. (Kitchen covers queued → preparing → ready → served and cancellation with audit reconciliation.)
 - [ ] Verify disabled business features are hidden and inaccessible by direct navigation/action.
@@ -185,7 +203,7 @@ Suggested files under `tests/transactions/`.
 - [ ] Daily sales, payment-method, VAT, PWD/senior, cashier, terminal, and branch reports match seeded transactions exactly.
 - [ ] Date, branch, terminal, cashier, status, and pagination filters are correct at timezone boundaries.
 - [x] CSV/spreadsheet exports download successfully and contain the expected headers and rows. (Sales report CSV and Spreadsheet XML `.xls` both reconcile to a seeded transaction and write security audits.)
-- [ ] Backup and product-catalog exports require permission and do not expose another company.
+- [x] Backup and product-catalog exports require permission and do not expose another company.
 - [ ] Audit trail records actor, company, branch/terminal context, action, target, and time without secrets.
 - [ ] Company A can never read or mutate Company B data through UI, URL parameters, exports, or actions.
 
@@ -193,15 +211,15 @@ Suggested files under `tests/transactions/`.
 
 Suggested file: `tests/transactions/offline-transaction.spec.ts`.
 
-- [ ] Complete an offline sale after the product snapshot and active session are cached.
-- [ ] Confirm a provisional receipt and pending sync state are shown.
-- [ ] Restore connectivity and verify exactly one server invoice and inventory deduction.
-- [ ] Retry the same idempotency key and verify no duplicate transaction.
+- [x] Complete an offline sale after the product snapshot and active session are cached.
+- [x] Confirm a provisional receipt and pending sync state are shown before any server invoice or inventory mutation.
+- [x] Restore connectivity and verify exactly one server invoice and inventory deduction.
+- [x] Retry the same idempotency key and verify no duplicate transaction.
 - [ ] Queue offline void/cash operations only when supported; show clear blocks otherwise.
-- [ ] Simulate stale stock, expired session, rejected approval, and server conflict during sync.
-- [ ] Verify failures remain recoverable in Sync Center and do not silently disappear.
-- [ ] Run two browser contexts selling the last unit; only one transaction may succeed.
-- [ ] Run simultaneous debt collection, PO receiving, transfer receiving, and session close attempts; prevent double writes.
+- [x] Simulate stale stock, expired session, rejected approval, and server conflict during sync.
+- [x] Verify failed and review-required actions persist and render with recovery context in Sync Center; unassigned managers retain company-wide visibility.
+- [x] Run two browser contexts selling the last unit; only one transaction may succeed.
+- [x] Run simultaneous debt collection, PO receiving, transfer receiving, and session close attempts; prevent double writes.
 
 ## Phase 8 - Resilience and Security UX (P2)
 
@@ -225,17 +243,17 @@ Suggested file: `tests/performance/critical-flows.spec.ts`. Record cold and warm
 - [ ] Check for repeated API calls, oversized payloads/images, unnecessary route reloads, and growing DOM/list memory.
 - [ ] Run a 20-sale loop and compare first/last transaction time and browser heap for degradation.
 - [ ] Test desktop, tablet, and mobile viewports for clipped controls, overflow, touch targets, and keyboard operation.
-- [ ] Keep performance tests serial and separate from functional pass/fail until baselines are stable.
+- [x] Keep performance tests serial and separate from functional pass/fail until baselines are stable.
 
 ## Phase 10 - CI and Release Gate (P2)
 
-- [ ] Run `@smoke` on every pull request.
-- [ ] Run transaction and permission tests on merge or a protected test environment.
-- [ ] Run the full destructive and performance suites nightly.
-- [ ] Use one worker initially for shared financial fixtures; increase only after isolation is proven.
-- [ ] Upload Playwright HTML report, trace, screenshot, and video artifacts on failure.
-- [ ] Quarantine flaky tests only with an owner, issue, evidence, and removal date.
-- [ ] Fail releases for P0 smoke/transaction failures, data leaks, duplicate writes, or unreconciled totals.
+- [x] Run `@smoke` on every pull request through `.github/workflows/e2e.yml` using required disposable-environment secrets.
+- [x] Run transaction and permission tests on pushes to `main`, followed by the leak audit.
+- [x] Run the full destructive and performance suites nightly and by manual dispatch, followed by the leak audit.
+- [x] Use one worker initially for shared financial fixtures; increase only after isolation is proven.
+- [x] Upload Playwright HTML report, trace, screenshot, and video artifacts on failure.
+- [x] Quarantine flaky tests only with an owner, issue, evidence, and removal date. No tests are currently quarantined.
+- [x] Fail CI gates for smoke/transaction/permission failures and post-suite data leaks; duplicate-write and total-reconciliation assertions are part of the transaction suites.
 
 ## Recommended Implementation Order
 
@@ -254,9 +272,9 @@ Suggested file: `tests/performance/critical-flows.spec.ts`. Record cold and warm
 - [ ] Every money/stock mutation has permission, validation, idempotency, and database assertions.
 - [ ] Sale -> void/return -> reports -> cashier close reconciles to expected exact values.
 - [ ] Cross-company and cross-role access tests pass.
-- [ ] Offline replay and concurrent submission do not duplicate transactions.
+- [x] Offline replay and concurrent submission do not duplicate transactions.
 - [ ] Critical flows meet agreed performance budgets on the CI test environment.
-- [ ] Full suite passes twice consecutively without leaked test data or flaky retries.
+- [x] Full suite passes twice consecutively without leaked test data or flaky retries.
 - [ ] Any discovered defects are recorded with trace, reproduction steps, affected role/data, severity, and expected behavior.
 
 ## Useful Commands

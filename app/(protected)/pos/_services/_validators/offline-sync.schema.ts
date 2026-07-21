@@ -4,6 +4,19 @@ const invoiceStatusSchema = z.enum(["CANCELLED", "RETURNED", "VOID", "PENDING", 
 const discountTypeSchema = z.enum(["PWD", "SENIOR", "DSWD", "OTHERS"]);
 const settlementModeSchema = z.enum(["pay_now", "debt"]);
 const syncStatusSchema = z.enum(["pending", "syncing", "synced", "failed", "needs_review"]);
+const fulfillmentTypeSchema = z.enum([
+  "WALK_IN",
+  "DINE_IN",
+  "TAKE_OUT",
+  "DELIVERY",
+  "PICKUP",
+]);
+const modifierGroupTypeSchema = z.enum([
+  "VARIANT",
+  "MODIFIER",
+  "ADDON",
+  "INSTRUCTION",
+]);
 
 const orderSchema = z.object({
   timestampId: z.string().min(1),
@@ -17,8 +30,25 @@ const orderSchema = z.object({
         productId: z.string().min(1),
         qty: z.number().positive(),
         price: z.number().nonnegative(),
+        basePrice: z.number().nonnegative().optional(),
         subTotal: z.number().nonnegative(),
         status: invoiceStatusSchema.optional(),
+        selections: z
+          .array(
+            z.object({
+              modifierGroupName: z.string().min(1),
+              modifierGroupType: modifierGroupTypeSchema,
+              optionName: z.string().optional(),
+              priceDelta: z.number(),
+              quantity: z.number().int().positive(),
+              sortOrder: z.number().int(),
+            }),
+          )
+          .optional(),
+        specialInstructions: z.string().optional(),
+        prescriptionRequired: z.boolean().optional(),
+        prescriptionConfirmed: z.boolean().optional(),
+        prescriptionReference: z.string().optional(),
       }),
     )
     .min(1),
@@ -42,6 +72,13 @@ const orderSchema = z.object({
       managerPin: z.string().optional(),
     })
     .optional(),
+  fulfillmentType: fulfillmentTypeSchema.optional(),
+  tableNumber: z.string().optional(),
+  guestCount: z.number().int().positive().optional(),
+  deliveryCustomerName: z.string().optional(),
+  deliveryAddress: z.string().optional(),
+  deliveryReference: z.string().optional(),
+  deliveryFee: z.number().nonnegative().optional(),
   settlementMode: settlementModeSchema.optional(),
   debt: z
     .object({

@@ -155,6 +155,7 @@ export function ProductCard({ product, viewMode }: ProductCardProps) {
             </p>
           </div>
           <Button 
+            type="button"
             size="sm" 
             variant="outline" 
             className="h-10 rounded-lg border-primary/20 bg-primary/5 px-3 text-primary sm:h-8 sm:px-2.5"

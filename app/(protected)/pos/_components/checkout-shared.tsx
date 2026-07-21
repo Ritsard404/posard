@@ -91,8 +91,34 @@ function assertQueuedSaleReadyForLocalCommit(action: QueuedSaleAction) {
   }
 }
 
+let checkoutBackgroundSyncTimer: number | null = null;
+
+function getQueuedRetryDelay(
+  queue: Awaited<ReturnType<typeof getOfflineQueueSnapshot>>,
+) {
+  const now = Date.now();
+  const retryable = queue.actions.filter(
+    (action) =>
+      ["pending", "syncing"].includes(action.syncStatus) ||
+      (action.syncStatus === "failed" && (action.retryCount ?? 0) < 5),
+  );
+  if (retryable.length === 0) return null;
+
+  const nextRetryAt = Math.min(
+    ...retryable.map((action) =>
+      action.nextRetryAt ? new Date(action.nextRetryAt).getTime() : now + 2_000,
+    ),
+  );
+  return Math.max(500, nextRetryAt - now + 100);
+}
+
 function scheduleCheckoutBackgroundSync(delayMs = 2000) {
-  window.setTimeout(() => {
+  if (checkoutBackgroundSyncTimer !== null) {
+    window.clearTimeout(checkoutBackgroundSyncTimer);
+  }
+
+  checkoutBackgroundSyncTimer = window.setTimeout(() => {
+    checkoutBackgroundSyncTimer = null;
     void syncOfflineActions()
       .then(async (result) => {
         const queue = await getOfflineQueueSnapshot();
@@ -105,6 +131,10 @@ function scheduleCheckoutBackgroundSync(delayMs = 2000) {
               ? "Sale synced in the background."
               : "Queue is up to date.",
         });
+        const retryDelay = getQueuedRetryDelay(queue);
+        if (navigator.onLine && retryDelay !== null) {
+          scheduleCheckoutBackgroundSync(retryDelay);
+        }
       })
       .catch(async (error) => {
         const queue = await getOfflineQueueSnapshot();
@@ -115,6 +145,10 @@ function scheduleCheckoutBackgroundSync(delayMs = 2000) {
           lastSyncMessage:
             error instanceof Error ? error.message : "Background sync failed.",
         });
+        const retryDelay = getQueuedRetryDelay(queue);
+        if (navigator.onLine && retryDelay !== null) {
+          scheduleCheckoutBackgroundSync(retryDelay);
+        }
       });
   }, delayMs);
 }

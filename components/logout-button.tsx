@@ -8,7 +8,7 @@ export function LogoutButton() {
     try {
       await clearClientSessionForLogout();
     } finally {
-      window.location.assign("/auth/logout");
+      window.location.replace("/auth/logout");
     }
   };
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { getCustomerDisplaySnapshotAction } from "../_actions/customer-display.action";
 import type { CustomerDisplayDTO } from "./_dto/customer-display.dto";
 import { subscribeToCustomerDisplay } from "./customer-display-realtime.service";
 
@@ -24,15 +23,33 @@ export function useCustomerDisplay(
 
     function refreshSnapshot() {
       startTransition(() => {
-        void getCustomerDisplaySnapshotAction(terminalId).then((result) => {
-          if (!cancelled && result.success) {
-            setDisplay(result.display);
-          }
-        });
+        void fetch(
+          `/api/pos/customer-display/${encodeURIComponent(terminalId)}`,
+          {
+            cache: "no-store",
+          },
+        )
+          .then(async (response) => {
+            if (!response.ok) {
+              throw new Error("Unable to refresh customer display");
+            }
+            return (await response.json()) as CustomerDisplayDTO;
+          })
+          .then((nextDisplay) => {
+            if (!cancelled) {
+              setDisplay(nextDisplay);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setConnectionState("stale");
+            }
+          });
       });
     }
 
     refreshSnapshot();
+    const refreshInterval = window.setInterval(refreshSnapshot, 2_000);
     const unsubscribe = subscribeToCustomerDisplay(
       terminalId,
       (nextDisplay) => {
@@ -48,6 +65,7 @@ export function useCustomerDisplay(
 
     return () => {
       cancelled = true;
+      window.clearInterval(refreshInterval);
       unsubscribe();
     };
   }, [terminalId]);

@@ -19,10 +19,15 @@ import { enforceRateLimit } from "@/lib/security/rate-limit-guard";
 import { findProfileByPin } from "@/lib/security/pin";
 import { toSafeActionError } from "@/lib/security/safe-action-error";
 
-function getTerminalBillingSummary(subscription: {
-  status: "pending" | "active" | "expired" | "suspended" | "cancelled";
-  expiresAt: Date | null;
-} | null, isDefaultTerminal: boolean, validUntil: Date, platformBillingMode: PlatformBillingMode): {
+function getTerminalBillingSummary(
+  subscription: {
+    status: "pending" | "active" | "expired" | "suspended" | "cancelled";
+    expiresAt: Date | null;
+  } | null,
+  isDefaultTerminal: boolean,
+  validUntil: Date,
+  platformBillingMode: PlatformBillingMode,
+): {
   statusLabel: string;
   statusTone: "success" | "warning" | "danger";
   actionLabel: string | null;
@@ -33,7 +38,8 @@ function getTerminalBillingSummary(subscription: {
       statusLabel: "Free mode",
       statusTone: "success",
       actionLabel: null,
-      message: "POSard is currently free. Subscription status is informational only.",
+      message:
+        "POSard is currently free. Subscription status is informational only.",
     };
   }
 
@@ -55,14 +61,23 @@ function getTerminalBillingSummary(subscription: {
     };
   }
 
-  const isSubscriptionExpired = hasCoverageDatePassed(subscription.expiresAt, false);
+  const isSubscriptionExpired = hasCoverageDatePassed(
+    subscription.expiresAt,
+    false,
+  );
   const isTerminalValidityExpired = hasCoverageDatePassed(validUntil);
 
-  if (subscription.status === "active" && !isSubscriptionExpired && !isTerminalValidityExpired) {
+  if (
+    subscription.status === "active" &&
+    !isSubscriptionExpired &&
+    !isTerminalValidityExpired
+  ) {
     return {
       statusLabel: subscription.expiresAt ? "Active plan" : "Active open plan",
       statusTone: "success",
-      actionLabel: subscription.expiresAt ? "Monitor renewal" : "Review billing setup",
+      actionLabel: subscription.expiresAt
+        ? "Monitor renewal"
+        : "Review billing setup",
       message: subscription.expiresAt
         ? `Subscription is covered until ${subscription.expiresAt.toLocaleDateString()}.`
         : "Subscription is active without an expiry date.",
@@ -120,7 +135,13 @@ async function getCurrentProfile() {
 
   const profile = await prisma.profile.findFirst({
     where: { userId: data.user.id },
-    select: { id: true, companyId: true, branchId: true, role: true, fullName: true },
+    select: {
+      id: true,
+      companyId: true,
+      branchId: true,
+      role: true,
+      fullName: true,
+    },
   });
 
   if (!profile) throw new Error("Profile not found");
@@ -204,18 +225,22 @@ export async function getCurrentSessionAction() {
             ? Number(timestamp.posTerminal.discountMax)
             : 0,
           allowCashierDebtCreate: timestamp.posTerminal.allowCashierDebtCreate,
-          allowCashierDebtCollect: timestamp.posTerminal.allowCashierDebtCollect,
+          allowCashierDebtCollect:
+            timestamp.posTerminal.allowCashierDebtCollect,
           requireManagerApprovalForDebt:
             timestamp.posTerminal.requireManagerApprovalForDebt,
           pinlessModeEnabled: timestamp.posTerminal.pinlessModeEnabled,
           defaultDebtDueDays: timestamp.posTerminal.defaultDebtDueDays ?? null,
           businessMode: timestamp.posTerminal.businessModeOverride ?? "RETAIL",
           enableFulfillmentTypes: timestamp.posTerminal.enableFulfillmentTypes,
-          enableRestaurantFeatures: timestamp.posTerminal.enableRestaurantFeatures,
+          enableRestaurantFeatures:
+            timestamp.posTerminal.enableRestaurantFeatures,
           enableTableService: timestamp.posTerminal.enableTableService,
           enableDeliveryDetails: timestamp.posTerminal.enableDeliveryDetails,
           enableProductModifiers: timestamp.posTerminal.enableProductModifiers,
-          printerConfig: printConfigService.mapPrinterConfig(timestamp.posTerminal),
+          printerConfig: printConfigService.mapPrinterConfig(
+            timestamp.posTerminal,
+          ),
           billingLocked,
           billingMessage: billingLocked
             ? TERMINAL_BILLING_TRANSACTION_RESTRICTION_MESSAGE
@@ -227,7 +252,10 @@ export async function getCurrentSessionAction() {
   } catch (error) {
     return {
       success: false as const,
-      error: toSafeActionError(error, "Unable to load the current POS session."),
+      error: toSafeActionError(
+        error,
+        "Unable to load the current POS session.",
+      ),
     };
   }
 }
@@ -236,13 +264,22 @@ export async function getTerminalsAction() {
   try {
     const profile = await getCurrentProfile();
     if (!profile.companyId) {
-      return { success: false as const, error: "No company associated with user." };
+      return {
+        success: false as const,
+        error: "No company associated with user.",
+      };
+    }
+    if (profile.role === "cashier" && !profile.branchId) {
+      return {
+        success: false as const,
+        error: "No branch assigned. Please contact your manager.",
+      };
     }
 
     const terminals = await prisma.posTerminalInfo.findMany({
       where: {
         companyId: profile.companyId,
-        ...(profile.role === "cashier" ? { branchId: profile.branchId ?? "__missing_branch__" } : {}),
+        ...(profile.role === "cashier" ? { branchId: profile.branchId } : {}),
       },
       select: {
         id: true,
@@ -356,10 +393,16 @@ export async function openSessionAction(
   try {
     const profile = await getCurrentProfile();
     if (!profile.companyId) {
-      return { success: false as const, error: "No company associated with user." };
+      return {
+        success: false as const,
+        error: "No company associated with user.",
+      };
     }
     if (profile.role === "cashier" && !profile.branchId) {
-      return { success: false as const, error: "No branch assigned. Please contact your manager." };
+      return {
+        success: false as const,
+        error: "No branch assigned. Please contact your manager.",
+      };
     }
     await assertTerminalBillingAllowsPos(profile.companyId, terminalId);
 
@@ -442,7 +485,8 @@ export async function withdrawCashAction(
         },
       },
     });
-    const pinlessModeEnabled = timestamp?.posTerminal.pinlessModeEnabled === true;
+    const pinlessModeEnabled =
+      timestamp?.posTerminal.pinlessModeEnabled === true;
 
     let approverProfileId: string | null = null;
 
@@ -503,7 +547,10 @@ export async function closeSessionAction(
   try {
     const profile = await getCurrentProfile();
     if (!profile.companyId) {
-      return { success: false as const, error: "No company associated with user." };
+      return {
+        success: false as const,
+        error: "No company associated with user.",
+      };
     }
     await enforceRateLimit({
       bucket: "sensitivePosAction",
@@ -523,7 +570,8 @@ export async function closeSessionAction(
         },
       },
     });
-    const pinlessModeEnabled = timestamp?.posTerminal.pinlessModeEnabled === true;
+    const pinlessModeEnabled =
+      timestamp?.posTerminal.pinlessModeEnabled === true;
 
     let approverProfileId: string | null = null;
 
@@ -588,14 +636,20 @@ export async function getSessionCashTrackAction(timestampId: string) {
   }
 }
 
-export async function getSessionXReadingPrintPayloadAction(timestampId: string) {
+export async function getSessionXReadingPrintPayloadAction(
+  timestampId: string,
+) {
   try {
     const profile = await getCurrentProfile();
     if (!profile.companyId) {
-      return { success: false as const, error: "No company associated with user." };
+      return {
+        success: false as const,
+        error: "No company associated with user.",
+      };
     }
 
-    const payload = await sessionMutationService.getSessionXReadingPayload(timestampId);
+    const payload =
+      await sessionMutationService.getSessionXReadingPayload(timestampId);
 
     if (!payload) {
       return {
@@ -608,7 +662,10 @@ export async function getSessionXReadingPrintPayloadAction(timestampId: string) 
   } catch (error) {
     return {
       success: false as const,
-      error: toSafeActionError(error, "Unable to build X-reading print payload."),
+      error: toSafeActionError(
+        error,
+        "Unable to build X-reading print payload.",
+      ),
     };
   }
 }

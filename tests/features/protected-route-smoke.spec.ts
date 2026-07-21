@@ -81,7 +81,6 @@ test('manager protected feature routes render without server errors @smoke', asy
             error instanceof Error &&
             /ERR_ABORTED|aborted/i.test(error.message)
           ) {
-            await page.waitForTimeout(750);
             continue;
           }
           throw error;

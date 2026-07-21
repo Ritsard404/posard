@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { closeSessionAction } from "../_actions/session.action";
+import {
+  closeSessionAction,
+  getAvailableCashAction,
+} from "../_actions/session.action";
 import { ReportPrintControls } from "@/app/(protected)/report/_components/ReportPrintControls";
 import type { ReportPrintPayloadDto } from "@/app/(protected)/report/_services/_dto/report.dto";
 import { toast } from "sonner";
@@ -53,6 +56,19 @@ export function CloseSessionModal({
   const [xReadingPayload, setXReadingPayload] =
     useState<ReportPrintPayloadDto | null>(null);
   const [didCloseSession, setDidCloseSession] = useState(false);
+  const [expectedCash, setExpectedCash] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isOnline) return;
+
+    let active = true;
+    void getAvailableCashAction(timestampId).then((result) => {
+      if (active && result.success) setExpectedCash(result.availableCash);
+    });
+    return () => {
+      active = false;
+    };
+  }, [isOnline, timestampId]);
 
   const handleDialogChange = (open: boolean) => {
     if (open) {
@@ -85,7 +101,12 @@ export function CloseSessionModal({
 
     if (!isOnline) {
       try {
-        if (!activeDeviceId || !activeCompanyId || !activeProfileId || !terminalId) {
+        if (
+          !activeDeviceId ||
+          !activeCompanyId ||
+          !activeProfileId ||
+          !terminalId
+        ) {
           throw new Error("Offline close needs an active synced session.");
         }
 
@@ -206,24 +227,37 @@ export function CloseSessionModal({
                   />
                 </div>
 
+                {expectedCash !== null ? (
+                  <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+                    <span>Expected Cash</span>
+                    <strong className="text-right">
+                      PHP {expectedCash.toFixed(2)}
+                    </strong>
+                    <span>Variance</span>
+                    <strong className="text-right" data-testid="cash-variance">
+                      PHP {(countedCash - expectedCash).toFixed(2)}
+                    </strong>
+                  </div>
+                ) : null}
+
                 {!pinlessModeEnabled ? (
-                <div className="grid gap-2">
-                  <Label htmlFor="managerPin">Approving Manager PIN</Label>
-                  <Input
-                    id="managerPin"
-                    type="password"
-                    maxLength={6}
-                    inputMode="numeric"
-                    placeholder="••••••"
-                    className="h-12 text-center text-xl tracking-widest"
-                    value={managerPin}
-                    onChange={(event) =>
-                      setManagerPin(
-                        event.target.value.replace(/\D/g, "").slice(0, 6),
-                      )
-                    }
-                  />
-                </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="managerPin">Approving Manager PIN</Label>
+                    <Input
+                      id="managerPin"
+                      type="password"
+                      maxLength={6}
+                      inputMode="numeric"
+                      placeholder="••••••"
+                      className="h-12 text-center text-xl tracking-widest"
+                      value={managerPin}
+                      onChange={(event) =>
+                        setManagerPin(
+                          event.target.value.replace(/\D/g, "").slice(0, 6),
+                        )
+                      }
+                    />
+                  </div>
                 ) : null}
               </div>
 

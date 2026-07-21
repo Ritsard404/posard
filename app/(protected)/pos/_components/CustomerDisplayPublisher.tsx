@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { publishCustomerDisplayAction } from "../_actions/customer-display.action";
 import { usePOSStore } from "../_store/pos-store";
 import type { CustomerDisplayDTO } from "../_services/_dto/customer-display.dto";
 import type { EPaymentMethodDto } from "../_services/_dto/pos.dto";
@@ -81,6 +80,8 @@ export function CustomerDisplayPublisher() {
   const { activeCart, subtotal, discountAmount, total, taxDerived } =
     usePOSPaymentSummary();
   const lastPayloadRef = useRef("");
+  const queuedDisplayRef = useRef<CustomerDisplayDTO | null>(null);
+  const isPublishingRef = useRef(false);
 
   const display = useMemo<CustomerDisplayDTO | null>(() => {
     if (!activeTerminal || !customerDisplayEnabled) {
@@ -110,19 +111,21 @@ export function CustomerDisplayPublisher() {
     return {
       terminalId: activeTerminal.id,
       status,
-      items: status === "idle"
-        ? []
-        : activeCart.map((item) => {
-            const lineTotal =
-              item.customSubtotal ?? item.price * item.cartQuantity;
+      items:
+        status === "idle"
+          ? []
+          : activeCart.map((item) => {
+              const lineTotal =
+                item.customSubtotal ?? item.price * item.cartQuantity;
 
-            return {
-              name: item.name,
-              qty: item.cartQuantity,
-              unitPrice: item.cartQuantity > 0 ? lineTotal / item.cartQuantity : 0,
-              lineTotal,
-            };
-          }),
+              return {
+                name: item.name,
+                qty: item.cartQuantity,
+                unitPrice:
+                  item.cartQuantity > 0 ? lineTotal / item.cartQuantity : 0,
+                lineTotal,
+              };
+            }),
       subtotal: status === "idle" ? 0 : subtotal,
       discountTotal: status === "idle" ? 0 : discountAmount,
       taxTotal: status === "idle" ? 0 : taxDerived,
@@ -183,7 +186,36 @@ export function CustomerDisplayPublisher() {
 
     lastPayloadRef.current = payload;
     const timeout = window.setTimeout(() => {
-      void publishCustomerDisplayAction(display);
+      queuedDisplayRef.current = display;
+
+      if (isPublishingRef.current) {
+        return;
+      }
+
+      isPublishingRef.current = true;
+      void (async () => {
+        try {
+          while (queuedDisplayRef.current) {
+            const nextDisplay = queuedDisplayRef.current;
+            queuedDisplayRef.current = null;
+            const response = await fetch(
+              `/api/pos/customer-display/${encodeURIComponent(nextDisplay.terminalId)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(nextDisplay),
+              },
+            );
+
+            if (!response.ok) {
+              lastPayloadRef.current = "";
+              break;
+            }
+          }
+        } finally {
+          isPublishingRef.current = false;
+        }
+      })();
     }, 180);
 
     return () => {

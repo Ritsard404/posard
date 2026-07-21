@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Chrome, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,6 +28,32 @@ type LoginDestinationResponse = {
 };
 
 const LOGIN_DESTINATION_TIMEOUT_MS = 2500;
+
+function getSafeCallbackUrl(value: string | null) {
+  return value?.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.startsWith("/auth/")
+    ? value
+    : null;
+}
+
+function getSafeLoginErrorMessage(error: unknown) {
+  if (error instanceof Error && typeof error.message === "string") {
+    const message = error.message.trim();
+    if (message && message !== "{}" && message !== "[object Object]") {
+      return message;
+    }
+  }
+
+  const status =
+    typeof error === "object" && error !== null && "status" in error
+      ? Number(error.status)
+      : null;
+
+  return status && status >= 500
+    ? "Authentication service unavailable. Please try again."
+    : "Unable to sign in. Please try again.";
+}
 
 async function resolveLoginDestinationWithTimeout() {
   const controller = new AbortController();
@@ -66,9 +92,14 @@ export function LoginForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<"password" | "google" | null>(null);
+  const [pendingAction, setPendingAction] = useState<
+    "password" | "google" | null
+  >(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const rawCallbackUrl = searchParams.get("callbackUrl");
+  const callbackUrl = getSafeCallbackUrl(rawCallbackUrl);
 
   const formatRetryDate = (value: string) =>
     new Intl.DateTimeFormat(undefined, {
@@ -82,6 +113,10 @@ export function LoginForm({
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (isPending) return;
+
+    const requestedCallbackUrl = getSafeCallbackUrl(
+      new URLSearchParams(window.location.search).get("callbackUrl"),
+    );
 
     setError(null);
     setPendingAction("password");
@@ -104,15 +139,22 @@ export function LoginForm({
             email,
           });
 
-          if (requestStatus.success && requestStatus.data.status === "pending") {
+          if (
+            requestStatus.success &&
+            requestStatus.data.status === "pending"
+          ) {
             throw new Error(
               "Registration request submitted. Please wait for admin approval.",
             );
           }
 
-          if (requestStatus.success && requestStatus.data.status === "rejected") {
+          if (
+            requestStatus.success &&
+            requestStatus.data.status === "rejected"
+          ) {
             const retryMessage = requestStatus.data.canRegisterAgainAt
-              ? new Date(requestStatus.data.canRegisterAgainAt).getTime() <= Date.now()
+              ? new Date(requestStatus.data.canRegisterAgainAt).getTime() <=
+                Date.now()
                 ? " You can submit a new registration request now."
                 : ` You can submit a new registration request on ${formatRetryDate(
                     requestStatus.data.canRegisterAgainAt,
@@ -126,7 +168,10 @@ export function LoginForm({
             );
           }
 
-          if (requestStatus.success && requestStatus.data.status === "approved") {
+          if (
+            requestStatus.success &&
+            requestStatus.data.status === "approved"
+          ) {
             throw new Error(
               "Your account has already been approved. Use the password given by your admin to log in. If you do not have it yet, contact your admin to set or reset your login password.",
             );
@@ -136,21 +181,24 @@ export function LoginForm({
         }
 
         try {
-          router.replace(await resolveLoginDestinationWithTimeout());
+          const defaultDestination = await resolveLoginDestinationWithTimeout();
+          window.location.replace(requestedCallbackUrl ?? defaultDestination);
         } catch (destinationError) {
           if (
             destinationError instanceof DOMException &&
             destinationError.name === "AbortError"
           ) {
-            toast.info("Login restored. Opening dashboard while POS status loads.");
-            router.replace("/dashboard");
+            toast.info(
+              "Login restored. Opening dashboard while POS status loads.",
+            );
+            window.location.replace(requestedCallbackUrl ?? "/dashboard");
             return;
           }
 
           throw destinationError;
         }
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "An error occurred");
+        setError(getSafeLoginErrorMessage(err));
         setPendingAction(null);
       }
     });
@@ -181,7 +229,11 @@ export function LoginForm({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div
+      className={cn("flex flex-col gap-6", className)}
+      data-login-callback-url={callbackUrl ?? ""}
+      {...props}
+    >
       <Card className="rounded-[2rem] border border-border/70 bg-card/92 shadow-[0_20px_60px_rgba(15,23,42,0.10)] backdrop-blur-sm dark:bg-card/94">
         <CardHeader className="space-y-3 text-center">
           <div className="mx-auto inline-flex rounded-full border border-primary/15 bg-primary/8 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
@@ -248,7 +300,10 @@ export function LoginForm({
                 </Link>
               </div>
               {error && (
-                <p className="rounded-2xl border border-destructive/20 bg-destructive/8 px-4 py-3 text-sm text-destructive" role="alert">
+                <p
+                  className="rounded-2xl border border-destructive/20 bg-destructive/8 px-4 py-3 text-sm text-destructive"
+                  role="alert"
+                >
                   {error}
                 </p>
               )}
@@ -277,11 +332,16 @@ export function LoginForm({
                 onClick={handleGoogleLogin}
               >
                 {isPending && pendingAction === "google" ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  <Loader2
+                    className="mr-2 h-4 w-4 animate-spin"
+                    aria-hidden="true"
+                  />
                 ) : (
                   <Chrome className="mr-2 h-4 w-4" aria-hidden="true" />
                 )}
-                {isPending && pendingAction === "google" ? "Opening Google..." : "Continue with Google"}
+                {isPending && pendingAction === "google"
+                  ? "Opening Google..."
+                  : "Continue with Google"}
               </Button>
             </div>
             <div className="mt-6 text-center text-sm font-medium text-muted-foreground">

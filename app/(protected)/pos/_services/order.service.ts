@@ -265,10 +265,17 @@ async function findInvoiceByIdempotencyKey(
 }
 
 async function reserveNextTerminalInvoiceNumber(
-  db: Prisma.TransactionClient | typeof prisma,
+  db: Prisma.TransactionClient,
   terminalId: string,
   isTrainMode: boolean,
 ) {
+  await db.$queryRaw`
+    SELECT uuid_pos_terminal
+    FROM public.pos_terminal_info
+    WHERE uuid_pos_terminal = ${terminalId}::uuid
+    FOR UPDATE
+  `;
+
   const terminal = await db.posTerminalInfo.findUnique({
     where: { id: terminalId },
     select: {
@@ -330,7 +337,10 @@ async function reserveNextBranchInvoiceNumber(
   const prefix =
     branch.invoicePrefix ||
     branch.code ||
-    branch.name.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 6) ||
+    branch.name
+      .replace(/[^a-z0-9]/gi, "")
+      .toUpperCase()
+      .slice(0, 6) ||
     "BR";
 
   return `${prefix}-${String(branch.invoiceCounter).padStart(6, "0")}`;
@@ -341,7 +351,11 @@ async function resolveAutoPromotion(input: {
   companyId: string;
   grossAmount: number;
   existingDiscount?: DiscountDto;
-}): Promise<{ promotionId: string; name: string; discount: DiscountDto } | null> {
+}): Promise<{
+  promotionId: string;
+  name: string;
+  discount: DiscountDto;
+} | null> {
   if (
     input.existingDiscount?.discountType ||
     input.existingDiscount?.discountAmount ||
@@ -369,25 +383,49 @@ async function resolveAutoPromotion(input: {
     },
   });
 
-  let best: { promotionId: string; name: string; amount: number; discount: DiscountDto } | null = null;
+  let best: {
+    promotionId: string;
+    name: string;
+    amount: number;
+    discount: DiscountDto;
+  } | null = null;
 
   for (const promotion of promotions) {
     const value = Number(promotion.value);
     const discount: DiscountDto =
       promotion.promotionType === "percentage"
-        ? { discountType: "OTHERS", discountPercent: value, eligibleDiscName: promotion.name }
-        : { discountType: "OTHERS", discountAmount: value, eligibleDiscName: promotion.name };
+        ? {
+            discountType: "OTHERS",
+            discountPercent: value,
+            eligibleDiscName: promotion.name,
+          }
+        : {
+            discountType: "OTHERS",
+            discountAmount: value,
+            eligibleDiscName: promotion.name,
+          };
     const amount =
       promotion.promotionType === "percentage"
         ? round2((input.grossAmount * value) / 100)
         : Math.min(value, input.grossAmount);
 
     if (!best || amount > best.amount) {
-      best = { promotionId: promotion.id, name: promotion.name, amount, discount };
+      best = {
+        promotionId: promotion.id,
+        name: promotion.name,
+        amount,
+        discount,
+      };
     }
   }
 
-  return best ? { promotionId: best.promotionId, name: best.name, discount: best.discount } : null;
+  return best
+    ? {
+        promotionId: best.promotionId,
+        name: best.name,
+        discount: best.discount,
+      }
+    : null;
 }
 
 async function createKitchenTicketForInvoice(input: {
@@ -413,7 +451,10 @@ async function createKitchenTicketForInvoice(input: {
   const ticketNumber = `KT-${new Date().getFullYear()}-${String(count + 1).padStart(6, "0")}`;
   const notes = input.items
     .map((item) => {
-      const modifiers = item.selections?.map((selection) => selection.optionName).filter(Boolean).join(", ");
+      const modifiers = item.selections
+        ?.map((selection) => selection.optionName)
+        .filter(Boolean)
+        .join(", ");
       return [item.specialInstructions, modifiers].filter(Boolean).join(" | ");
     })
     .filter(Boolean)
@@ -596,7 +637,9 @@ function buildReceiptFromOrder(input: {
     deliveryAddress: input.invoice.deliveryAddress ?? null,
     deliveryReference: input.invoice.deliveryReference ?? null,
     deliveryFee:
-      input.invoice.deliveryFee == null ? null : Number(input.invoice.deliveryFee),
+      input.invoice.deliveryFee == null
+        ? null
+        : Number(input.invoice.deliveryFee),
     discountType: input.discount?.discountType ?? null,
     discountAmount: input.calc.discountAmount,
     dueAmount: input.calc.dueAmount,
@@ -706,77 +749,107 @@ async function deductStock(
     );
   }
 
-  const stockUpdates = await Promise.all(
-    [...quantitiesByProduct.entries()].map(async ([productId, qty]) => {
-      const product = productMap.get(productId);
-      const quantityBefore = Number(product?.quantity ?? 0);
-      const lotAllocations = await allocateStockLotsForStockOut(db, {
+  const stockUpdates = [];
+
+  // Lock products in a stable order so concurrent checkouts cannot both spend
+  // the same on-hand quantity (and multi-product carts do not deadlock).
+  for (const [productId, qty] of [...quantitiesByProduct.entries()].sort(
+    ([left], [right]) => left.localeCompare(right),
+  )) {
+    await db.$queryRaw`
+        SELECT uuid_product
+        FROM public.product
+        WHERE uuid_product = ${productId}::uuid
+        FOR UPDATE
+      `;
+
+    const product = await db.product.findFirst({
+      where: {
+        id: productId,
         companyId: context.companyId,
-        productId,
-        requestedQuantity: qty,
-        productQuantity: quantityBefore,
-        fallbackUnitCost: Number(product?.cost ?? 0),
-      });
-      const result = await db.product.updateMany({
-        where: {
-          id: productId,
-        },
+        isDeleted: false,
+        trackInventory: true,
+      },
+      select: { id: true, name: true, quantity: true, cost: true },
+    });
+    const quantityBefore = Number(product?.quantity ?? 0);
+
+    if (!product || quantityBefore < qty) {
+      throw new Error(
+        `Insufficient stock for "${product?.name ?? productMap.get(productId)?.name ?? "Product"}". Please refresh and try again.`,
+      );
+    }
+
+    const lotAllocations = await allocateStockLotsForStockOut(db, {
+      companyId: context.companyId,
+      productId,
+      requestedQuantity: qty,
+      productQuantity: quantityBefore,
+      fallbackUnitCost: Number(product?.cost ?? 0),
+    });
+    const result = await db.product.updateMany({
+      where: {
+        id: productId,
+        companyId: context.companyId,
+        isDeleted: false,
+        trackInventory: true,
+        quantity: { gte: qty },
+      },
+      data: {
+        quantity: { decrement: qty },
+      },
+    });
+
+    if (result.count !== 1) {
+      throw new Error(
+        `Insufficient stock for "${product?.name ?? "Product"}". Please refresh and try again.`,
+      );
+    }
+
+    let runningBefore = quantityBefore;
+    for (const allocation of lotAllocations) {
+      const runningAfter = runningBefore - allocation.quantity;
+      await db.stockMovement.create({
         data: {
-          quantity: { decrement: qty },
+          companyId: context.companyId,
+          terminalId: context.terminalId,
+          productId,
+          createdById: context.actorProfileId,
+          movementType: "sale_deduction",
+          quantityDelta: new Prisma.Decimal(-allocation.quantity),
+          quantityBefore: new Prisma.Decimal(runningBefore),
+          quantityAfter: new Prisma.Decimal(runningAfter),
+          unitCost: new Prisma.Decimal(allocation.unitCost),
+          sourceType: "invoice",
+          sourceId: context.sourceId,
+          referenceNumber: context.referenceNumber,
+          notes: allocation.stockLotId
+            ? `FEFO batch allocation${allocation.batchNumber ? ` ${allocation.batchNumber}` : ""}`
+            : "Unbatched stock allocation",
+          stockLotId: allocation.stockLotId,
+          lotQuantityBefore:
+            allocation.lotQuantityBefore === null
+              ? null
+              : new Prisma.Decimal(allocation.lotQuantityBefore),
+          lotQuantityAfter:
+            allocation.lotQuantityAfter === null
+              ? null
+              : new Prisma.Decimal(allocation.lotQuantityAfter),
         },
       });
+      runningBefore = runningAfter;
+    }
 
-      if (result.count !== 1) {
-        throw new Error(
-          `Insufficient stock for "${product?.name ?? "Product"}". Please refresh and try again.`,
-        );
-      }
+    const updatedProduct = await db.product.findUnique({
+      where: { id: productId },
+      select: { quantity: true },
+    });
 
-      let runningBefore = quantityBefore;
-      for (const allocation of lotAllocations) {
-        const runningAfter = runningBefore - allocation.quantity;
-        await db.stockMovement.create({
-          data: {
-            companyId: context.companyId,
-            terminalId: context.terminalId,
-            productId,
-            createdById: context.actorProfileId,
-            movementType: "sale_deduction",
-            quantityDelta: new Prisma.Decimal(-allocation.quantity),
-            quantityBefore: new Prisma.Decimal(runningBefore),
-            quantityAfter: new Prisma.Decimal(runningAfter),
-            unitCost: new Prisma.Decimal(allocation.unitCost),
-            sourceType: "invoice",
-            sourceId: context.sourceId,
-            referenceNumber: context.referenceNumber,
-            notes: allocation.stockLotId
-              ? `FEFO batch allocation${allocation.batchNumber ? ` ${allocation.batchNumber}` : ""}`
-              : "Unbatched stock allocation",
-            stockLotId: allocation.stockLotId,
-            lotQuantityBefore:
-              allocation.lotQuantityBefore === null
-                ? null
-                : new Prisma.Decimal(allocation.lotQuantityBefore),
-            lotQuantityAfter:
-              allocation.lotQuantityAfter === null
-                ? null
-                : new Prisma.Decimal(allocation.lotQuantityAfter),
-          },
-        });
-        runningBefore = runningAfter;
-      }
-
-      const updatedProduct = await db.product.findUnique({
-        where: { id: productId },
-        select: { quantity: true },
-      });
-
-      return {
-        productId,
-        remainingQuantity: Number(updatedProduct?.quantity ?? 0),
-      };
-    }),
-  );
+    stockUpdates.push({
+      productId,
+      remainingQuantity: Number(updatedProduct?.quantity ?? 0),
+    });
+  }
 
   return stockUpdates;
 }
@@ -827,21 +900,21 @@ async function createInvoiceItems(
   for (const item of items) {
     const created = await db.item.create({
       data: {
-      invoiceId,
-      productId: item.productId,
-      qty: item.qty,
-      price: item.price,
-      basePrice: item.basePrice ?? item.price,
-      subTotal: item.status === "VOID" ? 0 : item.subTotal,
-      status: item.status === "VOID" ? "VOID" : invoiceStatus,
-      isTrainingMode: isTrainMode,
-      prescriptionRequired: item.prescriptionRequired ?? false,
-      prescriptionConfirmed: item.prescriptionConfirmed ?? false,
-      prescriptionReference: item.prescriptionReference?.trim() || null,
-      specialInstructions: item.specialInstructions?.trim() || null,
-      configurationSnapshot: item.selections?.length
-        ? (item.selections as unknown as Prisma.InputJsonValue)
-        : Prisma.JsonNull,
+        invoiceId,
+        productId: item.productId,
+        qty: item.qty,
+        price: item.price,
+        basePrice: item.basePrice ?? item.price,
+        subTotal: item.status === "VOID" ? 0 : item.subTotal,
+        status: item.status === "VOID" ? "VOID" : invoiceStatus,
+        isTrainingMode: isTrainMode,
+        prescriptionRequired: item.prescriptionRequired ?? false,
+        prescriptionConfirmed: item.prescriptionConfirmed ?? false,
+        prescriptionReference: item.prescriptionReference?.trim() || null,
+        specialInstructions: item.specialInstructions?.trim() || null,
+        configurationSnapshot: item.selections?.length
+          ? (item.selections as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
       select: { id: true },
     });
@@ -1084,8 +1157,14 @@ export const orderService = {
           false,
         );
 
-        const calculationItems = buildCalculationItems(dto.items, transactionProductMap);
-        const grossAmount = calculationItems.reduce((sum, item) => sum + item.subTotal, 0);
+        const calculationItems = buildCalculationItems(
+          dto.items,
+          transactionProductMap,
+        );
+        const grossAmount = calculationItems.reduce(
+          (sum, item) => sum + item.subTotal,
+          0,
+        );
         const appliedPromotion = await resolveAutoPromotion({
           db: tx,
           companyId,
@@ -1099,9 +1178,10 @@ export const orderService = {
           discount,
           vatRate: terminal.vat ?? 0,
           discountCapType: terminal.discountCapType,
-          discountCapValue: terminal.discountMax
-            ? Number(terminal.discountMax)
-            : null,
+          discountCapValue:
+            Number(terminal.discountMax ?? 0) > 0
+              ? Number(terminal.discountMax)
+              : null,
           cashTenderAmount: dto.cashTenderAmount,
           ePayments: dto.ePayments,
         });
@@ -1136,7 +1216,8 @@ export const orderService = {
           db: tx,
           companyId,
           managerPin: discount?.managerPin,
-          requiresApproval: Boolean(discount?.discountType),
+          requiresApproval:
+            Boolean(discount?.discountType) && !appliedPromotion,
         });
         const discountApprovedById = discountApprover?.id ?? null;
 
@@ -1628,7 +1709,8 @@ export const orderService = {
           terminal,
           receiptDesign: {
             logoImageUrl:
-              activeTimestamp.branch?.logoImageUrl ?? terminal.company.logoImageUrl,
+              activeTimestamp.branch?.logoImageUrl ??
+              terminal.company.logoImageUrl,
             footer: activeTimestamp.branch?.receiptFooter ?? null,
           },
           cashierName: activeTimestamp.cashier.fullName,
@@ -1699,14 +1781,19 @@ export const orderService = {
     });
   },
 
-  async returnInvoice(dto: ReturnInvoiceDto): Promise<{ returnId: string; returnNumber: number; totalReturned: number }> {
+  async returnInvoice(dto: ReturnInvoiceDto): Promise<{
+    returnId: string;
+    returnNumber: number;
+    totalReturned: number;
+  }> {
     const profile = await getCurrentProfile();
     if (!profile.companyId) throw new Error("User has no assigned company");
     const companyId = profile.companyId;
     if (!dto.invoiceId?.trim()) throw new Error("Invoice is required.");
     if (!dto.reason?.trim()) throw new Error("Return reason is required.");
     const requestedItems = dto.items.filter((item) => item.quantity > 0);
-    if (requestedItems.length === 0) throw new Error("Select at least one item to return.");
+    if (requestedItems.length === 0)
+      throw new Error("Select at least one item to return.");
 
     return prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findFirst({
@@ -1716,10 +1803,19 @@ export const orderService = {
           status: { in: ["PAID", "RETURNED"] },
         },
         include: {
-          posTerminal: { select: { id: true, companyId: true, isTrainMode: true, posName: true } },
+          posTerminal: {
+            select: {
+              id: true,
+              companyId: true,
+              isTrainMode: true,
+              posName: true,
+            },
+          },
           items: {
             include: {
-              product: { select: { id: true, name: true, trackInventory: true } },
+              product: {
+                select: { id: true, name: true, trackInventory: true },
+              },
               selections: {
                 orderBy: { sortOrder: "asc" },
                 select: {
@@ -1763,10 +1859,13 @@ export const orderService = {
         const requestedQty = round2(request.quantity);
 
         if (requestedQty <= 0 || requestedQty > remainingQty) {
-          throw new Error(`Return quantity for ${item.product.name} exceeds the remaining sold quantity.`);
+          throw new Error(
+            `Return quantity for ${item.product.name} exceeds the remaining sold quantity.`,
+          );
         }
 
-        const unitAmount = soldQty > 0 ? Number(item.subTotal) / soldQty : Number(item.price);
+        const unitAmount =
+          soldQty > 0 ? Number(item.subTotal) / soldQty : Number(item.price);
         const lineAmount = round2(unitAmount * requestedQty);
 
         return {
@@ -1777,7 +1876,9 @@ export const orderService = {
         };
       });
 
-      const subtotalReturned = round2(returnLines.reduce((sum, line) => sum + line.lineAmount, 0));
+      const subtotalReturned = round2(
+        returnLines.reduce((sum, line) => sum + line.lineAmount, 0),
+      );
       const priorReturned = invoice.returns.reduce(
         (sum, invoiceReturn) => sum + Number(invoiceReturn.totalReturned),
         0,
@@ -1786,7 +1887,9 @@ export const orderService = {
       const nextReturnedAmount = round2(priorReturned + totalReturned);
       const invoiceTotal = Number(invoice.totalAmount);
       const allRemainingReturned = invoice.items.every((item) => {
-        const line = returnLines.find((returnLine) => returnLine.item.id === item.id);
+        const line = returnLines.find(
+          (returnLine) => returnLine.item.id === item.id,
+        );
         if (line) return line.remainingAfterReturn <= 0;
         const alreadyReturned = item.returnItems.reduce(
           (sum, returnItem) => sum + Number(returnItem.returnedQty),
@@ -1804,7 +1907,10 @@ export const orderService = {
           companyId,
           terminalId: invoice.posTerminal.id,
           invoiceId: invoice.id,
-          returnNumber: await reserveNextReturnNumber(tx, invoice.posTerminal.id),
+          returnNumber: await reserveNextReturnNumber(
+            tx,
+            invoice.posTerminal.id,
+          ),
           returnType: allRemainingReturned ? "FULL" : "PARTIAL",
           reason: dto.reason.trim(),
           notes: dto.notes?.trim() || null,
@@ -1821,10 +1927,12 @@ export const orderService = {
               lineAmount: line.lineAmount,
               productNameSnapshot: line.item.product.name,
               selectionsSnapshot:
-                line.item.selections.length > 0 || line.item.specialInstructions?.trim()
+                line.item.selections.length > 0 ||
+                line.item.specialInstructions?.trim()
                   ? ({
                       selections: line.item.selections,
-                      specialInstructions: line.item.specialInstructions ?? null,
+                      specialInstructions:
+                        line.item.specialInstructions ?? null,
                     } as Prisma.InputJsonValue)
                   : Prisma.JsonNull,
             })),
@@ -1841,7 +1949,10 @@ export const orderService = {
           });
         }
 
-        if (!invoice.posTerminal.isTrainMode && line.item.product.trackInventory) {
+        if (
+          !invoice.posTerminal.isTrainMode &&
+          line.item.product.trackInventory
+        ) {
           await tx.product.update({
             where: { id: line.item.productId },
             data: { quantity: { increment: line.requestedQty } },
@@ -1871,7 +1982,9 @@ export const orderService = {
         companyId,
         actorProfileId: profile.id,
         posTerminalId: invoice.posTerminal.id,
-        actionType: allRemainingReturned ? "INVOICE_RETURNED_FULL" : "INVOICE_RETURNED_PARTIAL",
+        actionType: allRemainingReturned
+          ? "INVOICE_RETURNED_FULL"
+          : "INVOICE_RETURNED_PARTIAL",
         referenceId: invoice.id,
         changes: JSON.stringify({
           invoiceId: invoice.id,
@@ -1946,9 +2059,10 @@ export const orderService = {
       discount,
       vatRate: terminal.vat ?? 0,
       discountCapType: terminal.discountCapType,
-      discountCapValue: terminal.discountMax
-        ? Number(terminal.discountMax)
-        : null,
+      discountCapValue:
+        Number(terminal.discountMax ?? 0) > 0
+          ? Number(terminal.discountMax)
+          : null,
       cashTenderAmount: dto.order.cashTenderAmount,
       ePayments: dto.order.ePayments,
     });
@@ -2022,7 +2136,6 @@ export const orderService = {
         }),
         amount: calc.grossAmount,
       });
-
     });
   },
 };

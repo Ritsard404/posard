@@ -19,6 +19,7 @@ import {
 } from "./offline-db.client";
 
 let syncInFlight: Promise<SyncBatchResultDto> | null = null;
+let syncRequestedWhileInFlight = false;
 
 function getRetryDelayMs(retryCount: number) {
   return Math.min(60_000, 2_000 * 2 ** Math.min(retryCount, 5));
@@ -171,17 +172,39 @@ export async function getOfflineQueueSnapshot() {
     syncingCount: actions.filter((action) => action.syncStatus === "syncing")
       .length,
     needsReviewCount: actions.filter(
-      (action) => action.syncStatus === "needs_review",
+      (action) => ["failed", "needs_review"].includes(action.syncStatus),
     ).length,
   };
 }
 
+async function hasReadyQueuedActions() {
+  const now = new Date().toISOString();
+  return (
+    await posOfflineDb.queuedActions
+      .where("syncStatus")
+      .anyOf(["pending", "failed", "syncing"])
+      .filter((action) => !action.nextRetryAt || action.nextRetryAt <= now)
+      .count()
+  ) > 0;
+}
+
 export async function syncOfflineActions() {
   if (syncInFlight) {
+    syncRequestedWhileInFlight = true;
     return syncInFlight;
   }
 
-  syncInFlight = syncOfflineActionsInternal().finally(() => {
+  syncInFlight = (async () => {
+    const results: SyncBatchResultDto["results"] = [];
+
+    do {
+      syncRequestedWhileInFlight = false;
+      const batch = await syncOfflineActionsInternal();
+      results.push(...batch.results);
+    } while (syncRequestedWhileInFlight || (await hasReadyQueuedActions()));
+
+    return { results } satisfies SyncBatchResultDto;
+  })().finally(() => {
     syncInFlight = null;
   });
 
@@ -190,11 +213,12 @@ export async function syncOfflineActions() {
 
 async function syncOfflineActionsInternal() {
   const now = new Date().toISOString();
-  const actions = await posOfflineDb.queuedActions
+  const eligibleActions = await posOfflineDb.queuedActions
     .where("syncStatus")
     .anyOf(["pending", "failed", "syncing"])
     .filter((action) => !action.nextRetryAt || action.nextRetryAt <= now)
     .sortBy("createdAtLocal");
+  const actions = eligibleActions.slice(0, 5);
 
   if (actions.length === 0) {
     return { results: [] } satisfies SyncBatchResultDto;
@@ -234,7 +258,7 @@ async function syncOfflineActionsInternal() {
       },
       body: JSON.stringify({ actions }),
       retries: 0,
-      timeoutMs: 15_000,
+      timeoutMs: 30_000,
     });
   } catch (error) {
     const message = toFetchRecoveryError(error).safeMessage;

@@ -66,11 +66,10 @@ export const remainingFeaturesService = {
     const issues = await prisma.offlineSyncIssue.findMany({
       where: {
         ...companyWhere(viewer.companyId),
-        ...(viewer.role === "manager"
+        ...(viewer.role === "manager" && viewer.branchId
           ? {
               terminal: {
-                branchId:
-                  viewer.branchId ?? "00000000-0000-0000-0000-000000000000",
+                branchId: viewer.branchId,
               },
             }
           : {}),
