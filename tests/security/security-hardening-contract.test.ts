@@ -80,8 +80,8 @@ test("client logout has bounded remote sign-out and always reaches local cleanup
   assert.match(proxy, /logAuthTiming\("logout"\)/);
   assert.match(sidebar, /clearClientSessionForLogout/);
   assert.match(logoutButton, /clearClientSessionForLogout/);
-  assert.match(sidebar, /window\.location\.assign\("\/auth\/logout"\)/);
-  assert.match(logoutButton, /window\.location\.assign\("\/auth\/logout"\)/);
+  assert.match(sidebar, /window\.location\.replace\("\/auth\/logout"\)/);
+  assert.match(logoutButton, /window\.location\.replace\("\/auth\/logout"\)/);
   assert.doesNotMatch(sidebar, /supabase\.auth\.signOut\(\)/);
   assert.doesNotMatch(logoutButton, /supabase\.auth\.signOut\(\)/);
 });

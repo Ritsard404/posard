@@ -56,6 +56,7 @@ export interface QueuedVoidPayload {
 
 export interface QueuedWithdrawPayload {
   amount: number;
+  reason: string;
   managerProfileId?: string;
   managerEmail?: string;
   managerName?: string;

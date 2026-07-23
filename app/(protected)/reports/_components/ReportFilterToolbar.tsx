@@ -287,6 +287,7 @@ export function ReportFilterToolbar({
             <Input
               type="date"
               name="from"
+              aria-label="Report start date"
               defaultValue={fromInput}
               className="h-9 rounded-xl text-sm"
               disabled={dateControlsDisabled}
@@ -294,6 +295,7 @@ export function ReportFilterToolbar({
             <Input
               type="date"
               name="to"
+              aria-label="Report end date"
               defaultValue={toInput}
               className="h-9 rounded-xl text-sm"
               disabled={dateControlsDisabled}
@@ -325,6 +327,7 @@ export function ReportFilterToolbar({
                 <Input
                   type="date"
                   name="from"
+                  aria-label="Report start date"
                   defaultValue={fromInput}
                   className="h-9 rounded-xl text-sm"
                   disabled={dateControlsDisabled}
@@ -332,6 +335,7 @@ export function ReportFilterToolbar({
                 <Input
                   type="date"
                   name="to"
+                  aria-label="Report end date"
                   defaultValue={toInput}
                   className="h-9 rounded-xl text-sm"
                   disabled={dateControlsDisabled}

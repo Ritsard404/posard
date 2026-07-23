@@ -1,6 +1,5 @@
 import "dotenv/config";
 
-import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
@@ -36,6 +35,15 @@ test("enforces active roles and rejects pending, disabled, and unassigned accoun
   });
   const authUserIds: string[] = [];
   const profileIds: string[] = [];
+  let loginAttempt = 0;
+
+  async function login(account: { email: string; password: string }) {
+    loginAttempt += 1;
+    await page.setExtraHTTPHeaders({
+      "x-forwarded-for": `192.0.2.${loginAttempt}`,
+    });
+    await loginWithCredentials(page, account);
+  }
 
   async function createAccount(state: AccountState) {
     const credentials = {
@@ -111,7 +119,7 @@ test("enforces active roles and rejects pending, disabled, and unassigned accoun
 
     for (const account of [activeAdmin, activeManager, activeCashier]) {
       await page.context().clearCookies();
-      await loginWithCredentials(page, account);
+      await login(account);
       await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, {
         timeout: 30_000,
       });
@@ -121,7 +129,7 @@ test("enforces active roles and rejects pending, disabled, and unassigned accoun
     }
 
     await page.context().clearCookies();
-    await loginWithCredentials(page, activeAdmin);
+    await login(activeAdmin);
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, { timeout: 30_000 });
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin(?:\?.*)?$/);
@@ -132,21 +140,22 @@ test("enforces active roles and rejects pending, disabled, and unassigned accoun
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/);
 
     await page.context().clearCookies();
-    await loginWithCredentials(page, activeManager);
+    await login(activeManager);
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, { timeout: 30_000 });
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/pos(?:\?.*)?$/);
 
     await page.context().clearCookies();
-    await loginWithCredentials(page, activeCashier);
+    await login(activeCashier);
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, { timeout: 30_000 });
     await page.goto("/accounts");
     await expect(page).toHaveURL(/\/pos(?:\?.*)?$/);
 
     for (const account of [pending, disabled, unassigned]) {
       await page.context().clearCookies();
-      await loginWithCredentials(page, account);
+      await login(account);
       await expect(page).toHaveURL(/\/auth\/login(?:\?.*)?$/);
+      await page.waitForLoadState("domcontentloaded");
       await expect(
         page.getByText(
           "Your account is not active yet. Please contact an admin.",
@@ -154,13 +163,13 @@ test("enforces active roles and rejects pending, disabled, and unassigned accoun
             exact: true,
           },
         ),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 30_000 });
       await page.goto("/dashboard");
       await expect(page).toHaveURL(/\/auth\/login(?:\?.*)?$/);
     }
 
     await page.context().clearCookies();
-    await loginWithCredentials(page, revoked);
+    await login(revoked);
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, {
       timeout: 30_000,
     });

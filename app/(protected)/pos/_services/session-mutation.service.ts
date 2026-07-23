@@ -205,6 +205,7 @@ export const sessionMutationService = {
     timestampId: string,
     amount: number,
     approverProfileId: string | null,
+    reason: string,
   ) {
     const timestampForBilling = await prisma.timestamp.findUnique({
       where: { id: timestampId },
@@ -217,6 +218,12 @@ export const sessionMutationService = {
 
     if (amount <= 0) {
       throw new Error("Amount must be greater than 0");
+    }
+    const normalizedReason = reason.trim();
+    if (!normalizedReason || normalizedReason.length > 200) {
+      throw new Error(
+        "Withdrawal reason is required and must be 200 characters or fewer.",
+      );
     }
 
     if (approverProfileId) {
@@ -269,6 +276,7 @@ export const sessionMutationService = {
         changes: JSON.stringify({
           cashierId: actor.profileId,
           expectedDrawerAmountBeforeWithdrawal: reportData.expectedDrawerAmount,
+          reason: normalizedReason,
         }),
         amount,
       });

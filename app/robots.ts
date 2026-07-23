@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       disallow: [
-        "/_offline",
+        "/offline",
         "/api/",
         "/accounts",
         "/admin",

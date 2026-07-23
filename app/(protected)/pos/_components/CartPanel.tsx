@@ -93,6 +93,11 @@ export function CartPanel() {
   const handlePrepareCancelOrder = () => {
     if (cart.length === 0 || isVoiding) return;
 
+    if (!isOnline) {
+      toast.error("Order void requires an online manager approval.");
+      return;
+    }
+
     const reason = cancelReason.trim();
     if (!reason) {
       toast.error("Void reason is required.");

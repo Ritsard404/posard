@@ -13,7 +13,7 @@ export function NetworkSyncStatusIndicator({
   onRetry,
 }: NetworkSyncStatusIndicatorProps) {
   const [online, setOnline] = useState(true);
-  const [pending, setPending] = useState(0);
+  const [pending, setPending] = useState<number | null>(null);
   const [needsReview, setNeedsReview] = useState(0);
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function NetworkSyncStatusIndicator({
     const handleOnline = () => void refresh();
     const handleOffline = () => void refresh();
     void refresh();
-    const timer = window.setInterval(refresh, 15_000);
+    const timer = window.setInterval(refresh, 2_000);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
@@ -53,7 +53,9 @@ export function NetworkSyncStatusIndicator({
     >
       {online ? <Wifi className="h-4 w-4" /> : <CloudOff className="h-4 w-4" />}
       <span className="font-medium">{online ? "Online" : "Offline mode"}</span>
-      {pending > 0 ? (
+      {pending === null ? (
+        <span>Checking queue</span>
+      ) : pending > 0 ? (
         <span>{pending} waiting to sync</span>
       ) : (
         <span>Queue clear</span>

@@ -1,9 +1,14 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 type SerwistPlugin = (options: Record<string, unknown>) => (config: NextConfig) => NextConfig;
 
 const createSerwist = withSerwistInit as unknown as SerwistPlugin;
+const offlinePageRevision = createHash("sha256")
+  .update(readFileSync("app/offline/page.tsx"))
+  .digest("hex");
 const cspReportOnly = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -71,6 +76,9 @@ const sensitiveDownloadHeaders = [
   },
 ];
 const withSerwist = createSerwist({
+  additionalPrecacheEntries: [
+    { url: "/offline", revision: offlinePageRevision },
+  ],
   disable: process.env.NODE_ENV === "development",
   register: true,
   swSrc: "worker/index.ts",

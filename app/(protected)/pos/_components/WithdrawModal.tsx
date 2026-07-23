@@ -46,6 +46,7 @@ export function WithdrawModal({
   const managerVerifiers = usePOSStore((state) => state.managerVerifiers);
   const pinlessModeEnabled = activeTerminal?.pinlessModeEnabled === true;
   const [amount, setAmount] = useState<number>(0);
+  const [reason, setReason] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +73,17 @@ export function WithdrawModal({
 
     if (amount <= 0) {
       setError("Withdrawal amount must be greater than 0");
+      return;
+    }
+
+    const normalizedReason = reason.trim();
+    if (!normalizedReason || normalizedReason.length > 200) {
+      setError("Withdrawal reason is required and must be 200 characters or fewer.");
+      return;
+    }
+
+    if (!isOnline) {
+      setError("Cash withdrawal requires an online manager approval.");
       return;
     }
 
@@ -117,6 +129,7 @@ export function WithdrawModal({
           syncedAt: null,
           payload: {
             amount,
+            reason: normalizedReason,
             ...(manager
               ? {
                   managerProfileId: manager.id,
@@ -138,7 +151,12 @@ export function WithdrawModal({
         return;
       }
 
-      const result = await withdrawCashAction(timestampId, amount, pin);
+      const result = await withdrawCashAction(
+        timestampId,
+        amount,
+        pin,
+        normalizedReason,
+      );
 
       if (!result.success) {
         throw new Error(result.error || "Failed to withdraw cash.");
@@ -241,6 +259,23 @@ export function WithdrawModal({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label
+              htmlFor="withdrawal-reason"
+              className="ml-1 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40"
+            >
+              Withdrawal Reason
+            </Label>
+            <Input
+              id="withdrawal-reason"
+              maxLength={200}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Petty cash, bank deposit, supplier payment..."
+              className="h-12 rounded-2xl bg-white/5"
+            />
+          </div>
+
           {!pinlessModeEnabled ? (
           <div className="space-y-4">
             <Label
@@ -286,7 +321,12 @@ export function WithdrawModal({
             <Button
               type="submit"
               className="flex h-14 flex-1 items-center justify-center gap-3 rounded-2xl bg-amber-600 font-heading text-lg font-black uppercase tracking-widest text-white shadow-2xl shadow-amber-600/20 transition-all hover:bg-amber-500 active:scale-95 disabled:opacity-20"
-              disabled={isLoading || amount <= 0 || (!pinlessModeEnabled && pin.length < 4)}
+              disabled={
+                isLoading ||
+                amount <= 0 ||
+                !reason.trim() ||
+                (!pinlessModeEnabled && pin.length < 4)
+              }
             >
               {isLoading ? (
                 <>

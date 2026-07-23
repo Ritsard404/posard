@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
 
-import { prisma } from '../../lib/prisma';
 import {
   authenticatePageWithCredentials,
+  ensureAuthUserForProfile,
+  ensurePosResponsiveProfiles,
   managerCredentials,
 } from '../fixtures/auth.fixture';
 
@@ -41,38 +42,33 @@ const staticRoutes = [
 test('manager protected feature routes render without server errors @smoke', async ({
   page,
 }) => {
-  test.setTimeout(10 * 60_000);
-
-  const profile = await prisma.profile.findUnique({
-    where: { email: managerCredentials.email },
-    select: { companyId: true },
-  });
-  if (!profile?.companyId) {
-    throw new Error('Manager E2E profile must belong to a company.');
-  }
+  test.setTimeout(15 * 60_000);
+  const profiles = await ensurePosResponsiveProfiles();
+  const authUser = await ensureAuthUserForProfile(managerCredentials);
 
   const companyRoutes = [
-    `/companies/${profile.companyId}`,
-    `/companies/${profile.companyId}/branches`,
-    `/companies/${profile.companyId}/report`,
-    `/companies/${profile.companyId}/settings`,
-    `/companies/${profile.companyId}/settings/sale-types`,
-    `/companies/${profile.companyId}/settings/sales-accounts`,
-    `/companies/${profile.companyId}/terminals`,
-    `/companies/${profile.companyId}/subscription`,
+    `/companies/${profiles.companyId}`,
+    `/companies/${profiles.companyId}/branches`,
+    `/companies/${profiles.companyId}/report`,
+    `/companies/${profiles.companyId}/settings`,
+    `/companies/${profiles.companyId}/settings/sale-types`,
+    `/companies/${profiles.companyId}/settings/sales-accounts`,
+    `/companies/${profiles.companyId}/terminals`,
+    `/companies/${profiles.companyId}/subscription`,
   ];
 
-  await authenticatePageWithCredentials(page, managerCredentials);
+  try {
+    await authenticatePageWithCredentials(page, managerCredentials);
 
-  const failures: string[] = [];
-  for (const route of [...staticRoutes, ...companyRoutes]) {
-    try {
+    const failures: string[] = [];
+    for (const route of [...staticRoutes, ...companyRoutes]) {
+      try {
       let response = null;
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
           response = await page.goto(route, {
             waitUntil: 'domcontentloaded',
-            timeout: 45_000,
+            timeout: 60_000,
           });
           break;
         } catch (error) {
@@ -98,12 +94,16 @@ test('manager protected feature routes render without server errors @smoke', asy
       if (/Internal Server Error|Application error|This page could not be loaded/i.test(text)) {
         failures.push(`${route}: rendered an application error`);
       }
-    } catch (error) {
-      failures.push(
-        `${route}: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`,
-      );
+      } catch (error) {
+        failures.push(
+          `${route}: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`,
+        );
+      }
     }
-  }
 
-  expect(failures, failures.join('\n')).toEqual([]);
+    expect(failures, failures.join('\n')).toEqual([]);
+  } finally {
+    await authUser.cleanup();
+    await profiles.cleanup();
+  }
 });

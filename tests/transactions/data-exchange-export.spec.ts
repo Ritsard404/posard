@@ -122,6 +122,18 @@ test("scopes backup and catalog exports and enforces manager permissions @permis
     expect(pdfBody).toContain(ownProductName);
     expect(pdfBody).not.toContain(foreignProductName);
 
+    const foreignReportPage = await page.request.get(
+      `/reports/sales?companyId=${foreignCompanyId}&preset=all`,
+    );
+    expect(foreignReportPage.status()).toBe(200);
+    expect(await foreignReportPage.text()).not.toContain(foreignProductName);
+
+    const foreignReportExport = await page.request.get(
+      `/reports/export?type=sales&companyId=${foreignCompanyId}&preset=all`,
+    );
+    expect(foreignReportExport.status()).toBe(200);
+    expect(await foreignReportExport.text()).not.toContain(foreignProductName);
+
     expect(
       await prisma.auditLog.count({
         where: {

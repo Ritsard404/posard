@@ -19,6 +19,8 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
     null;
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   let terminalId: string | null = null;
+  let branchId: string | null = null;
+  let saleTypeId: string | null = null;
   let invoiceId: string | null = null;
   let invoiceDocumentId: string | null = null;
 
@@ -28,6 +30,16 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
       where: { email: managerCredentials.email },
       select: { id: true },
     });
+    const branch = await prisma.branch.create({
+      data: {
+        companyId: profiles.companyId,
+        name: `E2E Report Branch ${suffix}`,
+        code: `RPT-${suffix}`.slice(0, 30),
+        timezone: "Asia/Manila",
+      },
+      select: { id: true },
+    });
+    branchId = branch.id;
     const terminal = await prisma.posTerminalInfo.create({
       data: {
         companyId: profiles.companyId,
@@ -43,29 +55,54 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
         vatTinNumber: `TIN-RPT-${suffix}`,
         vat: 12,
         isActive: true,
+        branchId,
       },
       select: { id: true },
     });
     terminalId = terminal.id;
+    const saleType = await prisma.saleType.create({
+      data: {
+        companyId: profiles.companyId,
+        name: `E2E Report Card ${suffix}`,
+        type: "EPAYMENT",
+      },
+      select: { id: true },
+    });
+    saleTypeId = saleType.id;
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber: 9876,
         idempotencyKey: `E2E-REPORT-${suffix}`,
-        grossAmount: 125,
+        grossAmount: 140,
         totalAmount: 125,
-        subTotal: 111.61,
+        subTotal: 125,
         totalTendered: 125,
-        cashTendered: 125,
-        vatSales: 111.61,
-        vatAmount: 13.39,
+        cashTendered: 75,
+        vatSales: 0,
+        vatExempt: 125,
+        vatAmount: 0,
+        discountType: "SENIOR",
+        discountPercent: 20,
+        discountAmount: 15,
+        eligibleDiscName: `E2E Senior ${suffix}`,
+        oscaIdNum: `OSCA-${suffix}`,
         status: "PAID",
         customerName: `E2E Report Customer ${suffix}`,
         posTerminalId: terminalId,
+        branchId,
         cashierId: manager.id,
       },
       select: { id: true },
     });
     invoiceId = invoice.id;
+    await prisma.ePayment.create({
+      data: {
+        invoiceId: invoice.id,
+        saleTypeId,
+        reference: `E2E-RPT-PAY-${suffix}`,
+        amount: 50,
+      },
+    });
     const invoiceDocument = await prisma.invoiceDocument.create({
       data: {
         invoiceId: invoice.id,
@@ -89,6 +126,19 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
       page.getByText("#000000009876", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText(`E2E Report Customer ${suffix}`)).toBeVisible();
+    await page.goto(`/reports/daily-transactions?${query}`);
+    await expect(
+      page.getByText(`E2E Report Terminal ${suffix}`, { exact: true }).first(),
+    ).toBeVisible();
+
+    await page.goto(`/reports/senior-discounts?${query}`);
+    await expect(page.getByText(`E2E Senior ${suffix}`)).toBeVisible();
+    await expect(page.getByText(`OSCA-${suffix}`)).toBeVisible();
+
+    await page.goto(`/reports?${query}`);
+    await expect(page.getByText(`E2E Report Card ${suffix}`)).toBeVisible();
+
+    await page.goto(`/reports/sales?${query}`);
     await expect(page.getByText("₱125.00").first()).toBeVisible();
 
     const invoiceCountBeforeReprint = await prisma.invoice.count({
@@ -149,8 +199,12 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
       });
     if (invoiceId)
       await prisma.invoice.deleteMany({ where: { id: invoiceId } });
+    if (saleTypeId)
+      await prisma.saleType.deleteMany({ where: { id: saleTypeId } });
     if (terminalId)
       await prisma.posTerminalInfo.deleteMany({ where: { id: terminalId } });
+    if (branchId)
+      await prisma.branch.deleteMany({ where: { id: branchId } });
     if (authUser) await authUser.cleanup();
     await profiles.cleanup();
   }

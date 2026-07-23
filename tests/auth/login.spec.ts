@@ -1,5 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
-import { expectLoginPage, loginAsTestUser } from "../fixtures/auth.fixture";
+import {
+  authCredentials,
+  ensureAuthUserForProfile,
+  ensurePosResponsiveProfiles,
+  expectLoginPage,
+  loginAsTestUser,
+} from "../fixtures/auth.fixture";
 
 const passwordTokenRoute = /\/auth\/v1\/token\?grant_type=password$/;
 
@@ -17,6 +23,16 @@ async function mockInvalidPasswordLogin(page: Page) {
 }
 
 test.describe("auth login @smoke", () => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    const titleHash = Array.from(testInfo.title).reduce(
+      (hash, character) => (hash * 31 + character.charCodeAt(0)) % 200,
+      0,
+    );
+    await page.setExtraHTTPHeaders({
+      "x-forwarded-for": `198.51.100.${titleHash + 1}`,
+    });
+  });
+
   test("renders the login form", async ({ page }) => {
     await page.goto("/auth/login");
 
@@ -63,6 +79,33 @@ test.describe("auth login @smoke", () => {
 
   for (const failure of [
     {
+      name: "unauthorized response",
+      status: 401,
+      body: {
+        error: "unauthorized",
+        error_description: "Unable to sign in. Please try again.",
+      },
+      message: /Unable to sign in|try again/i,
+    },
+    {
+      name: "forbidden response",
+      status: 403,
+      body: {
+        error: "forbidden",
+        error_description: "Unable to sign in. Please try again.",
+      },
+      message: /Unable to sign in|try again/i,
+    },
+    {
+      name: "conflict response",
+      status: 409,
+      body: {
+        error: "conflict",
+        error_description: "Unable to sign in. Please try again.",
+      },
+      message: /Unable to sign in|try again/i,
+    },
+    {
       name: "rate limiting",
       status: 429,
       body: {
@@ -104,6 +147,62 @@ test.describe("auth login @smoke", () => {
       await expect(page.getByLabel("Password")).toBeEnabled();
     });
   }
+
+  test("recovers safely from a reset authentication connection", async ({
+    page,
+  }) => {
+    await page.route(passwordTokenRoute, (route) =>
+      route.abort("connectionreset"),
+    );
+    await page.goto("/auth/login");
+    await page.getByLabel("Email Address").fill("reset@example.com");
+    await page.getByLabel("Password").fill("reset-password");
+    await page.getByRole("button", { name: "Login" }).click();
+
+    const alert = page.getByRole("alert").filter({ hasText: /\S/ });
+    await expect(alert).toContainText(/Unable to sign in|try again/i);
+    await expect(alert).not.toContainText(/stack|prisma|sql|token|secret|connectionreset/i);
+    await expect(page.getByRole("button", { name: "Login" })).toBeEnabled();
+    await expect(page.getByLabel("Email Address")).toBeEnabled();
+    await expect(page.getByLabel("Password")).toBeEnabled();
+  });
+
+  test("falls back safely when the post-login destination times out", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    const profiles = await ensurePosResponsiveProfiles();
+    let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null =
+      null;
+
+    try {
+      authUser = await ensureAuthUserForProfile(authCredentials);
+      await page.route("**/api/auth/login-destination", async (route) => {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 5_000);
+        });
+        await route
+          .fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ destination: "/pos" }),
+          })
+          .catch(() => undefined);
+      });
+      await page.goto("/auth/login");
+      await page.getByLabel("Email Address").fill(authCredentials.email);
+      await page.getByLabel("Password").fill(authCredentials.password);
+      await page.getByRole("button", { name: "Login" }).click();
+
+      await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, {
+        timeout: 45_000,
+      });
+      await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+    } finally {
+      if (authUser) await authUser.cleanup();
+      await profiles.cleanup();
+    }
+  });
 
   test("shows loading state while submitting credentials", async ({ page }) => {
     let releaseAuthResponse: () => void = () => {};

@@ -55,6 +55,7 @@ const tracked = execFileSync("git", ["ls-files", "-z"], {
   .filter(Boolean);
 const forbiddenTracked = tracked.filter(
   (path) =>
+    path !== ".env.example" &&
     existsSync(join(root, path)) &&
     /(^|\/)(\.env(?:\..*)?|__pycache__|test-results|playwright-report|\.next)(\/|$)|\.(?:pyc|pyo|pem|key|jks|keystore|tsbuildinfo)$/i.test(
       path,

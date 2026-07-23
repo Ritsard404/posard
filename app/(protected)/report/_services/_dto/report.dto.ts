@@ -415,6 +415,8 @@ export interface TransactionListItemDto {
   cashierName: string;
   managerName: string | null;
   customerName: string;
+  eligibleDiscName: string | null;
+  oscaIdNum: string | null;
   discountType: string | null;
   discountPercent: number | null;
   subTotal: number;

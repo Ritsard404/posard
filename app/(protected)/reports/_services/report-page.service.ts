@@ -334,7 +334,10 @@ export const reportPageService = {
       return null;
     }
 
-    const companyId = getParam(searchParams, "companyId") ?? viewer.companyId;
+    const requestedCompanyId =
+      getParam(searchParams, "companyId") ?? viewer.companyId;
+    const companyId =
+      viewer.role === "admin" ? requestedCompanyId : viewer.companyId;
     const terminalId = getParam(searchParams, "terminalId") ?? undefined;
 
     if (!companyId) {

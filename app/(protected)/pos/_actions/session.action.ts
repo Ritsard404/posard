@@ -457,6 +457,7 @@ export async function withdrawCashAction(
   timestampId: string,
   amount: number,
   managerPin: string,
+  reason: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const profile = await getCurrentProfile();
@@ -475,6 +476,13 @@ export async function withdrawCashAction(
 
     if (amount <= 0) {
       return { success: false, error: "Amount must be greater than 0" };
+    }
+    const normalizedReason = reason.trim();
+    if (!normalizedReason || normalizedReason.length > 200) {
+      return {
+        success: false,
+        error: "Withdrawal reason is required and must be 200 characters or fewer.",
+      };
     }
 
     const timestamp = await prisma.timestamp.findFirst({
@@ -527,6 +535,7 @@ export async function withdrawCashAction(
       timestampId,
       amount,
       approverProfileId,
+      normalizedReason,
     );
 
     return { success: true };

@@ -80,6 +80,36 @@ test.describe("local-first POS sync payload @offline", () => {
     expect(parsed.success).toBe(false);
   });
 
+  test("requires a bounded reason for queued cash withdrawals", () => {
+    const sale = buildQueuedSale();
+    const withdrawal = {
+      localId: "withdrawal-local-1",
+      type: "WITHDRAW_CASH",
+      idempotencyKey: "withdrawal-txn-1",
+      timestampId: sale.timestampId,
+      terminalId: sale.terminalId,
+      deviceId: sale.deviceId,
+      cashierId: sale.cashierId,
+      companyId: sale.companyId,
+      createdAtLocal: sale.createdAtLocal,
+      syncStatus: "pending",
+      retryCount: 0,
+      nextRetryAt: null,
+      lastError: null,
+      syncedAt: null,
+      payload: { amount: 50, reason: "Petty cash" },
+    };
+
+    expect(
+      syncActionsRequestSchema.safeParse({ actions: [withdrawal] }).success,
+    ).toBe(true);
+    expect(
+      syncActionsRequestSchema.safeParse({
+        actions: [{ ...withdrawal, payload: { amount: 50 } }],
+      }).success,
+    ).toBe(false);
+  });
+
   test("replays once and persists stock, approval, and closed-session conflicts", async ({
     page,
   }) => {

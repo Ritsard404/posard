@@ -1068,7 +1068,16 @@ export function DiscountReportPanel({ report }: { report: DiscountReportDto }) {
           title={`#${formatInvoiceNumber(item.invoiceNumber)}`}
           subtitle={`${formatDateTime(item.entryDate)} / ${item.customerName}`}
           value={formatCurrency(item.netOfSales)}
-          meta={<ReportField label="Discount" value={formatCurrency(item.lessDiscount)} />}
+          meta={
+            <div className="flex flex-wrap gap-4">
+              <ReportField label="Discount" value={formatCurrency(item.lessDiscount)} />
+              <ReportField
+                label="Qualified person"
+                value={item.eligibleDiscName ?? item.customerName}
+              />
+              <ReportField label="ID number" value={item.oscaIdNum ?? "Not recorded"} />
+            </div>
+          }
         />
       ))}
     </ReportSectionCard>

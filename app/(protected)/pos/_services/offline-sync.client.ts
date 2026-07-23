@@ -258,7 +258,7 @@ async function syncOfflineActionsInternal() {
       },
       body: JSON.stringify({ actions }),
       retries: 0,
-      timeoutMs: 30_000,
+      timeoutMs: 60_000,
     });
   } catch (error) {
     const message = toFetchRecoveryError(error).safeMessage;

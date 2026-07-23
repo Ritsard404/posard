@@ -31,6 +31,7 @@ const ThemeSwitcher = () => {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
         <Button
+          aria-label="Change color theme"
           variant="ghost"
           size={"sm"}
           className="rounded-xl border border-border/60 bg-background/80 hover:bg-muted hover:text-foreground"

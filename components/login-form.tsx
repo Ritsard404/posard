@@ -40,6 +40,9 @@ function getSafeCallbackUrl(value: string | null) {
 function getSafeLoginErrorMessage(error: unknown) {
   if (error instanceof Error && typeof error.message === "string") {
     const message = error.message.trim();
+    if (/failed to fetch|network\s*error|networkerror|load failed|connection/i.test(message)) {
+      return "Unable to sign in. Please check your connection and try again.";
+    }
     if (message && message !== "{}" && message !== "[object Object]") {
       return message;
     }

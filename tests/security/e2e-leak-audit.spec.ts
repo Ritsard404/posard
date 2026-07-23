@@ -18,7 +18,7 @@ async function readWithRetry<T>(read: () => Promise<T>): Promise<T> {
   throw lastError;
 }
 
-test("temporary destructive fixtures leave no E2E transaction data", async () => {
+test("temporary destructive fixtures leave no E2E transaction data @destructive", async () => {
   const companies = await readWithRetry(() =>
     prisma.company.count({
       where: { name: { startsWith: "E2E" } },

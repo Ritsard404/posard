@@ -142,6 +142,7 @@ export const queuedPosActionSchema = z.discriminatedUnion("type", [
     type: z.literal("WITHDRAW_CASH"),
     payload: z.object({
       amount: z.number().positive(),
+      reason: z.string().trim().min(1).max(200),
       managerProfileId: z.string().min(1).optional(),
       managerEmail: z.string().email().optional(),
       managerName: z.string().min(1).optional(),

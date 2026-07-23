@@ -1,6 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { loginAsManager } from '../fixtures/auth.fixture';
+import {
+  ensureAuthUserForProfile,
+  ensurePosResponsiveProfiles,
+  loginAsManager,
+  managerCredentials,
+} from '../fixtures/auth.fixture';
 import {
   cleanupProductTestData,
   findCategoryByName,
@@ -42,6 +47,19 @@ async function openProductActions(page: Page, productName: string) {
 }
 
 test.describe('manager product management @transaction', () => {
+  let profiles: Awaited<ReturnType<typeof ensurePosResponsiveProfiles>>;
+  let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>>;
+
+  test.beforeEach(async () => {
+    profiles = await ensurePosResponsiveProfiles();
+    authUser = await ensureAuthUserForProfile(managerCredentials);
+  });
+
+  test.afterEach(async () => {
+    await authUser.cleanup();
+    await profiles.cleanup();
+  });
+
   test('renders the inventory product management surface for a manager', async ({
     page,
   }) => {

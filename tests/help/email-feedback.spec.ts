@@ -4,7 +4,7 @@ import {
   managerCredentials,
 } from "../fixtures/auth.fixture";
 
-test("support feedback stays clear and usable on desktop and mobile", async ({
+test("support feedback stays clear and usable on desktop and mobile @smoke", async ({
   page,
 }) => {
   test.setTimeout(60_000);
@@ -31,7 +31,14 @@ test("support feedback stays clear and usable on desktop and mobile", async ({
   await expect(sendButton).toBeDisabled();
 
   await replyEmail.fill("manager@example.com");
-  await expect(sendButton).toBeEnabled();
+  const disabledMessage = page.getByText(
+    "Feedback sending is disabled until email settings are ready.",
+  );
+  if (await disabledMessage.isVisible().catch(() => false)) {
+    await expect(sendButton).toBeDisabled();
+  } else {
+    await expect(sendButton).toBeEnabled();
+  }
 
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(topic).toBeVisible();

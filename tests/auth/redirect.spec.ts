@@ -150,7 +150,9 @@ test.describe("auth redirects @smoke @permissions", () => {
         timeout: 30_000,
       },
     );
-    expect(new URL(page.url()).origin).toBe("http://127.0.0.1:3000");
+    expect(new URL(page.url()).origin).toBe(
+      new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000").origin,
+    );
   });
 
   test("renders query-driven auth error messages for signed-in users", async ({

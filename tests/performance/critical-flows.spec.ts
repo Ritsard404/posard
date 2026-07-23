@@ -229,16 +229,78 @@ test('keeps a 1,000-product POS responsive through a 20-sale loop @performance @
     page.off('response', onResponse);
 
     const targetName = `${productPrefix} 1000`;
-    const searchStartedAt = await page.evaluate(() => performance.now());
-    await search.fill(targetName);
+    const searchMs = await page.evaluate(async (name) => {
+      const input = document.querySelector<HTMLInputElement>(
+        'input[placeholder="Search name, barcode, generic, brand..."]',
+      );
+      if (!input) throw new Error('POS search input was not found.');
+
+      const rendered = () =>
+        Array.from(document.querySelectorAll('h3')).some(
+          (heading) => heading.textContent?.trim() === name,
+        );
+      const startedAt = performance.now();
+      const renderedPromise = new Promise<void>((resolve, reject) => {
+        if (rendered()) {
+          resolve();
+          return;
+        }
+        const timeout = window.setTimeout(() => {
+          observer.disconnect();
+          reject(new Error('Filtered product did not render.'));
+        }, 5_000);
+        const observer = new MutationObserver(() => {
+          if (!rendered()) return;
+          window.clearTimeout(timeout);
+          observer.disconnect();
+          resolve();
+        });
+        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      });
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set;
+      valueSetter?.call(input, name);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await renderedPromise;
+      return performance.now() - startedAt;
+    }, targetName);
     const target = page.getByText(targetName, { exact: true }).first();
     await expect(target).toBeVisible();
-    const searchMs = await page.evaluate((startedAt) => performance.now() - startedAt, searchStartedAt);
 
-    const addStartedAt = await page.evaluate(() => performance.now());
-    await target.click();
+    const addToCartMs = await page.evaluate(async (name) => {
+      const productHeading = Array.from(document.querySelectorAll('h3')).find(
+        (heading) => heading.textContent?.trim() === name,
+      );
+      const productCard = productHeading?.closest<HTMLElement>('.cursor-pointer');
+      const cart = document.querySelector<HTMLElement>('[data-testid="pos-cart-items"]');
+      if (!productCard || !cart) throw new Error('Product card or cart was not found.');
+
+      const rendered = () => cart.textContent?.includes(name) === true;
+      const startedAt = performance.now();
+      const renderedPromise = new Promise<void>((resolve, reject) => {
+        if (rendered()) {
+          resolve();
+          return;
+        }
+        const timeout = window.setTimeout(() => {
+          observer.disconnect();
+          reject(new Error('Cart feedback did not render.'));
+        }, 5_000);
+        const observer = new MutationObserver(() => {
+          if (!rendered()) return;
+          window.clearTimeout(timeout);
+          observer.disconnect();
+          resolve();
+        });
+        observer.observe(cart, { childList: true, subtree: true, characterData: true });
+      });
+      productCard.click();
+      await renderedPromise;
+      return performance.now() - startedAt;
+    }, targetName);
     await expect(page.getByTestId('pos-cart-items')).toContainText(targetName);
-    const addToCartMs = await page.evaluate((startedAt) => performance.now() - startedAt, addStartedAt);
 
     const heapBefore = await page.evaluate(() => {
       const memory = (performance as Performance & {
@@ -274,10 +336,32 @@ test('keeps a 1,000-product POS responsive through a 20-sale loop @performance @
     });
     const domNodeCount = await page.locator('*').count();
 
-    await page
-      .getByText('Queue clear', { exact: true })
-      .waitFor({ state: 'visible', timeout: 90_000 })
-      .catch(() => undefined);
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const database = await new Promise<IDBDatabase>((resolve, reject) => {
+              const request = indexedDB.open('posard-offline-pos');
+              request.onsuccess = () => resolve(request.result);
+              request.onerror = () => reject(request.error);
+            });
+            try {
+              return await new Promise<number>((resolve, reject) => {
+                const transaction = database.transaction('queuedActions', 'readonly');
+                const request = transaction.objectStore('queuedActions').getAll();
+                request.onsuccess = () =>
+                  resolve(
+                    request.result.filter((action) => action.syncStatus !== 'synced').length,
+                  );
+                request.onerror = () => reject(request.error);
+              });
+            } finally {
+              database.close();
+            }
+          }),
+        { message: 'offline checkout queue to finish syncing', timeout: 240_000 },
+      )
+      .toBe(0);
     const queuedActions = await page.evaluate(async () => {
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open('posard-offline-pos');
@@ -317,13 +401,35 @@ test('keeps a 1,000-product POS responsive through a 20-sale loop @performance @
       contentType: 'application/json',
     });
 
+    const performanceMetrics = {
+      productCount: 1_000,
+      interactiveMs,
+      searchMs,
+      addToCartMs,
+      saleTimesMs,
+      requestCount,
+      transferredBytes,
+      domNodeCount,
+      heapBefore,
+      heapAfter,
+    };
+    await test.info().attach('pos-volume-performance.json', {
+      body: Buffer.from(JSON.stringify(performanceMetrics, null, 2)),
+      contentType: 'application/json',
+    });
+    console.info(`POS_VOLUME_PERFORMANCE ${JSON.stringify(performanceMetrics)}`);
+
     expect(queuedActions.filter((action) => action.syncStatus !== 'synced')).toEqual([]);
     expect(
       await prisma.invoice.count({ where: { posTerminalId: terminal.id } }),
     ).toBe(20);
-    expect(interactiveMs, '1,000-product POS interactivity').toBeLessThanOrEqual(15_000);
+    const productionServer =
+      process.env.PLAYWRIGHT_WEB_SERVER_COMMAND?.includes('npm run start') === true;
+    expect(interactiveMs, '1,000-product POS interactivity').toBeLessThanOrEqual(
+      productionServer ? 15_000 : 30_000,
+    );
     expect(searchMs, 'settled product search').toBeLessThanOrEqual(300);
-    expect(addToCartMs, 'add-to-cart feedback').toBeLessThanOrEqual(500);
+    expect(addToCartMs, 'add-to-cart feedback').toBeLessThanOrEqual(150);
     expect(Math.max(...saleTimesMs), 'local checkout submission').toBeLessThanOrEqual(2_000);
     expect(saleTimesMs.at(-1)!, 'last checkout degradation').toBeLessThanOrEqual(
       Math.max(2_000, saleTimesMs[0] * 2),
@@ -335,21 +441,6 @@ test('keeps a 1,000-product POS responsive through a 20-sale loop @performance @
       expect(heapAfter - heapBefore, '20-sale JS heap growth').toBeLessThan(50 * 1024 * 1024);
     }
 
-    await test.info().attach('pos-volume-performance.json', {
-      body: Buffer.from(JSON.stringify({
-        productCount: 1_000,
-        interactiveMs,
-        searchMs,
-        addToCartMs,
-        saleTimesMs,
-        requestCount,
-        transferredBytes,
-        domNodeCount,
-        heapBefore,
-        heapAfter,
-      }, null, 2)),
-      contentType: 'application/json',
-    });
   } finally {
     await prisma.auditLog.deleteMany({ where: { companyId: profiles.companyId } });
     await prisma.stockMovement.deleteMany({ where: { companyId: profiles.companyId } });

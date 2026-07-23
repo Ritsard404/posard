@@ -146,7 +146,7 @@ const serwist = new Serwist({
   precacheOptions: {
     cleanupOutdatedCaches: true,
     ignoreURLParametersMatching: [],
-    navigateFallback: "/_offline",
+    navigateFallback: "/offline",
     navigateFallbackDenylist: [
       /^\/api\//,
       /^\/_next\/data\//,

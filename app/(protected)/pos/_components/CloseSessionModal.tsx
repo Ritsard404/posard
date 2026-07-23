@@ -92,6 +92,11 @@ export function CloseSessionModal({
       return;
     }
 
+    if (!isOnline) {
+      setError("Session close requires an online manager approval.");
+      return;
+    }
+
     if (!pinlessModeEnabled && managerPin.length < 4) {
       setError("Manager PIN must be at least 4 digits.");
       return;

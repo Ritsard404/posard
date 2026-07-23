@@ -23,6 +23,8 @@ test('creates every enabled business-fit workflow with scoped references @transa
   let productId: string | null = null;
   let customerId: string | null = null;
   let terminalId: string | null = null;
+  let foreignCompanyId: string | null = null;
+  let foreignCustomerId: string | null = null;
 
   try {
     authUser = await ensureAuthUserForProfile(managerCredentials);
@@ -76,12 +78,69 @@ test('creates every enabled business-fit workflow with scoped references @transa
     productId = product.id;
     customerId = customer.id;
     terminalId = terminal.id;
+    const foreignCompany = await prisma.company.create({
+      data: { name: `E2E Business Fit Foreign ${suffix}` },
+      select: { id: true },
+    });
+    foreignCompanyId = foreignCompany.id;
+    const foreignCustomer = await prisma.customer.create({
+      data: {
+        companyId: foreignCompanyId,
+        name: `E2E Foreign Business Customer ${suffix}`,
+      },
+      select: { id: true },
+    });
+    foreignCustomerId = foreignCustomer.id;
 
     await authenticatePageWithCredentials(page, managerCredentials);
     await page.goto('/business-fit');
     await expect(page).toHaveURL(/\/business-fit$/);
+    await page.waitForLoadState('load');
+    await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
 
     let form = formFor(page, 'scheduledStart');
+    const hostileStatus = await form.evaluate(
+      async (element, input) => {
+        const actionForm = element as HTMLFormElement;
+        const data = new FormData(actionForm);
+        data.set('customerId', input.customerId);
+        data.set('serviceProductId', input.productId);
+        data.set('terminalId', input.terminalId);
+        data.set('scheduledStart', '2030-01-01T10:00');
+        data.set('notes', 'E2E hostile tenant attempt');
+        const response = await fetch(actionForm.action, {
+          method: 'POST',
+          body: data,
+          credentials: 'same-origin',
+        });
+        return response.status;
+      },
+      {
+        customerId: foreignCustomerId,
+        productId,
+        terminalId,
+      },
+    );
+    expect(hostileStatus).toBe(200);
+    expect(
+      await prisma.serviceBooking.count({
+        where: {
+          OR: [
+            { companyId: profiles.companyId },
+            { companyId: foreignCompanyId },
+          ],
+        },
+      }),
+    ).toBe(0);
+
+    await page.reload();
+    form = formFor(page, 'scheduledStart');
     await form.locator('select[name="customerId"]').selectOption(customerId);
     await form.locator('select[name="serviceProductId"]').selectOption(productId);
     await form.locator('select[name="terminalId"]').selectOption(terminalId);
@@ -167,6 +226,8 @@ test('creates every enabled business-fit workflow with scoped references @transa
     if (customerId) await prisma.customer.deleteMany({ where: { id: customerId } });
     if (terminalId) await prisma.posTerminalInfo.deleteMany({ where: { id: terminalId } });
     if (categoryId) await prisma.category.deleteMany({ where: { id: categoryId } });
+    if (foreignCustomerId) await prisma.customer.deleteMany({ where: { id: foreignCustomerId } });
+    if (foreignCompanyId) await prisma.company.deleteMany({ where: { id: foreignCompanyId } });
     if (authUser) await authUser.cleanup();
     await profiles.cleanup();
   }

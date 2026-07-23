@@ -14,7 +14,7 @@ async function fillSignUpForm(page: Page, email: string) {
   }
 }
 
-test.describe("auth sign-up", () => {
+test.describe("auth sign-up @smoke", () => {
   test("requires terms and privacy consent before submitting a registration request", async ({
     page,
   }) => {

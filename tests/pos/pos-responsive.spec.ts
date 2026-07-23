@@ -16,6 +16,7 @@ type SeededPOSSession = {
   productIds: string[];
   productNames: string[];
   terminalId: string;
+  timestampId: string;
   cleanup: () => Promise<void>;
 };
 
@@ -148,6 +149,7 @@ async function seedActivePOSSession(): Promise<SeededPOSSession> {
     productIds,
     productNames,
     terminalId: terminal.id,
+    timestampId: timestamp.id,
     async cleanup() {
       const invoices = await prisma.invoice.findMany({
         where: { posTerminalId: terminal.id },
@@ -874,6 +876,139 @@ test.describe("POS responsive layout @smoke", () => {
           where: { posTerminalId: seeded.terminalId },
         }),
       ).toBe(0);
+    } finally {
+      try {
+        await seeded?.cleanup();
+      } finally {
+        try {
+          await authUser?.cleanup();
+        } finally {
+          await profiles.cleanup();
+        }
+      }
+    }
+  });
+
+  test("reconciles capped and statutory order discounts with exact VAT rounding @transaction", async ({
+    page,
+  }) => {
+    test.setTimeout(300_000);
+    const profiles = await ensurePosResponsiveProfiles();
+    let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null =
+      null;
+    let seeded: SeededPOSSession | null = null;
+
+    try {
+      authUser = await ensureAuthUserForProfile(cashierCredentials);
+      seeded = await seedActivePOSSession();
+
+      const completeDiscountSale = async (input: {
+        productName: string;
+        discountLabel: "Max Discount" | "Senior (20% + VAT Exempt)";
+        customerName?: string;
+        idNumber?: string;
+      }) => {
+        const invoiceCountBefore = await prisma.invoice.count({
+          where: { posTerminalId: seeded!.terminalId, status: "PAID" },
+        });
+        await openSeededPOS(page, seeded!);
+        const search = page.getByPlaceholder(
+          "Search name, barcode, generic, brand...",
+        );
+        await search.fill(input.productName);
+        await page.getByText(input.productName, { exact: true }).first().click();
+        await page.getByRole("button", { name: "Checkout", exact: true }).click();
+        const checkout = page.getByRole("dialog", { name: "Checkout" });
+        await checkout.getByRole("button", { name: "None", exact: true }).click();
+        await page
+          .getByRole("menuitemradio", { name: input.discountLabel, exact: true })
+          .click();
+
+        if (input.customerName && input.idNumber) {
+          await checkout.getByLabel("Customer Name").fill(input.customerName);
+          await checkout.getByLabel("OSCA / PWD ID Number").fill(input.idNumber);
+        }
+
+        await checkout.getByRole("button", { name: "Exact", exact: true }).click();
+        await checkout
+          .getByRole("button", { name: "Complete Sale", exact: true })
+          .click();
+        const approval = page.getByRole("dialog", {
+          name: "Manager Approval Required",
+        });
+        await approval.locator("#managerPin").pressSequentially("2468");
+        await approval.getByRole("button", { name: "Authorize" }).click();
+        await expect(page.getByText("Transaction Done")).toBeVisible({
+          timeout: 30_000,
+        });
+
+        await expect
+          .poll(
+            () =>
+              prisma.invoice.count({
+                where: { posTerminalId: seeded!.terminalId, status: "PAID" },
+              }),
+            { timeout: 90_000 },
+          )
+          .toBe(invoiceCountBefore + 1);
+        return prisma.invoice.findFirstOrThrow({
+          where: { posTerminalId: seeded!.terminalId, status: "PAID" },
+          orderBy: { createdAt: "desc" },
+        });
+      };
+
+      await prisma.posTerminalInfo.update({
+        where: { id: seeded.terminalId },
+        data: { discountCapType: "percent", discountMax: 10 },
+      });
+      const percentage = await completeDiscountSale({
+        productName: seeded.productNames[0],
+        discountLabel: "Max Discount",
+      });
+      expect(Number(percentage.grossAmount)).toBe(25);
+      expect(Number(percentage.discountAmount)).toBe(2.5);
+      expect(Number(percentage.totalAmount)).toBe(22.5);
+      expect(Number(percentage.subTotal) + Number(percentage.vatAmount)).toBe(
+        Number(percentage.totalAmount),
+      );
+
+      await prisma.posTerminalInfo.update({
+        where: { id: seeded.terminalId },
+        data: { discountCapType: "amount", discountMax: 3 },
+      });
+      const fixed = await completeDiscountSale({
+        productName: seeded.productNames[1],
+        discountLabel: "Max Discount",
+      });
+      expect(Number(fixed.grossAmount)).toBe(26);
+      expect(Number(fixed.discountAmount)).toBe(3);
+      expect(Number(fixed.totalAmount)).toBe(23);
+      expect(Number(fixed.subTotal) + Number(fixed.vatAmount)).toBe(
+        Number(fixed.totalAmount),
+      );
+
+      const senior = await completeDiscountSale({
+        productName: seeded.productNames[2],
+        discountLabel: "Senior (20% + VAT Exempt)",
+        customerName: "E2E Senior Customer",
+        idNumber: "E2E-OSCA-ROUNDING",
+      });
+      expect(Number(senior.grossAmount)).toBe(27);
+      expect(Number(senior.discountAmount)).toBe(7.71);
+      expect(Number(senior.totalAmount)).toBe(19.29);
+      expect(Number(senior.vatAmount)).toBe(0);
+      expect(Number(senior.vatExempt)).toBe(24.11);
+      expect(senior.discountType).toBe("SENIOR");
+      expect(senior.eligibleDiscName).toBe("E2E Senior Customer");
+      expect(senior.oscaIdNum).toBe("E2E-OSCA-ROUNDING");
+      expect(
+        await prisma.auditLog.count({
+          where: {
+            referenceId: { in: [percentage.id, fixed.id, senior.id] },
+            actionType: "DISCOUNT_APPROVED",
+          },
+        }),
+      ).toBe(3);
     } finally {
       try {
         await seeded?.cleanup();
@@ -1753,6 +1888,115 @@ test.describe("POS responsive layout @smoke", () => {
     }
   });
 
+  test("clearly blocks unsupported offline void and cash-out actions @offline @transaction", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    const profiles = await ensurePosResponsiveProfiles();
+    let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null =
+      null;
+    let seeded: SeededPOSSession | null = null;
+
+    try {
+      authUser = await ensureAuthUserForProfile(cashierCredentials);
+      seeded = await seedActivePOSSession();
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await openSeededPOS(page, seeded);
+
+      const productName = seeded.productNames[1];
+      await page
+        .getByPlaceholder("Search name, barcode, generic, brand...")
+        .fill(productName);
+      await page.getByText(productName, { exact: true }).first().click();
+      await expect(page.getByTestId("pos-cart-items")).toContainText(productName);
+
+      await page.context().setOffline(true);
+      await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
+
+      await page.getByRole("button", { name: "Void", exact: true }).click();
+      await page
+        .getByRole("textbox", { name: "Reason" })
+        .fill("E2E offline customer cancellation");
+      await page.getByRole("button", { name: "Continue" }).click();
+      await expect(
+        page.getByText("Order void requires an online manager approval."),
+      ).toBeVisible();
+      await expect(page.getByTestId("pos-cart-items")).toContainText(productName);
+      await page.getByRole("button", { name: "Keep Order" }).click();
+
+      await page.getByRole("button", { name: "Withdraw", exact: true }).click();
+      const withdrawal = page.getByRole("dialog", { name: "Withdraw Cash" });
+      await withdrawal.getByLabel("Withdrawal Amount").fill("50");
+      await withdrawal
+        .getByLabel("Withdrawal Reason")
+        .fill("E2E offline bank pickup");
+      await withdrawal.getByLabel("Manager Signature (PIN)").fill("2468");
+      await withdrawal.getByRole("button", { name: "Withdraw" }).click();
+      await expect(
+        withdrawal.getByText("Cash withdrawal requires an online manager approval."),
+      ).toBeVisible();
+
+      expect(
+        await prisma.invoice.count({
+          where: { posTerminalId: seeded.terminalId },
+        }),
+      ).toBe(0);
+      expect(
+        Number(
+          (
+            await prisma.timestamp.findUniqueOrThrow({
+              where: { id: seeded.timestampId },
+              select: { withdrawnDrawerAmount: true },
+            })
+          ).withdrawnDrawerAmount,
+        ),
+      ).toBe(0);
+
+      const queuedActions = await page.evaluate(
+        () =>
+          new Promise<number>((resolve, reject) => {
+            const request = indexedDB.open("posard-offline-pos");
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+              const db = request.result;
+              const transaction = db.transaction("queuedActions", "readonly");
+              const count = transaction.objectStore("queuedActions").count();
+              count.onerror = () => reject(count.error);
+              count.onsuccess = () => resolve(count.result);
+            };
+          }),
+      );
+      expect(queuedActions).toBe(0);
+      await page.context().setOffline(false);
+      expect(
+        await prisma.invoice.count({
+          where: { posTerminalId: seeded.terminalId },
+        }),
+      ).toBe(0);
+      expect(
+        Number(
+          (
+            await prisma.timestamp.findUniqueOrThrow({
+              where: { id: seeded.timestampId },
+              select: { withdrawnDrawerAmount: true },
+            })
+          ).withdrawnDrawerAmount,
+        ),
+      ).toBe(0);
+    } finally {
+      await page.context().setOffline(false).catch(() => undefined);
+      try {
+        await seeded?.cleanup();
+      } finally {
+        try {
+          await authUser?.cleanup();
+        } finally {
+          await profiles.cleanup();
+        }
+      }
+    }
+  });
+
   test("publishes customer display cart, payment, completed, and idle states @transaction", async ({
     page,
   }) => {
@@ -1789,59 +2033,44 @@ test.describe("POS responsive layout @smoke", () => {
       const publishDisplay = async (
         status: "cart" | "payment" | "completed" | "idle",
       ) => {
-        const responseStatus = await page.evaluate(
-          async ({ terminalId, productName, status }) => {
-            const hasItems = status !== "idle";
-            const response = await fetch(
-              `/api/pos/customer-display/${encodeURIComponent(terminalId)}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  terminalId,
-                  status,
-                  items: hasItems
-                    ? [
-                        {
-                          name: productName,
-                          qty: 1,
-                          unitPrice: 25,
-                          lineTotal: 25,
-                        },
-                      ]
-                    : [],
-                  subtotal: hasItems ? 25 : 0,
-                  discountTotal: 0,
-                  taxTotal: hasItems ? 2.68 : 0,
-                  totalDue: hasItems ? 25 : 0,
-                  paymentMethod:
-                    status === "payment" || status === "completed"
-                      ? "Cash"
-                      : null,
-                  paymentDetails: null,
-                  cashReceived:
-                    status === "payment" || status === "completed" ? 25 : null,
-                  change:
-                    status === "payment" || status === "completed" ? 0 : null,
-                  message:
-                    status === "completed"
-                      ? "Payment received. Please come again."
-                      : status === "idle"
-                        ? "Ready for next customer"
-                        : null,
-                  updatedAt: new Date().toISOString(),
-                }),
-              },
-            );
-            return response.status;
-          },
+        const response = await page.request.post(
+          `/api/pos/customer-display/${encodeURIComponent(seeded!.terminalId)}`,
           {
-            terminalId: seeded!.terminalId,
-            productName: seeded!.productNames[0],
-            status,
+            data: {
+              terminalId: seeded!.terminalId,
+              status,
+              items:
+                status !== "idle"
+                  ? [
+                      {
+                        name: seeded!.productNames[0],
+                        qty: 1,
+                        unitPrice: 25,
+                        lineTotal: 25,
+                      },
+                    ]
+                  : [],
+              subtotal: status !== "idle" ? 25 : 0,
+              discountTotal: 0,
+              taxTotal: status !== "idle" ? 2.68 : 0,
+              totalDue: status !== "idle" ? 25 : 0,
+              paymentMethod:
+                status === "payment" || status === "completed" ? "Cash" : null,
+              paymentDetails: null,
+              cashReceived:
+                status === "payment" || status === "completed" ? 25 : null,
+              change: status === "payment" || status === "completed" ? 0 : null,
+              message:
+                status === "completed"
+                  ? "Payment received. Please come again."
+                  : status === "idle"
+                    ? "Ready for next customer"
+                    : null,
+              updatedAt: new Date().toISOString(),
+            },
           },
         );
-        expect(responseStatus).toBe(200);
+        expect(response.status()).toBe(200);
         await expect
           .poll(() => readDisplayStatus(seeded!.terminalId), {
             timeout: 30_000,
@@ -2019,6 +2248,12 @@ test.describe("POS responsive layout @smoke", () => {
       });
       await withdrawDialog.getByLabel("Withdrawal Amount").fill("1200");
       await withdrawDialog.getByLabel("Manager Signature (PIN)").fill("2468");
+      await expect(
+        withdrawDialog.getByRole("button", { name: "Withdraw" }),
+      ).toBeDisabled();
+      await withdrawDialog
+        .getByLabel("Withdrawal Reason")
+        .fill("E2E bank deposit pickup");
       await withdrawDialog.getByRole("button", { name: "Withdraw" }).click();
       await expect(
         withdrawDialog.getByText(/Insufficient cash in drawer/i),
@@ -2039,15 +2274,39 @@ test.describe("POS responsive layout @smoke", () => {
       });
       expect(Number(afterWithdrawal.withdrawnDrawerAmount)).toBe(200);
       expect(Number(afterWithdrawal.withdrawnDrawerCount)).toBe(1);
-      expect(
-        await prisma.auditLog.count({
+      const withdrawalAudit = await prisma.auditLog.findFirst({
           where: {
             referenceId: timestamp.id,
             actionType: "CASH_WITHDRAWAL",
             amount: 200,
           },
-        }),
-      ).toBe(1);
+          select: {
+            companyId: true,
+            actorProfileId: true,
+            posTerminalId: true,
+            actionType: true,
+            referenceId: true,
+            amount: true,
+            changes: true,
+            createdAt: true,
+          },
+        });
+      expect(withdrawalAudit).not.toBeNull();
+      expect(withdrawalAudit).toMatchObject({
+        companyId: seeded.companyId,
+        posTerminalId: seeded.terminalId,
+        actionType: "CASH_WITHDRAWAL",
+        referenceId: timestamp.id,
+      });
+      expect(withdrawalAudit?.actorProfileId).toBeTruthy();
+      expect(withdrawalAudit?.createdAt).toBeInstanceOf(Date);
+      expect(Number(withdrawalAudit?.amount)).toBe(200);
+      expect(JSON.parse(withdrawalAudit?.changes ?? "{}")).toMatchObject({
+        reason: "E2E bank deposit pickup",
+      });
+      expect(withdrawalAudit?.changes ?? "").not.toMatch(
+        /password|managerPin|\bpin\b|token|secret|database_url|connection string/i,
+      );
 
       const concurrentPage = await page.context().newPage();
       await openSeededPOS(concurrentPage, seeded);

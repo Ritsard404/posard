@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Product, usePOSStore } from '../_store/pos-store';
 import { ProductCard } from './ProductCard';
 import { Input } from '@/components/ui/input';
@@ -100,8 +100,6 @@ export function ProductDisplay() {
 
   const activeViewMode = isMobile ? mobileProductView : viewMode;
   const setActiveViewMode = isMobile ? setMobileProductView : setViewMode;
-  const deferredSearchQuery = useDeferredValue(searchQuery);
-
   const searchableProducts = useMemo<SearchableProduct[]>(
     () =>
       [...products]
@@ -124,7 +122,7 @@ export function ProductDisplay() {
   );
 
   const filteredProducts = useMemo(() => {
-    const query = deferredSearchQuery.trim().toLowerCase();
+    const query = searchQuery.trim().toLowerCase();
 
     return searchableProducts
       .filter(({ product, searchText }) => {
@@ -133,7 +131,7 @@ export function ProductDisplay() {
         return matchesSearch && matchesCategory;
       })
       .map(({ product }) => product);
-  }, [deferredSearchQuery, searchableProducts, selectedCategoryId]);
+  }, [searchQuery, searchableProducts, selectedCategoryId]);
 
   const selectedCategory = useMemo(
     () => categories.find((cat) => cat.id === selectedCategoryId),
