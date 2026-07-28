@@ -154,7 +154,7 @@ export default function Home() {
       <div className="relative z-10 flex flex-col items-center">
         {/* Navigation */}
         <nav className="w-full flex justify-center glass-header h-16 transition-all duration-300">
-          <div className="w-full max-w-7xl flex justify-between items-center px-6 text-sm">
+          <div className="w-full max-w-7xl flex min-h-16 justify-between items-center gap-2 px-4 py-2 text-sm sm:px-6 sm:py-0">
             <BrandLogo compact showSubtitle subtitle="POS for daily business operations" subtitleClassName="hidden lg:block" />
             
             <div className="hidden md:flex gap-8 items-center font-medium text-muted-foreground">
@@ -164,7 +164,7 @@ export default function Home() {
               <Link href={publicPages.download.path} className="hover:text-accent transition-colors">Download</Link>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button asChild size="sm" variant="outline">
                 <Link href="/auth/login">Sign in</Link>
               </Button>
@@ -176,9 +176,9 @@ export default function Home() {
         </nav>
 
         {/* Hero Section */}
-        <section className="relative w-full max-w-7xl pt-12 pb-16 px-6 lg:pt-18 lg:pb-32">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="text-center lg:text-left space-y-8">
+        <section className="relative w-full max-w-7xl px-4 pb-14 pt-10 sm:px-6 sm:pb-20 sm:pt-12 lg:pb-32">
+          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-12">
+            <div className="space-y-6 text-center sm:space-y-8 lg:text-left">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold uppercase tracking-wider">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
@@ -187,17 +187,17 @@ export default function Home() {
                 Built for Philippine Small Businesses
               </div>
               
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-heading font-extrabold tracking-tighter leading-[1.1] text-foreground">
+              <h1 className="text-[2.75rem] font-heading font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
                 POSard POS system for <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-emerald-500">any daily checkout.</span>
               </h1>
               
-              <p className="max-w-xl mx-auto lg:mx-0 text-lg md:text-xl text-muted-foreground leading-relaxed">
+              <p className="mx-auto max-w-xl text-base leading-7 text-muted-foreground sm:text-lg md:text-xl lg:mx-0 lg:leading-relaxed">
                 POSard helps Philippine restaurants, cafes, retail stores, and service businesses run checkout, offline sync, receipts, inventory, suppliers, expenses, promotions, kitchen workflow, permissions, and reports from one mobile-first POS platform.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
+              <div className="flex flex-col justify-center gap-3 pt-2 sm:flex-row sm:flex-wrap sm:gap-4 lg:justify-start">
                 <Link href="/auth/sign-up">
-                  <Button size="lg" className="h-14 px-8 text-lg font-bold glow-on-hover rounded-xl shadow-lg shadow-accent/20">
+                  <Button size="lg" className="h-14 w-full px-6 text-base font-bold glow-on-hover rounded-xl shadow-lg shadow-accent/20 sm:w-auto sm:px-8 sm:text-lg">
                     Start with POSard
                   </Button>
                 </Link>
@@ -205,7 +205,7 @@ export default function Home() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="h-14 px-8 text-lg font-bold rounded-xl border-2 hover:bg-secondary transition-all"
+                    className="h-14 w-full px-6 text-base font-bold rounded-xl border-2 hover:bg-secondary transition-all sm:w-auto sm:px-8 sm:text-lg"
                   >
                     View Features
                   </Button>
@@ -214,7 +214,7 @@ export default function Home() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="h-14 px-8 text-lg font-bold rounded-xl border-2 hover:bg-secondary transition-all"
+                    className="h-14 w-full px-6 text-base font-bold rounded-xl border-2 hover:bg-secondary transition-all sm:w-auto sm:px-8 sm:text-lg"
                   >
                     Download App
                   </Button>
@@ -222,7 +222,7 @@ export default function Home() {
                 <PwaInstallButton
                   size="lg"
                   label="Install App"
-                  className="sm:max-w-[12rem]"
+                  className="h-14 w-full sm:max-w-[12rem]"
                 />
               </div>
               
@@ -259,9 +259,9 @@ export default function Home() {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="w-full max-w-7xl py-24 px-6 border-t border-white/5">
-          <div className="text-center space-y-4 mb-20">
-            <h2 className="text-3xl md:text-5xl font-heading font-bold tracking-tight">
+        <section id="features" className="w-full max-w-7xl border-t border-white/5 px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mb-12 space-y-4 text-center sm:mb-20">
+            <h2 className="text-3xl font-heading font-bold tracking-tight sm:text-4xl md:text-5xl">
               Built for <span className="text-accent">daily store operations.</span>
             </h2>
             <p className="max-w-2xl mx-auto text-muted-foreground text-lg">

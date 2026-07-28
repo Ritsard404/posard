@@ -34,7 +34,7 @@ export function PageShell({
   return (
     <main className="w-full">
       <section className="relative w-full border-b border-white/5">
-        <div className="mx-auto grid w-full max-w-7xl gap-10 px-6 py-16 md:py-20 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end lg:py-24">
+        <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 sm:px-6 sm:py-16 md:gap-10 md:py-20 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end lg:py-24">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-accent">
               <span className="relative flex h-2 w-2">
@@ -43,30 +43,30 @@ export function PageShell({
               </span>
               {eyebrow}
             </div>
-            <h1 className="mt-6 max-w-4xl text-4xl font-heading font-extrabold leading-tight tracking-tight md:text-6xl">
+            <h1 className="mt-5 max-w-4xl text-[2.5rem] font-heading font-extrabold leading-[1.08] tracking-tight sm:text-5xl md:mt-6 md:text-6xl">
               {title}
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-muted-foreground">
+            <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8 md:mt-6">
               {description}
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild className="shadow-lg shadow-primary/20">
+            <div className="mt-7 grid gap-3 sm:flex sm:flex-wrap">
+              <Button asChild className="min-h-12 w-full shadow-lg shadow-primary/20 sm:w-auto">
                 <Link href="/auth/sign-up">
                   Start with POSard
                   <ArrowRight className="size-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="min-h-12 w-full sm:w-auto">
                 <Link href={publicPages.pricing.path}>View pricing</Link>
               </Button>
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="min-h-12 w-full sm:w-auto">
                 <Link href={publicPages.download.path}>Download app</Link>
               </Button>
               <PwaInstallButton label="Install PWA" />
             </div>
           </div>
 
-          <aside className="glass-card rounded-[1.75rem] border border-white/10 bg-white/55 p-6 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm">
+          <aside className="glass-card rounded-[1.5rem] border border-white/10 bg-white/55 p-4 shadow-[0_24px_80px_rgba(7,26,61,0.12)] backdrop-blur-sm sm:rounded-[1.75rem] sm:p-6">
             <BrandLogo
               compact
               showSubtitle
@@ -93,7 +93,7 @@ export function PageShell({
           </aside>
         </div>
       </section>
-      <div className="mx-auto w-full max-w-7xl px-6 py-12 md:py-16">
+      <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-12 md:py-16">
         {children}
       </div>
     </main>

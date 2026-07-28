@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Menu } from "lucide-react";
 
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { PwaInstallButton } from "@/components/pwa-install-button";
@@ -36,14 +37,14 @@ export default function MarketingLayout({
 
       <div className="relative z-10 flex min-h-screen flex-col items-center">
         <header className="sticky top-0 z-20 flex w-full justify-center border-b border-white/10 bg-background/72 backdrop-blur-xl transition-all duration-300">
-          <div className="flex h-20 w-full max-w-7xl items-center justify-between gap-4 px-6 text-sm">
+          <div className="flex min-h-16 w-full max-w-7xl items-center justify-between gap-2 px-4 py-2 text-sm sm:h-20 sm:gap-4 sm:px-6 sm:py-0">
             <Link href="/" className="min-w-0">
               <BrandLogo
                 compact
                 showSubtitle
                 subtitle="POS for daily business operations"
                 markClassName="bg-white shadow-[0_18px_46px_rgba(20,71,230,0.22)]"
-                subtitleClassName="hidden sm:block"
+                subtitleClassName="hidden md:block"
               />
             </Link>
 
@@ -51,7 +52,7 @@ export default function MarketingLayout({
               Built for Philippine businesses
             </div>
 
-            <nav className="hidden items-center gap-8 font-medium text-muted-foreground md:flex">
+            <nav className="hidden items-center gap-8 font-medium text-muted-foreground lg:flex">
               {primaryLinks.map((link) => (
                 <Link
                   key={link.href}
@@ -63,13 +64,24 @@ export default function MarketingLayout({
               ))}
             </nav>
 
-            <div className="flex items-center gap-3 md:gap-4">
+            <nav className="hidden items-center gap-2 sm:flex lg:hidden" aria-label="Marketing navigation">
+              {primaryLinks.slice(0, 3).map((link) => (
+                <Link key={link.href} href={link.href} className="rounded-lg px-2 py-3 text-xs font-medium text-muted-foreground hover:text-accent">
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
               <ThemeSwitcher />
               <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
                 <Link href="/auth/login">Sign in</Link>
               </Button>
-              <Button asChild size="sm" className="shadow-lg shadow-primary/20">
+              <Button asChild size="sm" className="min-h-11 px-4 shadow-lg shadow-primary/20 sm:min-h-9 sm:px-3">
                 <Link href="/auth/sign-up">Start Free</Link>
+              </Button>
+              <Button asChild size="icon" variant="ghost" className="size-11 sm:hidden" aria-label="Open marketing navigation">
+                <Link href="#marketing-links"><Menu className="size-5" /></Link>
               </Button>
             </div>
           </div>
@@ -77,7 +89,7 @@ export default function MarketingLayout({
 
         <div className="w-full flex-1">{children}</div>
 
-        <footer className="w-full border-t border-white/10 bg-background/70 px-6 py-16 backdrop-blur-sm">
+        <footer id="marketing-links" className="w-full border-t border-white/10 bg-background/70 px-4 py-12 backdrop-blur-sm sm:px-6 sm:py-16">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.25fr_1fr_auto] lg:items-start">
             <div className="space-y-5 text-center lg:text-left">
               <Link
@@ -106,7 +118,7 @@ export default function MarketingLayout({
               </div>
             </div>
 
-            <nav className="flex flex-wrap justify-center gap-8 text-sm font-medium uppercase tracking-widest text-muted-foreground lg:justify-center">
+            <nav className="flex flex-wrap justify-center gap-x-5 gap-y-4 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground sm:gap-8 sm:text-sm sm:tracking-widest lg:justify-center">
               {footerLinks.map((link) => (
                 <Link
                   key={link.href}
