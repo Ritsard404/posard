@@ -2,7 +2,12 @@ import { z } from "zod";
 
 const uuid = z.string().uuid();
 const positiveNumber = z.coerce.number().positive();
-const optionalText = z.string().trim().optional().transform((value) => value || null);
+const safeText = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine((value) => !/<script[\s>]/i.test(value), "Script-like content is not allowed.");
+const optionalText = safeText.optional().transform((value) => value || null);
 
 export const stockAdjustmentSchema = z.object({
   productId: uuid,
@@ -55,7 +60,7 @@ export const expenseCreateSchema = z.object({
 });
 
 export const nonSalesIncomeCreateSchema = z.object({
-  source: z.string().trim().min(2).max(120),
+  source: safeText.min(2).max(120),
   terminalId: uuid.optional().or(z.literal("")).transform((value) => value || null),
   incomeDate: z.coerce.date(),
   amount: positiveNumber,
@@ -71,7 +76,7 @@ export const expenseTransitionSchema = z.object({
 
 export const supplierUpsertSchema = z.object({
   supplierId: uuid.optional().or(z.literal("")).transform((value) => value || null),
-  name: z.string().trim().min(2).max(160),
+  name: safeText.min(2).max(160),
   contactName: optionalText,
   phone: optionalText,
   email: z.string().trim().email().optional().or(z.literal("")).transform((value) => value || null),
@@ -126,7 +131,7 @@ export const transferTransitionSchema = z.object({
 });
 
 export const promotionCreateSchema = z.object({
-  name: z.string().trim().min(2).max(160),
+  name: safeText.min(2).max(160),
   promotionType: z.enum(["fixed_amount", "percentage", "item_level", "order_level", "buy_x_get_y", "bundle_price", "quantity_threshold"]),
   value: z.coerce.number().min(0),
   startsAt: z.coerce.date().optional().or(z.literal("")).transform((value) => value || null),

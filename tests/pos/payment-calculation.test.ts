@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { calculatePayment } from "../../app/(protected)/pos/_services/payment-calculation.service";
+import { moneyEquals, sumMoney } from "../fixtures/test-helpers";
 
 const item = (
   subTotal: number,
@@ -117,5 +118,16 @@ describe("POS payment calculations", () => {
     assert.equal(result.discountAmount, 10);
     assert.equal(result.totalAmount, 0);
     assert.equal(result.changeAmount, 0);
+  });
+
+  test("reconciles totals with decimal-safe money helpers", () => {
+    const result = calculatePayment({
+      items: [item(10.1, "EXEMPT"), item(0.2, "EXEMPT")],
+      vatRate: 12,
+      cashTenderAmount: 10.3,
+    });
+
+    moneyEquals(result.totalAmount, sumMoney(10.1, 0.2));
+    moneyEquals(result.totalTendered, result.totalAmount);
   });
 });

@@ -40,6 +40,9 @@ test('reports, searches, and paginates customer loyalty balances @transaction', 
     await authenticatePageWithCredentials(page, managerCredentials);
     await page.goto('/customers');
     await expect(page).toHaveURL(/\/customers(?:\?.*)?$/);
+    await expect(page.getByRole('button', { name: /create customer|edit customer|earn|redeem/i })).toHaveCount(0);
+    const unsupportedCustomerRoute = await page.request.get('/customers/new');
+    expect(unsupportedCustomerRoute.status()).toBe(404);
     await expect(page.getByText('26 customers')).toBeVisible();
     await expect(page.getByText('Page 1 of 2')).toBeVisible();
     await page.getByRole('link', { name: 'Next' }).click();

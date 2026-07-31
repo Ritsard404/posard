@@ -61,6 +61,8 @@ import type { ReportSortOrder } from "../_components/report-workspace-config";
 interface ReportScopeInput {
   companyId?: string;
   terminalId?: string;
+  branchId?: string;
+  cashierId?: string;
   sortOrder?: ReportSortOrder;
 }
 
@@ -78,6 +80,7 @@ interface ReportPaginationInput {
   page: number;
   pageSize: number;
   keyword?: string;
+  status?: "PAID" | "VOID" | "RETURNED" | "CANCELLED";
 }
 
 interface ReportPagedRangeInput extends ReportRangeInput, ReportPaginationInput {}
@@ -1107,6 +1110,8 @@ export const reportService = {
         companyId: null,
         companyName: null,
         terminals: [],
+        branches: [],
+        cashiers: [],
       };
     }
 
@@ -1114,7 +1119,7 @@ export const reportService = {
       throw new Error("You do not have access to this company.");
     }
 
-    const [company, terminals] = await Promise.all([
+    const [company, terminals, branches, cashiers] = await Promise.all([
       prisma.company.findUnique({
         where: { id: companyId },
         select: {
@@ -1145,6 +1150,16 @@ export const reportService = {
           posName: "asc",
         },
       }),
+      prisma.branch.findMany({
+        where: { companyId },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.profile.findMany({
+        where: { companyId, status: "active" },
+        select: { id: true, fullName: true, email: true },
+        orderBy: { fullName: "asc" },
+      }),
     ]);
 
     if (!company) {
@@ -1154,6 +1169,11 @@ export const reportService = {
     return {
       companyId,
       companyName: company.name,
+      branches,
+      cashiers: cashiers.map((cashier) => ({
+        id: cashier.id,
+        name: cashier.fullName ?? cashier.email,
+      })),
       terminals: terminals.map((terminal) => ({
         id: terminal.id,
         name: terminal.posName ?? "Unnamed terminal",
@@ -2157,9 +2177,9 @@ export const reportService = {
     const where = {
       ...createInvoiceWhere(companyId, input.from, input.to, terminalId),
       ...buildInvoiceTraceWhere(input.keyword),
-      status: {
-        not: "PENDING" as const,
-      },
+      status: input.status ? input.status : { not: "PENDING" as const },
+      ...(input.branchId ? { branchId: input.branchId } : {}),
+      ...(input.cashierId ? { cashierId: input.cashierId } : {}),
     } satisfies Prisma.InvoiceWhereInput;
     const skip = (input.page - 1) * input.pageSize;
 
@@ -3167,7 +3187,14 @@ export const reportService = {
     viewer: ReportViewerDto,
     input: ReportPagedRangeInput & { type: "PWD" | "SENIOR" | "DSWD" },
   ): Promise<DiscountReportDto> {
-    const transactionList = await reportService.getTransactionList(viewer, input);
+    // Discount reports filter by discount type after projecting transaction rows.
+    // Load the full scoped set first so unrelated newer transactions cannot hide
+    // matching discounts on a later transaction-list page.
+    const transactionList = await reportService.getTransactionList(viewer, {
+      ...input,
+      page: 1,
+      pageSize: 10_000,
+    });
 
     const filteredItems = transactionList.items.filter(
       (item) =>

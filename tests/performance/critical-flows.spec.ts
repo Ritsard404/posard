@@ -22,6 +22,8 @@ type RouteMetrics = {
   longestTaskMs: number;
   requestCount: number;
   transferredBytes: number;
+  mutationRequestCount: number;
+  duplicateMutationRequests: string[];
 };
 
 declare global {
@@ -66,13 +68,19 @@ test('records warm critical-route performance baselines @performance', async ({ 
     const results: RouteMetrics[] = [];
     const enforceProductionBudgets =
       process.env.PLAYWRIGHT_WEB_SERVER_COMMAND?.includes('npm run start') === true;
-    for (const path of ['/dashboard', '/pos', '/product', '/reports']) {
+    for (const path of ['/auth/login', '/dashboard', '/pos', '/product', '/reports']) {
       for (const phase of ['first-run', 'warm'] as const) {
         let requestCount = 0;
         let transferredBytes = 0;
+        const mutationRequests = new Map<string, number>();
         const onResponse = (response: import('@playwright/test').Response) => {
           requestCount += 1;
           transferredBytes += Number(response.headers()['content-length'] ?? 0);
+          const method = response.request().method();
+          if (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE') {
+            const key = `${method} ${new URL(response.url()).pathname}`;
+            mutationRequests.set(key, (mutationRequests.get(key) ?? 0) + 1);
+          }
         };
         page.on('response', onResponse);
         await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 60_000 });
@@ -102,13 +110,28 @@ test('records warm critical-route performance baselines @performance', async ({ 
             longestTaskMs: Math.max(0, ...observed.longTasks),
           };
         });
-        const metrics = { path, phase, ...browserMetrics, requestCount, transferredBytes };
+        const duplicateMutationRequests = Array.from(mutationRequests.entries())
+          .filter(([, count]) => count > 1)
+          .map(([key, count]) => `${key} x${count}`);
+        const metrics = {
+          path,
+          phase,
+          ...browserMetrics,
+          requestCount,
+          transferredBytes,
+          mutationRequestCount: Array.from(mutationRequests.values()).reduce(
+            (total, count) => total + count,
+            0,
+          ),
+          duplicateMutationRequests,
+        };
         results.push(metrics);
 
         expect(metrics.navigationMs, `${path} ${phase} navigation`).toBeLessThan(60_000);
         expect(metrics.cumulativeLayoutShift, `${path} ${phase} CLS`).toBeLessThanOrEqual(0.25);
         expect(metrics.longestTaskMs, `${path} ${phase} longest task`).toBeLessThan(2_000);
         expect(metrics.transferredBytes, `${path} ${phase} transferred bytes`).toBeLessThan(10 * 1024 * 1024);
+        expect(metrics.duplicateMutationRequests, `${path} ${phase} duplicate mutation requests`).toEqual([]);
         if (enforceProductionBudgets && phase === 'warm') {
           expect(metrics.navigationMs, `${path} warm production navigation`).toBeLessThanOrEqual(3_000);
           expect(metrics.largestContentfulPaintMs, `${path} warm production LCP`).not.toBeNull();
@@ -125,6 +148,112 @@ test('records warm critical-route performance baselines @performance', async ({ 
     });
     console.info(`PERFORMANCE_BASELINE ${JSON.stringify(results)}`);
   } finally {
+    if (authUser) await authUser.cleanup();
+    await profiles.cleanup();
+  }
+});
+
+test('keeps representative sales reports within the performance budget @performance @destructive', async ({ page }) => {
+  test.setTimeout(240_000);
+  assertE2EDatabaseWritesAllowed();
+  const profiles = await ensurePosResponsiveProfiles();
+  let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null = null;
+  let terminalId: string | null = null;
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  try {
+    authUser = await ensureAuthUserForProfile(managerCredentials);
+    const manager = await prisma.profile.findUniqueOrThrow({
+      where: { email: managerCredentials.email },
+      select: { id: true },
+    });
+    const terminal = await prisma.posTerminalInfo.create({
+      data: {
+        companyId: profiles.companyId,
+        minNumber: `MIN-RPT-PERF-${suffix}`,
+        accreditationNumber: `ACC-RPT-PERF-${suffix}`,
+        ptuNumber: `PTU-RPT-PERF-${suffix}`,
+        dateIssued: new Date('2024-01-01'),
+        validUntil: new Date('2035-01-01'),
+        posName: `E2E Report Performance ${suffix}`,
+        registeredName: 'E2E Report Performance',
+        operatedBy: 'E2E Report Performance',
+        address: 'E2E Test Address',
+        vatTinNumber: `TIN-RPT-PERF-${suffix}`,
+        vat: 12,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    terminalId = terminal.id;
+    await prisma.invoice.createMany({
+      data: Array.from({ length: 500 }, (_, index) => ({
+        invoiceNumber: 700000 + index,
+        idempotencyKey: `E2E-RPT-PERF-${suffix}-${index}`,
+        grossAmount: 100,
+        totalAmount: 100,
+        subTotal: 100,
+        totalTendered: 100,
+        cashTendered: 100,
+        status: 'PAID' as const,
+        customerName: `E2E Report Perf Customer ${index}`,
+        posTerminalId: terminal.id,
+        cashierId: manager.id,
+        createdAt: new Date('2026-07-15T12:00:00.000Z'),
+      })),
+    });
+
+    await authenticatePageWithCredentials(page, managerCredentials);
+    const requests = new Map<string, number>();
+    const onRequest = (request: import('@playwright/test').Request) => {
+      if (request.method() !== 'GET') return;
+      const url = new URL(request.url());
+      if (url.pathname.startsWith('/reports')) {
+        if (url.searchParams.has('_rsc')) return;
+        const key = `${request.method()} ${url.pathname}${url.search}`;
+        requests.set(key, (requests.get(key) ?? 0) + 1);
+      }
+    };
+    page.on('request', onRequest);
+    const startedAt = Date.now();
+    await page.goto(
+      `/reports/sales?companyId=${profiles.companyId}&terminalId=${terminal.id}&preset=custom&period=annual&from=2026-07-01&to=2026-07-31`,
+      { waitUntil: 'domcontentloaded', timeout: 60_000 },
+    );
+    await expect(page.getByText(/#000000700\d{3}/).first()).toBeVisible({ timeout: 30_000 });
+    const coldNavigationMs = Date.now() - startedAt;
+    page.off('request', onRequest);
+
+    await page.evaluate(async () => {
+      const registrations = await navigator.serviceWorker?.getRegistrations?.() ?? [];
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+    });
+    requests.clear();
+    page.on('request', onRequest);
+    const warmStartedAt = Date.now();
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await expect(page.getByText(/#000000700\d{3}/).first()).toBeVisible({ timeout: 30_000 });
+    const navigationMs = Date.now() - warmStartedAt;
+    page.off('request', onRequest);
+
+    const duplicateRequests = Array.from(requests.entries())
+      .filter(([, count]) => count > 1)
+      .map(([key, count]) => `${key} x${count}`);
+    const productionServer = process.env.PLAYWRIGHT_WEB_SERVER_COMMAND?.includes('npm run start') === true;
+    expect(navigationMs, 'representative report navigation').toBeLessThanOrEqual(
+      productionServer ? 3_000 : 10_000,
+    );
+    expect(duplicateRequests, 'duplicate report navigation requests').toEqual([]);
+    await test.info().attach('representative-report-performance.json', {
+      body: Buffer.from(JSON.stringify({ invoiceCount: 500, coldNavigationMs, warmNavigationMs: navigationMs, requests: Object.fromEntries(requests) }, null, 2)),
+      contentType: 'application/json',
+    });
+  } finally {
+    await prisma.auditLog.deleteMany({ where: { companyId: profiles.companyId } });
+    if (terminalId) await prisma.invoice.deleteMany({ where: { posTerminalId: terminalId } });
+    if (terminalId) await prisma.posTerminalInfo.deleteMany({ where: { id: terminalId } });
     if (authUser) await authUser.cleanup();
     await profiles.cleanup();
   }

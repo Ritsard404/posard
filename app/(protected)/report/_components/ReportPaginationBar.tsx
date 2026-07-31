@@ -18,6 +18,9 @@ export function ReportPaginationBar({
   documentType,
   trainMode,
   keyword,
+  status,
+  branchId,
+  cashierId,
 }: {
   pagination: ReportPaginationDto;
   basePath: string;
@@ -30,6 +33,9 @@ export function ReportPaginationBar({
   documentType?: InvoiceDocumentItemDto["type"] | "all";
   trainMode?: "all" | "training" | "live";
   keyword?: string;
+  status?: "PAID" | "VOID" | "RETURNED" | "CANCELLED";
+  branchId?: string;
+  cashierId?: string;
 }) {
   if (pagination.totalItems <= pagination.pageSize) {
     return null;
@@ -62,6 +68,9 @@ export function ReportPaginationBar({
                   documentType,
                   trainMode,
                   keyword,
+                  status,
+                  branchId,
+                  cashierId,
                 })}
               >
                 Previous
@@ -90,6 +99,9 @@ export function ReportPaginationBar({
                   documentType,
                   trainMode,
                   keyword,
+                  status,
+                  branchId,
+                  cashierId,
                 })}
               >
                 Next
@@ -116,6 +128,9 @@ function buildReportHref(input: {
   documentType?: InvoiceDocumentItemDto["type"] | "all";
   trainMode?: "all" | "training" | "live";
   keyword?: string;
+  status?: "PAID" | "VOID" | "RETURNED" | "CANCELLED";
+  branchId?: string;
+  cashierId?: string;
 }) {
   const params = new URLSearchParams({
     view: input.view,
@@ -150,6 +165,18 @@ function buildReportHref(input: {
 
   if (input.keyword) {
     params.set("keyword", input.keyword);
+  }
+
+  if (input.status) {
+    params.set("status", input.status);
+  }
+
+  if (input.branchId) {
+    params.set("branchId", input.branchId);
+  }
+
+  if (input.cashierId) {
+    params.set("cashierId", input.cashierId);
   }
 
   return `${input.basePath}?${params.toString()}`;

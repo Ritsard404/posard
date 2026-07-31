@@ -39,6 +39,9 @@ import {
   formatReportDate,
   formatReportDateInput,
 } from "@/lib/report-date-format";
+import { parseCustomReportDateRange } from "@/lib/report-date-range";
+
+export { parseCustomReportDateRange } from "@/lib/report-date-range";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 export type LoadedReportData =
@@ -236,17 +239,13 @@ async function resolveDateRange(input: {
     };
   }
 
-  if (
-    input.from &&
-    input.to &&
-    !Number.isNaN(new Date(input.from).getTime()) &&
-    !Number.isNaN(new Date(input.to).getTime())
-  ) {
+  const customRange = parseCustomReportDateRange(input.from, input.to);
+  if (customRange) {
     return {
       preset: "custom" as const,
       period: defaultPeriod,
-      from: normalizeStartOfDay(new Date(input.from)),
-      to: normalizeEndOfDay(new Date(input.to)),
+      from: customRange.from,
+      to: customRange.to,
     };
   }
 
@@ -354,10 +353,19 @@ export const reportPageService = {
       forceAllHistory: definition.view === "z-reading",
     });
     const page = Number(getParam(searchParams, "page") ?? "1");
-    const pageSize = 25;
+    const requestedPageSize = Number(getParam(searchParams, "size") ?? "25");
+    const pageSize = Number.isFinite(requestedPageSize)
+      ? Math.min(5_000, Math.max(1, Math.trunc(requestedPageSize)))
+      : 25;
     const sortOrder: ReportSortOrder =
       getParam(searchParams, "sortOrder") === "oldest" ? "oldest" : "newest";
     const keyword = getParam(searchParams, "keyword")?.trim() ?? "";
+    const requestedStatus = getParam(searchParams, "status");
+    const status = ["PAID", "VOID", "RETURNED", "CANCELLED"].includes(requestedStatus ?? "")
+      ? (requestedStatus as "PAID" | "VOID" | "RETURNED" | "CANCELLED")
+      : undefined;
+    const branchId = getParam(searchParams, "branchId") ?? undefined;
+    const cashierId = getParam(searchParams, "cashierId") ?? undefined;
     const workspace = await reportService.getWorkspace(viewer, { companyId });
     const overview = await reportService.getOverview(viewer, {
       companyId,
@@ -375,6 +383,9 @@ export const reportPageService = {
       pageSize,
       sortOrder,
       keyword,
+      status,
+      branchId,
+      cashierId,
     };
 
     let data: LoadedReportData;
@@ -487,6 +498,9 @@ export const reportPageService = {
         label: `${formatDateLabel(range.from)} to ${formatDateLabel(range.to)}`,
         sortOrder,
         keyword,
+        status,
+        branchId,
+        cashierId,
         documentType: getDocumentTypeParam(getParam(searchParams, "documentType")),
         trainMode: getTrainModeParam(getParam(searchParams, "trainMode")),
       },
@@ -509,7 +523,11 @@ export const reportPageService = {
       from: searchParams.get("from") ?? undefined,
       to: searchParams.get("to") ?? undefined,
       sortOrder: searchParams.get("sortOrder") ?? undefined,
+      status: searchParams.get("status") ?? undefined,
+      branchId: searchParams.get("branchId") ?? undefined,
+      cashierId: searchParams.get("cashierId") ?? undefined,
       page: "1",
+      size: "5000",
     });
 
     if (!detail) {

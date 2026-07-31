@@ -22,6 +22,9 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
   let branchId: string | null = null;
   let saleTypeId: string | null = null;
   let invoiceId: string | null = null;
+  const correctionInvoiceIds: string[] = [];
+  const boundaryInvoiceIds: string[] = [];
+  const paginationInvoicePrefix = `E2E-REPORT-PAGE-${suffix}`;
   let invoiceDocumentId: string | null = null;
 
   try {
@@ -88,13 +91,106 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
         oscaIdNum: `OSCA-${suffix}`,
         status: "PAID",
         customerName: `E2E Report Customer ${suffix}`,
-        posTerminalId: terminalId,
-        branchId,
+        posTerminalId: terminalId!,
+        branchId: branchId!,
         cashierId: manager.id,
       },
       select: { id: true },
     });
     invoiceId = invoice.id;
+    const correctionInvoices = await Promise.all([
+      prisma.invoice.create({
+        data: {
+          invoiceNumber: 9877,
+          idempotencyKey: `E2E-REPORT-VOID-${suffix}`,
+          grossAmount: 20,
+          totalAmount: 20,
+          subTotal: 20,
+          totalTendered: 20,
+          cashTendered: 20,
+          status: "VOID",
+          customerName: `E2E Void ${suffix}`,
+          posTerminalId: terminalId,
+          branchId,
+          cashierId: manager.id,
+        },
+        select: { id: true },
+      }),
+      prisma.invoice.create({
+        data: {
+          invoiceNumber: 9878,
+          idempotencyKey: `E2E-REPORT-RETURN-${suffix}`,
+          grossAmount: 30,
+          totalAmount: 30,
+          subTotal: 30,
+          totalTendered: 30,
+          cashTendered: 30,
+          returnedAmount: 10,
+          status: "RETURNED",
+          customerName: `E2E Return ${suffix}`,
+          posTerminalId: terminalId,
+          branchId,
+          cashierId: manager.id,
+        },
+        select: { id: true },
+      }),
+    ]);
+    correctionInvoiceIds.push(...correctionInvoices.map((item) => item.id));
+    const boundaryInvoices = await Promise.all([
+      prisma.invoice.create({
+        data: {
+          invoiceNumber: 9880,
+          idempotencyKey: `E2E-REPORT-BOUNDARY-IN-${suffix}`,
+          grossAmount: 11,
+          totalAmount: 11,
+          subTotal: 11,
+          totalTendered: 11,
+          cashTendered: 11,
+          status: "PAID",
+          customerName: `E2E Boundary Included ${suffix}`,
+          posTerminalId: terminalId!,
+          branchId: branchId!,
+          cashierId: manager.id,
+          createdAt: new Date("2026-07-01T15:59:59.999Z"),
+        },
+        select: { id: true },
+      }),
+      prisma.invoice.create({
+        data: {
+          invoiceNumber: 9881,
+          idempotencyKey: `E2E-REPORT-BOUNDARY-OUT-${suffix}`,
+          grossAmount: 12,
+          totalAmount: 12,
+          subTotal: 12,
+          totalTendered: 12,
+          cashTendered: 12,
+          status: "PAID",
+          customerName: `E2E Boundary Excluded ${suffix}`,
+          posTerminalId: terminalId!,
+          branchId: branchId!,
+          cashierId: manager.id,
+          createdAt: new Date("2026-07-02T16:00:00.000Z"),
+        },
+        select: { id: true },
+      }),
+    ]);
+    boundaryInvoiceIds.push(...boundaryInvoices.map((item) => item.id));
+    await prisma.invoice.createMany({
+      data: Array.from({ length: 26 }, (_, index) => ({
+        invoiceNumber: 9900 + index,
+        idempotencyKey: `${paginationInvoicePrefix}-${index}`,
+        grossAmount: 5,
+        totalAmount: 5,
+        subTotal: 5,
+        totalTendered: 5,
+        cashTendered: 5,
+        status: "VOID" as const,
+        customerName: `E2E Page Void ${index} ${suffix}`,
+        posTerminalId: terminalId!,
+        branchId: branchId!,
+        cashierId: manager.id,
+      })),
+    });
     await prisma.ePayment.create({
       data: {
         invoiceId: invoice.id,
@@ -118,7 +214,8 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
 
     await authenticatePageWithCredentials(page, managerCredentials);
     const query = `companyId=${profiles.companyId}&terminalId=${terminalId}&preset=today`;
-    await page.goto(`/reports/sales?${query}`);
+    const paidQuery = `${query}&status=PAID`;
+    await page.goto(`/reports/sales?${paidQuery}`);
     await expect(
       page.getByRole("heading", { name: "Sales" }).last(),
     ).toBeVisible();
@@ -126,20 +223,69 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
       page.getByText("#000000009876", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText(`E2E Report Customer ${suffix}`)).toBeVisible();
+
+    const scopedPaidQuery = `${query}&branchId=${branchId}&cashierId=${manager.id}&status=PAID`;
+    await page.goto(`/reports/sales?${scopedPaidQuery}`);
+    await expect(page.getByText("#000000009876", { exact: true })).toBeVisible();
+    await expect(page.getByText("#000000009877", { exact: true })).toHaveCount(0);
+
+    const scopedVoidQuery = `${query}&branchId=${branchId}&cashierId=${manager.id}&status=VOID`;
+    await page.goto(`/reports/sales?${scopedVoidQuery}`);
+    await expect(page.getByText("#000000009876", { exact: true })).toHaveCount(0);
+
+    const scopedReturnedQuery = `${query}&branchId=${branchId}&cashierId=${manager.id}&status=RETURNED`;
+    await page.goto(`/reports/sales?${scopedReturnedQuery}`);
+    await expect(page.getByText("#000000009878", { exact: true })).toBeVisible();
+    await expect(page.getByText("#000000009876", { exact: true })).toHaveCount(0);
+
+    const hostileScopeQuery = `${query}&branchId=00000000-0000-0000-0000-000000000000&cashierId=00000000-0000-0000-0000-000000000000&status=PAID`;
+    await page.goto(`/reports/sales?${hostileScopeQuery}`);
+    await expect(page.getByText("#000000009876", { exact: true })).toHaveCount(0);
+
+    await page.goto(`/reports/sales?${scopedVoidQuery}&page=2`);
+    await expect(page.getByText(/Page 2 of 2/)).toBeVisible();
+    await expect(page.getByText("#000000009877", { exact: true })).toBeVisible();
+    await expect(page.getByText(/E2E Page Void/).first()).toBeVisible();
+
     await page.goto(`/reports/daily-transactions?${query}`);
     await expect(
       page.getByText(`E2E Report Terminal ${suffix}`, { exact: true }).first(),
     ).toBeVisible();
 
-    await page.goto(`/reports/senior-discounts?${query}`);
+    const boundaryQuery = `companyId=${profiles.companyId}&terminalId=${terminalId}&preset=custom&period=daily&from=2026-07-01&to=2026-07-01`;
+    await page.goto(`/reports/sales?${boundaryQuery}`);
+    await expect(page.getByText(`E2E Boundary Included ${suffix}`)).toBeVisible();
+    await expect(page.getByText(`E2E Boundary Excluded ${suffix}`)).toHaveCount(0);
+
+    const seniorQuery = `companyId=${profiles.companyId}&terminalId=${terminalId}&preset=custom&period=annual&from=2020-01-01&to=2030-01-01`;
+    await page.goto(`/reports/senior-discounts?${seniorQuery}`);
     await expect(page.getByText(`E2E Senior ${suffix}`)).toBeVisible();
     await expect(page.getByText(`OSCA-${suffix}`)).toBeVisible();
 
     await page.goto(`/reports?${query}`);
     await expect(page.getByText(`E2E Report Card ${suffix}`)).toBeVisible();
 
-    await page.goto(`/reports/sales?${query}`);
+    await page.goto("/dashboard");
+    await expect(page.getByText("Terminal Performance")).toBeVisible();
+    const terminalPerformance = page
+      .getByText(`E2E Report Terminal ${suffix}`, { exact: true })
+      .first()
+      .locator("..")
+      .locator("..");
+    await expect(terminalPerformance).toContainText("₱110.00");
+    await expect(page.getByText("Voids Today", { exact: true }).locator("..")).toContainText("₱150.00");
+    await expect(page.getByText("Returns Today", { exact: true }).locator("..")).toContainText("₱10.00");
+
+    await page.goto(`/reports/sales?${paidQuery}`);
     await expect(page.getByText("₱125.00").first()).toBeVisible();
+
+    const emptyBoundaryQuery = `companyId=${profiles.companyId}&terminalId=${terminalId}&preset=custom&period=daily&from=2020-01-01&to=2020-01-01`;
+    await page.goto(`/reports/sales?${emptyBoundaryQuery}`);
+    await expect(page.getByText("No transactions were found for this date range and terminal scope.")).toBeVisible();
+
+    const inclusiveBoundaryQuery = `companyId=${profiles.companyId}&terminalId=${terminalId}&preset=custom&period=daily&from=2020-01-01&to=2030-01-01&status=PAID`;
+    await page.goto(`/reports/sales?${inclusiveBoundaryQuery}`);
+    await expect(page.getByText("#000000009876", { exact: true })).toBeVisible();
 
     const invoiceCountBeforeReprint = await prisma.invoice.count({
       where: { posTerminalId: terminalId },
@@ -163,7 +309,7 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
     ).toBe(1);
 
     const csvResponse = await page.request.get(
-      `/reports/export?type=sales&${query}&format=csv`,
+      `/reports/export?type=sales&${paidQuery}&format=csv`,
     );
     expect(csvResponse.status()).toBe(200);
     expect(csvResponse.headers()["content-type"]).toContain("text/csv");
@@ -174,7 +320,7 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
     expect(csv).toContain(`E2E Report Customer ${suffix}`);
 
     const xlsResponse = await page.request.get(
-      `/reports/export?type=sales&${query}&format=xls`,
+      `/reports/export?type=sales&${paidQuery}&format=xls`,
     );
     expect(xlsResponse.status()).toBe(200);
     expect(xlsResponse.headers()["content-disposition"]).toContain(".xls");
@@ -199,6 +345,13 @@ test("reconciles a sale report and exports CSV and spreadsheet data @transaction
       });
     if (invoiceId)
       await prisma.invoice.deleteMany({ where: { id: invoiceId } });
+    if (correctionInvoiceIds.length > 0)
+      await prisma.invoice.deleteMany({ where: { id: { in: correctionInvoiceIds } } });
+    if (boundaryInvoiceIds.length > 0)
+      await prisma.invoice.deleteMany({ where: { id: { in: boundaryInvoiceIds } } });
+    await prisma.invoice.deleteMany({
+      where: { idempotencyKey: { startsWith: paginationInvoicePrefix } },
+    });
     if (saleTypeId)
       await prisma.saleType.deleteMany({ where: { id: saleTypeId } });
     if (terminalId)

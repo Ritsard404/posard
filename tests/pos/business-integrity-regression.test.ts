@@ -43,6 +43,39 @@ test("returns keep invoice, item, manager approval, and stock reversal paths", (
   assert.match(orderService, /returnedAmount/);
 });
 
+test("checkout completion stays locked while a sale is processing", () => {
+  const checkout = read("app/(protected)/pos/_components/checkout-shared.tsx");
+
+  assert.match(checkout, /checkoutIdempotencyKeyRef\.current/);
+  assert.match(checkout, /disabled=\{\s*!canComplete \|\| isProcessing\s*\}/);
+  assert.match(checkout, /checkoutIdempotencyKeyRef\.current = null/);
+});
+
+test("pending checkout warns before browser unload", () => {
+  const checkout = read("app/(protected)/pos/_components/checkout-shared.tsx");
+
+  assert.match(checkout, /beforeunload/);
+  assert.match(checkout, /preventPendingCheckoutUnload/);
+  assert.match(checkout, /event\.returnValue = \"\"/);
+});
+
+test("customer display logos reserve intrinsic layout space", () => {
+  const idleDisplay = read(
+    "app/(protected)/pos/customer-display/[terminalId]/_components/customer-display-idle.tsx",
+  );
+
+  assert.match(idleDisplay, /width=\{256\}/);
+  assert.match(idleDisplay, /height=\{112\}/);
+});
+
+test("external storage image fallbacks preserve dimensions and lazy loading", () => {
+  const storageImage = read("components/storage/StorageImage.tsx");
+
+  assert.match(storageImage, /width=\{width\}/);
+  assert.match(storageImage, /height=\{height\}/);
+  assert.match(storageImage, /loading="lazy"/);
+});
+
 test("void approval cannot use a manager from another company", () => {
   const orderService = read("app/(protected)/pos/_services/order.service.ts");
 

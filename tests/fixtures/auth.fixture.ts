@@ -181,6 +181,16 @@ export async function authenticatePageWithCredentials(
   );
 }
 
+/** Persist an authenticated browser context for suites that do not test login itself. */
+export async function saveAuthenticatedStorageState(
+  page: Page,
+  credentials: AuthCredentials,
+  storageStatePath: string,
+) {
+  await authenticatePageWithCredentials(page, credentials);
+  await page.context().storageState({ path: storageStatePath });
+}
+
 export async function ensureAuthUserForProfile(credentials: AuthCredentials) {
   assertE2EDatabaseWritesAllowed();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

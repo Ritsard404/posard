@@ -507,6 +507,21 @@ export function usePOSCheckoutFlow(
     }
   };
 
+  useEffect(() => {
+    if (!isProcessing) {
+      return;
+    }
+
+    const preventPendingCheckoutUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", preventPendingCheckoutUnload);
+    return () =>
+      window.removeEventListener("beforeunload", preventPendingCheckoutUnload);
+  }, [isProcessing]);
+
   const requiresManagerApprovalForCheckout =
     discount.type !== "NONE" ||
     (settlementMode === "debt" &&

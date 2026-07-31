@@ -198,6 +198,9 @@ test.describe('finance and management workflows @transaction', () => {
         .getByText('Pending Expenses', { exact: true })
         .locator('..');
       await expect(pendingExpenseCard).toContainText('0');
+      await page.goto('/dashboard');
+      await expect(page.getByText('Posted Expenses', { exact: true }).locator('..'))
+        .toContainText(/1,200\.00/);
       await expect(pendingExpenseCard).toContainText(/(?:₱|â‚±)1,200 posted/);
     } finally {
       try {

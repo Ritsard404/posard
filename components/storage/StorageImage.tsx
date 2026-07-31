@@ -41,6 +41,9 @@ export function StorageImage({
       <img
         src={resolvedSrc}
         alt={alt}
+        width={width}
+        height={height}
+        loading="lazy"
         className={cn(className, fill ? "absolute inset-0 h-full w-full" : undefined, containerClassName)}
         onError={() => setFailed(true)}
       />

@@ -47,6 +47,11 @@ export function ReportFilterToolbar({
   trainMode = "all",
   documentMode = false,
   keyword = "",
+  status,
+  branchId,
+  cashierId,
+  branchOptions = [],
+  cashierOptions = [],
 }: {
   basePath: string;
   slug?: ReportsRouteSlug;
@@ -67,6 +72,11 @@ export function ReportFilterToolbar({
   trainMode?: "all" | "training" | "live";
   documentMode?: boolean;
   keyword?: string;
+  status?: "PAID" | "VOID" | "RETURNED" | "CANCELLED";
+  branchId?: string;
+  cashierId?: string;
+  branchOptions?: Array<{ id: string; name: string }>;
+  cashierOptions?: Array<{ id: string; name: string }>;
 }) {
   const presets: Array<{ id: ReportPreset; label: string }> = [
     { id: "today", label: "Today" },
@@ -112,6 +122,40 @@ export function ReportFilterToolbar({
     <>
       <HeaderActions>
         <div className="flex min-w-max items-center justify-end gap-1.5">
+          {view === "transactions" ? (
+            <form action={basePath} method="get" className="flex items-center gap-1.5">
+              {slug ? <input type="hidden" name="type" value={slug} /> : null}
+              {companyId ? <input type="hidden" name="companyId" value={companyId} /> : null}
+              {terminalId ? <input type="hidden" name="terminalId" value={terminalId} /> : null}
+              <input type="hidden" name="preset" value={preset} />
+              <input type="hidden" name="period" value={period} />
+              <input type="hidden" name="from" value={fromInput} />
+              <input type="hidden" name="to" value={toInput} />
+              <select
+                name="status"
+                defaultValue={status ?? ""}
+                aria-label="Transaction status"
+                className="h-9 rounded-xl border bg-background px-2 text-sm"
+              >
+                <option value="">All statuses</option>
+                <option value="PAID">Paid</option>
+                <option value="VOID">Void</option>
+                <option value="RETURNED">Returned</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+              <select name="branchId" defaultValue={branchId ?? ""} aria-label="Report branch" className="h-9 rounded-xl border bg-background px-2 text-sm">
+                <option value="">All branches</option>
+                {branchOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+              </select>
+              <select name="cashierId" defaultValue={cashierId ?? ""} aria-label="Report cashier" className="h-9 rounded-xl border bg-background px-2 text-sm">
+                <option value="">All cashiers</option>
+                {cashierOptions.map((cashier) => <option key={cashier.id} value={cashier.id}>{cashier.name}</option>)}
+              </select>
+              <Button type="submit" variant="outline" className="h-9 rounded-xl px-3 text-sm">
+                Apply
+              </Button>
+            </form>
+          ) : null}
           {!documentMode ? (
           <div className="hidden items-center gap-1 2xl:flex">
             {presets.map((item) => (

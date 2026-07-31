@@ -91,6 +91,11 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
         view={data.definition.view}
         sortOrder={data.range.sortOrder}
         keyword={data.range.keyword}
+        status={data.range.status}
+        branchId={data.range.branchId}
+        cashierId={data.range.cashierId}
+        branchOptions={data.workspace.branches}
+        cashierOptions={data.workspace.cashiers}
         dateHint={
           data.definition.slug === "documents"
             ? "Document reports use only document type, date range, and train-mode filters."
@@ -123,6 +128,9 @@ export function ReportDirectPage({ data }: { data: DirectPageData }) {
           to={data.range.toInput}
           activeTerminalId={data.scope.terminalId ?? undefined}
           sortOrder={data.range.sortOrder}
+          status={data.range.status}
+          branchId={data.range.branchId}
+          cashierId={data.range.cashierId}
           period={data.range.period}
           documentType={data.range.documentType}
           trainMode={data.range.trainMode}

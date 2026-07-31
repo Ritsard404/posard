@@ -15,10 +15,17 @@ export interface ReportTerminalOptionDto {
   printerConfig: PrinterConfigDto | null;
 }
 
+export interface ReportScopeOptionDto {
+  id: string;
+  name: string;
+}
+
 export interface ReportWorkspaceDto {
   companyId: string | null;
   companyName?: string | null;
   terminals: ReportTerminalOptionDto[];
+  branches: ReportScopeOptionDto[];
+  cashiers: ReportScopeOptionDto[];
 }
 
 export interface ReportCompanyListItemDto {

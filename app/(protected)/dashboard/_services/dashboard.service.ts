@@ -695,6 +695,7 @@ export const dashboardService = {
       debtDueToday,
       debtOverdue,
       debtCollectedToday,
+      postedExpensesToday,
       activeCashiers,
       pendingOperationalApprovals,
       pendingSyncIssues,
@@ -938,6 +939,14 @@ export const dashboardService = {
         where: {
           companyId,
           createdAt: { gte: todayStart, lte: todayEnd },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.expense.aggregate({
+        where: {
+          companyId,
+          expenseDate: { gte: todayStart, lte: todayEnd },
+          status: "posted",
         },
         _sum: { amount: true },
       }),
@@ -1384,6 +1393,7 @@ export const dashboardService = {
           { label: "Due Today", value: toNumber(debtDueToday._sum.remainingAmount), hint: "Debt balances due today" },
           { label: "Overdue Debt", value: toNumber(debtOverdue._sum.remainingAmount), tone: "danger", hint: "Receivables past due date" },
           { label: "Collected Today", value: toNumber(debtCollectedToday._sum.amount), tone: "success", hint: "Debt payments received today" },
+          { label: "Posted Expenses", value: toNumber(postedExpensesToday._sum.amount), tone: "warning", hint: "Posted operating expenses today" },
           { label: "Target Variance", value: revenueGoalProgress.varianceAmount, tone: revenueGoalProgress.varianceAmount >= 0 ? "success" : "warning", hint: "Current month revenue goal variance" },
         ],
         terminals: terminals.map((terminal) => ({

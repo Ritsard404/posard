@@ -100,7 +100,8 @@ function MetricCard({
           label.toLowerCase().includes("target") ||
           label.toLowerCase().includes("variance") ||
           label.toLowerCase().includes("projected") ||
-          label.toLowerCase().includes("collected")
+          label.toLowerCase().includes("collected") ||
+          label.toLowerCase().includes("expense")
             ? formatCurrency(value)
             : formatCompact(value)}
         </p>

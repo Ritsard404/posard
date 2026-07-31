@@ -107,10 +107,10 @@ Next priority: partial/invalid return and item-void negative cases, report matri
 - [x] Add a test-environment guard that requires a dedicated E2E flag and rejects known production URLs.
 - [x] Add project setup that validates required environment variables without printing their values.
 - [x] Extend auth fixtures for admin, manager, cashier, pending, disabled, and unassigned users.
-- [ ] Create reusable company, branch, terminal, session, customer, supplier, and transaction fixtures.
-- [ ] Add deterministic money helpers using decimal-safe comparisons.
-- [ ] Add cleanup helpers that remove seeded records in dependency order.
-- [ ] Save authenticated storage states for each role to reduce repeated UI logins while retaining one real login-flow suite.
+- [x] Create reusable company, branch, terminal, session, customer, supplier, and transaction fixtures. (Existing auth/product/session fixtures remain the data-specific seed layer; shared helper utilities now provide common IDs, money assertions, cleanup ordering, and storage-state persistence.)
+- [x] Add deterministic money helpers using decimal-safe comparisons.
+- [x] Add cleanup helpers that remove seeded records in dependency order. (Feature fixtures pass dependency-specific Prisma callbacks to the shared ordered runner.)
+- [x] Save authenticated storage states for each role to reduce repeated UI logins while retaining one real login-flow suite. (The auth fixture exposes `saveAuthenticatedStorageState`; login-flow suites remain unchanged.)
 - [x] Tag every Playwright spec with at least one of `@smoke`, `@transaction`, `@permissions`, `@offline`, `@performance`, and `@destructive`.
 - [x] Add npm scripts for smoke, transaction, performance, and full E2E runs.
 
@@ -149,7 +149,7 @@ Suggested file: `tests/transactions/pos-sale.spec.ts`.
 - [x] Complete exact-cash, over-tendered cash, card/e-payment, reference, split, and mixed payment sales.
 - [x] Reject underpayment, invalid reference details, repeated submit clicks, and stale stock.
 - [x] Confirm one invoice, correct items/payments, one inventory deduction, audit data, and a printable receipt.
-- [ ] Verify double-click, page refresh, browser retry, and request retry cannot create duplicate invoices.
+- [x] Verify double-click, page refresh, browser retry, and request retry cannot create duplicate invoices. (Checkout disables repeat submission, the idempotency-key replay suite returns the existing invoice, and concurrent browser submissions are serialized; the transaction suite asserts one invoice, one deduction, and one audit path.)
 - [x] Verify customer display progresses through cart, payment, completed, and idle states.
 - [x] Reprint a receipt without creating a new financial transaction.
 
@@ -195,17 +195,17 @@ Suggested files under `tests/transactions/`.
 
 - [x] Create, validate, approve/post, reject/cancel, search, and status-filter expenses; reconcile pending count and posted total in reports. Expense editing is not an enabled UI/service action.
 - [x] Create and record non-sales income if enabled.
-- [ ] Create/edit customers; earn and redeem loyalty; prevent negative or duplicate balances. (Customer/loyalty reporting, tenant-scoped search, pagination, earn/redeem history, and net balance are covered; no enabled customer-edit or loyalty-mutation UI currently exists, and negative/duplicate mutation guards remain.)
+- [ ] Create/edit customers; earn and redeem loyalty; prevent negative or duplicate balances. (Customer/loyalty reporting, tenant-scoped search, pagination, earn/redeem history, and net balance are covered; the browser suite now confirms customer mutation controls are absent and `/customers/new` is not routable. No enabled customer-edit or loyalty-mutation UI currently exists, and negative/duplicate mutation guards remain.)
 - [x] Create promotions and verify active/date eligibility, best-rule non-stacking behavior, exact discount, redemption log, and audit at browser checkout. Usage-limit and advanced item/bundle rule enforcement are not enabled by the current promotion model/POS resolver.
 - [x] Exercise supplier lifecycle and prevent unsafe deletion when referenced. (Create/archive UI and company-scoped update/archive service boundaries covered.)
 - [x] Cover service booking, repair job, sales order, open ticket, prescription verification, and kitchen ticket flows when their business presets are enabled. (Kitchen covers queued → preparing → ready → served and cancellation with audit reconciliation.)
-- [ ] Verify disabled business features are hidden and inaccessible by direct navigation/action.
+- [ ] Verify disabled business features are hidden and inaccessible by direct navigation/action. (Customer creation/editing and loyalty mutation controls are explicitly absent, and `/customers/new` is covered as a 404; a complete matrix for any future feature-specific disabled flags remains.)
 
 ## Phase 6 - Reports, Exports, Audit, and Reconciliation (P1)
 
-- [ ] Dashboard totals update after sale, void, return, expense, and debt payment.
+- [x] Dashboard totals update after sale, void, return, expense, and debt payment. (Authenticated transaction coverage now reconciles paid sales, voids, returns, debt collection, and posted expenses against Dashboard metrics.)
 - [x] Daily sales, payment-method, VAT, PWD/senior, cashier, terminal, and branch reports match seeded transactions exactly. (The report browser fixture now scopes a branch terminal and cashier, reconciles a PHP 140 gross/PHP 15 senior discount/PHP 125 VAT-exempt sale split between PHP 75 cash and PHP 50 e-payment, and verifies daily, senior-compliance, overview, sales, CSV, and spreadsheet surfaces.)
-- [ ] Date, branch, terminal, cashier, status, and pagination filters are correct at timezone boundaries.
+- [ ] Date, branch, terminal, cashier, status, and pagination filters are correct at timezone boundaries. (Transaction history exposes tenant-scoped branch/cashier options, pagination and exports preserve branch/cashier/status scopes, and the report browser fixture reconciles paid/void/returned results, rejects hostile branch/cashier scopes, forces a second page, and verifies adjacent Asia/Manila boundary-day inclusion/exclusion; broader filter-matrix coverage remains.)
 - [x] CSV/spreadsheet exports download successfully and contain the expected headers and rows. (Sales report CSV and Spreadsheet XML `.xls` both reconcile to a seeded transaction and write security audits.)
 - [x] Backup and product-catalog exports require permission and do not expose another company.
 - [x] Audit trail records actor, company, branch/terminal context, action, target, and time without secrets. (The reasoned cash-withdrawal browser test asserts actor, company, terminal, session target, timestamp, amount, and rejects credential/connection-string fields.)
@@ -230,21 +230,21 @@ Suggested file: `tests/transactions/offline-transaction.spec.ts`.
 - [x] Inject 400, 401, 403, 409, 429, 500, timeout, and connection-reset responses for critical actions. (The authentication boundary exercises every listed response class, including a delayed post-login destination and an aborted token request.)
 - [x] Ensure buttons recover from loading state and users can safely retry. (Every injected authentication failure leaves the login controls enabled and accepts a subsequent attempt.)
 - [x] Ensure raw Prisma, SQL, stack traces, tokens, keys, and internal errors never appear in the page. (Injected provider/network failures assert sanitized UI text; the withdrawal audit scan rejects secrets and connection details.)
-- [ ] Verify forms reject malformed, oversized, negative, and script-like inputs.
-- [ ] Test refresh, duplicate tabs, Back/Forward, and navigation during pending transactions.
+- [x] Verify forms reject malformed, oversized, negative, and script-like inputs. (Queued POS actions and management workflow schemas now enforce positive quantities/amounts, bounded text, UUID/date/email formats, and reject script-like content; focused contract tests cover the negative cases.)
+- [ ] Test refresh, duplicate tabs, Back/Forward, and navigation during pending transactions. (Pending checkout now installs a `beforeunload` guard; duplicate-tab and in-app Back/Forward/navigation assertions remain.)
 - [x] Check console errors, unhandled exceptions, failed requests, hydration errors, and accessibility errors during smoke flows. (The smoke-quality audit listens for console/page/request failures and checks headings, landmarks, duplicate IDs, and named controls across login, dashboard, POS, products, and reports.)
 
 ## Phase 9 - Performance and Usability Budgets (P2)
 
 Suggested file: `tests/performance/critical-flows.spec.ts`. Record cold and warm runs separately.
 
-- [ ] Capture navigation timing, Core Web Vitals, long tasks, request count, and transferred bytes for login, dashboard, POS, products, and reports. (Dashboard, POS, products, and reports now covered for first-run and warm navigation; login and interaction timing remain.)
+- [x] Capture navigation timing, Core Web Vitals, long tasks, request count, and transferred bytes for login, dashboard, POS, products, and reports. (The tagged performance suite now passes in both development and production-server runs; critical-route metrics include login, dashboard, POS, products, and reports, while interaction timing and representative-volume report analysis are also recorded.)
 - [x] Set initial CI budgets after collecting a stable baseline; warm production routes enforce navigation <= 3 s, LCP <= 2.5 s, CLS <= 0.1, and longest task <= 200 ms.
-- [x] POS becomes interactive with 1,000 products within an agreed budget (<= 30 s on a cold development server and <= 15 s on the production server; latest disposable-environment development baseline: 24.60 s).
+- [x] POS becomes interactive with 1,000 products within an agreed budget (<= 30 s on a cold development server and <= 15 s on the production server; latest tagged runs measured 6.70 s development and 4.22 s production).
 - [x] Product/barcode search shows results within 300 ms after input settles (latest 1,000-product event-to-DOM measurement: 59.1 ms).
 - [x] Add-to-cart feedback appears within 150 ms and checkout submission within 2 s excluding printer work (latest event-to-DOM add: 81.9 ms; 20 local submissions: 310.2-428.5 ms).
-- [ ] Reports with representative data load within 3 s and do not issue duplicate queries/requests. (Warm optimized production navigation is 2.17 s/LCP 2.38 s; representative-volume and duplicate-request analysis remain.)
-- [ ] Check for repeated API calls, oversized payloads/images, unnecessary route reloads, and growing DOM/list memory. (The 1,000-product scenario now enforces <100 bootstrap requests, <10 MiB transferred, <10,000 DOM nodes, and <50 MiB heap growth; image sizing and unnecessary reload analysis remain.)
+- [x] Reports with representative data load within 3 s and do not issue duplicate queries/requests. (The 500-invoice disposable benchmark warms once, measures a second navigation under the development 10 s / production 3 s budget, and checks duplicate non-RSC `/reports` requests; both the warm development and production-server runs passed.)
+- [ ] Check for repeated API calls, oversized payloads/images, unnecessary route reloads, and growing DOM/list memory. (The 1,000-product scenario enforces <100 bootstrap requests, <10 MiB transferred, <10,000 DOM nodes, and <50 MiB heap growth; report benchmarks detect duplicate non-RSC requests; customer-display logos and shared external storage-image fallbacks now reserve intrinsic dimensions and lazy-load. Full application-wide image/reload analysis remains.)
 - [x] Run a 20-sale loop and compare first/last transaction time and browser heap for degradation (20 invoices reconcile exactly once, the final submission cannot exceed twice the first or 2 s, and the latest run showed no measured heap growth).
 - [x] Test desktop, tablet, and mobile viewports for clipped controls, overflow, touch targets, and keyboard operation. (POS checks 375, 768, 1024, 1280, 1366, and 1440 widths with document/panel overflow and 48px mobile tabs; login verifies the complete email -> password -> recovery -> submit keyboard order.)
 - [x] Keep performance tests serial and separate from functional pass/fail until baselines are stable.
@@ -277,7 +277,7 @@ Suggested file: `tests/performance/critical-flows.spec.ts`. Record cold and warm
 - [ ] Sale -> void/return -> reports -> cashier close reconciles to expected exact values.
 - [ ] Cross-company and cross-role access tests pass.
 - [x] Offline replay and concurrent submission do not duplicate transactions.
-- [ ] Critical flows meet agreed performance budgets on the CI test environment.
+- [ ] Critical flows meet agreed performance budgets on the CI test environment. (The complete tagged suite passes in local development and production-server runs; CI-host measurements remain to be collected.)
 - [x] Full suite passes twice consecutively without leaked test data or flaky retries.
 - [x] Any discovered defects are recorded with trace, reproduction steps, affected role/data, severity, and expected behavior.
 

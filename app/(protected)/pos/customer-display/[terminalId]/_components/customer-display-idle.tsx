@@ -13,6 +13,9 @@ export function CustomerDisplayIdle({ meta, message }: CustomerDisplayIdleProps)
         <img
           src={meta.logoImageUrl}
           alt={meta.storeName}
+          width={256}
+          height={112}
+          loading="eager"
           className="max-h-28 max-w-64 object-contain"
         />
       ) : (

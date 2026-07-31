@@ -248,6 +248,62 @@ async function openSeededPOS(page: Page, seeded: SeededPOSSession) {
   await expect(page.getByText(/\d+ categories/)).toBeVisible();
 }
 
+test("double-clicking Complete Sale creates one invoice and one stock deduction @transaction @destructive", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  assertE2EDatabaseWritesAllowed();
+  const profiles = await ensurePosResponsiveProfiles();
+  let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null = null;
+  let seeded: SeededPOSSession | null = null;
+
+  try {
+    authUser = await ensureAuthUserForProfile(cashierCredentials);
+    seeded = await seedActivePOSSession();
+    await authenticatePageWithCredentials(page, cashierCredentials);
+    await openSeededPOS(page, seeded);
+
+    await page.getByText(seeded.productNames[0], { exact: true }).click();
+    await page.getByRole("button", { name: /Checkout|Go to Tender/i }).click();
+    await page.getByRole("button", { name: "Exact" }).click();
+
+    const invoiceCountBefore = await prisma.invoice.count({
+      where: { posTerminalId: seeded.terminalId },
+    });
+    const productBefore = await prisma.product.findUniqueOrThrow({
+      where: { id: seeded.productIds[0] },
+      select: { quantity: true },
+    });
+    const completeSale = page.getByRole("button", { name: "Complete Sale", exact: true });
+
+    await Promise.all([completeSale.click(), completeSale.click()]);
+    await expect(page.getByText("Transaction Done")).toBeVisible({ timeout: 45_000 });
+
+    await expect.poll(async () =>
+      prisma.invoice.count({ where: { posTerminalId: seeded!.terminalId } }),
+    ).toBe(invoiceCountBefore + 1);
+    await expect.poll(async () =>
+      Number((await prisma.product.findUniqueOrThrow({
+        where: { id: seeded!.productIds[0] },
+        select: { quantity: true },
+      })).quantity),
+    ).toBe(Number(productBefore.quantity) - 1);
+
+    expect(await prisma.invoice.count({ where: { posTerminalId: seeded.terminalId } })).toBe(
+      invoiceCountBefore + 1,
+    );
+    expect(
+      await prisma.auditLog.count({
+        where: { companyId: seeded.companyId, actionType: "SALE_COMPLETED" },
+      }),
+    ).toBeGreaterThanOrEqual(1);
+  } finally {
+    if (seeded) await seeded.cleanup();
+    if (authUser) await authUser.cleanup();
+    await profiles.cleanup();
+  }
+});
+
 async function collectLayoutMetrics(page: Page) {
   return page.evaluate(() => {
     const scrollingElement =
@@ -691,6 +747,14 @@ test.describe("POS responsive layout @smoke", () => {
         returnedInvoice.returns.map((item) => Number(item.items[0].lineAmount)),
       ).toEqual([12.5, 12.5]);
 
+      const returnedInvoiceLabel = `#${String(returnedInvoice.invoiceNumber).padStart(12, "0")}`;
+      await page.goto(
+        `/reports/sales?companyId=${seeded.companyId}&terminalId=${seeded.terminalId}&preset=today&status=RETURNED`,
+      );
+      await expect(page.getByText(returnedInvoiceLabel, { exact: true })).toBeVisible({
+        timeout: 45_000,
+      });
+
       const restoredProduct = await prisma.product.findUniqueOrThrow({
         where: { id: seeded.productIds[0] },
         select: { quantity: true },
@@ -773,6 +837,16 @@ test.describe("POS responsive layout @smoke", () => {
         select: { quantity: true },
       });
       expect(Number(voidedProduct.quantity)).toBe(20);
+
+      await authenticatePageWithCredentials(page, managerCredentials);
+      await page.goto(
+        `/reports/voided?companyId=${seeded.companyId}&terminalId=${seeded.terminalId}&preset=today`,
+      );
+      await expect(
+        page.getByText(`#${String(voidInvoice.invoiceNumber).padStart(12, "0")}`, {
+          exact: true,
+        }),
+      ).toBeVisible({ timeout: 45_000 });
     } finally {
       try {
         await seeded?.cleanup();
@@ -1433,6 +1507,10 @@ test.describe("POS responsive layout @smoke", () => {
           ).quantity,
         ),
       ).toBe(19);
+
+      await page.goto("/dashboard");
+      await expect(page.getByText("Collected Today", { exact: true }).locator("..")).toContainText("₱27.00");
+      await expect(page.getByText("Debt Outstanding", { exact: true }).locator("..")).toContainText("₱0.00");
     } finally {
       try {
         await seeded?.cleanup();

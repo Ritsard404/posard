@@ -14,14 +14,24 @@ export function assertE2EDatabaseWritesAllowed() {
   }
 
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required for destructive E2E tests.');
+  const directUrl = process.env.DIRECT_URL;
+  if (!databaseUrl || !directUrl) {
+    throw new Error(
+      'DATABASE_URL and DIRECT_URL are required for destructive E2E tests.',
+    );
   }
 
   const hostname = new URL(databaseUrl).hostname.toLowerCase();
   if (unsafeHostMarkers.some((marker) => hostname.includes(marker))) {
     throw new Error(
       `Refusing destructive E2E setup for unsafe database host: ${hostname}`,
+    );
+  }
+
+  const directHostname = new URL(directUrl).hostname.toLowerCase();
+  if (unsafeHostMarkers.some((marker) => directHostname.includes(marker))) {
+    throw new Error(
+      `Refusing destructive E2E setup for unsafe direct database host: ${directHostname}`,
     );
   }
 
@@ -35,4 +45,3 @@ export function assertE2EDatabaseWritesAllowed() {
     }
   }
 }
-
