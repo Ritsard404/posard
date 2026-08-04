@@ -36,6 +36,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
           value: (item) =>
             item.status === "active" ? (
               <form action={archiveSupplierAction}>
+                <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
                 <input type="hidden" name="supplierId" value={item.id} />
                 <Button size="sm" variant="outline">Archive</Button>
               </form>

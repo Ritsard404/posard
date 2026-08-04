@@ -367,6 +367,14 @@ export async function ensurePosResponsiveProfiles() {
     companyId: company.id,
     async cleanup() {
       for (const profile of existingProfiles) {
+        const [originalCompany, originalBranch] = await Promise.all([
+          profile.companyId
+            ? prisma.company.findUnique({ where: { id: profile.companyId }, select: { id: true } })
+            : null,
+          profile.branchId
+            ? prisma.branch.findUnique({ where: { id: profile.branchId }, select: { id: true } })
+            : null,
+        ]);
         await prisma.profile.update({
           where: { id: profile.id },
           data: {
@@ -374,8 +382,12 @@ export async function ensurePosResponsiveProfiles() {
             fullName: profile.fullName,
             role: profile.role,
             status: profile.status,
-            companyId: profile.companyId,
-            branchId: profile.branchId,
+            // A previous disposable fixture may have removed the original
+            // tenant or branch while this shared E2E account remained. Do
+            // not let restoration fail with a foreign-key error; nullable
+            // scope fields can safely be cleared in that case.
+            companyId: originalCompany?.id ?? null,
+            branchId: originalBranch?.id ?? null,
             approvedAt: profile.approvedAt,
           },
         });

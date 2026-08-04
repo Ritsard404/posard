@@ -949,6 +949,8 @@ export const remainingFeaturesService = {
             id: true,
             name: true,
             phone: true,
+            address: true,
+            notes: true,
             isActive: true,
           },
         }),

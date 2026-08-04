@@ -39,6 +39,7 @@ export function StockAdjustmentForm({
 }) {
   return (
     <form action={action} className={formClass()}>
+      <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
       <Field label="Product">
         <select name="productId" required className={inputClass()}>
           {products.map((product) => (
@@ -89,6 +90,7 @@ export function StockCountForm({
 }) {
   return (
     <form action={action} className={formClass("md:grid-cols-8")}>
+      <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
       <Field label="Product">
         <select name="productId" className={inputClass()}>
           <option value="">Use barcode or batch</option>
@@ -150,6 +152,7 @@ export function StockDispositionForm({
 }) {
   return (
     <form action={action} className={formClass("md:grid-cols-8")}>
+      <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
       <Field label="Reason">
         <select name="reason" required className={inputClass()}>
           <option value="damaged">Damaged</option>
@@ -209,6 +212,7 @@ export function ExpenseForm({
 }) {
   return (
     <form action={action} className={formClass()}>
+      <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
       <Field label="Category">
         <select name="categoryId" required className={inputClass()}>
           {categories.map((category) => (
@@ -249,6 +253,7 @@ export function NonSalesIncomeForm({
 }) {
   return (
     <form action={action} className={formClass()}>
+      <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
       <Field label="Source">
         <input name="source" required placeholder="Service fee, rebate, other" className={inputClass()} />
       </Field>
@@ -280,6 +285,7 @@ export function NonSalesIncomeForm({
 export function SupplierForm({ action }: { action: (formData: FormData) => void | Promise<void> }) {
   return (
     <form action={action} className={formClass()}>
+      <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
       <Field label="Supplier">
         <input name="name" required placeholder="Supplier name" className={inputClass()} />
       </Field>
@@ -355,6 +361,7 @@ export function TransferForm({
 }) {
   return (
     <form action={action} className={formClass()}>
+      <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
       <Field label="From">
         <select name="sourceTerminalId" required className={inputClass()}>
           {terminals.map((terminal) => (
@@ -392,6 +399,7 @@ export function TransferForm({
 export function PromotionForm({ action }: { action: (formData: FormData) => void | Promise<void> }) {
   return (
     <form action={action} className={formClass()}>
+      <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
       <Field label="Name">
         <input name="name" required placeholder="Happy hour" className={inputClass()} />
       </Field>

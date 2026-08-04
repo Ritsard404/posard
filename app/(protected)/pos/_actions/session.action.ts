@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import {
   hasCoverageDatePassed,
   assertTerminalBillingAllowsPos,
@@ -389,6 +391,7 @@ export async function openSessionAction(
   managerPin: string,
   openingCash: number = 0,
   deviceId: string | null = null,
+  idempotencyKey: string = randomUUID(),
 ) {
   try {
     const profile = await getCurrentProfile();
@@ -444,6 +447,7 @@ export async function openSessionAction(
       managerPin,
       openingCash,
       deviceId,
+      idempotencyKey,
     );
   } catch (error) {
     return {
@@ -458,6 +462,7 @@ export async function withdrawCashAction(
   amount: number,
   managerPin: string,
   reason: string,
+  idempotencyKey: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const profile = await getCurrentProfile();
@@ -536,6 +541,7 @@ export async function withdrawCashAction(
       amount,
       approverProfileId,
       normalizedReason,
+      idempotencyKey,
     );
 
     return { success: true };
@@ -552,6 +558,7 @@ export async function closeSessionAction(
   timestampId: string,
   countedCash: number,
   managerPin: string,
+  idempotencyKey: string = randomUUID(),
 ) {
   try {
     const profile = await getCurrentProfile();
@@ -622,6 +629,7 @@ export async function closeSessionAction(
       timestampId,
       countedCash,
       approverProfileId,
+      idempotencyKey,
     );
 
     return { success: true as const, data };

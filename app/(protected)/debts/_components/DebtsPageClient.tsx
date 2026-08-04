@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ export function DebtsPageClient({
   const [customerCreditLimit, setCustomerCreditLimit] = useState("");
   const [customerTermsDays, setCustomerTermsDays] = useState("");
   const [paymentState, setPaymentState] = useState<Record<string, { amount: string; method: string; referenceNo: string; notes: string }>>({});
+  const paymentIdempotencyKeys = useRef<Record<string, string>>({});
 
   const currency = useMemo(
     () =>
@@ -72,8 +73,11 @@ export function DebtsPageClient({
 
   const handleRecordPayment = async (debtId: string) => {
     const state = paymentState[debtId];
+    const idempotencyKey = paymentIdempotencyKeys.current[debtId] ?? crypto.randomUUID();
+    paymentIdempotencyKeys.current[debtId] = idempotencyKey;
     const result = await recordDebtPaymentAction({
       debtId,
+      idempotencyKey,
       amount: Number(state?.amount ?? 0),
       method: state?.method || "CASH",
       referenceNo: state?.referenceNo || null,
@@ -85,6 +89,7 @@ export function DebtsPageClient({
       return;
     }
 
+    delete paymentIdempotencyKeys.current[debtId];
     toast.success("Debt payment recorded.");
     router.refresh();
   };

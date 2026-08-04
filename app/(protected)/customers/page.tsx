@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { remainingFeaturesService } from "../_services/remaining-features.service";
+import { getCurrentProfile } from "@/lib/auth/current-user";
+import { recordLoyaltyMutationAction, updateCustomerAction } from "./_actions/customer.actions";
 import {
   ManagementFilters,
   RemainingFeatureWorkspace,
@@ -108,6 +110,8 @@ interface CustomersPageProps {
 
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
   const params = (await searchParams) ?? {};
+  const viewer = await getCurrentProfile();
+  const canManageCustomerMutations = viewer?.role === "admin" || viewer?.role === "manager";
   const search = firstParam(params.search)?.trim() || undefined;
   const customers = await remainingFeaturesService.getCustomers({
     search,
@@ -151,13 +155,26 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         {
           label: "Loyalty",
           value: (item) => (
-            <div>
+            <div className="space-y-2">
               <div className="font-semibold tabular-nums">{item.loyaltyPoints} pts</div>
               <div className="text-xs text-muted-foreground">
                 {item.loyaltyEvents[0]
                   ? `${item.loyaltyEvents[0].transactionType} ${item.loyaltyEvents[0].pointsDelta} pts`
                   : "No activity"}
               </div>
+              {canManageCustomerMutations ? (
+                <form action={recordLoyaltyMutationAction} className="flex flex-wrap gap-1">
+                  <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
+                  <input type="hidden" name="customerId" value={item.id} />
+                  <select name="transactionType" defaultValue="earn" className="h-8 rounded-md border bg-background px-1 text-xs">
+                    <option value="earn">Earn</option>
+                    <option value="redeem">Redeem</option>
+                  </select>
+                  <input name="points" type="number" min="1" step="1" required placeholder="Pts" className="h-8 w-16 rounded-md border bg-background px-1 text-xs" />
+                  <input name="reason" required placeholder="Reason" className="h-8 w-24 rounded-md border bg-background px-1 text-xs" />
+                  <Button size="sm" type="submit">Apply</Button>
+                </form>
+              ) : null}
             </div>
           ),
         },
@@ -187,6 +204,18 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
               ) : null}
             </div>
           ),
+        },
+        {
+          label: "Edit",
+          value: (item) => canManageCustomerMutations ? (
+            <form action={updateCustomerAction} className="space-y-1">
+              <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
+              <input type="hidden" name="customerId" value={item.id} />
+              <input name="name" required defaultValue={item.name} className="h-8 w-36 rounded-md border bg-background px-2 text-xs" />
+              <input name="phone" defaultValue={item.phone ?? ""} placeholder="Phone" className="h-8 w-36 rounded-md border bg-background px-2 text-xs" />
+              <Button size="sm" type="submit">Save</Button>
+            </form>
+          ) : <span className="text-xs text-muted-foreground">Manager only</span>,
         },
       ]}
     />

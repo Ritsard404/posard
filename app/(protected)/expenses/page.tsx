@@ -54,6 +54,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
             label: "Actions",
             value: (item) => (
               <form action={transitionExpenseAction} className="flex flex-wrap gap-1">
+                <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
                 <input type="hidden" name="expenseId" value={item.id} />
                 {item.status === "draft" ? <Button size="sm" name="action" value="submit">Submit</Button> : null}
                 {item.status === "pending_approval" ? <Button size="sm" name="action" value="approve">Approve</Button> : null}

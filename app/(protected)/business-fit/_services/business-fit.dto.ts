@@ -30,6 +30,7 @@ const optionalPositiveQuantityInput = z.preprocess((value) => {
 }, z.coerce.number().positive().nullable());
 
 export const ServiceBookingCreateSchema = z.object({
+  idempotencyKey: z.string().uuid(),
   customerId: nullableUuidInput,
   serviceProductId: nullableUuidInput,
   assignedStaffId: nullableUuidInput,
@@ -44,6 +45,7 @@ export const ServiceBookingCreateSchema = z.object({
 export type ServiceBookingCreateInput = z.infer<typeof ServiceBookingCreateSchema>;
 
 export const RepairJobCreateSchema = z.object({
+  idempotencyKey: z.string().uuid(),
   customerId: nullableUuidInput,
   terminalId: nullableUuidInput,
   laborProductId: nullableUuidInput,
@@ -62,6 +64,7 @@ export const RepairJobCreateSchema = z.object({
 export type RepairJobCreateInput = z.infer<typeof RepairJobCreateSchema>;
 
 export const SalesOrderCreateSchema = z.object({
+  idempotencyKey: z.string().uuid(),
   customerId: nullableUuidInput,
   terminalId: nullableUuidInput,
   productId: nullableUuidInput,
@@ -81,6 +84,7 @@ export const SalesOrderCreateSchema = z.object({
 export type SalesOrderCreateInput = z.infer<typeof SalesOrderCreateSchema>;
 
 export const PosOpenTicketCreateSchema = z.object({
+  idempotencyKey: z.string().uuid(),
   terminalId: z.string().uuid("Terminal is required"),
   customerId: nullableUuidInput,
   ticketName: nullableTextInput,
@@ -97,6 +101,7 @@ export const PosOpenTicketCreateSchema = z.object({
 export type PosOpenTicketCreateInput = z.infer<typeof PosOpenTicketCreateSchema>;
 
 export const PrescriptionVerificationCreateSchema = z.object({
+  idempotencyKey: z.string().uuid(),
   terminalId: nullableUuidInput,
   customerId: nullableUuidInput,
   productId: z.string().uuid("Product is required"),

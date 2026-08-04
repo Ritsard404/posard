@@ -59,7 +59,11 @@ test('adjusts, counts, approves/rejects, and disposes tracked inventory @transac
     await adjustmentForm.locator('select[name="direction"]').selectOption('increase');
     await adjustmentForm.locator('input[name="quantity"]').fill('3');
     await adjustmentForm.locator('input[name="reason"]').fill('E2E opening correction');
-    await adjustmentForm.getByRole('button', { name: 'Adjust Stock' }).click();
+    const adjustStock = adjustmentForm.getByRole('button', { name: 'Adjust Stock' });
+    await adjustStock.evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
     await expect.poll(async () => Number((await prisma.product.findUniqueOrThrow({ where: { id: productId! } })).quantity)).toBe(23);
 
     const countForm = page.locator('form').filter({
@@ -68,7 +72,11 @@ test('adjusts, counts, approves/rejects, and disposes tracked inventory @transac
     await countForm.locator('select[name="productId"]').selectOption(productId);
     await countForm.locator('input[name="countedQuantity"]').fill('21');
     await countForm.locator('input[name="notes"]').fill('E2E approved count');
-    await countForm.getByRole('button', { name: 'Start Count' }).click();
+    const startCount = countForm.getByRole('button', { name: 'Start Count' });
+    await startCount.evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
     const approvedCount = await expect.poll(async () => prisma.stockCountSession.findFirst({
       where: { companyId: profiles.companyId, notes: 'E2E approved count' },
       include: { items: true },
@@ -111,7 +119,11 @@ test('adjusts, counts, approves/rejects, and disposes tracked inventory @transac
     await dispositionForm.locator('select[name="productId"]').selectOption(productId);
     await dispositionForm.locator('input[name="quantity"]').fill('2');
     await dispositionForm.locator('input[name="notes"]').fill('E2E damaged stock');
-    await dispositionForm.getByRole('button', { name: 'Record Loss' }).click();
+    const recordLoss = dispositionForm.getByRole('button', { name: 'Record Loss' });
+    await recordLoss.evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
     await expect.poll(async () => Number((await prisma.product.findUniqueOrThrow({ where: { id: productId! } })).quantity)).toBe(19);
 
     for (const scenario of [
@@ -156,6 +168,8 @@ test('adjusts, counts, approves/rejects, and disposes tracked inventory @transac
     await prisma.auditLog.deleteMany({ where: { companyId: profiles.companyId } });
     await prisma.userNotification.deleteMany({ where: { companyId: profiles.companyId } });
     await prisma.stockMovement.deleteMany({ where: { companyId: profiles.companyId } });
+    await prisma.stockAdjustmentRequest.deleteMany({ where: { companyId: profiles.companyId } });
+    await prisma.stockDispositionRequest.deleteMany({ where: { companyId: profiles.companyId } });
     await prisma.stockCountSession.deleteMany({ where: { companyId: profiles.companyId } });
     if (productId) await prisma.product.deleteMany({ where: { id: productId } });
     if (categoryId) await prisma.category.deleteMany({ where: { id: categoryId } });

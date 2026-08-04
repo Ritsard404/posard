@@ -287,6 +287,15 @@ export const debtService = {
     const companyId = viewer.companyId!;
 
     await prisma.$transaction(async (tx) => {
+      const replay = await tx.customerDebtPayment.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        select: { companyId: true },
+      });
+      if (replay) {
+        if (replay.companyId !== companyId) throw new Error("Debt payment does not belong to this company.");
+        return;
+      }
+
       await tx.$queryRaw`
         SELECT id
         FROM public.customer_debt
@@ -328,6 +337,7 @@ export const debtService = {
       await tx.customerDebtPayment.create({
         data: {
           debtId: debt.id,
+          idempotencyKey: input.idempotencyKey,
           companyId,
           terminalId: debt.terminalId,
           timestampId: input.timestampId ?? null,

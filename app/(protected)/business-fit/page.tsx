@@ -95,6 +95,7 @@ function CreateForms({ options }: { options: Awaited<ReturnType<typeof businessF
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <WorkflowForm title="Service Booking" icon={<Stethoscope className="size-4" />} action={createServiceBookingAction}>
+        <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
         <OptionSelect name="customerId" options={options.customers} placeholder="Walk-in or select customer" />
         <OptionSelect name="serviceProductId" options={options.serviceProducts} placeholder="Select service item" />
         <OptionSelect name="assignedStaffId" options={options.staff} placeholder="Assign staff" />
@@ -106,6 +107,7 @@ function CreateForms({ options }: { options: Awaited<ReturnType<typeof businessF
       </WorkflowForm>
 
       <WorkflowForm title="Repair Job" icon={<BriefcaseBusiness className="size-4" />} action={createRepairJobAction}>
+        <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
         <OptionSelect name="customerId" options={options.customers} placeholder="Walk-in or select customer" />
         <OptionSelect name="laborProductId" options={options.serviceProducts} placeholder="Labor/service item" />
         <OptionSelect name="assignedStaffId" options={options.staff} placeholder="Assign technician" />
@@ -119,6 +121,7 @@ function CreateForms({ options }: { options: Awaited<ReturnType<typeof businessF
       </WorkflowForm>
 
       <WorkflowForm title="Wholesale / B2B Order" icon={<Store className="size-4" />} action={createSalesOrderAction}>
+        <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
         <OptionSelect name="customerId" options={options.customers} placeholder="Select B2B customer" />
         <OptionSelect name="terminalId" options={options.terminals} placeholder="Terminal" />
         <OptionSelect name="productId" options={options.products} placeholder="Optional first item" />
@@ -132,6 +135,7 @@ function CreateForms({ options }: { options: Awaited<ReturnType<typeof businessF
       </WorkflowForm>
 
       <WorkflowForm title="Restaurant Open Ticket" icon={<Utensils className="size-4" />} action={createOpenTicketAction}>
+        <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
         <OptionSelect name="terminalId" options={options.terminals} placeholder="Select terminal" required />
         <OptionSelect name="customerId" options={options.customers} placeholder="Walk-in or select customer" />
         <select name="fulfillmentType" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue="DINE_IN">
@@ -149,6 +153,7 @@ function CreateForms({ options }: { options: Awaited<ReturnType<typeof businessF
       </WorkflowForm>
 
       <WorkflowForm title="Prescription Verification" icon={<PackageCheck className="size-4" />} action={createPrescriptionVerificationAction}>
+        <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
         <OptionSelect name="productId" options={options.products} placeholder="Select prescription product" required />
         <OptionSelect name="customerId" options={options.customers} placeholder="Walk-in or select patient" />
         <OptionSelect name="terminalId" options={options.terminals} placeholder="Terminal" />

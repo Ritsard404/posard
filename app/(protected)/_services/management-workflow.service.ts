@@ -475,6 +475,23 @@ export const managementWorkflowService = {
       input.direction === "increase" ? input.quantity : -input.quantity;
 
     await prisma.$transaction(async (tx) => {
+      const existing = await tx.stockAdjustmentRequest.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        select: { companyId: true },
+      });
+      if (existing) {
+        if (existing.companyId !== viewer.companyId) {
+          throw new Error("Stock adjustment does not belong to this company.");
+        }
+        return;
+      }
+      await tx.stockAdjustmentRequest.create({
+        data: {
+          idempotencyKey: input.idempotencyKey,
+          companyId: viewer.companyId,
+        },
+      });
+
       const movement = await createStockMovement(tx, {
         companyId: viewer.companyId,
         actorProfileId: viewer.profileId,
@@ -519,13 +536,21 @@ export const managementWorkflowService = {
   async createStockCountSession(input: z.infer<typeof stockCountCreateSchema>) {
     const viewer = await requireViewer();
     assertManager(viewer);
-    const countNumber = await nextReference(
-      "CNT",
-      viewer.companyId,
-      "stockCountSession",
-    );
 
     await prisma.$transaction(async (tx) => {
+      const existing = await tx.stockCountSession.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        select: { companyId: true },
+      });
+      if (existing) {
+        if (existing.companyId !== viewer.companyId) throw new Error("Stock count does not belong to this company.");
+        return;
+      }
+      const countNumber = await nextReference(
+        "CNT",
+        viewer.companyId,
+        "stockCountSession",
+      );
       if (input.terminalId) {
         const terminal = await tx.posTerminalInfo.findFirst({
           where: { id: input.terminalId, companyId: viewer.companyId },
@@ -558,6 +583,7 @@ export const managementWorkflowService = {
 
       const session = await tx.stockCountSession.create({
         data: {
+          idempotencyKey: input.idempotencyKey,
           countNumber,
           companyId: viewer.companyId,
           terminalId: input.terminalId,
@@ -753,9 +779,20 @@ export const managementWorkflowService = {
   async createStockDisposition(input: z.infer<typeof stockDispositionSchema>) {
     const viewer = await requireViewer();
     assertManager(viewer);
-    const referenceNumber = `DIS-${Date.now()}`;
 
     await prisma.$transaction(async (tx) => {
+      const existing = await tx.stockDispositionRequest.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        select: { companyId: true },
+      });
+      if (existing) {
+        if (existing.companyId !== viewer.companyId) throw new Error("Stock disposition does not belong to this company.");
+        return;
+      }
+      await tx.stockDispositionRequest.create({
+        data: { idempotencyKey: input.idempotencyKey, companyId: viewer.companyId },
+      });
+      const referenceNumber = `DIS-${Date.now()}`;
       const target = await resolveTrackedInventoryTarget(tx, {
         companyId: viewer.companyId,
         productId: input.productId,
@@ -807,6 +844,14 @@ export const managementWorkflowService = {
 
   async createExpense(input: z.infer<typeof expenseCreateSchema>) {
     const viewer = await requireViewer();
+    const existing = await prisma.expense.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+      select: { companyId: true },
+    });
+    if (existing) {
+      if (existing.companyId !== viewer.companyId) throw new Error("Expense does not belong to this company.");
+      return;
+    }
     const referenceNumber = await nextReference(
       "EXP",
       viewer.companyId,
@@ -836,6 +881,7 @@ export const managementWorkflowService = {
 
       const expense = await tx.expense.create({
         data: {
+          idempotencyKey: input.idempotencyKey,
           referenceNumber,
           companyId: viewer.companyId,
           terminalId: input.terminalId,
@@ -883,6 +929,14 @@ export const managementWorkflowService = {
 
   async createNonSalesIncome(input: z.infer<typeof nonSalesIncomeCreateSchema>) {
     const viewer = await requireViewer();
+    const existing = await prisma.nonSalesIncome.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+      select: { companyId: true },
+    });
+    if (existing) {
+      if (existing.companyId !== viewer.companyId) throw new Error("Income does not belong to this company.");
+      return;
+    }
     const referenceNumber = await nextReference(
       "INC",
       viewer.companyId,
@@ -902,6 +956,7 @@ export const managementWorkflowService = {
 
       const income = await tx.nonSalesIncome.create({
         data: {
+          idempotencyKey: input.idempotencyKey,
           referenceNumber,
           companyId: viewer.companyId,
           terminalId: input.terminalId,
@@ -934,6 +989,24 @@ export const managementWorkflowService = {
   async transitionExpense(input: z.infer<typeof expenseTransitionSchema>) {
     const viewer = await requireViewer();
     await prisma.$transaction(async (tx) => {
+      const request = await tx.workflowMutationRequest.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (request) {
+        if (request.companyId !== viewer.companyId) {
+          throw new Error("Expense transition does not belong to this company.");
+        }
+        return;
+      }
+      await tx.workflowMutationRequest.create({
+        data: {
+          idempotencyKey: input.idempotencyKey,
+          companyId: viewer.companyId,
+          entityType: "expense",
+          entityId: input.expenseId,
+          action: input.action,
+        },
+      });
       const expense = await tx.expense.findFirstOrThrow({
         where: { id: input.expenseId, companyId: viewer.companyId },
       });
@@ -991,6 +1064,18 @@ export const managementWorkflowService = {
     assertManager(viewer);
 
     await prisma.$transaction(async (tx) => {
+      const request = await tx.workflowMutationRequest.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (request) {
+        if (request.companyId !== viewer.companyId) throw new Error("Supplier mutation does not belong to this company.");
+        return;
+      }
+      await tx.workflowMutationRequest.create({ data: {
+        idempotencyKey: input.idempotencyKey,
+        companyId: viewer.companyId,
+        entityType: "supplier",
+        entityId: input.supplierId ?? viewer.companyId,
+        action: input.supplierId ? "update" : "create",
+      } });
       const supplier = input.supplierId
         ? await tx.supplier.update({
             where: {
@@ -1042,6 +1127,18 @@ export const managementWorkflowService = {
     assertManager(viewer);
 
     await prisma.$transaction(async (tx) => {
+      const request = await tx.workflowMutationRequest.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (request) {
+        if (request.companyId !== viewer.companyId) throw new Error("Supplier archive does not belong to this company.");
+        return;
+      }
+      await tx.workflowMutationRequest.create({ data: {
+        idempotencyKey: input.idempotencyKey,
+        companyId: viewer.companyId,
+        entityType: "supplier",
+        entityId: input.supplierId,
+        action: "archive",
+      } });
       const scopedSupplier = await tx.supplier.findFirstOrThrow({
         where: { id: input.supplierId, companyId: viewer.companyId },
         select: { id: true },
@@ -1064,13 +1161,24 @@ export const managementWorkflowService = {
   async createPurchaseOrder(input: z.infer<typeof purchaseOrderCreateSchema>) {
     const viewer = await requireViewer();
     assertManager(viewer);
-    const poNumber = await nextReference(
-      "PO",
-      viewer.companyId,
-      "purchaseOrder",
-    );
 
     await prisma.$transaction(async (tx) => {
+      const existing = await tx.purchaseOrder.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        select: { companyId: true },
+      });
+      if (existing) {
+        if (existing.companyId !== viewer.companyId) {
+          throw new Error("Purchase order does not belong to this company.");
+        }
+        return;
+      }
+
+      const poNumber = await nextReference(
+        "PO",
+        viewer.companyId,
+        "purchaseOrder",
+      );
       const [supplier, product] = await Promise.all([
         tx.supplier.findFirst({
           where: { id: input.supplierId, companyId: viewer.companyId },
@@ -1092,6 +1200,7 @@ export const managementWorkflowService = {
       const order = await tx.purchaseOrder.create({
         data: {
           poNumber,
+          idempotencyKey: input.idempotencyKey,
           companyId: viewer.companyId,
           supplierId: input.supplierId,
           createdById: viewer.profileId,
@@ -1132,6 +1241,24 @@ export const managementWorkflowService = {
     assertManager(viewer);
 
     await prisma.$transaction(async (tx) => {
+      const request = await tx.workflowMutationRequest.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (request) {
+        if (request.companyId !== viewer.companyId) {
+          throw new Error("Purchase-order transition does not belong to this company.");
+        }
+        return;
+      }
+      await tx.workflowMutationRequest.create({
+        data: {
+          idempotencyKey: input.idempotencyKey,
+          companyId: viewer.companyId,
+          entityType: "purchase_order",
+          entityId: input.purchaseOrderId,
+          action: input.action,
+        },
+      });
       const order = await tx.purchaseOrder.findFirstOrThrow({
         where: { id: input.purchaseOrderId, companyId: viewer.companyId },
       });
@@ -1182,6 +1309,14 @@ export const managementWorkflowService = {
     assertManager(viewer);
 
     await prisma.$transaction(async (tx) => {
+      const existing = await tx.receivingRecord.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        select: { companyId: true },
+      });
+      if (existing) {
+        if (existing.companyId !== viewer.companyId) throw new Error("Receiving record does not belong to this company.");
+        return;
+      }
       await tx.$queryRaw`
         SELECT id
         FROM public.purchase_order_item
@@ -1222,6 +1357,7 @@ export const managementWorkflowService = {
       const shelfLocation = input.shelfLocation ?? item.product.shelfLocation ?? null;
       const receiving = await tx.receivingRecord.create({
         data: {
+          idempotencyKey: input.idempotencyKey,
           receivingNumber,
           companyId: viewer.companyId,
           supplierId: item.purchaseOrder.supplierId,
@@ -1334,13 +1470,24 @@ export const managementWorkflowService = {
   async createTransfer(input: z.infer<typeof transferCreateSchema>) {
     const viewer = await requireViewer();
     assertManager(viewer);
-    const transferNumber = await nextReference(
-      "TRF",
-      viewer.companyId,
-      "branchTransfer",
-    );
 
     await prisma.$transaction(async (tx) => {
+      const existing = await tx.branchTransfer.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        select: { companyId: true },
+      });
+      if (existing) {
+        if (existing.companyId !== viewer.companyId) {
+          throw new Error("Transfer does not belong to this company.");
+        }
+        return;
+      }
+
+      const transferNumber = await nextReference(
+        "TRF",
+        viewer.companyId,
+        "branchTransfer",
+      );
       if (input.sourceTerminalId === input.destinationTerminalId) {
         throw new Error("Source and destination terminals must be different.");
       }
@@ -1367,6 +1514,7 @@ export const managementWorkflowService = {
       const transfer = await tx.branchTransfer.create({
         data: {
           transferNumber,
+          idempotencyKey: input.idempotencyKey,
           companyId: viewer.companyId,
           sourceTerminalId: input.sourceTerminalId,
           destinationTerminalId: input.destinationTerminalId,
@@ -1415,6 +1563,24 @@ export const managementWorkflowService = {
     assertManager(viewer);
 
     await prisma.$transaction(async (tx) => {
+      const request = await tx.workflowMutationRequest.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (request) {
+        if (request.companyId !== viewer.companyId) {
+          throw new Error("Transfer transition does not belong to this company.");
+        }
+        return;
+      }
+      await tx.workflowMutationRequest.create({
+        data: {
+          idempotencyKey: input.idempotencyKey,
+          companyId: viewer.companyId,
+          entityType: "branch_transfer",
+          entityId: input.transferId,
+          action: input.action,
+        },
+      });
       await tx.$queryRaw`
         SELECT id
         FROM public.branch_transfer
@@ -1534,6 +1700,24 @@ export const managementWorkflowService = {
     assertManager(viewer);
 
     await prisma.$transaction(async (tx) => {
+      const request = await tx.workflowMutationRequest.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (request) {
+        if (request.companyId !== viewer.companyId) {
+          throw new Error("Promotion creation does not belong to this company.");
+        }
+        return;
+      }
+      await tx.workflowMutationRequest.create({
+        data: {
+          idempotencyKey: input.idempotencyKey,
+          companyId: viewer.companyId,
+          entityType: "promotion",
+          entityId: viewer.companyId,
+          action: "create",
+        },
+      });
       const promotion = await tx.promotion.create({
         data: {
           companyId: viewer.companyId,
@@ -1573,6 +1757,24 @@ export const managementWorkflowService = {
     assertManager(viewer);
 
     await prisma.$transaction(async (tx) => {
+      const request = await tx.workflowMutationRequest.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (request) {
+        if (request.companyId !== viewer.companyId) {
+          throw new Error("Promotion transition does not belong to this company.");
+        }
+        return;
+      }
+      await tx.workflowMutationRequest.create({
+        data: {
+          idempotencyKey: input.idempotencyKey,
+          companyId: viewer.companyId,
+          entityType: "promotion",
+          entityId: input.promotionId,
+          action: input.action,
+        },
+      });
       const promotion = await tx.promotion.findFirstOrThrow({
         where: { id: input.promotionId, companyId: viewer.companyId },
       });
@@ -1653,6 +1855,24 @@ export const managementWorkflowService = {
     const viewer = await requireViewer();
 
     await prisma.$transaction(async (tx) => {
+      const request = await tx.workflowMutationRequest.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (request) {
+        if (request.companyId !== viewer.companyId) {
+          throw new Error("Kitchen ticket transition does not belong to this company.");
+        }
+        return;
+      }
+      await tx.workflowMutationRequest.create({
+        data: {
+          idempotencyKey: input.idempotencyKey,
+          companyId: viewer.companyId,
+          entityType: "kitchen_ticket",
+          entityId: input.ticketId,
+          action: input.action,
+        },
+      });
       const ticket = await tx.kitchenTicket.findFirstOrThrow({
         where: { id: input.ticketId, companyId: viewer.companyId },
       });
@@ -1700,6 +1920,24 @@ export const managementWorkflowService = {
     const viewer = await requireViewer();
 
     await prisma.$transaction(async (tx) => {
+      const request = await tx.workflowMutationRequest.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (request) {
+        if (request.companyId !== viewer.companyId) {
+          throw new Error("Sync issue transition does not belong to this company.");
+        }
+        return;
+      }
+      await tx.workflowMutationRequest.create({
+        data: {
+          idempotencyKey: input.idempotencyKey,
+          companyId: viewer.companyId,
+          entityType: "offline_sync_issue",
+          entityId: input.issueId,
+          action: input.action,
+        },
+      });
       const issue = await tx.offlineSyncIssue.findFirstOrThrow({
         where: {
           id: input.issueId,

@@ -366,14 +366,6 @@ export const reportPageService = {
       : undefined;
     const branchId = getParam(searchParams, "branchId") ?? undefined;
     const cashierId = getParam(searchParams, "cashierId") ?? undefined;
-    const workspace = await reportService.getWorkspace(viewer, { companyId });
-    const overview = await reportService.getOverview(viewer, {
-      companyId,
-      terminalId,
-      from: range.from,
-      to: range.to,
-    });
-
     const input = {
       companyId,
       terminalId,
@@ -388,82 +380,71 @@ export const reportPageService = {
       cashierId,
     };
 
-    let data: LoadedReportData;
-
-    switch (definition.view) {
+    const [workspace, overview, data] = await Promise.all([
+      reportService.getWorkspace(viewer, { companyId }),
+      definition.view === "transactions"
+        ? Promise.resolve(null)
+        : reportService.getOverview(viewer, {
+            companyId,
+            terminalId,
+            from: range.from,
+            to: range.to,
+          }),
+      (async (): Promise<LoadedReportData> => {
+        switch (definition.view) {
       case "transactions":
-        data = await reportService.getTransactionHistory(viewer, input);
-        break;
+        return reportService.getTransactionHistory(viewer, input);
       case "daily-transactions":
-        data = await reportService.getDailyTransactions(viewer, input);
-        break;
+        return reportService.getDailyTransactions(viewer, input);
       case "debt-outstanding":
-        data = await reportService.getDebtOutstanding(viewer, input);
-        break;
+        return reportService.getDebtOutstanding(viewer, input);
       case "debt-collections":
-        data = await reportService.getDebtCollections(viewer, input);
-        break;
+        return reportService.getDebtCollections(viewer, input);
       case "invoice-documents":
-        data = await reportService.getInvoiceDocuments(viewer, {
+        return reportService.getInvoiceDocuments(viewer, {
           ...input,
           documentType: getDocumentTypeParam(getParam(searchParams, "documentType")),
           trainMode: getTrainModeParam(getParam(searchParams, "trainMode")),
         });
-        break;
       case "transaction-list":
-        data = await reportService.getTransactionList(viewer, input);
-        break;
+        return reportService.getTransactionList(viewer, input);
       case "sales-book":
-        data = await reportService.getSalesBook(viewer, input);
-        break;
+        return reportService.getSalesBook(viewer, input);
       case "product-profit":
-        data = await reportService.getProductProfitReport(viewer, input);
-        break;
+        return reportService.getProductProfitReport(viewer, input);
       case "movement-velocity":
-        data = await reportService.getProductVelocityReport(viewer, input);
-        break;
+        return reportService.getProductVelocityReport(viewer, input);
       case "inventory-value":
-        data = await reportService.getInventoryValueReport(viewer, input);
-        break;
+        return reportService.getInventoryValueReport(viewer, input);
       case "revenue-goal":
-        data = await reportService.getRevenueGoalReport(viewer, input);
-        break;
+        return reportService.getRevenueGoalReport(viewer, input);
       case "non-sales-income":
-        data = await reportService.getNonSalesIncomeReport(viewer, input);
-        break;
+        return reportService.getNonSalesIncomeReport(viewer, input);
       case "x-reading":
-        data = await reportService.getXReading(viewer, { companyId, terminalId, sortOrder });
-        break;
+        return reportService.getXReading(viewer, { companyId, terminalId, sortOrder });
       case "z-reading":
-        data = await reportService.getZReading(viewer, input);
-        break;
+        return reportService.getZReading(viewer, input);
       case "audit":
-        data = await reportService.getAuditTrail(viewer, input);
-        break;
+        return reportService.getAuditTrail(viewer, input);
       case "voided-list":
-        data = await reportService.getVoidedList(viewer, input);
-        break;
+        return reportService.getVoidedList(viewer, input);
       case "pwd-list":
-        data = await reportService.getDiscountReport(viewer, { ...input, type: "PWD" });
-        break;
+        return reportService.getDiscountReport(viewer, { ...input, type: "PWD" });
       case "senior-list":
-        data = await reportService.getDiscountReport(viewer, { ...input, type: "SENIOR" });
-        break;
+        return reportService.getDiscountReport(viewer, { ...input, type: "SENIOR" });
       case "dswd-list":
-        data = await reportService.getDiscountReport(viewer, { ...input, type: "DSWD" });
-        break;
+        return reportService.getDiscountReport(viewer, { ...input, type: "DSWD" });
       case "refund-invoices":
-        data = await reportService.getRefundInvoices(viewer, input);
-        break;
+        return reportService.getRefundInvoices(viewer, input);
       case "returned-items":
-        data = await reportService.getReturnedItems(viewer, input);
-        break;
+        return reportService.getReturnedItems(viewer, input);
       case "returned-records":
-        data = await reportService.getReturnedInvoiceRecords(viewer, input);
-        break;
+        return reportService.getReturnedInvoiceRecords(viewer, input);
       default:
         redirect("/reports");
-    }
+        }
+      })(),
+    ]);
 
     const selectedTerminal =
       workspace.terminals.find((item) => item.id === terminalId) ?? null;
@@ -472,7 +453,7 @@ export const reportPageService = {
         ? null
         : reportPrintService.buildPayload({
             view: definition.view,
-            overview,
+            overview: overview as NonNullable<typeof overview>,
             detail: data,
             selectedTerminal,
           });
@@ -481,7 +462,7 @@ export const reportPageService = {
       viewer,
       definition,
       workspace,
-      overview,
+      overview: overview as NonNullable<typeof overview>,
       data,
       pagination: "pagination" in data ? data.pagination : null,
       scope: {

@@ -44,6 +44,7 @@ export default async function PromotionsPage({ searchParams }: PromotionsPagePro
           label: "Actions",
           value: (item) => (
             <form action={transitionPromotionAction} className="flex flex-wrap gap-1">
+              <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
               <input type="hidden" name="promotionId" value={item.id} />
               {!item.isActive ? <Button size="sm" name="action" value="activate">Activate</Button> : null}
               {item.isActive ? <Button size="sm" variant="outline" name="action" value="pause">Pause</Button> : null}

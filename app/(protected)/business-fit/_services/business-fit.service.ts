@@ -355,6 +355,14 @@ export const businessFitService = {
   async createServiceBooking(input: ServiceBookingCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    const existing = await prisma.serviceBooking.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+      select: { companyId: true },
+    });
+    if (existing) {
+      if (existing.companyId !== viewer.companyId) throw new Error("Service booking belongs to another company.");
+      return;
+    }
     await validateCompanyReferences({
       companyId: viewer.companyId,
       terminalId: input.terminalId,
@@ -367,6 +375,7 @@ export const businessFitService = {
     await prisma.serviceBooking.create({
       data: {
         bookingNumber: buildNumber("SB", viewer.companyId, count),
+        idempotencyKey: input.idempotencyKey,
         companyId: viewer.companyId,
         terminalId: input.terminalId,
         customerId: input.customerId,
@@ -385,6 +394,14 @@ export const businessFitService = {
   async createRepairJob(input: RepairJobCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    const existing = await prisma.repairJob.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+      select: { companyId: true },
+    });
+    if (existing) {
+      if (existing.companyId !== viewer.companyId) throw new Error("Repair job belongs to another company.");
+      return;
+    }
     await validateCompanyReferences({
       companyId: viewer.companyId,
       terminalId: input.terminalId,
@@ -397,6 +414,7 @@ export const businessFitService = {
     await prisma.repairJob.create({
       data: {
         jobNumber: buildNumber("RJ", viewer.companyId, count),
+        idempotencyKey: input.idempotencyKey,
         companyId: viewer.companyId,
         terminalId: input.terminalId,
         customerId: input.customerId,
@@ -419,6 +437,14 @@ export const businessFitService = {
   async createSalesOrder(input: SalesOrderCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    const existing = await prisma.salesOrder.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+      select: { companyId: true },
+    });
+    if (existing) {
+      if (existing.companyId !== viewer.companyId) throw new Error("Sales order belongs to another company.");
+      return;
+    }
     await validateCompanyReferences({
       companyId: viewer.companyId,
       terminalId: input.terminalId,
@@ -432,6 +458,7 @@ export const businessFitService = {
     await prisma.salesOrder.create({
       data: {
         orderNumber: buildNumber("SO", viewer.companyId, count),
+        idempotencyKey: input.idempotencyKey,
         companyId: viewer.companyId,
         terminalId: input.terminalId,
         customerId: input.customerId,
@@ -464,6 +491,14 @@ export const businessFitService = {
   async createOpenTicket(input: PosOpenTicketCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    const existing = await prisma.posOpenTicket.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+      select: { companyId: true },
+    });
+    if (existing) {
+      if (existing.companyId !== viewer.companyId) throw new Error("Open ticket belongs to another company.");
+      return;
+    }
     await validateCompanyReferences({
       companyId: viewer.companyId,
       terminalId: input.terminalId,
@@ -474,6 +509,7 @@ export const businessFitService = {
     await prisma.posOpenTicket.create({
       data: {
         ticketNumber: buildNumber("OT", viewer.companyId, count),
+        idempotencyKey: input.idempotencyKey,
         companyId: viewer.companyId,
         terminalId: input.terminalId,
         cashierId: viewer.profileId,
@@ -498,6 +534,14 @@ export const businessFitService = {
   async createPrescriptionVerification(input: PrescriptionVerificationCreateInput): Promise<void> {
     const viewer = await requireContext();
     if (!viewer.companyId) throw new Error("Company context is required.");
+    const existing = await prisma.prescriptionVerification.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+      select: { companyId: true },
+    });
+    if (existing) {
+      if (existing.companyId !== viewer.companyId) throw new Error("Prescription verification belongs to another company.");
+      return;
+    }
     await validateCompanyReferences({
       companyId: viewer.companyId,
       terminalId: input.terminalId,
@@ -507,6 +551,7 @@ export const businessFitService = {
 
     await prisma.prescriptionVerification.create({
       data: {
+        idempotencyKey: input.idempotencyKey,
         companyId: viewer.companyId,
         terminalId: input.terminalId,
         customerId: input.customerId,

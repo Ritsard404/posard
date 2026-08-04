@@ -225,7 +225,11 @@ test.describe("procurement and transfers @transaction", () => {
         .fill(`BATCH-${order.poNumber}`);
       await receiveForm.locator('input[name="expiryDate"]').fill("2030-12-31");
       await receiveForm.locator('input[name="shelfLocation"]').fill("A-01");
-      await receiveForm.getByRole("button", { name: "Receive" }).click();
+      const firstReceive = receiveForm.getByRole("button", { name: "Receive" });
+      await firstReceive.evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
       await expect
         .poll(
           async () =>

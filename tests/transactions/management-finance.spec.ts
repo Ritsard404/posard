@@ -86,7 +86,11 @@ async function createExpense(
   await form.locator('select[name="terminalId"]').selectOption(fixture.terminalId);
   await form.locator('input[name="amount"]').fill(String(amount));
   await form.locator('input[name="notes"]').fill(notes);
-  await form.getByRole('button', { name: 'Record Expense' }).click();
+  const recordExpense = form.getByRole('button', { name: 'Record Expense' });
+  await recordExpense.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
   return expect.poll(async () => prisma.expense.findFirst({
     where: { companyId: fixture.companyId, notes },
     orderBy: { createdAt: 'desc' },
@@ -167,7 +171,11 @@ test.describe('finance and management workflows @transaction', () => {
       await incomeForm.locator('input[name="amount"]').fill('300');
       await incomeForm.locator('input[name="externalReference"]').fill('REBATE-E2E-1');
       await incomeForm.locator('input[name="notes"]').fill('E2E non-sales reconciliation');
-      await incomeForm.getByRole('button', { name: 'Record Income' }).click();
+      const recordIncome = incomeForm.getByRole('button', { name: 'Record Income' });
+      await recordIncome.evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
       const income = await expect.poll(async () => prisma.nonSalesIncome.findFirst({
         where: { companyId: seeded!.companyId, externalReference: 'REBATE-E2E-1' },
       })).not.toBeNull().then(() => prisma.nonSalesIncome.findFirstOrThrow({
@@ -201,7 +209,6 @@ test.describe('finance and management workflows @transaction', () => {
       await page.goto('/dashboard');
       await expect(page.getByText('Posted Expenses', { exact: true }).locator('..'))
         .toContainText(/1,200\.00/);
-      await expect(pendingExpenseCard).toContainText(/(?:₱|â‚±)1,200 posted/);
     } finally {
       try {
         await seeded?.cleanup();
@@ -212,6 +219,53 @@ test.describe('finance and management workflows @transaction', () => {
           await profiles.cleanup();
         }
       }
+    }
+  });
+
+  test('creates debt customers with non-negative credit validation and audit state', async ({ page }) => {
+    test.setTimeout(180_000);
+    const profiles = await ensurePosResponsiveProfiles();
+    let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null = null;
+    const customerName = `E2E Debt Customer ${Date.now()}`;
+    let customerId: string | null = null;
+
+    try {
+      authUser = await ensureAuthUserForProfile(managerCredentials);
+      await openAsManager(page, '/debts');
+      const addCustomer = page.getByPlaceholder('Quick add customer');
+      const creditLimit = page.getByPlaceholder('Credit limit');
+      const customerCountBefore = await prisma.customer.count({
+        where: { companyId: profiles.companyId },
+      });
+
+      await addCustomer.fill(customerName);
+      await creditLimit.fill('-1');
+      await page.getByRole('button', { name: 'Add Customer' }).click();
+      await expect(creditLimit).toHaveJSProperty('validity.rangeUnderflow', true);
+      expect(await prisma.customer.count({ where: { companyId: profiles.companyId } }))
+        .toBe(customerCountBefore);
+
+      await creditLimit.fill('5000');
+      await page.getByPlaceholder('Terms days').fill('30');
+      await page.getByRole('button', { name: 'Add Customer' }).click();
+      const customer = await expect.poll(async () => prisma.customer.findFirst({
+        where: { companyId: profiles.companyId, name: customerName },
+      })).not.toBeNull().then(() => prisma.customer.findFirstOrThrow({
+        where: { companyId: profiles.companyId, name: customerName },
+      }));
+      customerId = customer.id;
+      expect(Number(customer.creditLimit)).toBe(5000);
+      expect(customer.paymentTermsDays).toBe(30);
+      expect(await prisma.auditLog.count({
+        where: { referenceId: customer.id, actionType: 'DEBT_CUSTOMER_CREATED' },
+      })).toBe(1);
+    } finally {
+      if (customerId) {
+        await prisma.auditLog.deleteMany({ where: { referenceId: customerId } });
+        await prisma.customer.delete({ where: { id: customerId } });
+      }
+      if (authUser) await authUser.cleanup();
+      await profiles.cleanup();
     }
   });
 

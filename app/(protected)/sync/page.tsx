@@ -132,6 +132,7 @@ export default async function SyncCenterPage({
               action={transitionSyncIssueAction}
               className="flex min-w-52 flex-wrap gap-1"
             >
+              <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
               <input type="hidden" name="issueId" value={item.id} />
               <Input
                 name="notes"

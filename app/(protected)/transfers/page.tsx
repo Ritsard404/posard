@@ -47,6 +47,7 @@ export default async function TransfersPage({ searchParams }: TransfersPageProps
           label: "Actions",
           value: (item) => (
             <form action={transitionTransferAction} className="flex flex-wrap gap-1">
+              <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
               <input type="hidden" name="transferId" value={item.id} />
               {item.status === "pending_approval" ? <Button size="sm" name="action" value="approve">Approve</Button> : null}
               {item.status === "approved" ? <Button size="sm" name="action" value="dispatch">Dispatch</Button> : null}

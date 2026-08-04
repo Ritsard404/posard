@@ -62,6 +62,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
           value: (item) => (
             <div className="space-y-2">
               <form action={transitionPurchaseOrderAction} className="flex flex-wrap gap-1">
+                <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
                 <input type="hidden" name="purchaseOrderId" value={item.id} />
                 {item.status === "draft" ? <Button size="sm" name="action" value="submit">Submit</Button> : null}
                 {item.status === "submitted" ? <Button size="sm" name="action" value="approve">Approve</Button> : null}
@@ -70,6 +71,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
               </form>
               {["approved", "ordered", "partially_received"].includes(item.status) && item.items[0] ? (
                 <form action={receivePurchaseOrderAction} className="flex flex-wrap gap-1">
+                  <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
                   <input type="hidden" name="purchaseOrderId" value={item.id} />
                   <input type="hidden" name="purchaseOrderItemId" value={item.items[0].id} />
                   <Input name="quantityReceived" type="number" min="0.0001" step="0.0001" placeholder="Qty" className="h-8 w-20" />

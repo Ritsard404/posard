@@ -124,6 +124,7 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
               action={transitionKitchenTicketAction}
               className="flex min-w-56 flex-wrap gap-1"
             >
+              <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
               <input type="hidden" name="ticketId" value={item.id} />
               <Input
                 name="notes"

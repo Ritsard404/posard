@@ -69,6 +69,12 @@ test('records warm critical-route performance baselines @performance', async ({ 
     const enforceProductionBudgets =
       process.env.PLAYWRIGHT_WEB_SERVER_COMMAND?.includes('npm run start') === true;
     for (const path of ['/auth/login', '/dashboard', '/pos', '/product', '/reports']) {
+      // Measure the public login route as an unauthenticated visitor. An
+      // authenticated page is redirected away from /auth/login, which would
+      // incorrectly measure a protected dashboard navigation as login.
+      if (path === '/auth/login') {
+        await page.context().clearCookies();
+      }
       for (const phase of ['first-run', 'warm'] as const) {
         let requestCount = 0;
         let transferredBytes = 0;
@@ -140,6 +146,9 @@ test('records warm critical-route performance baselines @performance', async ({ 
           expect(metrics.longestTaskMs, `${path} warm production longest task`).toBeLessThanOrEqual(200);
         }
       }
+      if (path === '/auth/login') {
+        await authenticatePageWithCredentials(page, managerCredentials);
+      }
     }
 
     await test.info().attach('critical-route-performance.json', {
@@ -147,6 +156,104 @@ test('records warm critical-route performance baselines @performance', async ({ 
       contentType: 'application/json',
     });
     console.info(`PERFORMANCE_BASELINE ${JSON.stringify(results)}`);
+  } finally {
+    if (authUser) await authUser.cleanup();
+    await profiles.cleanup();
+  }
+});
+
+test('audits operational-route request and DOM budgets @performance', async ({ page }) => {
+  test.setTimeout(240_000);
+  const profiles = await ensurePosResponsiveProfiles();
+  let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null = null;
+
+  try {
+    authUser = await ensureAuthUserForProfile(managerCredentials);
+    await authenticatePageWithCredentials(page, managerCredentials);
+    const paths = [
+      '/customers',
+      '/debts',
+      '/expenses',
+      '/inventory-ledger',
+      '/purchase-orders',
+      '/transfers',
+      '/promotions',
+      '/kitchen',
+      '/sync',
+    ];
+    const results = [] as Array<{
+      path: string;
+      navigationMs: number;
+      requestCount: number;
+      transferredBytes: number;
+      domNodeCount: number;
+      heapGrowthBytes: number | null;
+      duplicateMutationRequests: string[];
+    }>;
+
+    const heapBefore = await page.evaluate(() => {
+      const memory = (performance as Performance & {
+        memory?: { usedJSHeapSize: number };
+      }).memory;
+      return memory?.usedJSHeapSize ?? null;
+    });
+
+    for (const path of paths) {
+      let requestCount = 0;
+      let transferredBytes = 0;
+      const mutations = new Map<string, number>();
+      const onResponse = (response: import('@playwright/test').Response) => {
+        requestCount += 1;
+        transferredBytes += Number(response.headers()['content-length'] ?? 0);
+        const method = response.request().method();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+          const key = `${method} ${new URL(response.url()).pathname}`;
+          mutations.set(key, (mutations.get(key) ?? 0) + 1);
+        }
+      };
+      page.on('response', onResponse);
+      const startedAt = Date.now();
+      await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      await page.waitForLoadState('load', { timeout: 30_000 }).catch(() => undefined);
+      await page.evaluate(() => new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ));
+      const domNodeCount = await page.locator('body *').count();
+      const heapAfter = await page.evaluate(() => {
+        const memory = (performance as Performance & {
+          memory?: { usedJSHeapSize: number };
+        }).memory;
+        return memory?.usedJSHeapSize ?? null;
+      });
+      page.off('response', onResponse);
+      const duplicateMutationRequests = Array.from(mutations.entries())
+        .filter(([, count]) => count > 1)
+        .map(([key, count]) => `${key} x${count}`);
+      const result = {
+        path,
+        navigationMs: Date.now() - startedAt,
+        requestCount,
+        transferredBytes,
+        domNodeCount,
+        heapGrowthBytes:
+          heapBefore !== null && heapAfter !== null ? heapAfter - heapBefore : null,
+        duplicateMutationRequests,
+      };
+      results.push(result);
+      expect(result.requestCount, `${path} request count`).toBeLessThan(100);
+      expect(result.transferredBytes, `${path} transferred bytes`).toBeLessThan(10 * 1024 * 1024);
+      expect(result.domNodeCount, `${path} DOM nodes`).toBeLessThan(10_000);
+      if (result.heapGrowthBytes !== null) {
+        expect(result.heapGrowthBytes, `${path} cumulative heap growth`).toBeLessThan(50 * 1024 * 1024);
+      }
+      expect(result.duplicateMutationRequests, `${path} duplicate mutations`).toEqual([]);
+    }
+
+    await test.info().attach('operational-route-performance.json', {
+      body: Buffer.from(JSON.stringify(results, null, 2)),
+      contentType: 'application/json',
+    });
+    console.info(`OPERATIONAL_ROUTE_PERFORMANCE ${JSON.stringify(results)}`);
   } finally {
     if (authUser) await authUser.cleanup();
     await profiles.cleanup();
@@ -236,6 +343,19 @@ test('keeps representative sales reports within the performance budget @performa
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
     await expect(page.getByText(/#000000700\d{3}/).first()).toBeVisible({ timeout: 30_000 });
     const navigationMs = Date.now() - warmStartedAt;
+    const warmResourceTimings = await page.evaluate(() =>
+      performance
+        .getEntriesByType('resource')
+        .map((entry) => ({
+          name: entry.name,
+          duration: Math.round(entry.duration),
+          transferSize: (entry as PerformanceResourceTiming).transferSize,
+        }))
+        .filter((entry) => entry.duration >= 250)
+        .sort((a, b) => b.duration - a.duration)
+        .slice(0, 10),
+    );
+    console.info(`REPORT_RESOURCE_TIMINGS ${JSON.stringify(warmResourceTimings)}`);
     page.off('request', onRequest);
 
     const duplicateRequests = Array.from(requests.entries())
@@ -247,7 +367,7 @@ test('keeps representative sales reports within the performance budget @performa
     );
     expect(duplicateRequests, 'duplicate report navigation requests').toEqual([]);
     await test.info().attach('representative-report-performance.json', {
-      body: Buffer.from(JSON.stringify({ invoiceCount: 500, coldNavigationMs, warmNavigationMs: navigationMs, requests: Object.fromEntries(requests) }, null, 2)),
+      body: Buffer.from(JSON.stringify({ invoiceCount: 500, coldNavigationMs, warmNavigationMs: navigationMs, requests: Object.fromEntries(requests), warmResourceTimings }, null, 2)),
       contentType: 'application/json',
     });
   } finally {

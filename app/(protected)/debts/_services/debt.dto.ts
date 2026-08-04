@@ -13,6 +13,7 @@ export const createCustomerSchema = z.object({
 
 export const recordDebtPaymentSchema = z.object({
   debtId: z.string().uuid(),
+  idempotencyKey: z.string().uuid(),
   amount: z.coerce.number().positive("Amount must be greater than zero"),
   method: z.string().trim().min(1, "Payment method is required"),
   referenceNo: z.string().trim().optional().nullable(),

@@ -1677,6 +1677,7 @@ model Invoice {
   @@index([posTerminalId])
   @@index([branchId])
   @@index([posTerminalId, status, createdAt])
+  @@index([posTerminalId, createdAt])
   @@index([cashierId])
   @@index([cashierId, createdAt])
   @@index([customerId, createdAt])
@@ -1779,6 +1780,7 @@ model CustomerDebtPayment {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
   debtId       String  @map("debt_id") @db.Uuid
+  idempotencyKey String? @unique @map("idempotency_key") @db.Uuid
   companyId    String  @map("company_id") @db.Uuid
   terminalId   String? @map("terminal_id") @db.Uuid
   timestampId  String? @map("timestamp_id") @db.Uuid
@@ -2220,6 +2222,7 @@ model ExpenseCategory {
 model Expense {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
+  idempotencyKey   String?          @unique @map("idempotency_key") @db.Uuid
   referenceNumber String           @unique @map("reference_number")
   companyId       String           @map("company_id") @db.Uuid
   company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -2251,6 +2254,7 @@ model Expense {
 model NonSalesIncome {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_non_sales_income") @db.Uuid
 
+  idempotencyKey  String?          @unique @map("idempotency_key") @db.Uuid
   referenceNumber String           @unique @map("reference_number")
   companyId       String           @map("company_id") @db.Uuid
   company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -2313,6 +2317,64 @@ model StockMovement {
   @@schema("public")
 }
 
+model CashWithdrawalRequest {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey String   @unique @map("idempotency_key") @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  timestampId    String   @map("timestamp_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([companyId, timestampId])
+  @@map("cash_withdrawal_request")
+  @@schema("public")
+}
+
+model PosSessionOpenRequest {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey String   @unique @map("idempotency_key") @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  terminalId     String   @map("terminal_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([companyId, terminalId])
+  @@map("pos_session_open_request")
+  @@schema("public")
+}
+
+model PosSessionCloseRequest {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey String   @unique @map("idempotency_key") @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  timestampId    String   @map("timestamp_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([companyId, timestampId])
+  @@map("pos_session_close_request")
+  @@schema("public")
+}
+
+model StockAdjustmentRequest {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey String   @unique @map("idempotency_key") @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([companyId, createdAt])
+  @@map("stock_adjustment_request")
+  @@schema("public")
+}
+
+model StockDispositionRequest {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey String   @unique @map("idempotency_key") @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([companyId, createdAt])
+  @@map("stock_disposition_request")
+  @@schema("public")
+}
+
 model Supplier {
   id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   companyId         String            @map("company_id") @db.Uuid
@@ -2338,6 +2400,7 @@ model Supplier {
 
 model PurchaseOrder {
   id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey   String?             @unique @map("idempotency_key") @db.Uuid
   poNumber         String              @unique @map("po_number")
   companyId        String              @map("company_id") @db.Uuid
   company          Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -2361,6 +2424,20 @@ model PurchaseOrder {
   @@schema("public")
 }
 
+model WorkflowMutationRequest {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey String   @unique @map("idempotency_key") @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id") @db.Uuid
+  action         String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([companyId, entityType, entityId])
+  @@map("workflow_mutation_request")
+  @@schema("public")
+}
+
 model PurchaseOrderItem {
   id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   purchaseOrderId  String        @map("purchase_order_id") @db.Uuid
@@ -2379,6 +2456,7 @@ model PurchaseOrderItem {
 
 model ReceivingRecord {
   id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey  String?         @unique @map("idempotency_key") @db.Uuid
   receivingNumber String          @unique @map("receiving_number")
   companyId       String          @map("company_id") @db.Uuid
   company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -2455,6 +2533,7 @@ model StockLot {
 
 model StockCountSession {
   id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey String?         @unique @map("idempotency_key") @db.Uuid
   countNumber   String           @unique @map("count_number")
   companyId     String           @map("company_id") @db.Uuid
   company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -2507,6 +2586,7 @@ model StockCountItem {
 
 model BranchTransfer {
   id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey        String?              @unique @map("idempotency_key") @db.Uuid
   transferNumber        String               @unique @map("transfer_number")
   companyId             String               @map("company_id") @db.Uuid
   company               Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -2617,6 +2697,7 @@ model ServiceBooking {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_service_booking") @db.Uuid
 
   bookingNumber    String           @unique @map("booking_number")
+  idempotencyKey   String?          @unique @map("idempotency_key") @db.Uuid
   companyId        String           @map("company_id") @db.Uuid
   company          Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   terminalId       String?          @map("terminal_id") @db.Uuid
@@ -2656,6 +2737,7 @@ model RepairJob {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_repair_job") @db.Uuid
 
   jobNumber           String           @unique @map("job_number")
+  idempotencyKey      String?          @unique @map("idempotency_key") @db.Uuid
   companyId           String           @map("company_id") @db.Uuid
   company             Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   terminalId          String?          @map("terminal_id") @db.Uuid
@@ -2728,6 +2810,7 @@ model SalesOrder {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_sales_order") @db.Uuid
 
   orderNumber String           @unique @map("order_number")
+  idempotencyKey String?       @unique @map("idempotency_key") @db.Uuid
   companyId   String           @map("company_id") @db.Uuid
   company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   terminalId  String?          @map("terminal_id") @db.Uuid
@@ -2939,6 +3022,7 @@ model PosOpenTicket {
 model PrescriptionVerification {
   id String @id @default(dbgenerated("gen_random_uuid()")) @map("uuid_prescription_verification") @db.Uuid
 
+  idempotencyKey String? @unique @map("idempotency_key") @db.Uuid
   companyId    String           @map("company_id") @db.Uuid
   company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   terminalId   String?          @map("terminal_id") @db.Uuid

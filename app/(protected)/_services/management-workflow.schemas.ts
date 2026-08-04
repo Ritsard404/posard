@@ -10,6 +10,7 @@ const safeText = z
 const optionalText = safeText.optional().transform((value) => value || null);
 
 export const stockAdjustmentSchema = z.object({
+  idempotencyKey: uuid,
   productId: uuid,
   terminalId: uuid.optional().or(z.literal("")).transform((value) => value || null),
   direction: z.enum(["increase", "decrease"]),
@@ -19,6 +20,7 @@ export const stockAdjustmentSchema = z.object({
 });
 
 export const stockCountCreateSchema = z.object({
+  idempotencyKey: uuid,
   productId: uuid.optional().or(z.literal("")).transform((value) => value || null),
   productBarcode: optionalText,
   stockLotId: uuid.optional().or(z.literal("")).transform((value) => value || null),
@@ -39,6 +41,7 @@ export const stockCountTransitionSchema = z.object({
 });
 
 export const stockDispositionSchema = z.object({
+  idempotencyKey: uuid,
   productId: uuid.optional().or(z.literal("")).transform((value) => value || null),
   productBarcode: optionalText,
   stockLotId: uuid.optional().or(z.literal("")).transform((value) => value || null),
@@ -52,6 +55,7 @@ export const stockDispositionSchema = z.object({
 });
 
 export const expenseCreateSchema = z.object({
+  idempotencyKey: uuid,
   categoryId: uuid,
   terminalId: uuid.optional().or(z.literal("")).transform((value) => value || null),
   expenseDate: z.coerce.date(),
@@ -60,6 +64,7 @@ export const expenseCreateSchema = z.object({
 });
 
 export const nonSalesIncomeCreateSchema = z.object({
+  idempotencyKey: uuid,
   source: safeText.min(2).max(120),
   terminalId: uuid.optional().or(z.literal("")).transform((value) => value || null),
   incomeDate: z.coerce.date(),
@@ -69,12 +74,14 @@ export const nonSalesIncomeCreateSchema = z.object({
 });
 
 export const expenseTransitionSchema = z.object({
+  idempotencyKey: uuid,
   expenseId: uuid,
   action: z.enum(["submit", "approve", "reject", "cancel", "post"]),
   reason: optionalText,
 });
 
 export const supplierUpsertSchema = z.object({
+  idempotencyKey: uuid,
   supplierId: uuid.optional().or(z.literal("")).transform((value) => value || null),
   name: safeText.min(2).max(160),
   contactName: optionalText,
@@ -85,10 +92,12 @@ export const supplierUpsertSchema = z.object({
 });
 
 export const supplierArchiveSchema = z.object({
+  idempotencyKey: uuid,
   supplierId: uuid,
 });
 
 export const purchaseOrderCreateSchema = z.object({
+  idempotencyKey: uuid,
   supplierId: uuid,
   expectedAt: z.coerce.date().optional().or(z.literal("")).transform((value) => value || null),
   notes: optionalText,
@@ -98,11 +107,13 @@ export const purchaseOrderCreateSchema = z.object({
 });
 
 export const purchaseOrderTransitionSchema = z.object({
+  idempotencyKey: uuid,
   purchaseOrderId: uuid,
   action: z.enum(["submit", "approve", "mark_ordered", "cancel", "close"]),
 });
 
 export const purchaseOrderReceiveSchema = z.object({
+  idempotencyKey: uuid,
   purchaseOrderId: uuid,
   purchaseOrderItemId: uuid,
   quantityReceived: positiveNumber,
@@ -113,6 +124,7 @@ export const purchaseOrderReceiveSchema = z.object({
 });
 
 export const transferCreateSchema = z.object({
+  idempotencyKey: uuid,
   sourceTerminalId: uuid,
   destinationTerminalId: uuid,
   notes: optionalText,
@@ -124,6 +136,7 @@ export const transferCreateSchema = z.object({
 });
 
 export const transferTransitionSchema = z.object({
+  idempotencyKey: uuid,
   transferId: uuid,
   action: z.enum(["submit", "approve", "dispatch", "receive", "cancel"]),
   receivedQuantity: z.coerce.number().min(0).optional(),
@@ -131,6 +144,7 @@ export const transferTransitionSchema = z.object({
 });
 
 export const promotionCreateSchema = z.object({
+  idempotencyKey: uuid,
   name: safeText.min(2).max(160),
   promotionType: z.enum(["fixed_amount", "percentage", "item_level", "order_level", "buy_x_get_y", "bundle_price", "quantity_threshold"]),
   value: z.coerce.number().min(0),
@@ -142,17 +156,20 @@ export const promotionCreateSchema = z.object({
 });
 
 export const promotionTransitionSchema = z.object({
+  idempotencyKey: uuid,
   promotionId: uuid,
   action: z.enum(["activate", "pause", "archive", "duplicate"]),
 });
 
 export const kitchenTicketTransitionSchema = z.object({
+  idempotencyKey: uuid,
   ticketId: uuid,
   action: z.enum(["start", "ready", "served", "cancel"]),
   notes: optionalText,
 });
 
 export const syncIssueTransitionSchema = z.object({
+  idempotencyKey: uuid,
   issueId: uuid,
   action: z.enum(["retry", "review", "resolve", "dismiss"]),
   notes: optionalText,

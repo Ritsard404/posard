@@ -74,6 +74,7 @@ export const sessionMutationService = {
     managerPin: string,
     openingCash: number,
     deviceId: string | null,
+    idempotencyKey: string,
   ) {
     await assertTerminalBillingAllowsPos(actor.companyId, terminalId);
 
@@ -137,6 +138,19 @@ export const sessionMutationService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      const existingRequest = await tx.posSessionOpenRequest.findUnique({
+        where: { idempotencyKey },
+        select: { companyId: true },
+      });
+      if (existingRequest) {
+        if (existingRequest.companyId !== actor.companyId) {
+          throw new Error("Session opening belongs to another company.");
+        }
+        throw new Error("This session opening was already submitted.");
+      }
+      await tx.posSessionOpenRequest.create({
+        data: { idempotencyKey, companyId: actor.companyId, terminalId: terminal.id },
+      });
       const timestamp = await tx.timestamp.create({
         data: {
           posTerminalId: terminal.id,
@@ -206,6 +220,7 @@ export const sessionMutationService = {
     amount: number,
     approverProfileId: string | null,
     reason: string,
+    idempotencyKey: string,
   ) {
     const timestampForBilling = await prisma.timestamp.findUnique({
       where: { id: timestampId },
@@ -250,6 +265,19 @@ export const sessionMutationService = {
     }
 
     await prisma.$transaction(async (tx) => {
+      const existingRequest = await tx.cashWithdrawalRequest.findUnique({
+        where: { idempotencyKey },
+        select: { companyId: true },
+      });
+      if (existingRequest) {
+        if (existingRequest.companyId !== actor.companyId) {
+          throw new Error("Cash withdrawal belongs to another company.");
+        }
+        return;
+      }
+      await tx.cashWithdrawalRequest.create({
+        data: { idempotencyKey, companyId: actor.companyId, timestampId },
+      });
       const reportData =
         await posReportService.getTimestampCashTrack(timestampId);
       if (amount > reportData.expectedDrawerAmount) {
@@ -289,6 +317,7 @@ export const sessionMutationService = {
     timestampId: string,
     countedCash: number,
     approverProfileId: string | null,
+    idempotencyKey: string,
   ) {
     const timestampForBilling = await prisma.timestamp.findUnique({
       where: { id: timestampId },
@@ -323,6 +352,19 @@ export const sessionMutationService = {
     const variance = countedCash - expectedCash;
 
     await prisma.$transaction(async (tx) => {
+      const existingRequest = await tx.posSessionCloseRequest.findUnique({
+        where: { idempotencyKey },
+        select: { companyId: true },
+      });
+      if (existingRequest) {
+        if (existingRequest.companyId !== actor.companyId) {
+          throw new Error("Session close belongs to another company.");
+        }
+        return;
+      }
+      await tx.posSessionCloseRequest.create({
+        data: { idempotencyKey, companyId: actor.companyId, timestampId },
+      });
       await tx.$queryRaw`
         SELECT uuid_timestamp
         FROM public."timestamp"

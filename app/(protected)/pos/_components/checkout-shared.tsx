@@ -43,6 +43,54 @@ import type { EPaymentMethodDto } from "../_services/_dto/pos.dto";
 import { StorageImage } from "@/components/storage/StorageImage";
 import { calculatePayment } from "../_services/payment-calculation.service";
 import { formatInvoiceNumber } from "../_services/print-format.service";
+
+export function preventPendingCheckoutNavigation(event: MouseEvent) {
+  if (event.defaultPrevented || event.button !== 0) return;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const link = target.closest("a[href]");
+  if (!link || link.getAttribute("target") === "_blank") return;
+
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+const pendingCheckoutHistoryMarker = "posard.pending-checkout";
+
+function installPendingCheckoutNavigationGuards() {
+  const preventPendingCheckoutUnload = (event: BeforeUnloadEvent) => {
+    event.preventDefault();
+    event.returnValue = "";
+  };
+  const preventPendingCheckoutHistoryNavigation = () => {
+    window.history.go(1);
+    toast.warning("Checkout is still processing. Please wait for it to finish.");
+  };
+
+  window.addEventListener("beforeunload", preventPendingCheckoutUnload);
+  document.addEventListener("click", preventPendingCheckoutNavigation, true);
+  window.history.pushState(
+    { ...(window.history.state ?? {}), [pendingCheckoutHistoryMarker]: true },
+    "",
+    window.location.href,
+  );
+  window.addEventListener("popstate", preventPendingCheckoutHistoryNavigation);
+
+  return () => {
+    window.removeEventListener("beforeunload", preventPendingCheckoutUnload);
+    document.removeEventListener(
+      "click",
+      preventPendingCheckoutNavigation,
+      true,
+    );
+    window.removeEventListener("popstate", preventPendingCheckoutHistoryNavigation);
+    if (window.history.state?.[pendingCheckoutHistoryMarker]) {
+      window.history.back();
+    }
+  };
+}
 import { receiptPrintService } from "../_services/receipt-print.service";
 import { ReceiptPrintControls } from "./ReceiptPrintControls";
 import { printReceipt } from "@/src/lib/capacitor/printer-bridge";
@@ -132,7 +180,10 @@ function scheduleCheckoutBackgroundSync(delayMs = 2000) {
               : "Queue is up to date.",
         });
         const retryDelay = getQueuedRetryDelay(queue);
-        if (navigator.onLine && retryDelay !== null) {
+        // The browser connectivity flag can lag the actual transport state.
+        // Keep retrying while the queue has eligible work; failed fetches are
+        // already converted into retryable queue state by syncOfflineActions.
+        if (retryDelay !== null) {
           scheduleCheckoutBackgroundSync(retryDelay);
         }
       })
@@ -146,7 +197,7 @@ function scheduleCheckoutBackgroundSync(delayMs = 2000) {
             error instanceof Error ? error.message : "Background sync failed.",
         });
         const retryDelay = getQueuedRetryDelay(queue);
-        if (navigator.onLine && retryDelay !== null) {
+        if (retryDelay !== null) {
           scheduleCheckoutBackgroundSync(retryDelay);
         }
       });
@@ -294,6 +345,7 @@ export function usePOSCheckoutFlow(
   const [step, setStep] = useState<"PAYMENT" | "RECEIPT">("PAYMENT");
   const [isProcessing, setIsProcessing] = useState(false);
   const processingRef = useRef(false);
+  const pendingNavigationCleanupRef = useRef<(() => void) | null>(null);
   const checkoutIdempotencyKeyRef = useRef<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptDto | null>(null);
   const [settlementMode, setSettlementMode] = useState<"pay_now" | "debt">(
@@ -507,21 +559,6 @@ export function usePOSCheckoutFlow(
     }
   };
 
-  useEffect(() => {
-    if (!isProcessing) {
-      return;
-    }
-
-    const preventPendingCheckoutUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", preventPendingCheckoutUnload);
-    return () =>
-      window.removeEventListener("beforeunload", preventPendingCheckoutUnload);
-  }, [isProcessing]);
-
   const requiresManagerApprovalForCheckout =
     discount.type !== "NONE" ||
     (settlementMode === "debt" &&
@@ -563,10 +600,17 @@ export function usePOSCheckoutFlow(
     }
 
     processingRef.current = true;
+    pendingNavigationCleanupRef.current = installPendingCheckoutNavigationGuards();
     setIsProcessing(true);
     const checkoutStartedAt = performance.now();
 
     try {
+      if (process.env.NODE_ENV !== "production") {
+        const holdMs = (window as Window & { __POSARD_TEST_HOLD_CHECKOUT_MS?: number }).__POSARD_TEST_HOLD_CHECKOUT_MS;
+        if (holdMs && holdMs > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, holdMs));
+        }
+      }
       let debtCustomerId = selectedDebtCustomerId;
       if (
         settlementMode === "debt" &&
@@ -853,9 +897,14 @@ export function usePOSCheckoutFlow(
         //     ? "Receipt is ready. Sync will run in the background."
         //     : "It will sync automatically when the device reconnects.",
         // });
-        if (isOnline) {
-          scheduleCheckoutBackgroundSync();
+        // Always schedule a foreground replay. The online snapshot can lag the
+        // browser's actual connectivity at commit time; syncOfflineActions
+        // already records a retryable failure when the device is genuinely
+        // offline, while skipping this timer can strand an online sale in Dexie.
+        if (navigator.onLine) {
+          void syncOfflineActions().catch(() => undefined);
         }
+        scheduleCheckoutBackgroundSync();
         return;
       } catch (error) {
         const message =
@@ -875,6 +924,8 @@ export function usePOSCheckoutFlow(
         return;
       }
     } finally {
+      pendingNavigationCleanupRef.current?.();
+      pendingNavigationCleanupRef.current = null;
       processingRef.current = false;
       setIsProcessing(false);
     }

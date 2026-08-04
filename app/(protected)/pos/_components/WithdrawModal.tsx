@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2, ShieldCheck, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -51,6 +51,7 @@ export function WithdrawModal({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [availableCash, setAvailableCash] = useState<number | null>(null);
+  const withdrawalIdempotencyKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isOnline) {
@@ -156,6 +157,8 @@ export function WithdrawModal({
         amount,
         pin,
         normalizedReason,
+        withdrawalIdempotencyKeyRef.current ??
+          (withdrawalIdempotencyKeyRef.current = crypto.randomUUID()),
       );
 
       if (!result.success) {
@@ -163,6 +166,7 @@ export function WithdrawModal({
       }
 
       toast.success("Cash withdrawn successfully");
+      withdrawalIdempotencyKeyRef.current = null;
       try {
         const reportResult = await getSessionCashTrackAction(timestampId);
         if (reportResult.success && reportResult.data) {

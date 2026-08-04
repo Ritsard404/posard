@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,7 @@ export function OpenSessionModal({
   const [openingCash, setOpeningCash] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const openSessionIdempotencyKeyRef = useRef(crypto.randomUUID());
 
   const handleOpenSession = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +78,7 @@ export function OpenSessionModal({
       managerPin,
       openingCash,
       activeDeviceId,
+      openSessionIdempotencyKeyRef.current,
     );
     setIsLoading(false);
 

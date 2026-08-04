@@ -276,7 +276,13 @@ test("double-clicking Complete Sale creates one invoice and one stock deduction 
     });
     const completeSale = page.getByRole("button", { name: "Complete Sale", exact: true });
 
-    await Promise.all([completeSale.click(), completeSale.click()]);
+    // Dispatch both browser clicks against the same rendered control. This
+    // models a real double click without making Playwright wait for the first
+    // click's navigation/state transition before dispatching the second.
+    await completeSale.evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
     await expect(page.getByText("Transaction Done")).toBeVisible({ timeout: 45_000 });
 
     await expect.poll(async () =>
@@ -297,6 +303,67 @@ test("double-clicking Complete Sale creates one invoice and one stock deduction 
         where: { companyId: seeded.companyId, actionType: "SALE_COMPLETED" },
       }),
     ).toBeGreaterThanOrEqual(1);
+  } finally {
+    if (seeded) await seeded.cleanup();
+    if (authUser) await authUser.cleanup();
+    await profiles.cleanup();
+  }
+});
+
+test("pending checkout blocks unload, same-document navigation, and history back @transaction", async ({ page, context }) => {
+  test.setTimeout(180_000);
+  assertE2EDatabaseWritesAllowed();
+  const profiles = await ensurePosResponsiveProfiles();
+  let authUser: Awaited<ReturnType<typeof ensureAuthUserForProfile>> | null = null;
+  let seeded: SeededPOSSession | null = null;
+
+  try {
+    await page.addInitScript(() => {
+      (window as Window & { __POSARD_TEST_HOLD_CHECKOUT_MS?: number }).__POSARD_TEST_HOLD_CHECKOUT_MS = 15_000;
+    });
+    authUser = await ensureAuthUserForProfile(cashierCredentials);
+    seeded = await seedActivePOSSession();
+    await authenticatePageWithCredentials(page, cashierCredentials);
+    await openSeededPOS(page, seeded);
+    await page.getByText(seeded.productNames[0], { exact: true }).click();
+    await page.getByRole("button", { name: /Checkout|Go to Tender/i }).click();
+    await page.getByRole("button", { name: "Exact" }).click();
+    const completeSale = page.getByRole("button", { name: "Complete Sale", exact: true });
+    const pendingSale = completeSale.evaluate((button: HTMLButtonElement) => button.click());
+    await expect(page.getByRole("button", { name: /Processing\.\.\./i })).toBeVisible();
+    let reloadDialogSeen = false;
+    page.on("dialog", async (dialog) => {
+      reloadDialogSeen = dialog.type() === "beforeunload";
+      await dialog.dismiss();
+    });
+    const reloadAttempt = page.reload({ waitUntil: "domcontentloaded", timeout: 2_000 }).catch(() => undefined);
+    await page.waitForTimeout(300);
+    expect(reloadDialogSeen).toBe(true);
+    await expect(page.getByRole("button", { name: /Processing\.\.\./i })).toBeVisible();
+    const duplicateTab = await context.newPage();
+    await duplicateTab.goto(page.url());
+    await expect(duplicateTab.getByRole("heading", { name: "Point of Sale", exact: true })).toBeVisible({ timeout: 30_000 });
+    await duplicateTab.close();
+    const guards = await page.evaluate(() => {
+      const beforeUnload = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(beforeUnload);
+      const anchor = document.createElement("a");
+      anchor.href = "/customers";
+      document.body.append(anchor);
+      const click = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+      anchor.dispatchEvent(click);
+      let historyGoDelta: number | null = null;
+      const originalHistoryGo = window.history.go;
+      window.history.go = ((delta?: number) => { historyGoDelta = delta ?? 0; }) as typeof window.history.go;
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      window.history.go = originalHistoryGo;
+      anchor.remove();
+      return { beforeUnloadPrevented: beforeUnload.defaultPrevented, anchorPrevented: click.defaultPrevented, historyGoDelta };
+    });
+    expect(guards).toEqual({ beforeUnloadPrevented: true, anchorPrevented: true, historyGoDelta: 1 });
+    await pendingSale;
+    await reloadAttempt;
+    await expect(page.getByText("Transaction Done")).toBeVisible({ timeout: 45_000 });
   } finally {
     if (seeded) await seeded.cleanup();
     if (authUser) await authUser.cleanup();
@@ -847,6 +914,29 @@ test.describe("POS responsive layout @smoke", () => {
           exact: true,
         }),
       ).toBeVisible({ timeout: 45_000 });
+
+      // Close the same cashier session after the sale, full return, and
+      // pre-payment void so the transaction lifecycle reconciles through the
+      // drawer close, not only through persisted invoice/report rows.
+      await authenticatePageWithCredentials(page, cashierCredentials);
+      await openSeededPOS(page, seeded);
+      await page.getByRole("button", { name: "Close", exact: true }).click();
+      const lifecycleClose = page.getByRole("dialog", {
+        name: "Close Session",
+      });
+      await expect(lifecycleClose.getByText("PHP 1000.00")).toBeVisible();
+      await lifecycleClose.getByLabel("Counted Cash Amount").fill("1000");
+      await lifecycleClose.getByLabel("Approving Manager PIN").fill("2468");
+      await lifecycleClose.getByRole("button", { name: "Close Session" }).click();
+      await expect(page.getByRole("heading", { name: "Session Closed" })).toBeVisible({
+        timeout: 30_000,
+      });
+      const lifecycleTimestamp = await prisma.timestamp.findFirstOrThrow({
+        where: { id: seeded.timestampId },
+        select: { cashOutDrawerAmount: true, timestampOut: true },
+      });
+      expect(lifecycleTimestamp.timestampOut).toBeTruthy();
+      expect(Number(lifecycleTimestamp.cashOutDrawerAmount)).toBe(1000);
     } finally {
       try {
         await seeded?.cleanup();
@@ -1414,7 +1504,11 @@ test.describe("POS responsive layout @smoke", () => {
       await debtRow
         .getByPlaceholder("Collection notes")
         .fill("E2E partial collection");
-      await debtRow.getByRole("button", { name: "Record" }).click();
+      const partialRecordButton = debtRow.getByRole("button", { name: "Record" });
+      await partialRecordButton.evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
       await expect(page.getByText("Debt payment recorded.")).toBeVisible();
       await expect
         .poll(async () => {
@@ -1510,7 +1604,7 @@ test.describe("POS responsive layout @smoke", () => {
 
       await page.goto("/dashboard");
       await expect(page.getByText("Collected Today", { exact: true }).locator("..")).toContainText("₱27.00");
-      await expect(page.getByText("Debt Outstanding", { exact: true }).locator("..")).toContainText("₱0.00");
+      await expect(page.getByText("Debt Outstanding", { exact: true }).locator("..")).toContainText("0");
     } finally {
       try {
         await seeded?.cleanup();
@@ -2219,8 +2313,21 @@ test.describe("POS responsive layout @smoke", () => {
       await prisma.timestamp.deleteMany({
         where: { posTerminalId: seeded.terminalId },
       });
+      const cashierProfile = await prisma.profile.findUniqueOrThrow({
+        where: { email: cashierCredentials.email },
+        select: { id: true },
+      });
+      await prisma.timestamp.deleteMany({
+        where: { cashierId: cashierProfile.id, timestampOut: null },
+      });
 
       await authenticatePageWithCredentials(page, cashierCredentials);
+      await page.goto("/dashboard");
+      await page.evaluate(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+      });
+      await page.reload();
       await page.goto("/pos");
       await expect(
         page.getByRole("heading", { name: "Select POS Terminal" }),

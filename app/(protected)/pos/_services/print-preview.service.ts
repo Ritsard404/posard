@@ -28,7 +28,7 @@ function buildMarkup(job: PrintJobDto, autoPrint: boolean) {
     </style>
   </head>
   <body>
-    ${logoUrl ? `<img class="receipt-logo" src="${escapeAttribute(logoUrl)}" alt="Receipt logo" />` : ""}
+    ${logoUrl ? `<img class="receipt-logo" src="${escapeAttribute(logoUrl)}" alt="Receipt logo" width="180" height="96" />` : ""}
     <pre>${escapeHtml(job.previewContent)}</pre>
     ${
       autoPrint

@@ -1,0 +1,920 @@
+
+> dev
+> next dev --webpack --hostname 127.0.0.1 --port 3000
+
+▲ Next.js 16.2.9 (webpack)
+- Local:         http://127.0.0.1:3000
+- Network:       http://127.0.0.1:3000
+- Environments: .env
+✓ Ready in 378ms
+○ (serwist) Serwist is disabled.
+○ (serwist) Serwist is disabled.
+
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '452f131a-99cb-42fd-90e3-5c74bc31c624',
+  reason: 'missing-session',
+  ms: 8
+}
+POSard proxy auth timing {
+  pathname: '/auth/login',
+  correlationId: '2104778c-01c4-4f37-9432-5cded30317fe',
+  reason: 'public',
+  ms: 3
+}
+○ Compiling /auth/login ...
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'a05a208b-cae1-4b99-823b-d4f6720d20e0',
+  reason: 'session-ok',
+  ms: 511
+}
+○ Compiling /customers ...
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Editable%20Customer%201785736717961-u4c3b 200 in 10.7s (next.js: 4.8s, proxy.ts: 859ms, application-code: 5.1s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'c9e90bf3-8bce-4e9d-b396-099c0812fdb7',
+  reason: 'session-ok',
+  ms: 24
+}
+ POST /customers?search=E2E%20Editable%20Customer%201785736717961-u4c3b 200 in 1730ms (next.js: 13ms, proxy.ts: 67ms, application-code: 1650ms)
+  └─ ƒ updateCustomerAction({}) in 1603ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '0faa3584-a92b-4b4b-924f-ad3117f63f3c',
+  reason: 'session-ok',
+  ms: 5
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Editable%20Customer%201785736774324-7oa6i 200 in 2.6s (next.js: 4ms, proxy.ts: 17ms, application-code: 2.6s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '09ecb338-b15e-4cf9-905c-0f3e3e142d3f',
+  reason: 'session-ok',
+  ms: 6
+}
+ POST /customers?search=E2E%20Editable%20Customer%201785736774324-7oa6i 200 in 1268ms (next.js: 9ms, proxy.ts: 36ms, application-code: 1222ms)
+  └─ ƒ updateCustomerAction({}) in 1191ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '3a0056f0-f606-41e1-ac63-471cf26f10c6',
+  reason: 'session-ok',
+  ms: 9
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Updated%20Customer%201785736774324-7oa6i 200 in 2.3s (next.js: 10ms, proxy.ts: 34ms, application-code: 2.2s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '6d2d3dd6-b41b-47b0-9d22-299936b54b21',
+  reason: 'session-ok',
+  ms: 6
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Editable%20Customer%201785736803010-vgz42 200 in 2.9s (next.js: 6ms, proxy.ts: 32ms, application-code: 2.9s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '75fc20af-097f-4b02-b77c-244cdee5f078',
+  reason: 'session-ok',
+  ms: 5
+}
+ POST /customers?search=E2E%20Editable%20Customer%201785736803010-vgz42 200 in 2.1s (next.js: 9ms, proxy.ts: 26ms, application-code: 2.0s)
+  └─ ƒ updateCustomerAction({}) in 2005ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '8e4d304d-1984-44c6-a962-4ba8b1fe882c',
+  reason: 'session-ok',
+  ms: 6
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Updated%20Customer%201785736803010-vgz42 200 in 1890ms (next.js: 29ms, proxy.ts: 25ms, application-code: 1836ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '0184d7e5-4a62-43af-8987-29ba89241bc7',
+  reason: 'session-ok',
+  ms: 8
+}
+ POST /customers?search=E2E%20Updated%20Customer%201785736803010-vgz42 200 in 1599ms (next.js: 12ms, proxy.ts: 33ms, application-code: 1555ms)
+  └─ ƒ recordLoyaltyMutationAction({}) in 1531ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '10a986f3-3dc7-4daa-a5dd-65fe1d0da44f',
+  reason: 'session-ok',
+  ms: 6
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Editable%20Customer%201785736854675-jpvnk 200 in 3.2s (next.js: 5ms, proxy.ts: 23ms, application-code: 3.2s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '061fcbc2-eb4e-4752-b9f1-7ae7c0dbcaba',
+  reason: 'session-ok',
+  ms: 6
+}
+ POST /customers?search=E2E%20Editable%20Customer%201785736854675-jpvnk 200 in 1257ms (next.js: 10ms, proxy.ts: 34ms, application-code: 1214ms)
+  └─ ƒ updateCustomerAction({}) in 1168ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '61d20486-439c-4cd0-a46c-51a317428fa7',
+  reason: 'session-ok',
+  ms: 19
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Updated%20Customer%201785736854675-jpvnk 200 in 1781ms (next.js: 8ms, proxy.ts: 42ms, application-code: 1732ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'f6bfae89-18f1-4913-93d2-3771432d3543',
+  reason: 'session-ok',
+  ms: 9
+}
+ POST /customers?search=E2E%20Updated%20Customer%201785736854675-jpvnk 200 in 2.1s (next.js: 9ms, proxy.ts: 48ms, application-code: 2.1s)
+  └─ ƒ recordLoyaltyMutationAction({}) in 2045ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '4fe2869c-2d16-4736-b2e3-a4fb3c00ac10',
+  reason: 'session-ok',
+  ms: 4
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Updated%20Customer%201785736854675-jpvnk 200 in 1763ms (next.js: 5ms, proxy.ts: 19ms, application-code: 1739ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '835d3eb7-aabd-48ea-8b1c-de3782bb6bd8',
+  reason: 'session-ok',
+  ms: 3
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers 200 in 4.2s (next.js: 8ms, proxy.ts: 20ms, application-code: 4.2s)
+POSard proxy auth timing {
+  pathname: '/customers/new',
+  correlationId: '54850e43-2b60-4d5d-9e12-65f199faaea7',
+  reason: 'session-ok',
+  ms: 3
+}
+ GET /customers/new 404 in 3.8s (next.js: 3.0s, proxy.ts: 19ms, application-code: 730ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'b92043b1-4a45-4b8d-a485-7793d0544523',
+  reason: 'session-ok',
+  ms: 300
+}
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '854495f6-f18b-4624-bb94-c72cf9e4301b',
+  reason: 'session-ok',
+  ms: 8
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers 200 in 3.4s (next.js: 128ms, proxy.ts: 675ms, application-code: 2.6s)
+ GET /customers?page=2 200 in 2.3s (next.js: 10ms, proxy.ts: 61ms, application-code: 2.3s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '92bc20ca-bf6f-486f-bdb5-d83a71cb10f9',
+  reason: 'session-ok',
+  ms: 4
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Loyalty%20Featured%201785736892268-sw54y 200 in 2.3s (next.js: 7ms, proxy.ts: 24ms, application-code: 2.3s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '099063ed-1f56-473b-8c9b-b002db24591b',
+  reason: 'session-ok',
+  ms: 7
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Editable%20Customer%201785736919104-af54q 200 in 2.1s (next.js: 7ms, proxy.ts: 32ms, application-code: 2.1s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '13172910-7af7-43b8-b6bf-a7cd57c3ba87',
+  reason: 'session-ok',
+  ms: 7
+}
+ POST /customers?search=E2E%20Editable%20Customer%201785736919104-af54q 200 in 1256ms (next.js: 9ms, proxy.ts: 26ms, application-code: 1222ms)
+  └─ ƒ updateCustomerAction({}) in 1190ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'c4cda53c-7203-4edd-8493-e23149309bd2',
+  reason: 'session-ok',
+  ms: 7
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Updated%20Customer%201785736919104-af54q 200 in 1913ms (next.js: 8ms, proxy.ts: 23ms, application-code: 1883ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'c321a5ee-92c6-49ca-a14b-4d482043c40a',
+  reason: 'session-ok',
+  ms: 12
+}
+ POST /customers?search=E2E%20Updated%20Customer%201785736919104-af54q 200 in 2.0s (next.js: 9ms, proxy.ts: 73ms, application-code: 1926ms)
+  └─ ƒ recordLoyaltyMutationAction({}) in 1898ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'ceb97ecc-aa71-437f-aa86-86209d10f61e',
+  reason: 'session-ok',
+  ms: 5
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Updated%20Customer%201785736919104-af54q 200 in 2.1s (next.js: 6ms, proxy.ts: 30ms, application-code: 2.1s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '7bbdde01-aaa8-4253-bd23-69f634f5a444',
+  reason: 'session-ok',
+  ms: 10
+}
+○ Compiling /pos ...
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 8.6s (next.js: 5.1s, proxy.ts: 26ms, application-code: 3.5s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '77d425fc-c804-4dfc-bf2b-b1ec03deb9a6',
+  reason: 'session-ok',
+  ms: 1043
+}
+POS bootstrap metrics {
+  companyId: 'b3a9abd0-62eb-4375-bef1-01da226bca0f',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 2502,
+  payloadBytes: 58419
+}
+ GET /api/sync/bootstrap?deviceId=789ffde2-b2d6-43fe-87b1-e2fc3bdd2bfd 200 in 5.9s (next.js: 3.3s, application-code: 2.6s)
+ POST /pos 200 in 6.7s (next.js: 236ms, proxy.ts: 4.0s, application-code: 2.5s)
+  └─ ƒ getCurrentSessionAction() in 1832ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '64a7ebb0-23a1-4b98-8a37-fa321cb5553a',
+  reason: 'session-ok',
+  ms: 8
+}
+ POST /pos 200 in 425ms (next.js: 14ms, proxy.ts: 34ms, application-code: 376ms)
+  └─ ƒ getTerminalsAction() in 333ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'fad9bc33-893a-4bbd-86e5-3f5d98ceec9a',
+  reason: 'session-ok',
+  ms: 6
+}
+ POST /pos 200 in 384ms (next.js: 10ms, proxy.ts: 30ms, application-code: 344ms)
+  └─ ƒ getTerminalsAction() in 317ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'b4bef230-2a17-4d5b-8564-c9102f6c4779',
+  reason: 'session-ok',
+  ms: 40
+}
+ POST /api/sync/actions 500 in 5.0s (next.js: 3.3s, application-code: 1687ms)
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers 200 in 5.9s (next.js: 3.2s, proxy.ts: 63ms, application-code: 2.6s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '5d9691c5-c5b1-41af-9e09-04f5aff40e13',
+  reason: 'session-ok',
+  ms: 8
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 2.9s (next.js: 128ms, proxy.ts: 37ms, application-code: 2.8s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '5cb90139-28cd-481c-978c-b57d74e16a80',
+  reason: 'session-ok',
+  ms: 3
+}
+ POST /pos 200 in 3.5s (next.js: 14ms, proxy.ts: 73ms, application-code: 3.4s)
+  └─ ƒ getCurrentSessionAction() in 2839ms ..//app/(protected)/pos/_actions/session.action.ts
+POS bootstrap metrics {
+  companyId: 'ed225eed-f9ad-47ec-84bf-5a78b1635c27',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 3478,
+  payloadBytes: 58419
+}
+ GET /api/sync/bootstrap?deviceId=35141edc-78e2-4189-a376-a36ff3f27f4a 200 in 3.5s (next.js: 20ms, application-code: 3.5s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'fea67bc4-afa6-4263-8546-9bd0d0e4451f',
+  reason: 'session-ok',
+  ms: 6
+}
+ POST /pos 200 in 586ms (next.js: 11ms, proxy.ts: 29ms, application-code: 546ms)
+  └─ ƒ getTerminalsAction() in 504ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '59e1b931-f322-4da6-ae35-41d9709177bb',
+  reason: 'session-ok',
+  ms: 6
+}
+ POST /pos 200 in 453ms (next.js: 7ms, proxy.ts: 45ms, application-code: 401ms)
+  └─ ƒ getTerminalsAction() in 377ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '1fb353ee-8c71-400b-a076-161003e9d9ce',
+  reason: 'session-ok',
+  ms: 7
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ POST /api/sync/actions 500 in 1865ms (next.js: 8ms, application-code: 1856ms)
+ GET /customers 200 in 1998ms (next.js: 10ms, proxy.ts: 67ms, application-code: 1921ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '476d31b0-f752-43a1-85a9-4e45211a0fae',
+  reason: 'session-ok',
+  ms: 1602
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 5.9s (next.js: 212ms, proxy.ts: 2.1s, application-code: 3.6s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'd623dfc3-9f53-4c59-99b4-99567464ed54',
+  reason: 'session-ok',
+  ms: 1215
+}
+POS bootstrap metrics {
+  companyId: '0bb631d0-2990-4647-a552-2185d0e2c700',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 3348,
+  payloadBytes: 58419
+}
+ GET /api/sync/bootstrap?deviceId=6b754ce3-2f6a-4e34-933b-84b8f2734c20 200 in 6.0s (next.js: 2.6s, application-code: 3.4s)
+ POST /pos 200 in 6.2s (next.js: 174ms, proxy.ts: 3.4s, application-code: 2.6s)
+  └─ ƒ getCurrentSessionAction() in 2091ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '63dfc9b2-3946-4102-9e95-766e229733ab',
+  reason: 'session-ok',
+  ms: 14
+}
+ POST /pos 200 in 400ms (next.js: 13ms, proxy.ts: 35ms, application-code: 351ms)
+  └─ ƒ getTerminalsAction() in 323ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'd61cac33-dcb1-4438-9859-c5218faec893',
+  reason: 'session-ok',
+  ms: 7
+}
+ POST /pos 200 in 412ms (next.js: 14ms, proxy.ts: 28ms, application-code: 371ms)
+  └─ ƒ getTerminalsAction() in 336ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '4c7739ef-7a30-4874-8f04-3677574158cb',
+  reason: 'session-ok',
+  ms: 581
+}
+ POST /api/sync/actions 500 in 5.0s (next.js: 2.8s, application-code: 2.2s)
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers 200 in 6.6s (next.js: 192ms, proxy.ts: 2.9s, application-code: 3.5s)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: 'c2d19b0f-354e-45ed-b76e-072906c75a28',
+  reason: 'public',
+  ms: 11
+}
+ GET / 200 in 3.6s (next.js: 2.2s, proxy.ts: 514ms, application-code: 817ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: '9ddfc8de-a83b-464c-bb28-18edc21ff55c',
+  reason: 'public',
+  ms: 8
+}
+ GET / 200 in 522ms (next.js: 19ms, proxy.ts: 313ms, application-code: 190ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'b807a3f0-9d74-48c9-bcd6-1fa61532e5b9',
+  reason: 'session-ok',
+  ms: 361
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 3.6s (next.js: 66ms, proxy.ts: 373ms, application-code: 3.2s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '81714215-0d08-4afa-b4a0-0252a79310f4',
+  reason: 'session-ok',
+  ms: 1071
+}
+POS bootstrap metrics {
+  companyId: '3ac80c60-193a-499a-8dbb-6553f19b7ab7',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 2688,
+  payloadBytes: 58419
+}
+ GET /api/sync/bootstrap?deviceId=e88bdf7e-1b76-40a8-a783-211041c78288 200 in 6.2s (next.js: 3.4s, application-code: 2.7s)
+ POST /pos 200 in 6.8s (next.js: 272ms, proxy.ts: 4.1s, application-code: 2.4s)
+  └─ ƒ getCurrentSessionAction() in 1812ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'dfa823e7-0597-42b5-b8dc-88b0e1195b4d',
+  reason: 'session-ok',
+  ms: 13
+}
+ POST /pos 200 in 415ms (next.js: 12ms, proxy.ts: 53ms, application-code: 350ms)
+  └─ ƒ getTerminalsAction() in 320ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '4dd99e01-9d23-4f52-839d-87bd75317629',
+  reason: 'session-ok',
+  ms: 7
+}
+ POST /pos 200 in 377ms (next.js: 8ms, proxy.ts: 25ms, application-code: 344ms)
+  └─ ƒ getTerminalsAction() in 314ms ..//app/(protected)/pos/_actions/session.action.ts
+ POST /api/sync/actions 200 in 3.6s (next.js: 3.1s, application-code: 437ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: 'a1e1f1aa-db12-4ebd-b1bc-2d07d4964cf4',
+  reason: 'public',
+  ms: 18
+}
+ GET / 200 in 1285ms (next.js: 196ms, proxy.ts: 363ms, application-code: 726ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: 'da40f5d8-3b5a-45e5-89f6-c2b790e2bfab',
+  reason: 'public',
+  ms: 1
+}
+ GET / 200 in 249ms (next.js: 5ms, proxy.ts: 11ms, application-code: 233ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'ce7630ca-521b-4237-bf6f-c0b1e3980339',
+  reason: 'session-ok',
+  ms: 172
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 3.0s (next.js: 82ms, proxy.ts: 189ms, application-code: 2.7s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '9d4a7fbc-87f8-4ba8-ae18-770b3bdac85e',
+  reason: 'session-ok',
+  ms: 30
+}
+POS bootstrap metrics {
+  companyId: 'cae9dff6-558e-4a49-9e32-9eb82bdf86d1',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 3102,
+  payloadBytes: 58419
+}
+ GET /api/sync/bootstrap?deviceId=a1fda32f-1168-4977-b221-45798b9f7c18 200 in 3.2s (next.js: 22ms, application-code: 3.1s)
+ POST /pos 200 in 3.8s (next.js: 33ms, proxy.ts: 101ms, application-code: 3.7s)
+  └─ ƒ getCurrentSessionAction() in 2949ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '5f0c6c4e-5fbe-4123-92a1-4fb6dc15f18e',
+  reason: 'session-ok',
+  ms: 15
+}
+ POST /pos 200 in 438ms (next.js: 19ms, proxy.ts: 66ms, application-code: 353ms)
+  └─ ƒ getTerminalsAction() in 314ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '686ecb58-644a-49be-97bd-e22d60c4796b',
+  reason: 'session-ok',
+  ms: 7
+}
+ POST /pos 200 in 387ms (next.js: 9ms, proxy.ts: 28ms, application-code: 350ms)
+  └─ ƒ getTerminalsAction() in 320ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '66b3bfb0-aec9-48b5-bc87-4b77cdf80f10',
+  reason: 'session-ok',
+  ms: 8
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 1727ms (next.js: 8ms, proxy.ts: 36ms, application-code: 1682ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '43cc2405-fe4f-49e8-9e93-acc05d319150',
+  reason: 'session-ok',
+  ms: 19
+}
+ POST /api/sync/actions 500 in 2.1s (next.js: 6ms, application-code: 2.1s)
+POS bootstrap metrics {
+  companyId: 'cae9dff6-558e-4a49-9e32-9eb82bdf86d1',
+  mode: 'delta',
+  productCount: 0,
+  categoryCount: 0,
+  durationMs: 2039,
+  payloadBytes: 523
+}
+ GET /api/sync/bootstrap?deviceId=a1fda32f-1168-4977-b221-45798b9f7c18&since=2026-08-03T06%3A16%3A11.506Z 200 in 2.1s (next.js: 6ms, application-code: 2.1s)
+ POST /pos 200 in 2.9s (next.js: 10ms, proxy.ts: 41ms, application-code: 2.8s)
+  └─ ƒ getCurrentSessionAction() in 2801ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '326042ea-c7bf-4039-bd24-7a7e9f9fe669',
+  reason: 'session-ok',
+  ms: 6
+}
+ POST /pos 200 in 438ms (next.js: 9ms, proxy.ts: 30ms, application-code: 400ms)
+  └─ ƒ getTerminalsAction() in 358ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'd678d2ce-b932-48ed-90ee-4f382e59b566',
+  reason: 'session-ok',
+  ms: 5
+}
+ POST /api/sync/actions 200 in 418ms (next.js: 6ms, application-code: 412ms)
+ POST /pos 200 in 365ms (next.js: 9ms, proxy.ts: 22ms, application-code: 334ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: 'f7dfca0a-dd34-4472-9a42-bfe1225eaf40',
+  reason: 'public',
+  ms: 2
+}
+ GET / 200 in 229ms (next.js: 5ms, proxy.ts: 23ms, application-code: 200ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: '99724c01-8f58-46ab-8c01-32f97bb0cafb',
+  reason: 'public',
+  ms: 1
+}
+ GET / 200 in 173ms (next.js: 10ms, proxy.ts: 16ms, application-code: 147ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '14eb419c-569d-4b88-887e-6c1e3748ad48',
+  reason: 'session-ok',
+  ms: 6
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 2.2s (next.js: 3ms, proxy.ts: 21ms, application-code: 2.2s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '526a96ed-1623-48ca-8553-28376b6171c0',
+  reason: 'session-ok',
+  ms: 4
+}
+POS bootstrap metrics {
+  companyId: '4f5c34b5-1f46-49bf-a59a-57f00cd58f77',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 1971,
+  payloadBytes: 58419
+}
+ GET /api/sync/bootstrap?deviceId=057b5cd3-10fa-4633-bef2-2177cf23bbb7 200 in 2.0s (next.js: 5ms, application-code: 1998ms)
+ POST /pos 200 in 2.2s (next.js: 9ms, proxy.ts: 73ms, application-code: 2.1s)
+  └─ ƒ getCurrentSessionAction() in 2061ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '0560aa03-878a-49d7-a997-db46ca577f35',
+  reason: 'session-ok',
+  ms: 14
+}
+ POST /pos 200 in 415ms (next.js: 15ms, proxy.ts: 44ms, application-code: 355ms)
+  └─ ƒ getTerminalsAction() in 322ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'e5165bac-f1d7-4785-95b6-fd6d3acecfe2',
+  reason: 'session-ok',
+  ms: 5
+}
+ POST /pos 200 in 620ms (next.js: 8ms, proxy.ts: 23ms, application-code: 590ms)
+  └─ ƒ getTerminalsAction() in 553ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'cd2aaabb-2cbe-477c-9c26-9bbe875a4769',
+  reason: 'session-ok',
+  ms: 4
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 1927ms (next.js: 8ms, proxy.ts: 23ms, application-code: 1897ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '4f7b766b-c0b2-4d7b-83db-4facb9143a81',
+  reason: 'session-ok',
+  ms: 3
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ POST /api/sync/actions 200 in 2.9s (next.js: 7ms, application-code: 2.9s)
+ GET /customers 200 in 1876ms (next.js: 59ms, proxy.ts: 23ms, application-code: 1794ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: 'c025e704-1b29-4eb3-9f4b-c1fd63ad92e0',
+  reason: 'public',
+  ms: 1
+}
+ GET / 200 in 267ms (next.js: 7ms, proxy.ts: 19ms, application-code: 240ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: '1409b05d-c8e1-4077-9e54-3e10917fb332',
+  reason: 'public',
+  ms: 2
+}
+ GET / 200 in 249ms (next.js: 7ms, proxy.ts: 20ms, application-code: 221ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '4c12c912-a206-4539-a356-1761ba189bb3',
+  reason: 'session-ok',
+  ms: 3
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 2.3s (next.js: 8ms, proxy.ts: 19ms, application-code: 2.3s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '16a20ef8-abc3-4f99-95ca-04437993df28',
+  reason: 'session-ok',
+  ms: 3
+}
+POS bootstrap metrics {
+  companyId: '081b83d8-f6ea-4216-b05e-e816e9e54543',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 1996,
+  payloadBytes: 58419
+}
+ GET /api/sync/bootstrap?deviceId=69a82e1b-ed2e-4bc1-b47d-735ed31e0419 200 in 2.0s (next.js: 6ms, application-code: 2.0s)
+ POST /pos 200 in 2.4s (next.js: 10ms, proxy.ts: 65ms, application-code: 2.4s)
+  └─ ƒ getCurrentSessionAction() in 2320ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'a54b4df7-c09a-4e59-af3f-221391a2dc17',
+  reason: 'session-ok',
+  ms: 4
+}
+ POST /pos 200 in 444ms (next.js: 21ms, proxy.ts: 27ms, application-code: 395ms)
+  └─ ƒ getTerminalsAction() in 354ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'b5f6dab6-8340-4d1a-8012-f9fdba4af036',
+  reason: 'session-ok',
+  ms: 4
+}
+ POST /pos 200 in 403ms (next.js: 11ms, proxy.ts: 31ms, application-code: 361ms)
+  └─ ƒ getTerminalsAction() in 330ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'd3f9b946-4443-4844-b254-40b06eabd4c5',
+  reason: 'session-ok',
+  ms: 4
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 1787ms (next.js: 13ms, proxy.ts: 46ms, application-code: 1728ms)
+ POST /api/sync/actions 500 in 2.8s (next.js: 15ms, application-code: 2.8s)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: '1f5e7a04-ffd2-4f29-9f0a-b9b9aa00b486',
+  reason: 'public',
+  ms: 2
+}
+ GET / 200 in 253ms (next.js: 14ms, proxy.ts: 27ms, application-code: 212ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: '8dc1591a-d7e6-4dbe-bdeb-64a92129772f',
+  reason: 'public',
+  ms: 2
+}
+ GET / 200 in 191ms (next.js: 4ms, proxy.ts: 14ms, application-code: 172ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'b18690d4-2f90-4aea-9577-a66138189264',
+  reason: 'session-ok',
+  ms: 3
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 2.7s (next.js: 8ms, proxy.ts: 19ms, application-code: 2.7s)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '9396a6e6-941a-4ee3-bb8a-cd184232cbe8',
+  reason: 'session-ok',
+  ms: 13
+}
+POS bootstrap metrics {
+  companyId: '1cb31e23-8ef7-4059-aee3-6677956ef31f',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 2028,
+  payloadBytes: 58419
+}
+ GET /api/sync/bootstrap?deviceId=0ade82c8-7c3a-4fe0-b0c4-ea46af89e8b0 200 in 2.1s (next.js: 4ms, application-code: 2.1s)
+ POST /pos 200 in 2.4s (next.js: 16ms, proxy.ts: 53ms, application-code: 2.3s)
+  └─ ƒ getCurrentSessionAction() in 2314ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'ec207980-e182-4c4a-bcef-2a85495975cb',
+  reason: 'session-ok',
+  ms: 17
+}
+ POST /pos 200 in 450ms (next.js: 30ms, proxy.ts: 40ms, application-code: 380ms)
+  └─ ƒ getTerminalsAction() in 344ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'd784b920-1154-4eb9-b8b6-a36b6691ae5e',
+  reason: 'session-ok',
+  ms: 3
+}
+ POST /pos 200 in 600ms (next.js: 10ms, proxy.ts: 22ms, application-code: 569ms)
+  └─ ƒ getTerminalsAction() in 544ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '27cc9ae9-806e-4c7e-8471-bd1f0917ffd2',
+  reason: 'session-ok',
+  ms: 4
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 1846ms (next.js: 9ms, proxy.ts: 23ms, application-code: 1815ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '8f4bef03-dfa4-47ec-adbf-0aa53d02bb56',
+  reason: 'session-ok',
+  ms: 4
+}
+POS bootstrap metrics {
+  companyId: '1cb31e23-8ef7-4059-aee3-6677956ef31f',
+  mode: 'delta',
+  productCount: 0,
+  categoryCount: 0,
+  durationMs: 1913,
+  payloadBytes: 1207
+}
+ GET /api/sync/bootstrap?deviceId=0ade82c8-7c3a-4fe0-b0c4-ea46af89e8b0&since=2026-08-03T06%3A18%3A55.666Z 200 in 1944ms (next.js: 6ms, application-code: 1938ms)
+ POST /pos 200 in 2.4s (next.js: 9ms, proxy.ts: 23ms, application-code: 2.4s)
+  └─ ƒ getCurrentSessionAction() in 2355ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: '8ae499b0-f350-4454-aa7f-6a4c69ab28fa',
+  reason: 'public',
+  ms: 10
+}
+ GET / 200 in 3.0s (next.js: 1844ms, proxy.ts: 528ms, application-code: 627ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: '806131f0-cfd2-44c5-af4d-d1099c471cc7',
+  reason: 'public',
+  ms: 3
+}
+ GET / 200 in 439ms (next.js: 6ms, proxy.ts: 245ms, application-code: 188ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '5fd677d0-a9c9-42a7-a95f-1594014c91b8',
+  reason: 'session-ok',
+  ms: 1412
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers 200 in 6.5s (next.js: 41ms, proxy.ts: 1436ms, application-code: 5.0s)
+POSard proxy auth timing {
+  pathname: '/customers/new',
+  correlationId: 'efc60fb1-f5e7-4d68-ba8e-8005ac75d6de',
+  reason: 'session-ok',
+  ms: 6
+}
+ GET /customers/new 404 in 3.3s (next.js: 2.9s, proxy.ts: 29ms, application-code: 378ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '51f23d9d-b6bd-4008-a6dc-c93b5ed38ed1',
+  reason: 'session-ok',
+  ms: 171
+}
+ GET /customers?page=2 200 in 2.3s (next.js: 66ms, proxy.ts: 534ms, application-code: 1728ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '0b41080d-cd1f-473c-8bbb-a050e75c3fba',
+  reason: 'session-ok',
+  ms: 5
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Loyalty%20Featured%201785738084452-2rhul 200 in 2.4s (next.js: 8ms, proxy.ts: 24ms, application-code: 2.3s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '9960faeb-0796-4616-a357-ab6baad836cb',
+  reason: 'session-ok',
+  ms: 8
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Cashier%20Read%20Only%201785738115578-vd5m0 200 in 2.2s (next.js: 12ms, proxy.ts: 29ms, application-code: 2.2s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '93d6eebc-05a3-46a0-8fcc-222159d747c5',
+  reason: 'session-ok',
+  ms: 6
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Editable%20Customer%201785738124424-ceuga 200 in 2.2s (next.js: 10ms, proxy.ts: 24ms, application-code: 2.2s)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'd2024349-7514-4e18-b03d-71b661cfc098',
+  reason: 'session-ok',
+  ms: 7
+}
+ POST /customers?search=E2E%20Editable%20Customer%201785738124424-ceuga 200 in 1358ms (next.js: 7ms, proxy.ts: 30ms, application-code: 1321ms)
+  └─ ƒ updateCustomerAction({}) in 1282ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: 'b8697195-6f5f-44eb-a189-579244bfeb06',
+  reason: 'session-ok',
+  ms: 5
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Updated%20Customer%201785738124424-ceuga 200 in 1982ms (next.js: 8ms, proxy.ts: 25ms, application-code: 1948ms)
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '2f251475-9d21-4f66-9d2a-512dacfda76c',
+  reason: 'session-ok',
+  ms: 5
+}
+ POST /customers?search=E2E%20Updated%20Customer%201785738124424-ceuga 200 in 1624ms (next.js: 10ms, proxy.ts: 41ms, application-code: 1573ms)
+  └─ ƒ recordLoyaltyMutationAction({}) in 1535ms ..//app/(protected)/customers/_actions/customer.actions.ts
+POSard proxy auth timing {
+  pathname: '/customers',
+  correlationId: '0362a7ad-6400-4278-8aa5-c62a28aecb0f',
+  reason: 'session-ok',
+  ms: 5
+}
+POSard protected auth timing { pathname: '/customers', reason: 'authorized' }
+ GET /customers?search=E2E%20Updated%20Customer%201785738124424-ceuga 200 in 2.1s (next.js: 9ms, proxy.ts: 24ms, application-code: 2.1s)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: '3dda5387-076f-4442-83e7-9490a459cc97',
+  reason: 'public',
+  ms: 3
+}
+ GET / 200 in 287ms (next.js: 27ms, proxy.ts: 24ms, application-code: 236ms)
+POSard proxy auth timing {
+  pathname: '/',
+  correlationId: '6d09551d-6c92-4f30-82a1-1b911814e0e9',
+  reason: 'public',
+  ms: 2
+}
+ GET / 200 in 225ms (next.js: 5ms, proxy.ts: 17ms, application-code: 203ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '7554ccec-0b50-4474-8be3-23cd867dfed4',
+  reason: 'session-ok',
+  ms: 4
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 4.0s (next.js: 104ms, proxy.ts: 18ms, application-code: 3.8s)
+○ Compiling /api/sync/bootstrap ...
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '13c0339b-58c7-4ce3-8710-132e5b998ebe',
+  reason: 'session-ok',
+  ms: 782
+}
+ GET /api/sync/bootstrap?deviceId=d573aefe-6ea7-4b4e-9a92-07c9c53d1c20 200 in 8.0s (next.js: 5.5s, application-code: 2.5s)
+ POST /pos 200 in 9.7s (next.js: 278ms, proxy.ts: 5.9s, application-code: 3.5s)
+  └─ ƒ getCurrentSessionAction() in 2783ms ..//app/(protected)/pos/_actions/session.action.ts
+POS bootstrap metrics {
+  companyId: 'b8582fb6-5948-40f5-a02f-3e22f00eb893',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 4166,
+  payloadBytes: 58419
+}
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '34dbfcaa-c7da-4969-a1a1-84477c8919f2',
+  reason: 'session-ok',
+  ms: 7
+}
+ POST /pos 200 in 554ms (next.js: 9ms, proxy.ts: 29ms, application-code: 516ms)
+  └─ ƒ getTerminalsAction() in 472ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'cbf29d47-bab4-4fbc-bbc6-44bd153ae918',
+  reason: 'session-ok',
+  ms: 6
+}
+POS bootstrap metrics {
+  companyId: 'b8582fb6-5948-40f5-a02f-3e22f00eb893',
+  mode: 'snapshot',
+  productCount: 64,
+  categoryCount: 15,
+  durationMs: 1989,
+  payloadBytes: 58419
+}
+ GET /api/sync/bootstrap?deviceId=d573aefe-6ea7-4b4e-9a92-07c9c53d1c20 200 in 2.0s (next.js: 8ms, application-code: 2.0s)
+ POST /pos 200 in 403ms (next.js: 5ms, proxy.ts: 28ms, application-code: 371ms)
+  └─ ƒ getTerminalsAction() in 342ms ..//app/(protected)/pos/_actions/session.action.ts
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: '8d36ebe2-72d6-4cc1-9941-752df5fa053d',
+  reason: 'session-ok',
+  ms: 4
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 1499ms (next.js: 11ms, proxy.ts: 29ms, application-code: 1459ms)
+POSard proxy auth timing {
+  pathname: '/pos',
+  correlationId: 'af047986-5810-4ee0-9f8d-beca494df6ed',
+  reason: 'session-ok',
+  ms: 4
+}
+POSard protected auth timing { pathname: '/pos', reason: 'authorized' }
+ GET /pos 200 in 2.7s (next.js: 8ms, proxy.ts: 24ms, application-code: 2.7s)
+○ Compiling /api/sync/actions ...
+ POST /api/sync/actions 200 in 4.6s (next.js: 4.1s, application-code: 567ms)
+ GET /api/sync/bootstrap?deviceId=d573aefe-6ea7-4b4e-9a92-07c9c53d1c20&since=2026-08-03T06%3A24%3A36.199Z 200 in 2.4s (next.js: 1786ms, application-code: 574ms)
+POS bootstrap metrics {
+  companyId: 'f8862621-8413-4953-88de-0fd36cd060ca',
+  mode: 'delta',
+  productCount: 0,
+  categoryCount: 0,
+  durationMs: 2491,
+  payloadBytes: 523
+}
